@@ -69,4 +69,34 @@ void main() {
           .having((e) => e.isUnauthorized, 'isUnauthorized', true)),
     );
   });
+
+  test('listTracks parses the library', () async {
+    final client = ApiClient(baseUri, httpClient: MockClient((request) async {
+      expect(request.url.path, '/api/v1/tracks');
+      expect(request.headers['Authorization'], 'Bearer t0ken');
+      return http.Response(
+        jsonEncode({
+          'tracks': [
+            {
+              'id': 't1',
+              'title': 'آهنگ',
+              'artist': null,
+              'album': null,
+              'durationMs': null,
+              'contentType': 'audio/mpeg',
+              'sizeBytes': 10,
+              'createdAt': '2026-09-24T00:00:00Z',
+            },
+          ],
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    }));
+
+    final tracks = await client.listTracks('t0ken');
+
+    expect(tracks.single.title, 'آهنگ');
+    expect(tracks.single.artist, isNull);
+  });
 }

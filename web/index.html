@@ -4,16 +4,61 @@
   <base href="$FLUTTER_BASE_HREF">
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Nafir — پخش‌کنندهٔ موسیقی ابری شخصی">
-  <meta name="theme-color" content="#1a73e8">
+  <meta name="theme-color" content="#121318">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Nafir">
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
   <link rel="manifest" href="manifest.json">
   <title>Nafir Music</title>
+  <style>
+    /* Shown while Flutter downloads and starts; removed on its first frame. */
+    @font-face {
+      font-family: Vazirmatn;
+      src: url("assets/assets/fonts/Vazirmatn-Regular.ttf") format("truetype");
+      font-display: swap;
+    }
+    html, body { margin: 0; height: 100%; background: #121318; }
+    #splash {
+      position: fixed; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 20px;
+      color: #e3e2e9; font-family: Vazirmatn, Tahoma, sans-serif;
+      transition: opacity 250ms ease-out;
+    }
+    #splash.hidden { opacity: 0; pointer-events: none; }
+    #splash img { width: 72px; height: 72px; }
+    #splash .name { font-size: 22px; font-weight: 600; }
+    #splash .spinner {
+      width: 32px; height: 32px; border-radius: 50%;
+      border: 3px solid rgba(170, 199, 255, 0.25); border-top-color: #aac7ff;
+      animation: spin 0.9s linear infinite;
+    }
+    #splash .slow { display: none; max-width: 280px; text-align: center; font-size: 14px; color: #c4c6d0; line-height: 1.8; }
+    #splash.slow .slow { display: block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { #splash .spinner { animation-duration: 3s; } }
+  </style>
 </head>
 <body>
+  <div id="splash" role="status" aria-live="polite">
+    <img src="icons/icon.svg" alt="">
+    <div class="name">نفیر</div>
+    <div class="spinner" aria-label="در حال بارگذاری"></div>
+    <div class="slow">بارگذاری بیشتر از معمول طول کشیده است. اتصال اینترنت را بررسی کن یا صفحه را دوباره باز کن.</div>
+  </div>
+  <script>
+    (function () {
+      var splash = document.getElementById('splash');
+      var slowTimer = setTimeout(function () { splash.classList.add('slow'); }, 20000);
+      window.addEventListener('flutter-first-frame', function () {
+        clearTimeout(slowTimer);
+        splash.classList.add('hidden');
+        setTimeout(function () { splash.remove(); }, 300);
+      }, { once: true });
+    })();
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

@@ -6,6 +6,7 @@ import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/features/auth/application/auth_controller.dart';
 import 'package:nafir/features/auth/data/token_store.dart';
 import 'package:nafir/features/auth/presentation/auth_gate.dart';
+import 'package:nafir/features/library/application/library_controller.dart';
 import 'package:nafir/features/upload/application/upload_controller.dart';
 import 'package:nafir/features/upload/data/audio_picker.dart';
 import 'package:nafir/features/upload/data/storage_uploader.dart';
@@ -59,10 +60,15 @@ class _NafirAppState extends State<NafirApp> {
           token: () => _auth?.token,
         );
 
+  late final LibraryController? _library = _tracksApi == null
+      ? null
+      : LibraryController(api: _tracksApi, token: () => _auth?.token);
+
   @override
   void dispose() {
     _auth?.dispose();
     _uploads?.dispose();
+    _library?.dispose();
     super.dispose();
   }
 
@@ -81,10 +87,11 @@ class _NafirAppState extends State<NafirApp> {
       ),
       home: BackendGate(
         healthCheck: widget.healthCheck ?? _apiClient?.checkHealth,
-        child: _auth == null || _uploads == null
+        child: _auth == null || _uploads == null || _library == null
             ? const SizedBox.shrink()
             : AuthGate(
                 controller: _auth,
+                library: _library,
                 uploads: _uploads,
                 picker: widget.picker ?? FilePickerAudioPicker(),
               ),
