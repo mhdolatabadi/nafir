@@ -73,11 +73,18 @@ class _SignInScreenState extends State<SignInScreen> {
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 12),
-                  Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  Text(
+                    _error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
                 ],
                 const SizedBox(height: 24),
                 FilledButton(
-                  onPressed: _isBusy ? null : () => _authenticate(signUp: false),
+                  onPressed: _isBusy
+                      ? null
+                      : () => _authenticate(signUp: false),
                   child: const Text('ورود'),
                 ),
                 TextButton(
