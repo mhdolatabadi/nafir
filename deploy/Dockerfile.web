@@ -5,7 +5,8 @@ COPY pubspec.yaml analysis_options.yaml ./
 COPY lib ./lib
 COPY web ./web
 
-ARG API_BASE_URL
+# Empty by default: the web app then calls the API on its own origin.
+ARG API_BASE_URL=
 RUN flutter pub get && \
     flutter build web --release --dart-define=API_BASE_URL=${API_BASE_URL}
 

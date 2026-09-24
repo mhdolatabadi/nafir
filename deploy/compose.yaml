@@ -1,24 +1,22 @@
 services:
   api:
+    image: ${NAFIR_IMAGE_REPO:-ghcr.io/mhdolatabadi/nafir}/api:${NAFIR_IMAGE_TAG:-latest}
     build:
       context: ../server
     restart: unless-stopped
     environment:
       WEB_ORIGIN: https://${NAFIR_DOMAIN}
-      DATABASE_URL: postgresql://nafir:${POSTGRES_PASSWORD}@postgres:5432/nafir
-      DATABASE_USERNAME: nafir
-      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      DATABASE_URL: postgres://nafir:${POSTGRES_PASSWORD}@postgres:5432/nafir?sslmode=disable
     depends_on:
       postgres:
         condition: service_healthy
     networks: [internal, edge]
 
   web:
+    image: ${NAFIR_IMAGE_REPO:-ghcr.io/mhdolatabadi/nafir}/web:${NAFIR_IMAGE_TAG:-latest}
     build:
       context: ..
       dockerfile: deploy/Dockerfile.web
-      args:
-        API_BASE_URL: https://${NAFIR_DOMAIN}
     restart: unless-stopped
     networks: [edge]
 
