@@ -2,12 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:nafir/features/auth/application/auth_controller.dart';
 import 'package:nafir/features/auth/presentation/sign_in_screen.dart';
 import 'package:nafir/features/library/presentation/library_screen.dart';
+import 'package:nafir/features/upload/application/upload_controller.dart';
+import 'package:nafir/features/upload/data/audio_picker.dart';
 
 /// Restores the saved session once, then shows sign-in or the library.
 class AuthGate extends StatefulWidget {
-  const AuthGate({super.key, required this.controller});
+  const AuthGate({
+    super.key,
+    required this.controller,
+    required this.uploads,
+    required this.picker,
+  });
 
   final AuthController controller;
+  final UploadController uploads;
+  final AudioPicker picker;
 
   @override
   State<AuthGate> createState() => _AuthGateState();
@@ -37,6 +46,8 @@ class _AuthGateState extends State<AuthGate> {
           AuthStatus.signedIn => LibraryScreen(
               email: controller.user!.email,
               onLogout: controller.logout,
+              uploads: widget.uploads,
+              picker: widget.picker,
             ),
         };
       },

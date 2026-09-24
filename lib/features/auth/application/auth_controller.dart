@@ -15,9 +15,13 @@ class AuthController extends ChangeNotifier {
 
   AuthStatus _status = AuthStatus.restoring;
   AuthUser? _user;
+  String? _token;
 
   AuthStatus get status => _status;
   AuthUser? get user => _user;
+
+  /// The access token while signed in.
+  String? get token => _status == AuthStatus.signedIn ? _token : null;
 
   /// Restores a saved session. A rejected token is discarded; a network
   /// failure keeps it so the user can retry without signing in again.
@@ -26,7 +30,9 @@ class AuthController extends ChangeNotifier {
     final token = await _tokenStore.read();
     if (token == null) return _set(AuthStatus.signedOut);
     try {
-      _set(AuthStatus.signedIn, await _api.me(token));
+      final user = await _api.me(token);
+      _token = token;
+      _set(AuthStatus.signedIn, user);
     } on ApiException catch (error) {
       if (!error.isUnauthorized) return _set(AuthStatus.restoreFailed);
       await _tokenStore.clear();
@@ -43,6 +49,7 @@ class AuthController extends ChangeNotifier {
       _start(_api.register(email.trim(), password));
 
   Future<void> logout() async {
+    _token = null;
     await _tokenStore.clear();
     _set(AuthStatus.signedOut);
   }
@@ -50,6 +57,7 @@ class AuthController extends ChangeNotifier {
   Future<void> _start(Future<AuthSession> request) async {
     final session = await request;
     await _tokenStore.write(session.token);
+    _token = session.token;
     _set(AuthStatus.signedIn, session.user);
   }
 

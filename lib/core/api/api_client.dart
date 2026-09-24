@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:nafir/features/auth/data/auth_models.dart';
+import 'package:nafir/features/library/data/track.dart';
+import 'package:nafir/features/upload/data/upload_models.dart';
 
 class ApiException implements Exception {
   const ApiException(this.message, {this.statusCode, this.code});
@@ -24,7 +26,14 @@ abstract interface class AuthApi {
   Future<AuthUser> me(String token);
 }
 
-class ApiClient implements AuthApi {
+abstract interface class TracksApi {
+  Future<UploadTicket> createUpload(
+      String token, String fileName, int sizeBytes);
+  Future<Track> completeUpload(String token, String trackId);
+  Future<void> deleteTrack(String token, String trackId);
+}
+
+class ApiClient implements AuthApi, TracksApi {
   ApiClient(this.baseUri, {http.Client? httpClient})
       : _httpClient = httpClient ?? http.Client();
 
@@ -60,11 +69,33 @@ class ApiClient implements AuthApi {
     return AuthUser.fromJson(body);
   }
 
+  @override
+  Future<UploadTicket> createUpload(
+      String token, String fileName, int sizeBytes) async {
+    final body = await _send('POST', '/api/v1/tracks/uploads',
+        token: token, body: {'fileName': fileName, 'sizeBytes': sizeBytes});
+    return UploadTicket.fromJson(body);
+  }
+
+  @override
+  Future<Track> completeUpload(String token, String trackId) async {
+    final body =
+        await _send('POST', '/api/v1/tracks/$trackId/complete', token: token);
+    return Track.fromJson(body);
+  }
+
+  @override
+  Future<void> deleteTrack(String token, String trackId) async {
+    await _send('DELETE', '/api/v1/tracks/$trackId',
+        token: token, expectBody: false);
+  }
+
   Future<Map<String, dynamic>> _send(
     String method,
     String path, {
     Map<String, Object?>? body,
     String? token,
+    bool expectBody = true,
   }) async {
     final request = http.Request(method, baseUri.resolve(path));
     if (body != null) {
@@ -85,6 +116,7 @@ class ApiClient implements AuthApi {
         code: code is String ? code : null,
       );
     }
+    if (!expectBody) return const {};
     if (decoded == null) {
       throw const ApiException('Server returned an invalid response.');
     }

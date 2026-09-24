@@ -48,8 +48,13 @@ Then open `http://localhost:8080/api/v1/health`. `AUTH_TOKEN_TTL` (default
 | `GET /api/v1/tracks` | List the caller's tracks, newest first |
 | `GET /api/v1/tracks/{id}` | One of the caller's tracks; another user's track is `404` |
 | `GET /api/v1/tracks/{id}/stream` | A short-lived presigned URL for the caller's track |
+| `POST /api/v1/tracks/uploads` | Reserve a track from `{"fileName", "sizeBytes", "title"?, "artist"?, "album"?}` and return a presigned upload form |
+| `POST /api/v1/tracks/{id}/complete` | Verify the uploaded file and make the track playable |
+| `DELETE /api/v1/tracks/{id}` | Delete one of the caller's tracks and its file |
 
 Passwords must be 8–72 characters and are stored only as bcrypt hashes.
+Uploads accept MP3, M4A, AAC, FLAC, OGG, OPUS, WAV and WEBM up to
+`MAX_UPLOAD_BYTES` (default 200 MiB).
 
 ## Run the Flutter app
 
