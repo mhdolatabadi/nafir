@@ -13,3 +13,4 @@ ios/.symlinks/
 ios/Flutter/ephemeral/
 .env
 .env.*
+.flutter-plugins-dependencies
