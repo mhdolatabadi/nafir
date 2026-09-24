@@ -49,7 +49,7 @@ class UploadStatusCard extends StatelessWidget {
         return Card(
           margin: const EdgeInsets.all(16),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 8, 16),
+            padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 8, 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,

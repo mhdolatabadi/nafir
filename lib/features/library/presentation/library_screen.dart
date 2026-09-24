@@ -70,7 +70,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Nafir موسیقی'),
+        title: const Text('نفیر'),
         actions: [
           IconButton(
             tooltip: 'خروج (${widget.email})',
