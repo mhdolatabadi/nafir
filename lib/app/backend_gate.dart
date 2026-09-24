@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:nafir/features/library/presentation/library_screen.dart';
 
 class BackendGate extends StatefulWidget {
-  const BackendGate({super.key, required this.healthCheck});
+  const BackendGate(
+      {super.key, required this.healthCheck, required this.child});
 
   final Future<void> Function()? healthCheck;
+
+  /// Shown once the API is reachable.
+  final Widget child;
 
   @override
   State<BackendGate> createState() => _BackendGateState();
@@ -38,7 +41,7 @@ class _BackendGateState extends State<BackendGate> {
         if (snapshot.hasError) {
           return _BackendUnavailableScreen(onRetry: _retry);
         }
-        return const LibraryScreen();
+        return widget.child;
       },
     );
   }

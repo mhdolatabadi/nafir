@@ -1,5 +1,8 @@
 {$NAFIR_DOMAIN} {
   encode zstd gzip
   reverse_proxy /api/* api:8080
+  # Presigned audio URLs. MinIO checks the signature, so only requests the API
+  # signed get through; the Host header is passed on unchanged for that check.
+  reverse_proxy /nafir-music/* minio:9000
   reverse_proxy web:80
 }

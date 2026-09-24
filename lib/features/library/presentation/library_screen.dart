@@ -1,13 +1,23 @@
 import 'package:flutter/material.dart';
 
 class LibraryScreen extends StatelessWidget {
-  const LibraryScreen({super.key});
+  const LibraryScreen({super.key, required this.email, required this.onLogout});
+
+  final String email;
+  final VoidCallback onLogout;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Nafir موسیقی'),
+        actions: [
+          IconButton(
+            tooltip: 'خروج ($email)',
+            onPressed: onLogout,
+            icon: const Icon(Icons.logout),
+          ),
+        ],
       ),
       body: const Center(
         child: Padding(
