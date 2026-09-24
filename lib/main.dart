@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/app/backend_gate.dart';
@@ -77,6 +78,11 @@ class _NafirAppState extends State<NafirApp> {
     return MaterialApp(
       title: 'Nafir',
       debugShowCheckedModeBanner: false,
+      // The UI is Persian only: right-to-left layout and Persian Material
+      // strings (tooltips, dialogs), whatever the device language is.
+      locale: const Locale('fa'),
+      supportedLocales: const [Locale('fa')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       theme: ThemeData(
         fontFamily: 'Vazirmatn',
         colorScheme: ColorScheme.fromSeed(

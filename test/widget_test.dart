@@ -353,4 +353,18 @@ void main() {
     expect(find.text('Private'), findsNothing);
     expect(find.text('کتابخانهٔ شما خالی است'), findsOneWidget);
   });
+
+  testWidgets('the interface is right-to-left Persian', (tester) async {
+    await _pumpApp(tester, tokenStore: MemoryTokenStore('valid-token'));
+
+    final context = tester.element(find.text('کتابخانهٔ شما خالی است'));
+    expect(Directionality.of(context), TextDirection.rtl);
+    expect(Localizations.localeOf(context), const Locale('fa'));
+    // In RTL the floating button sits on the left and the logout action on
+    // the left end of the app bar.
+    final width = tester.getSize(find.byType(Scaffold).first).width;
+    expect(tester.getCenter(find.byType(FloatingActionButton)).dx,
+        lessThan(width / 2));
+    expect(tester.getCenter(find.byIcon(Icons.logout)).dx, lessThan(width / 2));
+  });
 }
