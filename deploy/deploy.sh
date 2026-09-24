@@ -9,18 +9,23 @@ if [[ ! -f .env ]]; then
   exit 1
 fi
 
+if ! grep -qE '^NAFIR_DOMAIN=' .env; then
+  echo "deploy/.env has no NAFIR_DOMAIN; rename the SOT_* variables to NAFIR_* (see deploy/README.md)." >&2
+  exit 1
+fi
+
 git fetch --prune origin main
 git checkout main
 git reset --hard origin/main
 
 # Images are tagged with the commit they were built from; pulling fails if the
 # Images workflow has not finished for this commit yet.
-export SOT_IMAGE_TAG="$(git rev-parse HEAD)"
+export NAFIR_IMAGE_TAG="$(git rev-parse HEAD)"
 docker compose pull api web
 docker compose up -d --no-build --remove-orphans
 docker image prune -f
 
-domain="$(grep -E '^SOT_DOMAIN=' .env | cut -d= -f2-)"
+domain="$(grep -E '^NAFIR_DOMAIN=' .env | cut -d= -f2-)"
 for attempt in $(seq 1 30); do
   if curl -fsS "https://${domain}/api/v1/health"; then
     echo

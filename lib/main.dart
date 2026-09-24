@@ -1,22 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:sot/app/app_configuration.dart';
-import 'package:sot/app/backend_gate.dart';
-import 'package:sot/core/api/api_client.dart';
+import 'package:nafir/app/app_configuration.dart';
+import 'package:nafir/app/backend_gate.dart';
+import 'package:nafir/core/api/api_client.dart';
 
 void main() {
-  runApp(const ProviderScope(child: SotApp()));
+  runApp(const ProviderScope(child: NafirApp()));
 }
 
-class SotApp extends StatelessWidget {
-  const SotApp({super.key, this.healthCheck});
+class NafirApp extends StatelessWidget {
+  const NafirApp({super.key, this.healthCheck});
 
   final Future<void> Function()? healthCheck;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'SOT',
+      title: 'Nafir',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(

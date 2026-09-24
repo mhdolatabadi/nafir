@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sot/features/library/presentation/library_screen.dart';
+import 'package:nafir/features/library/presentation/library_screen.dart';
 
 class BackendGate extends StatefulWidget {
   const BackendGate({super.key, required this.healthCheck});
@@ -54,7 +54,7 @@ class _ConfigurationRequiredScreen extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.all(24),
           child: Text(
-            'برای اجرای SOT، آدرس سرور را با '
+            'برای اجرای Nafir، آدرس سرور را با '
             '--dart-define=API_BASE_URL=https://music.example.com تنظیم کن.',
             textAlign: TextAlign.center,
           ),

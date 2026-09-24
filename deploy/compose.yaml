@@ -1,19 +1,19 @@
 services:
   api:
-    image: ${SOT_IMAGE_REPO:-ghcr.io/mhdolatabadi/nafir}/api:${SOT_IMAGE_TAG:-latest}
+    image: ${NAFIR_IMAGE_REPO:-ghcr.io/mhdolatabadi/nafir}/api:${NAFIR_IMAGE_TAG:-latest}
     build:
       context: ../server
     restart: unless-stopped
     environment:
-      WEB_ORIGIN: https://${SOT_DOMAIN}
-      DATABASE_URL: postgres://sot:${POSTGRES_PASSWORD}@postgres:5432/sot?sslmode=disable
+      WEB_ORIGIN: https://${NAFIR_DOMAIN}
+      DATABASE_URL: postgres://nafir:${POSTGRES_PASSWORD}@postgres:5432/nafir?sslmode=disable
     depends_on:
       postgres:
         condition: service_healthy
     networks: [internal, edge]
 
   web:
-    image: ${SOT_IMAGE_REPO:-ghcr.io/mhdolatabadi/nafir}/web:${SOT_IMAGE_TAG:-latest}
+    image: ${NAFIR_IMAGE_REPO:-ghcr.io/mhdolatabadi/nafir}/web:${NAFIR_IMAGE_TAG:-latest}
     build:
       context: ..
       dockerfile: deploy/Dockerfile.web
@@ -24,13 +24,13 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: sot
-      POSTGRES_USER: sot
+      POSTGRES_DB: nafir
+      POSTGRES_USER: nafir
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sot -d sot"]
+      test: ["CMD-SHELL", "pg_isready -U nafir -d nafir"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -54,7 +54,7 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      SOT_DOMAIN: ${SOT_DOMAIN}
+      NAFIR_DOMAIN: ${NAFIR_DOMAIN}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data

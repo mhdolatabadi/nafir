@@ -7,7 +7,7 @@ class LibraryScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SOT موسیقی'),
+        title: const Text('Nafir موسیقی'),
       ),
       body: const Center(
         child: Padding(

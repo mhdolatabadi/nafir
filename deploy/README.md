@@ -1,4 +1,4 @@
-# SOT server deployment
+# Nafir server deployment
 
 ## One-time setup
 
@@ -57,9 +57,29 @@ To deploy from GitHub instead, open **Actions → Deploy → Run workflow**. It 
 | --- | --- |
 | `DEPLOY_HOST` | Server IP or hostname |
 | `DEPLOY_USER` | SSH user that can run `docker` |
-| `DEPLOY_PATH` | Absolute path of the repository clone, for example `/opt/sot` |
+| `DEPLOY_PATH` | Absolute path of the repository clone, for example `/opt/nafir` |
 | `DEPLOY_SSH_KEY` | Private key of a dedicated deploy key pair; add the public key to the user's `~/.ssh/authorized_keys` |
 | `DEPLOY_KNOWN_HOSTS` | Output of `ssh-keyscan <host>`, verified against the server's fingerprint |
+
+## Upgrading from SOT
+
+The project was renamed from SOT to Nafir. On a server deployed before the rename:
+
+1. In `deploy/.env`, rename `SOT_DOMAIN` to `NAFIR_DOMAIN` and add `NAFIR_IMAGE_REPO` from `.env.example`.
+2. PostgreSQL only reads `POSTGRES_DB` and `POSTGRES_USER` when its volume is first created, so the
+   existing `sot` database and role stay as they are. Pick one:
+   - The volume holds no data yet: `docker compose down && docker volume rm deploy_postgres-data`,
+     then deploy again and a fresh `nafir` database is created.
+   - Keep the data: add a `nafir` superuser and rename the database. The old `sot` role created the
+     cluster, so PostgreSQL keeps it; it simply stops being used.
+
+     ```bash
+     docker compose exec postgres psql -U sot -d postgres \
+       -c "CREATE ROLE nafir WITH SUPERUSER LOGIN PASSWORD '<POSTGRES_PASSWORD from .env>';"
+     docker compose exec postgres psql -U nafir -d postgres \
+       -c 'ALTER DATABASE sot RENAME TO nafir;' \
+       -c 'ALTER DATABASE nafir OWNER TO nafir;'
+     ```
 
 ## Security rules
 
