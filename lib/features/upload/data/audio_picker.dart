@@ -4,18 +4,22 @@ import 'package:nafir/features/upload/data/audio_formats.dart';
 import 'package:nafir/features/upload/data/upload_models.dart';
 
 abstract interface class AudioPicker {
-  /// Returns null when the user cancels.
-  Future<PickedAudio?> pick();
+  /// Returns null when the user cancels. [onReading] fires once a file was
+  /// chosen and the platform starts copying it, which can take a while.
+  Future<PickedAudio?> pick({void Function()? onReading});
 }
 
 class FilePickerAudioPicker implements AudioPicker {
   @override
-  Future<PickedAudio?> pick() async {
+  Future<PickedAudio?> pick({void Function()? onReading}) async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: audioContentTypes.keys.toList(),
       // Stream the file instead of loading it into memory.
       withReadStream: true,
+      onFileLoading: (status) {
+        if (status == FilePickerStatus.picking) onReading?.call();
+      },
     );
     final file = result?.files.single;
     final stream = file?.readStream;

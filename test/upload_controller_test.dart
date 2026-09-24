@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/features/library/data/track.dart';
@@ -13,6 +15,7 @@ const _pendingTrack = Track(
 );
 
 class FakeTracksApi implements TracksApi {
+  Completer<void>? createGate;
   Object? createError;
   Object? completeError;
   final deleted = <String>[];
@@ -22,6 +25,7 @@ class FakeTracksApi implements TracksApi {
   Future<UploadTicket> createUpload(
       String token, String fileName, int sizeBytes) async {
     calls.add('create:$token:$fileName:$sizeBytes');
+    await createGate?.future;
     if (createError != null) throw createError!;
     return UploadTicket(
       track: _pendingTrack,
@@ -47,15 +51,23 @@ class FakeUploader implements StorageUploader {
   Object? error;
   String? contentType;
 
+  /// When set, the upload stalls halfway until it is cancelled.
+  bool stall = false;
+
   @override
   Future<void> upload(
     UploadTicket ticket,
     PickedAudio file, {
     required String contentType,
     required void Function(int sent, int total) onProgress,
+    required Future<void> cancelled,
   }) async {
     this.contentType = contentType;
     onProgress(2, 4);
+    if (stall) {
+      await cancelled;
+      throw const UploadCancelled();
+    }
     if (error != null) throw error!;
     onProgress(4, 4);
   }
@@ -159,5 +171,52 @@ void main() {
     await controller.upload(_file('song.mp3'));
     controller.dismiss();
     expect(controller.phase, UploadPhase.idle);
+  });
+
+  test('cancelling mid-upload removes the pending track and goes idle',
+      () async {
+    uploader.stall = true;
+    final done = controller.upload(_file('song.mp3'));
+    await pumpEventQueue();
+    expect(controller.phase, UploadPhase.uploading);
+    expect(controller.canCancel, isTrue);
+
+    controller.cancel();
+    await done;
+
+    expect(controller.phase, UploadPhase.idle);
+    expect(controller.error, isNull);
+    expect(api.deleted, ['t1']);
+    expect(api.calls, isNot(contains('complete:t1')));
+  });
+
+  test('cancelling while the track is being reserved uploads nothing',
+      () async {
+    api.createGate = Completer();
+    final done = controller.upload(_file('song.mp3'));
+    await pumpEventQueue();
+    expect(controller.phase, UploadPhase.preparing);
+
+    controller.cancel();
+    api.createGate!.complete();
+    await done;
+
+    expect(controller.phase, UploadPhase.idle);
+    expect(uploader.contentType, isNull, reason: 'no bytes should be sent');
+    expect(api.deleted, ['t1']);
+  });
+
+  test('reading state ends when the picker is closed without a file', () {
+    controller.readingFile();
+    expect(controller.phase, UploadPhase.reading);
+    expect(controller.canCancel, isFalse);
+    controller.pickCancelled();
+    expect(controller.phase, UploadPhase.idle);
+  });
+
+  test('a picked file is uploaded after the reading state', () async {
+    controller.readingFile();
+    await controller.upload(_file('song.mp3'));
+    expect(controller.phase, UploadPhase.done);
   });
 }
