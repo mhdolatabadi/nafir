@@ -72,6 +72,7 @@ class _NafirAppState extends State<NafirApp> {
       title: 'Nafir',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
+        fontFamily: 'Vazirmatn',
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF1A73E8),
           brightness: Brightness.dark,

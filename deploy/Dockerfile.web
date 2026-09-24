@@ -1,14 +1,17 @@
 FROM ghcr.io/cirruslabs/flutter:stable AS build
 
 WORKDIR /app
-COPY pubspec.yaml analysis_options.yaml ./
+COPY pubspec.yaml pubspec.lock analysis_options.yaml ./
 COPY lib ./lib
 COPY web ./web
+COPY assets ./assets
 
 # Empty by default: the web app then calls the API on its own origin.
+# --no-web-resources-cdn serves CanvasKit from this image instead of gstatic.com,
+# which is slow or blocked for many users.
 ARG API_BASE_URL=
 RUN flutter pub get && \
-    flutter build web --release --dart-define=API_BASE_URL=${API_BASE_URL}
+    flutter build web --release --no-web-resources-cdn --dart-define=API_BASE_URL=${API_BASE_URL}
 
 FROM nginx:1.27-alpine
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
