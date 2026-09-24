@@ -1,26 +1,33 @@
 # SOT
 
-Cross-platform personal music player. Each user owns a private music library: audio files live in cloud storage and are streamed with a bounded, disposable cache rather than permanently downloaded to the device.
-
-## Product principles
-
-- Private by default: a user can only list and play their own tracks.
-- Stream first: no automatic offline downloads.
-- Familiar playback: queue, seek, shuffle, repeat, background playback and media controls.
-- Cache is a performance feature, not a library: it has a configurable size limit and can be cleared at any time.
+Cross-platform personal cloud music player. Music is stored on the user's self-hosted server and streamed to Android/iOS with a bounded, disposable device cache.
 
 ## Stack
 
-- Flutter for Android and iOS
-- Supabase Auth, Postgres and Storage
-- `just_audio` + `audio_service` for playback and background controls
-- Riverpod for app state
+- Flutter mobile client
+- Go HTTP API
+- PostgreSQL for accounts and track metadata
+- MinIO for private audio object storage
+- Caddy for automatic HTTPS
+- Docker Compose for Ubuntu deployment
 
-## Local setup
+## Product principles
+
+- Private by default: users can access only their own tracks.
+- Stream first: no automatic permanent download to the phone.
+- Familiar playback: queue, seek, shuffle, repeat, background playback and media controls.
+- Cache is bounded and can be cleared without deleting cloud files.
+
+## Run the API locally
 
 ```bash
-flutter pub get
-flutter run --dart-define=SUPABASE_URL=your-project-url --dart-define=SUPABASE_ANON_KEY=your-anon-key
+cd server
+go test ./...
+go run ./cmd/api
 ```
 
-Do not commit secrets. Database and Storage Row Level Security are the access boundary.
+Then open `http://localhost:8080/api/v1/health`.
+
+## Deploy
+
+See [deploy/README.md](deploy/README.md). Do not commit deployment secrets or `.env`.
