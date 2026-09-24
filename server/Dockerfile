@@ -1,14 +1,13 @@
-FROM maven:3.9-eclipse-temurin-21 AS build
-WORKDIR /app
-COPY pom.xml .
-RUN mvn -q -DskipTests dependency:go-offline
-COPY src src
-RUN mvn -q -DskipTests package
+FROM golang:1.24-alpine AS build
+WORKDIR /src
+COPY go.mod ./
+COPY cmd cmd
+COPY internal internal
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/sot-api ./cmd/api
 
-FROM eclipse-temurin:21-jre
-WORKDIR /app
-RUN useradd --system --uid 10001 sot
-COPY --from=build /app/target/sot-api-0.1.0.jar app.jar
+FROM alpine:3.21
+RUN addgroup -S sot && adduser -S -G sot -u 10001 sot
+COPY --from=build /out/sot-api /usr/local/bin/sot-api
 USER sot
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+ENTRYPOINT ["/usr/local/bin/sot-api"]
