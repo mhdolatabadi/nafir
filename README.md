@@ -20,15 +20,18 @@ Cross-platform personal cloud music player. Music is stored on the user's self-h
 
 ## Run the API locally
 
-The API needs PostgreSQL and a token secret. It applies its database
+The API needs PostgreSQL, MinIO and a token secret. It applies its database
 migrations on startup.
 
 ```bash
 docker run -d --name nafir-db -p 5432:5432 \
   -e POSTGRES_USER=nafir -e POSTGRES_PASSWORD=nafir -e POSTGRES_DB=nafir postgres:16-alpine
+docker run -d --name nafir-minio -p 9000:9000 minio/minio server /data
 cd server
 export DATABASE_URL='postgres://nafir:nafir@localhost:5432/nafir?sslmode=disable'
 export AUTH_TOKEN_SECRET="$(openssl rand -hex 32)"
+export STORAGE_ENDPOINT=localhost:9000 STORAGE_PUBLIC_URL=http://localhost:9000
+export STORAGE_BUCKET=nafir-music STORAGE_ACCESS_KEY=minioadmin STORAGE_SECRET_KEY=minioadmin
 TEST_DATABASE_URL="$DATABASE_URL" go test ./...
 go run ./cmd/api
 ```
@@ -42,6 +45,9 @@ Then open `http://localhost:8080/api/v1/health`. `AUTH_TOKEN_TTL` (default
 | `POST /api/v1/auth/register` | Create an account from `{"email", "password"}` and return a session |
 | `POST /api/v1/auth/login` | Return a session for valid credentials |
 | `GET /api/v1/me` | Return the user for `Authorization: Bearer <token>` |
+| `GET /api/v1/tracks` | List the caller's tracks, newest first |
+| `GET /api/v1/tracks/{id}` | One of the caller's tracks; another user's track is `404` |
+| `GET /api/v1/tracks/{id}/stream` | A short-lived presigned URL for the caller's track |
 
 Passwords must be 8–72 characters and are stored only as bcrypt hashes.
 
