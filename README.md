@@ -20,13 +20,30 @@ Cross-platform personal cloud music player. Music is stored on the user's self-h
 
 ## Run the API locally
 
+The API needs PostgreSQL and a token secret. It applies its database
+migrations on startup.
+
 ```bash
+docker run -d --name nafir-db -p 5432:5432 \
+  -e POSTGRES_USER=nafir -e POSTGRES_PASSWORD=nafir -e POSTGRES_DB=nafir postgres:16-alpine
 cd server
-go test ./...
+export DATABASE_URL='postgres://nafir:nafir@localhost:5432/nafir?sslmode=disable'
+export AUTH_TOKEN_SECRET="$(openssl rand -hex 32)"
+TEST_DATABASE_URL="$DATABASE_URL" go test ./...
 go run ./cmd/api
 ```
 
-Then open `http://localhost:8080/api/v1/health`.
+Then open `http://localhost:8080/api/v1/health`. `AUTH_TOKEN_TTL` (default
+`720h`) sets how long a login lasts. The store tests drop and recreate tables in
+`TEST_DATABASE_URL`, so point it at a disposable database.
+
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /api/v1/auth/register` | Create an account from `{"email", "password"}` and return a session |
+| `POST /api/v1/auth/login` | Return a session for valid credentials |
+| `GET /api/v1/me` | Return the user for `Authorization: Bearer <token>` |
+
+Passwords must be 8–72 characters and are stored only as bcrypt hashes.
 
 ## Run the Flutter app
 
@@ -45,8 +62,9 @@ flutter run --dart-define=API_BASE_URL=https://music.example.com
 ```
 
 The app checks `/api/v1/health` on startup and offers a retry action when the
-server is unavailable. Authentication will be added against the Go API; the
-old Supabase client integration has been removed.
+server is unavailable. It then restores the saved session, or asks the user to
+sign in or register. The access token is kept in the platform's secure storage
+(Keychain, Keystore, or encrypted browser storage on the web).
 
 ## Deploy
 

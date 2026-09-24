@@ -61,6 +61,16 @@ To deploy from GitHub instead, open **Actions → Deploy → Run workflow**. It 
 | `DEPLOY_SSH_KEY` | Private key of a dedicated deploy key pair; add the public key to the user's `~/.ssh/authorized_keys` |
 | `DEPLOY_KNOWN_HOSTS` | Output of `ssh-keyscan <host>`, verified against the server's fingerprint |
 
+## Adding authentication to an existing server
+
+The API now refuses to start without `AUTH_TOKEN_SECRET`. Add it to `deploy/.env` before deploying:
+
+```bash
+echo "AUTH_TOKEN_SECRET=$(openssl rand -hex 32)" >> deploy/.env
+```
+
+Changing it later signs every user out.
+
 ## Upgrading from SOT
 
 The project was renamed from SOT to Nafir. On a server deployed before the rename:

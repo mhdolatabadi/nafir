@@ -7,6 +7,7 @@ services:
     environment:
       WEB_ORIGIN: https://${NAFIR_DOMAIN}
       DATABASE_URL: postgres://nafir:${POSTGRES_PASSWORD}@postgres:5432/nafir?sslmode=disable
+      AUTH_TOKEN_SECRET: ${AUTH_TOKEN_SECRET:?set AUTH_TOKEN_SECRET in .env}
     depends_on:
       postgres:
         condition: service_healthy
