@@ -1,23 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LibraryScreen extends StatelessWidget {
   const LibraryScreen({super.key});
-
-  Future<void> _signOut() => Supabase.instance.client.auth.signOut();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('SOT موسیقی'),
-        actions: [
-          IconButton(
-            onPressed: _signOut,
-            icon: const Icon(Icons.logout),
-            tooltip: 'خروج',
-          ),
-        ],
       ),
       body: const Center(
         child: Padding(

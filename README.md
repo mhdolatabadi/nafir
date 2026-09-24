@@ -28,6 +28,26 @@ go run ./cmd/api
 
 Then open `http://localhost:8080/api/v1/health`.
 
+## Run the Flutter app
+
+Start the Go API, then run Flutter with its public base URL:
+
+```bash
+flutter pub get
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8080
+```
+
+`10.0.2.2` points to the host machine from the Android emulator. For a real
+device or production build, use the HTTPS domain served by Caddy:
+
+```bash
+flutter run --dart-define=API_BASE_URL=https://music.example.com
+```
+
+The app checks `/api/v1/health` on startup and offers a retry action when the
+server is unavailable. Authentication will be added against the Go API; the
+old Supabase client integration has been removed.
+
 ## Deploy
 
 See [deploy/README.md](deploy/README.md). Do not commit deployment secrets or `.env`.

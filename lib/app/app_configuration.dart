@@ -1,15 +1,12 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 abstract final class AppConfiguration {
-  static const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-  static const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+  static const apiBaseUrl = String.fromEnvironment('API_BASE_URL');
 
-  static bool get isSupabaseConfigured =>
-      supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
+  static bool get isApiConfigured => apiBaseUrl.isNotEmpty;
 
-  static Future<void> initializeSupabase() async {
-    if (!isSupabaseConfigured) return;
-    await Supabase.initialize(
-        url: supabaseUrl, publishableKey: supabaseAnonKey);
+  static Uri? get apiBaseUri {
+    if (!isApiConfigured) return null;
+    final uri = Uri.tryParse(apiBaseUrl);
+    if (uri == null || !uri.hasScheme || !uri.hasAuthority) return null;
+    return uri;
   }
 }
