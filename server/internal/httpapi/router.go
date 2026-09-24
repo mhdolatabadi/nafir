@@ -9,14 +9,19 @@ type healthResponse struct {
 	Status string `json:"status"`
 }
 
-func NewHandler() http.Handler {
-	return NewHandlerWithOrigin("")
+type Config struct {
+	// AllowedOrigin is the web origin allowed to call the API cross-origin.
+	AllowedOrigin string
+	Auth          *AuthHandlers
 }
 
-func NewHandlerWithOrigin(allowedOrigin string) http.Handler {
+func NewHandler(config Config) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health", health)
-	return cors(allowedOrigin, mux)
+	if config.Auth != nil {
+		config.Auth.register(mux)
+	}
+	return cors(config.AllowedOrigin, mux)
 }
 
 func cors(allowedOrigin string, next http.Handler) http.Handler {
@@ -38,7 +43,19 @@ func cors(allowedOrigin string, next http.Handler) http.Handler {
 }
 
 func health(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, healthResponse{Status: "ok"})
+}
+
+func writeJSON(w http.ResponseWriter, status int, body any) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(healthResponse{Status: "ok"})
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(body)
+}
+
+type errorResponse struct {
+	Error string `json:"error"`
+}
+
+func writeError(w http.ResponseWriter, status int, code string) {
+	writeJSON(w, status, errorResponse{Error: code})
 }

@@ -11,7 +11,7 @@ func TestHealth(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
 	response := httptest.NewRecorder()
 
-	NewHandler().ServeHTTP(response, request)
+	NewHandler(Config{}).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, response.Code)
@@ -27,7 +27,7 @@ func TestCORSForConfiguredWebOrigin(t *testing.T) {
 	request.Header.Set("Access-Control-Request-Method", http.MethodGet)
 	response := httptest.NewRecorder()
 
-	NewHandlerWithOrigin("https://music.example.com").ServeHTTP(response, request)
+	NewHandler(Config{AllowedOrigin: "https://music.example.com"}).ServeHTTP(response, request)
 
 	if response.Code != http.StatusNoContent {
 		t.Fatalf("expected status %d, got %d", http.StatusNoContent, response.Code)
@@ -43,7 +43,7 @@ func TestPreflightFromUnknownOriginIsNotAnswered(t *testing.T) {
 	request.Header.Set("Access-Control-Request-Method", http.MethodGet)
 	response := httptest.NewRecorder()
 
-	NewHandlerWithOrigin("https://music.example.com").ServeHTTP(response, request)
+	NewHandler(Config{AllowedOrigin: "https://music.example.com"}).ServeHTTP(response, request)
 
 	if response.Code == http.StatusNoContent {
 		t.Fatalf("preflight from an unknown origin must not succeed")
@@ -57,7 +57,7 @@ func TestOptionsOnUnknownPathIsNotFound(t *testing.T) {
 	request := httptest.NewRequest(http.MethodOptions, "/api/v1/missing", nil)
 	response := httptest.NewRecorder()
 
-	NewHandlerWithOrigin("https://music.example.com").ServeHTTP(response, request)
+	NewHandler(Config{AllowedOrigin: "https://music.example.com"}).ServeHTTP(response, request)
 
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("expected status %d, got %d", http.StatusNotFound, response.Code)
