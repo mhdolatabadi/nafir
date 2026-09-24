@@ -82,9 +82,8 @@ class _SignInScreenState extends State<SignInScreen> {
                 ],
                 const SizedBox(height: 24),
                 FilledButton(
-                  onPressed: _isBusy
-                      ? null
-                      : () => _authenticate(signUp: false),
+                  onPressed:
+                      _isBusy ? null : () => _authenticate(signUp: false),
                   child: const Text('ورود'),
                 ),
                 TextButton(
