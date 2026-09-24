@@ -2,10 +2,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sot/main.dart';
 
 void main() {
-  testWidgets('shows the empty library state', (tester) async {
+  testWidgets('shows setup instructions without Supabase configuration', (tester) async {
     await tester.pumpWidget(const SotApp());
 
-    expect(find.text('SOT موسیقی'), findsOneWidget);
-    expect(find.text('کتابخانهٔ شما خالی است'), findsOneWidget);
+    expect(find.textContaining('SUPABASE_URL'), findsOneWidget);
   });
 }
