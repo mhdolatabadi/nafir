@@ -27,6 +27,7 @@ abstract interface class AuthApi {
 }
 
 abstract interface class TracksApi {
+  Future<List<Track>> listTracks(String token);
   Future<UploadTicket> createUpload(
       String token, String fileName, int sizeBytes);
   Future<Track> completeUpload(String token, String trackId);
@@ -67,6 +68,14 @@ class ApiClient implements AuthApi, TracksApi {
   Future<AuthUser> me(String token) async {
     final body = await _send('GET', '/api/v1/me', token: token);
     return AuthUser.fromJson(body);
+  }
+
+  @override
+  Future<List<Track>> listTracks(String token) async {
+    final body = await _send('GET', '/api/v1/tracks', token: token);
+    return (body['tracks'] as List<dynamic>)
+        .map((json) => Track.fromJson(json as Map<String, dynamic>))
+        .toList();
   }
 
   @override

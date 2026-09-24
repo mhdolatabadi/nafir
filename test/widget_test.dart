@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/features/auth/data/auth_models.dart';
 import 'package:nafir/features/auth/data/token_store.dart';
+import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/upload/data/audio_picker.dart';
 import 'package:nafir/features/upload/data/upload_models.dart';
 import 'package:nafir/main.dart';
@@ -64,13 +65,14 @@ Future<void> _pumpApp(
   AuthApi? api,
   FakeUploader? uploader,
   AudioPicker? picker,
+  FakeTracksApi? tracks,
   bool settle = true,
 }) async {
   await tester.pumpWidget(NafirApp(
     healthCheck: () async {},
     authApi: api ?? FakeAuthApi(),
     tokenStore: tokenStore,
-    tracksApi: FakeTracksApi(),
+    tracksApi: tracks ?? FakeTracksApi(),
     uploader: uploader ?? FakeUploader(),
     picker: picker ?? FakePicker(null),
   ));
@@ -267,5 +269,88 @@ void main() {
 
     expect(find.textContaining('در حال آپلود'), findsNothing);
     expect(find.text('لغو'), findsNothing);
+  });
+
+  testWidgets('after a restart the library lists the uploaded tracks', (
+    tester,
+  ) async {
+    await _pumpApp(
+      tester,
+      tokenStore: MemoryTokenStore('valid-token'),
+      tracks: FakeTracksApi(const [
+        Track(
+          id: 's1',
+          title: 'Uploaded earlier',
+          artist: 'Artist',
+          contentType: 'audio/mpeg',
+          sizeBytes: 3 * 1024 * 1024,
+        ),
+      ]),
+    );
+
+    expect(find.text('Uploaded earlier'), findsOneWidget);
+    expect(find.text('Artist'), findsOneWidget);
+    expect(find.text('کتابخانهٔ شما خالی است'), findsNothing);
+  });
+
+  testWidgets('a finished upload appears in the list', (tester) async {
+    await _pumpApp(
+      tester,
+      tokenStore: MemoryTokenStore('valid-token'),
+      picker: FakePicker(PickedAudio(
+        name: 'song.mp3',
+        sizeBytes: 4,
+        openRead: () => Stream.value([1, 2, 3, 4]),
+      )),
+    );
+    expect(find.text('کتابخانهٔ شما خالی است'), findsOneWidget);
+
+    await tester.tap(find.text('افزودن موسیقی'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(ListTile, 'Song'), findsOneWidget);
+    expect(find.text('کتابخانهٔ شما خالی است'), findsNothing);
+  });
+
+  testWidgets('a failed list load offers a retry', (tester) async {
+    final tracks = FakeTracksApi(const [
+      Track(id: 's1', title: 'Song', contentType: 'audio/mpeg', sizeBytes: 1),
+    ])
+      ..listError = Exception('offline');
+    await _pumpApp(
+      tester,
+      tokenStore: MemoryTokenStore('valid-token'),
+      tracks: tracks,
+    );
+    expect(find.text('دریافت فهرست موسیقی ناموفق بود.'), findsOneWidget);
+
+    tracks.listError = null;
+    await tester.tap(find.text('تلاش دوباره'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Song'), findsOneWidget);
+  });
+
+  testWidgets('logging out hides the previous account\'s tracks', (
+    tester,
+  ) async {
+    final tracks = FakeTracksApi(const [
+      Track(
+          id: 's1', title: 'Private', contentType: 'audio/mpeg', sizeBytes: 1),
+    ]);
+    await _pumpApp(
+      tester,
+      tokenStore: MemoryTokenStore('valid-token'),
+      tracks: tracks,
+    );
+    expect(find.text('Private'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.logout));
+    await tester.pumpAndSettle();
+    tracks.tracks.clear();
+    await _submit(tester, 'listener@example.com', 'correct horse');
+
+    expect(find.text('Private'), findsNothing);
+    expect(find.text('کتابخانهٔ شما خالی است'), findsOneWidget);
   });
 }

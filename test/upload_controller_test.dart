@@ -15,11 +15,23 @@ const _pendingTrack = Track(
 );
 
 class FakeTracksApi implements TracksApi {
+  FakeTracksApi([List<Track>? tracks]) : tracks = [...?tracks];
+
+  /// What the server lists; a completed upload is added to it.
+  final List<Track> tracks;
+  Object? listError;
   Completer<void>? createGate;
   Object? createError;
   Object? completeError;
   final deleted = <String>[];
   final calls = <String>[];
+
+  @override
+  Future<List<Track>> listTracks(String token) async {
+    calls.add('list');
+    if (listError != null) throw listError!;
+    return List.of(tracks);
+  }
 
   @override
   Future<UploadTicket> createUpload(
@@ -38,6 +50,7 @@ class FakeTracksApi implements TracksApi {
   Future<Track> completeUpload(String token, String trackId) async {
     calls.add('complete:$trackId');
     if (completeError != null) throw completeError!;
+    tracks.insert(0, _pendingTrack);
     return _pendingTrack;
   }
 
