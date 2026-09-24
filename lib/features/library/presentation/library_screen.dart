@@ -18,8 +18,9 @@ class LibraryScreen extends StatelessWidget {
   final AudioPicker picker;
 
   Future<void> _pickAndUpload() async {
-    final file = await picker.pick();
-    if (file != null) await uploads.upload(file);
+    final file = await picker.pick(onReading: uploads.readingFile);
+    if (file == null) return uploads.pickCancelled();
+    await uploads.upload(file);
   }
 
   @override

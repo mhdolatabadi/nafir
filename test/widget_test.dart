@@ -52,7 +52,10 @@ class FakePicker implements AudioPicker {
   final PickedAudio? file;
 
   @override
-  Future<PickedAudio?> pick() async => file;
+  Future<PickedAudio?> pick({void Function()? onReading}) async {
+    if (file != null) onReading?.call();
+    return file;
+  }
 }
 
 Future<void> _pumpApp(
@@ -61,6 +64,7 @@ Future<void> _pumpApp(
   AuthApi? api,
   FakeUploader? uploader,
   AudioPicker? picker,
+  bool settle = true,
 }) async {
   await tester.pumpWidget(NafirApp(
     healthCheck: () async {},
@@ -70,7 +74,7 @@ Future<void> _pumpApp(
     uploader: uploader ?? FakeUploader(),
     picker: picker ?? FakePicker(null),
   ));
-  await tester.pumpAndSettle();
+  if (settle) await tester.pumpAndSettle();
 }
 
 Future<void> _submit(WidgetTester tester, String email, String password) async {
@@ -239,5 +243,29 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('این قالب پشتیبانی نمی‌شود'), findsOneWidget);
+  });
+
+  testWidgets('an upload in progress can be cancelled', (tester) async {
+    await _pumpApp(
+      tester,
+      tokenStore: MemoryTokenStore('valid-token'),
+      uploader: FakeUploader()..stall = true,
+      picker: FakePicker(PickedAudio(
+        name: 'song.mp3',
+        sizeBytes: 4,
+        openRead: () => Stream.value([1, 2, 3, 4]),
+      )),
+    );
+
+    await tester.tap(find.text('افزودن موسیقی'));
+    await tester.pump();
+    await tester.pump();
+    expect(find.textContaining('در حال آپلود «song.mp3»'), findsOneWidget);
+
+    await tester.tap(find.text('لغو'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('در حال آپلود'), findsNothing);
+    expect(find.text('لغو'), findsNothing);
   });
 }

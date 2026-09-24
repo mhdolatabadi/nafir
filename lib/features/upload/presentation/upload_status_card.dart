@@ -27,6 +27,7 @@ class UploadStatusCard extends StatelessWidget {
         final (String label, double? progress, bool closable) =
             switch (controller.phase) {
           UploadPhase.idle => ('', null, false),
+          UploadPhase.reading => ('در حال خواندن فایل…', null, false),
           UploadPhase.preparing => ('آماده‌سازی «$name»…', null, false),
           UploadPhase.uploading => (
               'در حال آپلود «$name» — ${(controller.progress * 100).round()}٪',
@@ -71,6 +72,11 @@ class UploadStatusCard extends StatelessWidget {
                         tooltip: 'بستن',
                         onPressed: controller.dismiss,
                         icon: const Icon(Icons.close),
+                      ),
+                    if (controller.canCancel)
+                      TextButton(
+                        onPressed: controller.cancel,
+                        child: const Text('لغو'),
                       ),
                   ],
                 ),
