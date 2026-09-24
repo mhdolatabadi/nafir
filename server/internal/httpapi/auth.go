@@ -128,14 +128,8 @@ func (h *AuthHandlers) handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandlers) handleMe(w http.ResponseWriter, r *http.Request) {
-	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-	if !ok || token == "" {
-		writeError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-	userID, err := h.tokens.Verify(token)
-	if err != nil {
-		writeError(w, http.StatusUnauthorized, "unauthorized")
+	userID, ok := authenticate(h.tokens, w, r)
+	if !ok {
 		return
 	}
 	user, err := h.users.ByID(r.Context(), userID)
@@ -186,6 +180,18 @@ func normalizeEmail(raw string) (string, bool) {
 		return "", false
 	}
 	return email, true
+}
+
+// authenticate returns the user ID from a valid bearer token, or writes 401.
+func authenticate(tokens *auth.Tokens, w http.ResponseWriter, r *http.Request) (string, bool) {
+	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+	if ok && token != "" {
+		if userID, err := tokens.Verify(token); err == nil {
+			return userID, true
+		}
+	}
+	writeError(w, http.StatusUnauthorized, "unauthorized")
+	return "", false
 }
 
 // internalError logs the cause without request data, so passwords never reach the logs.

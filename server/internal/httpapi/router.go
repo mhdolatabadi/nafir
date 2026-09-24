@@ -13,6 +13,7 @@ type Config struct {
 	// AllowedOrigin is the web origin allowed to call the API cross-origin.
 	AllowedOrigin string
 	Auth          *AuthHandlers
+	Tracks        *TrackHandlers
 }
 
 func NewHandler(config Config) http.Handler {
@@ -20,6 +21,9 @@ func NewHandler(config Config) http.Handler {
 	mux.HandleFunc("GET /api/v1/health", health)
 	if config.Auth != nil {
 		config.Auth.register(mux)
+	}
+	if config.Tracks != nil {
+		config.Tracks.register(mux)
 	}
 	return cors(config.AllowedOrigin, mux)
 }
