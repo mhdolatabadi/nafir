@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sot/app/app_configuration.dart';
+import 'package:sot/features/auth/presentation/auth_gate.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppConfiguration.initializeSupabase();
   runApp(const ProviderScope(child: SotApp()));
 }
 
@@ -21,36 +24,7 @@ class SotApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const LibraryScreen(),
-    );
-  }
-}
-
-class LibraryScreen extends StatelessWidget {
-  const LibraryScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('SOT موسیقی')),
-      body: const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.cloud_queue_outlined, size: 64),
-              SizedBox(height: 16),
-              Text('کتابخانهٔ شما خالی است', style: TextStyle(fontSize: 20)),
-              SizedBox(height: 8),
-              Text(
-                'پس از ورود، موسیقی‌هایت را آپلود کن و بدون اشغال حافظهٔ گوشی پخش کن.',
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
+      home: const AuthGate(),
     );
   }
 }
