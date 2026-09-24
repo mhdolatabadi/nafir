@@ -6,18 +6,33 @@ import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/features/auth/application/auth_controller.dart';
 import 'package:nafir/features/auth/data/token_store.dart';
 import 'package:nafir/features/auth/presentation/auth_gate.dart';
+import 'package:nafir/features/upload/application/upload_controller.dart';
+import 'package:nafir/features/upload/data/audio_picker.dart';
+import 'package:nafir/features/upload/data/storage_uploader.dart';
 
 void main() {
   runApp(const ProviderScope(child: NafirApp()));
 }
 
 class NafirApp extends StatefulWidget {
-  const NafirApp({super.key, this.healthCheck, this.authApi, this.tokenStore});
+  const NafirApp({
+    super.key,
+    this.healthCheck,
+    this.authApi,
+    this.tokenStore,
+    this.tracksApi,
+    this.uploader,
+    this.picker,
+  });
 
-  /// Test overrides; by default both talk to [AppConfiguration.apiBaseUri].
+  /// Test overrides; by default these talk to [AppConfiguration.apiBaseUri]
+  /// and the real device.
   final Future<void> Function()? healthCheck;
   final AuthApi? authApi;
   final TokenStore? tokenStore;
+  final TracksApi? tracksApi;
+  final StorageUploader? uploader;
+  final AudioPicker? picker;
 
   @override
   State<NafirApp> createState() => _NafirAppState();
@@ -35,9 +50,19 @@ class _NafirAppState extends State<NafirApp> {
           tokenStore: widget.tokenStore ?? SecureTokenStore(),
         );
 
+  late final TracksApi? _tracksApi = widget.tracksApi ?? _apiClient;
+  late final UploadController? _uploads = _tracksApi == null
+      ? null
+      : UploadController(
+          api: _tracksApi,
+          uploader: widget.uploader ?? DioStorageUploader(),
+          token: () => _auth?.token,
+        );
+
   @override
   void dispose() {
     _auth?.dispose();
+    _uploads?.dispose();
     super.dispose();
   }
 
@@ -55,9 +80,13 @@ class _NafirAppState extends State<NafirApp> {
       ),
       home: BackendGate(
         healthCheck: widget.healthCheck ?? _apiClient?.checkHealth,
-        child: _auth == null
+        child: _auth == null || _uploads == null
             ? const SizedBox.shrink()
-            : AuthGate(controller: _auth),
+            : AuthGate(
+                controller: _auth,
+                uploads: _uploads,
+                picker: widget.picker ?? FilePickerAudioPicker(),
+              ),
       ),
     );
   }

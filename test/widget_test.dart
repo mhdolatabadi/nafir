@@ -3,7 +3,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/features/auth/data/auth_models.dart';
 import 'package:nafir/features/auth/data/token_store.dart';
+import 'package:nafir/features/upload/data/audio_picker.dart';
+import 'package:nafir/features/upload/data/upload_models.dart';
 import 'package:nafir/main.dart';
+
+import 'upload_controller_test.dart' show FakeTracksApi, FakeUploader;
 
 const _user = AuthUser(id: 'u1', email: 'listener@example.com');
 
@@ -42,15 +46,29 @@ class FakeAuthApi implements AuthApi {
   }
 }
 
+class FakePicker implements AudioPicker {
+  FakePicker(this.file);
+
+  final PickedAudio? file;
+
+  @override
+  Future<PickedAudio?> pick() async => file;
+}
+
 Future<void> _pumpApp(
   WidgetTester tester, {
   required TokenStore tokenStore,
   AuthApi? api,
+  FakeUploader? uploader,
+  AudioPicker? picker,
 }) async {
   await tester.pumpWidget(NafirApp(
     healthCheck: () async {},
     authApi: api ?? FakeAuthApi(),
     tokenStore: tokenStore,
+    tracksApi: FakeTracksApi(),
+    uploader: uploader ?? FakeUploader(),
+    picker: picker ?? FakePicker(null),
   ));
   await tester.pumpAndSettle();
 }
@@ -182,5 +200,44 @@ void main() {
 
     expect(find.text('ورود به نفیر'), findsOneWidget);
     expect(await tokens.read(), isNull);
+  });
+
+  testWidgets('picking a file uploads it and shows the result', (
+    tester,
+  ) async {
+    await _pumpApp(
+      tester,
+      tokenStore: MemoryTokenStore('valid-token'),
+      picker: FakePicker(PickedAudio(
+        name: 'song.mp3',
+        sizeBytes: 4,
+        openRead: () => Stream.value([1, 2, 3, 4]),
+      )),
+    );
+
+    await tester.tap(find.text('افزودن موسیقی'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('«Song» به کتابخانه اضافه شد.'), findsOneWidget);
+    await tester.tap(find.byTooltip('بستن'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('به کتابخانه اضافه شد'), findsNothing);
+  });
+
+  testWidgets('an unsupported file shows an error', (tester) async {
+    await _pumpApp(
+      tester,
+      tokenStore: MemoryTokenStore('valid-token'),
+      picker: FakePicker(PickedAudio(
+        name: 'notes.txt',
+        sizeBytes: 4,
+        openRead: () => const Stream.empty(),
+      )),
+    );
+
+    await tester.tap(find.text('افزودن موسیقی'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('این قالب پشتیبانی نمی‌شود'), findsOneWidget);
   });
 }

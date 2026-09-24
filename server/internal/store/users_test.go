@@ -23,7 +23,7 @@ func newTestPool(t *testing.T) *pgxpool.Pool {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	if _, err := pool.Exec(ctx, "DROP TABLE IF EXISTS tracks, users, schema_migrations"); err != nil {
+	if _, err := pool.Exec(ctx, "DROP TABLE IF EXISTS tracks, users, schema_migrations CASCADE"); err != nil {
 		t.Fatal(err)
 	}
 	if err := Migrate(ctx, pool); err != nil {

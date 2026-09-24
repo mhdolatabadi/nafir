@@ -17,6 +17,7 @@ dependencies:
   cached_network_image: ^3.4.1
   file_picker: ^8.1.6
   flutter_secure_storage: ^10.3.4
+  dio: ^5.11.1
 
 dev_dependencies:
   flutter_test:

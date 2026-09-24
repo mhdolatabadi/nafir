@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 const (
 	defaultTokenTTL      = 30 * 24 * time.Hour
 	defaultStreamURLTTL  = time.Hour
+	defaultMaxUpload     = 200 << 20
 	storageStartupWindow = time.Minute
 )
 
@@ -62,6 +64,14 @@ func run() error {
 		}
 		streamURLTTL = parsed
 	}
+	maxUploadBytes := int64(defaultMaxUpload)
+	if raw := os.Getenv("MAX_UPLOAD_BYTES"); raw != "" {
+		parsed, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || parsed <= 0 {
+			return fmt.Errorf("MAX_UPLOAD_BYTES must be a positive integer, got %q", raw)
+		}
+		maxUploadBytes = parsed
+	}
 	objects, err := storage.New(storage.Config{
 		Endpoint:  os.Getenv("STORAGE_ENDPOINT"),
 		PublicURL: os.Getenv("STORAGE_PUBLIC_URL"),
@@ -100,7 +110,7 @@ func run() error {
 		Handler: httpapi.NewHandler(httpapi.Config{
 			AllowedOrigin: os.Getenv("WEB_ORIGIN"),
 			Auth:          authHandlers,
-			Tracks:        httpapi.NewTrackHandlers(store.NewTracks(pool), objects, tokens),
+			Tracks:        httpapi.NewTrackHandlers(store.NewTracks(pool), objects, tokens, maxUploadBytes),
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
