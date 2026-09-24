@@ -29,7 +29,10 @@ class LibraryScreen extends StatelessWidget {
               SizedBox(height: 16),
               Text('کتابخانهٔ شما خالی است', style: TextStyle(fontSize: 20)),
               SizedBox(height: 8),
-              Text('مرحلهٔ بعد، آپلود موسیقی و پخش استریم‌شده است.', textAlign: TextAlign.center),
+              Text(
+                'مرحلهٔ بعد، آپلود موسیقی و پخش استریم‌شده است.',
+                textAlign: TextAlign.center,
+              ),
             ],
           ),
         ),

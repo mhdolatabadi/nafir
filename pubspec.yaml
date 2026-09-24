@@ -10,7 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_riverpod: ^2.6.1
-  supabase_flutter: ^2.8.3
+  supabase_flutter: ^2.13.0
   just_audio: ^0.9.42
   audio_service: ^0.18.15
   audio_session: ^0.1.21
