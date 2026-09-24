@@ -1,0 +1,15 @@
+.dart_tool/
+.packages
+build/
+.dart-plugins
+.dart-plugins-dependencies
+.idea/
+.vscode/
+*.iml
+android/.gradle/
+android/local.properties
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/ephemeral/
+.env
+.env.*
