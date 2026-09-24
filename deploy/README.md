@@ -1,4 +1,4 @@
-# SOT server deployment
+# Nafir server deployment
 
 ## One-time setup
 
@@ -41,7 +41,7 @@ To deploy from GitHub instead, open **Actions → Deploy → Run workflow**. It 
 | --- | --- |
 | `DEPLOY_HOST` | Server IP or hostname |
 | `DEPLOY_USER` | SSH user that can run `docker` |
-| `DEPLOY_PATH` | Absolute path of the repository clone, for example `/opt/sot` |
+| `DEPLOY_PATH` | Absolute path of the repository clone, for example `/opt/nafir` |
 | `DEPLOY_SSH_KEY` | Private key of a dedicated deploy key pair; add the public key to the user's `~/.ssh/authorized_keys` |
 | `DEPLOY_KNOWN_HOSTS` | Output of `ssh-keyscan <host>`, verified against the server's fingerprint |
 

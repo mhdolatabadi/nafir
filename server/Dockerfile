@@ -3,11 +3,11 @@ WORKDIR /src
 COPY go.mod ./
 COPY cmd cmd
 COPY internal internal
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/sot-api ./cmd/api
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/nafir-api ./cmd/api
 
 FROM alpine:3.21
-RUN addgroup -S sot && adduser -S -G sot -u 10001 sot
-COPY --from=build /out/sot-api /usr/local/bin/sot-api
-USER sot
+RUN addgroup -S nafir && adduser -S -G nafir -u 10001 nafir
+COPY --from=build /out/nafir-api /usr/local/bin/nafir-api
+USER nafir
 EXPOSE 8080
-ENTRYPOINT ["/usr/local/bin/sot-api"]
+ENTRYPOINT ["/usr/local/bin/nafir-api"]

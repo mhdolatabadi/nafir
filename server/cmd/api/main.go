@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mhdolatabadi/sot/server/internal/httpapi"
+	"github.com/mhdolatabadi/nafir/server/internal/httpapi"
 )
 
 func main() {
@@ -32,7 +32,7 @@ func main() {
 	defer stop()
 
 	go func() {
-		slog.Info("SOT API started", "address", server.Addr)
+		slog.Info("Nafir API started", "address", server.Addr)
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("HTTP server failed", "error", err)
 			os.Exit(1)
@@ -47,5 +47,5 @@ func main() {
 		slog.Error("graceful shutdown failed", "error", err)
 		os.Exit(1)
 	}
-	slog.Info("SOT API stopped")
+	slog.Info("Nafir API stopped")
 }

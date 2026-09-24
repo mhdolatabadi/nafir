@@ -16,7 +16,7 @@ git reset --hard origin/main
 docker compose up -d --build --remove-orphans
 docker image prune -f
 
-domain="$(grep -E '^SOT_DOMAIN=' .env | cut -d= -f2-)"
+domain="$(grep -E '^NAFIR_DOMAIN=' .env | cut -d= -f2-)"
 for attempt in $(seq 1 30); do
   if curl -fsS "https://${domain}/api/v1/health"; then
     echo

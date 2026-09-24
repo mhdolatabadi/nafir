@@ -1,4 +1,4 @@
-# SOT
+# Nafir
 
 Cross-platform personal cloud music player. Music is stored on the user's self-hosted server and streamed to Android, iOS, and the web with a bounded, disposable device cache.
 

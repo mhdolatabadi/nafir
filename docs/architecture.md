@@ -1,6 +1,6 @@
 # Architecture
 
-SOT is self-hosted on an Ubuntu server.
+Nafir is self-hosted on an Ubuntu server.
 
 ## Components
 
