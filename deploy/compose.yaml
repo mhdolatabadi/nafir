@@ -4,6 +4,7 @@ services:
       context: ../server
     restart: unless-stopped
     environment:
+      WEB_ORIGIN: https://${SOT_DOMAIN}
       DATABASE_URL: jdbc:postgresql://postgres:5432/sot
       DATABASE_USERNAME: sot
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
@@ -11,6 +12,15 @@ services:
       postgres:
         condition: service_healthy
     networks: [internal, edge]
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+      args:
+        API_BASE_URL: https://${SOT_DOMAIN}
+    restart: unless-stopped
+    networks: [edge]
 
   postgres:
     image: postgres:16-alpine
@@ -53,6 +63,7 @@ services:
       - caddy-config:/config
     depends_on:
       - api
+      - web
     networks: [edge]
 
 networks:

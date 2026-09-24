@@ -1,5 +1,5 @@
 {$SOT_DOMAIN} {
   encode zstd gzip
   reverse_proxy /api/* api:8080
-  reverse_proxy /actuator/* api:8080
+  reverse_proxy web:80
 }

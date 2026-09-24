@@ -21,7 +21,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:              ":" + port,
-		Handler:           httpapi.NewHandler(),
+		Handler:           httpapi.NewHandlerWithOrigin(os.Getenv("WEB_ORIGIN")),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,

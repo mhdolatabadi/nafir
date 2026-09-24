@@ -27,6 +27,10 @@ curl https://music.example.com/api/v1/health
 
 Expected response: `{"status":"ok"}`.
 
+Open `https://music.example.com` to use the Flutter web app. The web image is
+built with that same HTTPS origin as its API URL, and Caddy serves the app while
+proxying `/api/*` requests to Go. The browser can also install it as a PWA.
+
 ## Updates
 
 On the server, `deploy/deploy.sh` pulls `main`, rebuilds the stack and waits for the health check.
