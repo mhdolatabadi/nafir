@@ -1,24 +1,22 @@
 services:
   api:
+    image: ${SOT_IMAGE_REPO:-ghcr.io/mhdolatabadi/nafir}/api:${SOT_IMAGE_TAG:-latest}
     build:
       context: ../server
     restart: unless-stopped
     environment:
       WEB_ORIGIN: https://${SOT_DOMAIN}
-      DATABASE_URL: jdbc:postgresql://postgres:5432/sot
-      DATABASE_USERNAME: sot
-      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      DATABASE_URL: postgres://sot:${POSTGRES_PASSWORD}@postgres:5432/sot?sslmode=disable
     depends_on:
       postgres:
         condition: service_healthy
     networks: [internal, edge]
 
   web:
+    image: ${SOT_IMAGE_REPO:-ghcr.io/mhdolatabadi/nafir}/web:${SOT_IMAGE_TAG:-latest}
     build:
       context: ..
       dockerfile: deploy/Dockerfile.web
-      args:
-        API_BASE_URL: https://${SOT_DOMAIN}
     restart: unless-stopped
     networks: [edge]
 
