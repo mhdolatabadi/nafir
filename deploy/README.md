@@ -27,13 +27,29 @@ curl https://music.example.com/api/v1/health
 
 Expected response: `{"status":"ok"}`.
 
-Open `https://music.example.com` to use the Flutter web app. The web image is
-built with that same HTTPS origin as its API URL, and Caddy serves the app while
-proxying `/api/*` requests to Go. The browser can also install it as a PWA.
+Open `https://music.example.com` to use the Flutter web app. The web app calls
+the API on its own origin, and Caddy serves the app while proxying `/api/*`
+requests to Go. The browser can also install it as a PWA.
+
+## Images
+
+The **Images** workflow builds the `api` and `web` images on every push to `main`
+and publishes them to GitHub Container Registry as
+`ghcr.io/mhdolatabadi/nafir/{api,web}`, tagged with the commit SHA and `latest`.
+The server only pulls them, so it never needs the multi-gigabyte Flutter SDK.
+
+If `docker compose pull` returns `unauthorized`, open each package under the
+repository's **Packages** and set its visibility to public, or run
+`docker login ghcr.io` on the server with a token that has `read:packages`.
+
+To build locally instead, run `docker compose up -d --build`.
 
 ## Updates
 
-On the server, `deploy/deploy.sh` pulls `main`, rebuilds the stack and waits for the health check.
+On the server, `deploy/deploy.sh` pulls `main`, pulls the images built for that
+exact commit, restarts the stack and waits for the health check. Run it after
+the **Images** workflow for that commit has finished; otherwise the pull fails
+and nothing is restarted.
 
 To deploy from GitHub instead, open **Actions → Deploy → Run workflow**. It needs these secrets in the `production` environment:
 

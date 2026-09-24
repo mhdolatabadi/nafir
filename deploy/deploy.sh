@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pulls the latest main branch and restarts the stack. Run on the server from the repository clone.
+# Pulls the latest main branch and prebuilt images, then restarts the stack. Run on the server from the repository clone.
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -13,7 +13,11 @@ git fetch --prune origin main
 git checkout main
 git reset --hard origin/main
 
-docker compose up -d --build --remove-orphans
+# Images are tagged with the commit they were built from; pulling fails if the
+# Images workflow has not finished for this commit yet.
+export SOT_IMAGE_TAG="$(git rev-parse HEAD)"
+docker compose pull api web
+docker compose up -d --no-build --remove-orphans
 docker image prune -f
 
 domain="$(grep -E '^SOT_DOMAIN=' .env | cut -d= -f2-)"
