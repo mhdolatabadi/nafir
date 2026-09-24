@@ -2,7 +2,9 @@ package storage
 
 import (
 	"context"
+	"encoding/base64"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 )
@@ -68,5 +70,33 @@ func TestNewRejectsBadConfig(t *testing.T) {
 				t.Fatal("expected an error")
 			}
 		})
+	}
+}
+
+func TestPresignUploadPinsKeyTypeAndSize(t *testing.T) {
+	s := newTestStorage(t, time.Hour)
+
+	upload, err := s.PresignUpload(context.Background(), "users/u1/tracks/t1/song.mp3", "audio/mpeg", 1234)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if upload.URL != "https://music.example.com/nafir-music/" {
+		t.Fatalf("unexpected upload URL %q", upload.URL)
+	}
+	if upload.Fields["key"] != "users/u1/tracks/t1/song.mp3" || upload.Fields["Content-Type"] != "audio/mpeg" {
+		t.Fatalf("unexpected fields %v", upload.Fields)
+	}
+	if upload.Fields["policy"] == "" || upload.Fields["x-amz-signature"] == "" {
+		t.Fatalf("form is not signed: %v", upload.Fields)
+	}
+	policy, err := base64.StdEncoding.DecodeString(upload.Fields["policy"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(policy), `["content-length-range", 1234, 1234]`) {
+		t.Fatalf("policy does not pin the size: %s", policy)
+	}
+	if !upload.ExpiresAt.After(time.Now()) {
+		t.Fatalf("upload already expired: %v", upload.ExpiresAt)
 	}
 }
