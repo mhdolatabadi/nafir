@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/core/widgets/app_loading_screen.dart';
 
 class BackendGate extends StatefulWidget {
   const BackendGate(
@@ -34,9 +35,7 @@ class _BackendGateState extends State<BackendGate> {
       future: _connection,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return const AppLoadingScreen();
         }
         if (snapshot.hasError) {
           return _BackendUnavailableScreen(onRetry: _retry);
