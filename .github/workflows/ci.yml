@@ -26,9 +26,11 @@ jobs:
         working-directory: server
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-go@v5
         with:
-          distribution: temurin
-          java-version: '21'
-          cache: maven
-      - run: mvn test
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.mod
+      - run: gofmt -w .
+      - run: git diff --exit-code
+      - run: go vet ./...
+      - run: go test ./...
