@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches the app's dark surface and the web loading screen. -->
+    <color name="nafir_background">#121318</color>
+</resources>
