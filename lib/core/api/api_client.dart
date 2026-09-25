@@ -26,8 +26,17 @@ abstract interface class AuthApi {
   Future<AuthUser> me(String token);
 }
 
+/// A short-lived URL for playing one track.
+class StreamLink {
+  const StreamLink(this.url, this.expiresAt);
+
+  final Uri url;
+  final DateTime expiresAt;
+}
+
 abstract interface class TracksApi {
   Future<List<Track>> listTracks(String token);
+  Future<StreamLink> streamLink(String token, String trackId);
   Future<UploadTicket> createUpload(
       String token, String fileName, int sizeBytes);
   Future<Track> completeUpload(String token, String trackId);
@@ -76,6 +85,16 @@ class ApiClient implements AuthApi, TracksApi {
     return (body['tracks'] as List<dynamic>)
         .map((json) => Track.fromJson(json as Map<String, dynamic>))
         .toList();
+  }
+
+  @override
+  Future<StreamLink> streamLink(String token, String trackId) async {
+    final body =
+        await _send('GET', '/api/v1/tracks/$trackId/stream', token: token);
+    return StreamLink(
+      Uri.parse(body['url'] as String),
+      DateTime.parse(body['expiresAt'] as String),
+    );
   }
 
   @override

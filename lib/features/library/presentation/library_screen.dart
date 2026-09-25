@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
 import 'package:nafir/features/library/data/track.dart';
+import 'package:nafir/features/player/application/player_controller.dart';
+import 'package:nafir/features/player/presentation/mini_player.dart';
 import 'package:nafir/features/upload/application/upload_controller.dart';
 import 'package:nafir/features/upload/data/audio_picker.dart';
 import 'package:nafir/features/upload/presentation/upload_status_card.dart';
@@ -13,11 +15,13 @@ class LibraryScreen extends StatefulWidget {
     required this.library,
     required this.uploads,
     required this.picker,
+    required this.player,
   });
 
   final String email;
   final VoidCallback onLogout;
   final LibraryController library;
+  final PlayerController player;
   final UploadController uploads;
   final AudioPicker picker;
 
@@ -79,6 +83,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ),
         ],
       ),
+      bottomNavigationBar: MiniPlayer(player: widget.player),
       floatingActionButton: ListenableBuilder(
         listenable: widget.uploads,
         builder: (context, _) => FloatingActionButton.extended(
@@ -101,7 +106,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     onRefresh: _refresh,
                     child: widget.library.tracks.isEmpty
                         ? const _EmptyLibrary()
-                        : _TrackList(tracks: widget.library.tracks),
+                        : _TrackList(
+                            tracks: widget.library.tracks,
+                            player: widget.player,
+                          ),
                   ),
               },
             ),
@@ -113,33 +121,43 @@ class _LibraryScreenState extends State<LibraryScreen> {
 }
 
 class _TrackList extends StatelessWidget {
-  const _TrackList({required this.tracks});
+  const _TrackList({required this.tracks, required this.player});
 
   final List<Track> tracks;
+  final PlayerController player;
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      // Leaves room for the floating button over the last item.
-      padding: const EdgeInsets.only(bottom: 88),
-      itemCount: tracks.length,
-      itemBuilder: (context, index) {
-        final track = tracks[index];
-        final details = [track.artist, track.album]
-            .whereType<String>()
-            .where((text) => text.isNotEmpty)
-            .join(' — ');
-        return ListTile(
-          leading: const CircleAvatar(child: Icon(Icons.music_note)),
-          title:
-              Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-          subtitle: Text(
-            details.isEmpty ? _formatSize(track.sizeBytes) : details,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        );
-      },
+    return ListenableBuilder(
+      // Only the current track matters here, not every position tick.
+      listenable: player,
+      builder: (context, _) => ListView.builder(
+        // Leaves room for the floating button over the last item.
+        padding: const EdgeInsets.only(bottom: 88),
+        itemCount: tracks.length,
+        itemBuilder: (context, index) {
+          final track = tracks[index];
+          final current = player.track?.id == track.id;
+          final details = [track.artist, track.album]
+              .whereType<String>()
+              .where((text) => text.isNotEmpty)
+              .join(' — ');
+          return ListTile(
+            selected: current,
+            onTap: () => player.play(track),
+            leading: CircleAvatar(
+              child: Icon(current ? Icons.graphic_eq : Icons.music_note),
+            ),
+            title:
+                Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+            subtitle: Text(
+              details.isEmpty ? _formatSize(track.sizeBytes) : details,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          );
+        },
+      ),
     );
   }
 

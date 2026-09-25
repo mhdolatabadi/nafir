@@ -4,6 +4,7 @@ import 'package:nafir/features/auth/application/auth_controller.dart';
 import 'package:nafir/features/auth/presentation/sign_in_screen.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
 import 'package:nafir/features/library/presentation/library_screen.dart';
+import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/upload/application/upload_controller.dart';
 import 'package:nafir/features/upload/data/audio_picker.dart';
 
@@ -15,9 +16,11 @@ class AuthGate extends StatefulWidget {
     required this.library,
     required this.uploads,
     required this.picker,
+    required this.player,
   });
 
   final AuthController controller;
+  final PlayerController player;
   final LibraryController library;
   final UploadController uploads;
   final AudioPicker picker;
@@ -49,11 +52,13 @@ class _AuthGateState extends State<AuthGate> {
               email: controller.user!.email,
               onLogout: () {
                 // Never show one account's tracks to the next one.
+                widget.player.stop();
                 widget.library.clear();
                 widget.uploads.dismiss();
                 controller.logout();
               },
               library: widget.library,
+              player: widget.player,
               uploads: widget.uploads,
               picker: widget.picker,
             ),

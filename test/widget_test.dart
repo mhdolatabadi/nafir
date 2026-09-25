@@ -8,6 +8,7 @@ import 'package:nafir/features/upload/data/audio_picker.dart';
 import 'package:nafir/features/upload/data/upload_models.dart';
 import 'package:nafir/main.dart';
 
+import 'player_controller_test.dart' show FakeAudioEngine;
 import 'upload_controller_test.dart' show FakeTracksApi, FakeUploader;
 
 const _user = AuthUser(id: 'u1', email: 'listener@example.com');
@@ -73,6 +74,7 @@ Future<void> _pumpApp(
     authApi: api ?? FakeAuthApi(),
     tokenStore: tokenStore,
     tracksApi: tracks ?? FakeTracksApi(),
+    audioEngine: FakeAudioEngine(),
     uploader: uploader ?? FakeUploader(),
     picker: picker ?? FakePicker(null),
   ));
@@ -366,5 +368,32 @@ void main() {
     expect(tester.getCenter(find.byType(FloatingActionButton)).dx,
         lessThan(width / 2));
     expect(tester.getCenter(find.byIcon(Icons.logout)).dx, lessThan(width / 2));
+  });
+
+  testWidgets('tapping a track plays it in the mini player', (tester) async {
+    await _pumpApp(
+      tester,
+      tokenStore: MemoryTokenStore('valid-token'),
+      tracks: FakeTracksApi(const [
+        Track(
+            id: 's1',
+            title: 'Song',
+            artist: 'Artist',
+            contentType: 'audio/mpeg',
+            sizeBytes: 1),
+      ]),
+    );
+    expect(find.byTooltip('توقف'), findsNothing);
+
+    await tester.tap(find.text('Song'));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('توقف'), findsOneWidget);
+    expect(find.text('3:00'), findsOneWidget);
+    expect(find.byIcon(Icons.graphic_eq), findsOneWidget);
+
+    await tester.tap(find.byTooltip('توقف'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('پخش'), findsOneWidget);
   });
 }
