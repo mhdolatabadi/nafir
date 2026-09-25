@@ -396,4 +396,65 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byTooltip('پخش'), findsOneWidget);
   });
+
+  testWidgets('next, shuffle and repeat controls in the mini player', (
+    tester,
+  ) async {
+    await _pumpApp(
+      tester,
+      tokenStore: MemoryTokenStore('valid-token'),
+      tracks: FakeTracksApi(const [
+        Track(
+            id: 's1', title: 'First', contentType: 'audio/mpeg', sizeBytes: 1),
+        Track(
+            id: 's2', title: 'Second', contentType: 'audio/mpeg', sizeBytes: 1),
+      ]),
+    );
+    await tester.tap(find.text('First'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('بعدی'));
+    await tester.pumpAndSettle();
+    // Now in both the list and the mini player, and selected in the list.
+    expect(find.text('Second'), findsNWidgets(2));
+    expect(
+        tester
+            .widget<ListTile>(find.widgetWithText(ListTile, 'Second'))
+            .selected,
+        isTrue);
+
+    await tester.tap(find.byTooltip('تکرار: خاموش'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('تکرار: همه'), findsOneWidget);
+    await tester.tap(find.byTooltip('تکرار: همه'));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.repeat_one), findsOneWidget);
+
+    await tester.tap(find.byTooltip('پخش تصادفی'));
+    await tester.pumpAndSettle();
+    final shuffle = tester.widget<IconButton>(find.ancestor(
+        of: find.byIcon(Icons.shuffle), matching: find.byType(IconButton)));
+    expect(shuffle.isSelected, isTrue);
+  });
+
+  testWidgets('media controls keep their left-to-right order in RTL', (
+    tester,
+  ) async {
+    await _pumpApp(
+      tester,
+      tokenStore: MemoryTokenStore('valid-token'),
+      tracks: FakeTracksApi(const [
+        Track(id: 's1', title: 'Song', contentType: 'audio/mpeg', sizeBytes: 1),
+      ]),
+    );
+    await tester.tap(find.text('Song'));
+    await tester.pumpAndSettle();
+
+    double x(String tooltip) => tester.getCenter(find.byTooltip(tooltip)).dx;
+    expect(x('قبلی'), lessThan(x('توقف')));
+    expect(x('توقف'), lessThan(x('بعدی')));
+    expect(tester.getCenter(find.text('0:00')).dx,
+        lessThan(tester.getCenter(find.text('3:00')).dx),
+        reason: 'elapsed time on the left, duration on the right');
+  });
 }

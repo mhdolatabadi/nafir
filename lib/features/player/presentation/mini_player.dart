@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/features/player/application/play_queue.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 
 /// The now-playing bar: title, play/pause and a seek slider.
@@ -69,54 +70,96 @@ class _MiniPlayerState extends State<MiniPlayer> {
                           ],
                         ),
                       ),
-                      if (busy)
-                        const Padding(
-                          padding: EdgeInsets.all(12),
-                          child: SizedBox.square(
-                            dimension: 24,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        )
-                      else
-                        IconButton(
-                          tooltip: status == PlayerStatus.error
-                              ? 'تلاش دوباره'
-                              : playing
-                                  ? 'توقف'
-                                  : 'پخش',
-                          iconSize: 32,
-                          onPressed: player.toggle,
-                          icon: Icon(status == PlayerStatus.error
-                              ? Icons.refresh
-                              : playing
-                                  ? Icons.pause
-                                  : Icons.play_arrow),
-                        ),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      Text(_format(player.position),
-                          style: Theme.of(context).textTheme.labelSmall),
-                      Expanded(
-                        child: Slider(
-                          value: _dragMs ?? positionMs,
-                          max: durationMs > 0 ? durationMs.toDouble() : 1,
-                          onChanged: durationMs > 0
-                              ? (value) => setState(() => _dragMs = value)
-                              : null,
-                          onChangeEnd: durationMs > 0
-                              ? (value) {
-                                  setState(() => _dragMs = null);
-                                  player.seek(
-                                      Duration(milliseconds: value.round()));
-                                }
-                              : null,
+                      // Media controls and the progress bar follow the
+                      // direction of time, so they are not mirrored in RTL.
+                      Directionality(
+                        textDirection: TextDirection.ltr,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _Toggle(
+                              tooltip: 'پخش تصادفی',
+                              icon: Icons.shuffle,
+                              active: player.shuffle,
+                              onPressed: player.toggleShuffle,
+                            ),
+                            IconButton(
+                              tooltip: 'قبلی',
+                              onPressed: player.previous,
+                              icon: const Icon(Icons.skip_previous),
+                            ),
+                            if (busy)
+                              const Padding(
+                                padding: EdgeInsets.all(12),
+                                child: SizedBox.square(
+                                  dimension: 24,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              )
+                            else
+                              IconButton(
+                                tooltip: status == PlayerStatus.error
+                                    ? 'تلاش دوباره'
+                                    : playing
+                                        ? 'توقف'
+                                        : 'پخش',
+                                iconSize: 32,
+                                onPressed: player.toggle,
+                                icon: Icon(status == PlayerStatus.error
+                                    ? Icons.refresh
+                                    : playing
+                                        ? Icons.pause
+                                        : Icons.play_arrow),
+                              ),
+                            IconButton(
+                              tooltip: 'بعدی',
+                              onPressed: player.next,
+                              icon: const Icon(Icons.skip_next),
+                            ),
+                            _Toggle(
+                              tooltip: switch (player.repeat) {
+                                QueueRepeat.off => 'تکرار: خاموش',
+                                QueueRepeat.all => 'تکرار: همه',
+                                QueueRepeat.one => 'تکرار: همین آهنگ',
+                              },
+                              icon: player.repeat == QueueRepeat.one
+                                  ? Icons.repeat_one
+                                  : Icons.repeat,
+                              active: player.repeat != QueueRepeat.off,
+                              onPressed: player.cycleRepeat,
+                            ),
+                          ],
                         ),
                       ),
-                      Text(_format(player.duration ?? Duration.zero),
-                          style: Theme.of(context).textTheme.labelSmall),
                     ],
+                  ),
+                  Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: Row(
+                      children: [
+                        Text(_format(player.position),
+                            style: Theme.of(context).textTheme.labelSmall),
+                        Expanded(
+                          child: Slider(
+                            value: _dragMs ?? positionMs,
+                            max: durationMs > 0 ? durationMs.toDouble() : 1,
+                            onChanged: durationMs > 0
+                                ? (value) => setState(() => _dragMs = value)
+                                : null,
+                            onChangeEnd: durationMs > 0
+                                ? (value) {
+                                    setState(() => _dragMs = null);
+                                    player.seek(
+                                        Duration(milliseconds: value.round()));
+                                  }
+                                : null,
+                          ),
+                        ),
+                        Text(_format(player.duration ?? Duration.zero),
+                            style: Theme.of(context).textTheme.labelSmall),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -124,6 +167,33 @@ class _MiniPlayerState extends State<MiniPlayer> {
           ),
         );
       },
+    );
+  }
+}
+
+/// A mode button that is highlighted while its mode is on.
+class _Toggle extends StatelessWidget {
+  const _Toggle({
+    required this.tooltip,
+    required this.icon,
+    required this.active,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final bool active;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return IconButton(
+      tooltip: tooltip,
+      isSelected: active,
+      onPressed: onPressed,
+      color: active ? colors.primary : colors.onSurfaceVariant,
+      icon: Icon(icon),
     );
   }
 }

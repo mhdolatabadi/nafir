@@ -144,7 +144,7 @@ class _TrackList extends StatelessWidget {
               .join(' — ');
           return ListTile(
             selected: current,
-            onTap: () => player.play(track),
+            onTap: () => player.playFrom(tracks, index),
             leading: CircleAvatar(
               child: Icon(current ? Icons.graphic_eq : Icons.music_note),
             ),
