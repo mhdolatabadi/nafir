@@ -1,0 +1,79 @@
+name: Android release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate version tag
+        shell: bash
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Expected a semantic version tag such as v1.2.3."
+            exit 1
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+      - run: dart format --set-exit-if-changed .
+      - run: flutter analyze
+      - run: flutter test
+
+      - name: Configure Android release signing
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+        run: |
+          : "${ANDROID_KEYSTORE_BASE64:?ANDROID_KEYSTORE_BASE64 secret is required}"
+          : "${ANDROID_KEY_ALIAS:?ANDROID_KEY_ALIAS secret is required}"
+          : "${ANDROID_KEY_PASSWORD:?ANDROID_KEY_PASSWORD secret is required}"
+          : "${ANDROID_STORE_PASSWORD:?ANDROID_STORE_PASSWORD secret is required}"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/release.jks
+          {
+            printf 'storePassword=%s\n' "$ANDROID_STORE_PASSWORD"
+            printf 'keyPassword=%s\n' "$ANDROID_KEY_PASSWORD"
+            printf 'keyAlias=%s\n' "$ANDROID_KEY_ALIAS"
+            printf 'storeFile=release.jks\n'
+          } > android/key.properties
+
+      - name: Build signed release APK
+        shell: bash
+        run: |
+          flutter build apk --release \
+            --build-name="${GITHUB_REF_NAME#v}" \
+            --build-number="${GITHUB_RUN_NUMBER}" \
+            --dart-define=API_BASE_URL=${{ vars.NAFIR_API_BASE_URL || 'https://nafir.mhdolatabadi.ir' }}
+          mv build/app/outputs/flutter-apk/app-release.apk "nafir-${GITHUB_REF_NAME}-android.apk"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: nafir-${{ github.ref_name }}-android.apk
