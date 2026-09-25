@@ -15,15 +15,12 @@ class FilePickerAudioPicker implements AudioPicker {
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: audioContentTypes.keys.toList(),
-      // Stream the file instead of loading it into memory.
-      withReadStream: true,
       onFileLoading: (status) {
         if (status == FilePickerStatus.picking) onReading?.call();
       },
     );
-    final file = result?.files.single;
-    final stream = file?.readStream;
-    if (file == null || stream == null) return null;
+    if (result.isEmpty) return null;
+    final file = result.single;
     var used = false;
     return PickedAudio(
       name: file.name,
@@ -32,7 +29,7 @@ class FilePickerAudioPicker implements AudioPicker {
         // The picker's stream can only be listened to once.
         if (used) throw StateError('The picked file was already read.');
         used = true;
-        return stream;
+        return file.xFile.openRead();
       },
       release: _clearPickerCache,
     );
