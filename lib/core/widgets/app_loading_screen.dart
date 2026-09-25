@@ -12,20 +12,16 @@ class AppLoadingScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: Color(0xFF1A73E8),
-                borderRadius: BorderRadius.all(Radius.circular(16)),
-              ),
-              child: SizedBox.square(
-                dimension: 72,
-                child: Icon(Icons.music_note, size: 40, color: Colors.white),
+            // The app icon: a red nafir on black.
+            ClipRRect(
+              borderRadius: BorderRadius.all(Radius.circular(16)),
+              child: Image(
+                image: AssetImage('assets/icon/nafir.png'),
+                width: 72,
+                height: 72,
               ),
             ),
-            SizedBox(height: 20),
-            Text('نفیر',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
-            SizedBox(height: 20),
+            SizedBox(height: 24),
             SizedBox.square(
               dimension: 32,
               child: CircularProgressIndicator(strokeWidth: 3),

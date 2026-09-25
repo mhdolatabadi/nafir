@@ -168,16 +168,36 @@ class PlayerController extends ChangeNotifier {
   Future<void> toggle() async {
     switch (_status) {
       case PlayerStatus.playing || PlayerStatus.buffering:
-        await _engine.pause();
+        await pause();
+      case PlayerStatus.paused || PlayerStatus.completed || PlayerStatus.error:
+        await resume();
+      case PlayerStatus.idle || PlayerStatus.loading:
+        break;
+    }
+  }
+
+  Future<void> pause() async {
+    if (_status == PlayerStatus.playing || _status == PlayerStatus.buffering) {
+      await _engine.pause();
+    }
+  }
+
+  /// Continues a paused track, replays a completed one from the start, or
+  /// retries one that failed.
+  Future<void> resume() async {
+    switch (_status) {
+      case PlayerStatus.paused:
+        _engine.play();
       case PlayerStatus.completed:
         _advancing = false;
         await _engine.seek(Duration.zero);
         _engine.play();
-      case PlayerStatus.paused:
-        _engine.play();
       case PlayerStatus.error:
         if (_track != null) await _start(_track!);
-      case PlayerStatus.idle || PlayerStatus.loading:
+      case PlayerStatus.idle ||
+            PlayerStatus.loading ||
+            PlayerStatus.playing ||
+            PlayerStatus.buffering:
         break;
     }
   }

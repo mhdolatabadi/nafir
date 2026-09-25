@@ -1,5 +1,7 @@
 package ir.mhdolatabadi.nafir
 
-import io.flutter.embedding.android.FlutterActivity
+import com.ryanheise.audioservice.AudioServiceActivity
 
-class MainActivity : FlutterActivity()
+// Shares the Flutter engine with audio_service's background playback service,
+// so music keeps playing and responds to media controls with the app closed.
+class MainActivity : AudioServiceActivity()
