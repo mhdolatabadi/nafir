@@ -5,6 +5,7 @@ import 'package:nafir/features/auth/presentation/sign_in_screen.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
 import 'package:nafir/features/library/presentation/library_screen.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
+import 'package:nafir/features/settings/application/cache_controller.dart';
 import 'package:nafir/features/upload/application/upload_controller.dart';
 import 'package:nafir/features/upload/data/audio_picker.dart';
 
@@ -15,6 +16,7 @@ class AuthGate extends StatefulWidget {
     required this.controller,
     required this.library,
     required this.uploads,
+    required this.cache,
     required this.picker,
     required this.player,
   });
@@ -23,6 +25,7 @@ class AuthGate extends StatefulWidget {
   final PlayerController player;
   final LibraryController library;
   final UploadController uploads;
+  final CacheController cache;
   final AudioPicker picker;
 
   @override
@@ -60,6 +63,7 @@ class _AuthGateState extends State<AuthGate> {
               library: widget.library,
               player: widget.player,
               uploads: widget.uploads,
+              cache: widget.cache,
               picker: widget.picker,
             ),
         };

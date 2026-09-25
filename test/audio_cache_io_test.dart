@@ -76,10 +76,34 @@ void main() {
     expect(names(), ['keep.mp3.part']);
   });
 
-  test('clear removes the whole cache', () async {
-    await put('a.mp3', 10, 1);
+  test('size counts every cached file, partial downloads included', () async {
     final cache = FileAudioCache(() async => dir);
+    expect(await cache.sizeBytes(), 0);
+
+    await put('a.mp3', 300, 1);
+    await put('a.mp3.mime', 10, 1);
+    await put('b.m4a.part', 50, 1);
+
+    expect(await cache.sizeBytes(), 360);
+  });
+
+  test('size of a cache that was never created is zero', () async {
+    final cache = FileAudioCache(() async => Directory('${dir.path}/none'));
+    expect(await cache.sizeBytes(), 0);
     await cache.clear();
-    expect(await dir.exists(), isFalse);
+  });
+
+  test('clear empties the cache but keeps the track being played', () async {
+    await put('a.mp3', 10, 1);
+    await put('a.mp3.mime', 10, 1);
+    await put('playing.mp3.part', 10, 1);
+    final cache = FileAudioCache(() async => dir);
+
+    await cache.clear(keep: 'playing');
+
+    expect(names(), ['playing.mp3.part']);
+    await cache.clear();
+    expect(names(), isEmpty);
+    expect(await cache.sizeBytes(), 0);
   });
 }

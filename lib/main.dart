@@ -10,7 +10,9 @@ import 'package:nafir/features/auth/presentation/auth_gate.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
 import 'package:nafir/features/player/application/media_session.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
+import 'package:nafir/features/player/data/audio_cache.dart';
 import 'package:nafir/features/player/data/audio_engine.dart';
+import 'package:nafir/features/settings/application/cache_controller.dart';
 import 'package:nafir/features/upload/application/upload_controller.dart';
 import 'package:nafir/features/upload/data/audio_picker.dart';
 import 'package:nafir/features/upload/data/storage_uploader.dart';
@@ -31,6 +33,7 @@ class NafirApp extends StatefulWidget {
     this.uploader,
     this.picker,
     this.audioEngine,
+    this.audioCache,
     this.mediaSession,
   });
 
@@ -43,6 +46,7 @@ class NafirApp extends StatefulWidget {
   final StorageUploader? uploader;
   final AudioPicker? picker;
   final AudioEngine? audioEngine;
+  final AudioCache? audioCache;
 
   /// System media controls; null in tests and where they are unavailable.
   final NafirAudioHandler? mediaSession;
@@ -76,13 +80,21 @@ class _NafirAppState extends State<NafirApp> {
       ? null
       : LibraryController(api: _tracksApi, token: () => _auth?.token);
 
+  // One cache shared by playback and the Settings screen.
+  late final AudioCache _audioCache = widget.audioCache ?? createAudioCache();
+
   late final PlayerController? _player = _tracksApi == null
       ? null
       : PlayerController(
           api: _tracksApi,
-          engine: widget.audioEngine ?? JustAudioEngine(),
+          engine: widget.audioEngine ?? JustAudioEngine(cache: _audioCache),
           token: () => _auth?.token,
         );
+
+  late final CacheController _cache = CacheController(
+    cache: _audioCache,
+    playing: () => _player?.track?.id,
+  );
 
   @override
   void initState() {
@@ -97,6 +109,7 @@ class _NafirAppState extends State<NafirApp> {
     _auth?.dispose();
     _uploads?.dispose();
     _library?.dispose();
+    _cache.dispose();
     super.dispose();
   }
 
@@ -130,6 +143,7 @@ class _NafirAppState extends State<NafirApp> {
                 player: _player,
                 library: _library,
                 uploads: _uploads,
+                cache: _cache,
                 picker: widget.picker ?? FilePickerAudioPicker(),
               ),
       ),

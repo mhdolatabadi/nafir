@@ -10,8 +10,17 @@ import 'audio_cache_stub.dart' if (dart.library.io) 'audio_cache_io.dart'
 abstract interface class AudioCache {
   Future<AudioSource> sourceFor(Track track, Uri url);
 
-  /// Deletes everything cached.
-  Future<void> clear();
+  /// Whether the app controls this cache. On the web the browser's HTTP cache
+  /// holds audio instead, and the app can neither measure nor clear it.
+  bool get isManaged;
+
+  /// Bytes on disk, including partial downloads.
+  Future<int> sizeBytes();
+
+  /// Deletes cached audio, except the track [keep] (the one playing, which
+  /// may still be downloading). Tracks and their metadata in the cloud are
+  /// never touched.
+  Future<void> clear({String? keep});
 }
 
 AudioCache createAudioCache() => platform.createAudioCache();
