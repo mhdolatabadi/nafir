@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/features/library/data/track.dart';
+import 'package:nafir/features/player/application/play_queue.dart';
 import 'package:nafir/features/player/data/audio_engine.dart';
 
 enum PlayerStatus {
@@ -15,15 +17,20 @@ enum PlayerStatus {
   error
 }
 
-/// Plays one track at a time from a short-lived stream URL.
+/// "Previous" restarts the current track once it has played this long.
+const restartThreshold = Duration(seconds: 3);
+
+/// Plays a queue of tracks, one at a time, from short-lived stream URLs.
 class PlayerController extends ChangeNotifier {
   PlayerController({
     required TracksApi api,
     required AudioEngine engine,
     required String? Function() token,
+    Random? random,
   })  : _api = api,
         _engine = engine,
-        _token = token {
+        _token = token,
+        _random = random ?? Random() {
     _subscriptions = [
       engine.position.listen((value) {
         _position = value;
@@ -48,8 +55,13 @@ class PlayerController extends ChangeNotifier {
   final TracksApi _api;
   final AudioEngine _engine;
   final String? Function() _token;
+  final Random _random;
   late final List<StreamSubscription<Object?>> _subscriptions;
 
+  PlayQueue? _queue;
+  bool _shuffle = false;
+  QueueRepeat _repeat = QueueRepeat.off;
+  bool _advancing = false;
   Track? _track;
   PlayerStatus _status = PlayerStatus.idle;
   Duration _position = Duration.zero;
@@ -61,15 +73,56 @@ class PlayerController extends ChangeNotifier {
   int _request = 0;
 
   Track? get track => _track;
+  bool get shuffle => _shuffle;
+  QueueRepeat get repeat => _repeat;
   PlayerStatus get status => _status;
   Duration get position => _position;
   Duration? get duration => _duration;
 
-  /// Plays [track], or toggles pause when it is already the current track.
-  Future<void> play(Track track) async {
+  /// Plays [tracks] starting at [index], or toggles pause when that track
+  /// is already the current one. Shuffle and repeat settings carry over.
+  Future<void> playFrom(List<Track> tracks, int index) async {
+    final track = tracks[index];
     if (_track?.id == track.id && _status != PlayerStatus.error) {
       return toggle();
     }
+    _queue = PlayQueue(tracks, start: index, random: _random)
+      ..repeat = _repeat
+      ..shuffled = _shuffle;
+    await _start(_queue!.current);
+  }
+
+  /// Plays a single track.
+  Future<void> play(Track track) => playFrom([track], 0);
+
+  Future<void> next() async {
+    final next = _queue?.next();
+    if (next != null) await _start(next);
+  }
+
+  /// Restarts the current track after its first seconds, otherwise goes back.
+  Future<void> previous() async {
+    final queue = _queue;
+    if (queue == null) return;
+    if (_position > restartThreshold) return seek(Duration.zero);
+    await _start(queue.previous());
+  }
+
+  void toggleShuffle() {
+    _shuffle = !_shuffle;
+    _queue?.shuffled = _shuffle;
+    notifyListeners();
+  }
+
+  /// Off → all → one → off.
+  void cycleRepeat() {
+    _repeat =
+        QueueRepeat.values[(_repeat.index + 1) % QueueRepeat.values.length];
+    _queue?.repeat = _repeat;
+    notifyListeners();
+  }
+
+  Future<void> _start(Track track) async {
     final token = _token();
     if (token == null) return;
     final request = ++_request;
@@ -77,6 +130,7 @@ class PlayerController extends ChangeNotifier {
     _position = Duration.zero;
     _duration = null;
     _retriedLink = false;
+    _advancing = false;
     _loading = true;
     _setStatus(PlayerStatus.loading);
     try {
@@ -94,17 +148,35 @@ class PlayerController extends ChangeNotifier {
     }
   }
 
+  /// A finished track moves the queue on, or replays itself on repeat-one.
+  Future<void> _onCompleted() async {
+    final queue = _queue;
+    if (_advancing || queue == null) return;
+    _advancing = true;
+    final next = queue.next(auto: true);
+    if (next == null) {
+      _setStatus(PlayerStatus.completed);
+    } else if (next.id == _track?.id && _repeat == QueueRepeat.one) {
+      _advancing = false;
+      await _engine.seek(Duration.zero);
+      _engine.play();
+    } else {
+      await _start(next);
+    }
+  }
+
   Future<void> toggle() async {
     switch (_status) {
       case PlayerStatus.playing || PlayerStatus.buffering:
         await _engine.pause();
       case PlayerStatus.completed:
+        _advancing = false;
         await _engine.seek(Duration.zero);
         _engine.play();
       case PlayerStatus.paused:
         _engine.play();
       case PlayerStatus.error:
-        if (_track != null) await play(_track!);
+        if (_track != null) await _start(_track!);
       case PlayerStatus.idle || PlayerStatus.loading:
         break;
     }
@@ -119,6 +191,7 @@ class PlayerController extends ChangeNotifier {
   /// Stops playback and forgets the track, for example on logout.
   Future<void> stop() async {
     _request++;
+    _queue = null;
     _track = null;
     _position = Duration.zero;
     _duration = null;
@@ -152,6 +225,11 @@ class PlayerController extends ChangeNotifier {
   void _refreshStatus() {
     if (_loading || _status == PlayerStatus.error || _track == null) {
       notifyListeners();
+      return;
+    }
+    if (_engineState == EngineState.completed) {
+      // Outside the engine's event callback, which it may re-trigger.
+      unawaited(Future.microtask(_onCompleted));
       return;
     }
     _setStatus(switch (_engineState) {

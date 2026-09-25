@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nafir/features/library/data/track.dart';
+import 'package:nafir/features/player/application/play_queue.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/data/audio_engine.dart';
 
@@ -71,6 +72,8 @@ class FakeAudioEngine implements AudioEngine {
 
 const _a = Track(id: 'a', title: 'A', contentType: 'audio/mpeg', sizeBytes: 1);
 const _b = Track(id: 'b', title: 'B', contentType: 'audio/mpeg', sizeBytes: 1);
+const _c = Track(id: 'c', title: 'C', contentType: 'audio/mpeg', sizeBytes: 1);
+const _abc = [_a, _b, _c];
 
 void main() {
   late FakeTracksApi api;
@@ -162,6 +165,7 @@ void main() {
     await player.play(_a);
     engine.playingCtl.add(false);
     engine.stateCtl.add(EngineState.completed);
+    await pumpEventQueue();
     expect(player.status, PlayerStatus.completed);
 
     await player.toggle();
@@ -182,5 +186,98 @@ void main() {
     await signedOut.play(_a);
     expect(api.calls, isEmpty);
     expect(signedOut.track, isNull);
+  });
+
+  group('queue', () {
+    List<String> loaded() => [for (final load in engine.loads) load.$1];
+
+    Future<void> finishTrack() async {
+      engine.stateCtl.add(EngineState.completed);
+      await pumpEventQueue();
+    }
+
+    test('a finished track moves on to the next one', () async {
+      await player.playFrom(_abc, 0);
+      await finishTrack();
+      expect(player.track?.id, 'b');
+      expect(loaded(), ['a', 'b']);
+    });
+
+    test('the end of the queue stops as completed', () async {
+      await player.playFrom(_abc, 2);
+      await finishTrack();
+      expect(player.status, PlayerStatus.completed);
+      expect(loaded(), ['c']);
+    });
+
+    test('repeat all wraps to the first track', () async {
+      player.cycleRepeat();
+      expect(player.repeat, QueueRepeat.all);
+      await player.playFrom(_abc, 2);
+      await finishTrack();
+      expect(player.track?.id, 'a');
+    });
+
+    test('repeat one replays in place without reloading', () async {
+      player
+        ..cycleRepeat()
+        ..cycleRepeat();
+      expect(player.repeat, QueueRepeat.one);
+      await player.playFrom(_abc, 0);
+      await finishTrack();
+      expect(player.track?.id, 'a');
+      expect(loaded(), ['a']);
+      expect(engine.calls, contains('seek:0'));
+      expect(player.status, PlayerStatus.playing);
+    });
+
+    test('next and previous', () async {
+      await player.playFrom(_abc, 1);
+      await player.next();
+      expect(player.track?.id, 'c');
+      await player.previous();
+      expect(player.track?.id, 'b');
+    });
+
+    test('previous restarts a track that has played a few seconds', () async {
+      await player.playFrom(_abc, 1);
+      engine.positionCtl.add(const Duration(seconds: 10));
+      await player.previous();
+      expect(player.track?.id, 'b');
+      expect(engine.calls, contains('seek:0'));
+    });
+
+    test('next at the end without repeat does nothing', () async {
+      await player.playFrom(_abc, 2);
+      await player.next();
+      expect(player.track?.id, 'c');
+      expect(loaded(), ['c']);
+    });
+
+    test('shuffle carries over to a newly started queue', () async {
+      player.toggleShuffle();
+      await player.playFrom(_abc, 0);
+      expect(player.shuffle, isTrue);
+      expect(player.track?.id, 'a', reason: 'the tapped track plays first');
+      await player.next();
+      await player.next();
+      expect(loaded()..sort(), ['a', 'b', 'c']);
+    });
+
+    test('tapping the playing track again pauses it', () async {
+      await player.playFrom(_abc, 1);
+      await player.playFrom(_abc, 1);
+      expect(player.status, PlayerStatus.paused);
+    });
+
+    test('replaying after the end still advances next time', () async {
+      await player.playFrom(_abc, 2);
+      await finishTrack();
+      expect(player.status, PlayerStatus.completed);
+      await player.toggle();
+      expect(player.status, PlayerStatus.playing);
+      await finishTrack();
+      expect(player.status, PlayerStatus.completed);
+    });
   });
 }
