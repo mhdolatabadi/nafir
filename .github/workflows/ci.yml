@@ -19,6 +19,17 @@ jobs:
       - run: flutter analyze
       - run: flutter test
       - run: flutter build web --release --no-web-resources-cdn --dart-define=API_BASE_URL=https://music.example.com
+      - name: Generate Android project
+        run: flutter create --platforms=android --org com.mhdolatabadi --project-name nafir .
+      - name: Build Android debug APK
+        run: flutter build apk --debug --dart-define=API_BASE_URL=https://music.example.com
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: nafir-android-debug
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
 
   api:
     runs-on: ubuntu-latest

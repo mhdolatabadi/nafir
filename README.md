@@ -74,8 +74,12 @@ flutter run --dart-define=API_BASE_URL=https://music.example.com
 
 The app checks `/api/v1/health` on startup and offers a retry action when the
 server is unavailable. It then restores the saved session, or asks the user to
-sign in or register. The access token is kept in the platform's secure storage
-(Keychain, Keystore, or encrypted browser storage on the web).
+sign in or register. The access token is kept in Android Keystore or encrypted
+browser storage on the web.
+
+Every push to `main` also builds a debug Android APK. Download the
+`nafir-android-debug` artifact from the corresponding **Quality checks** run in
+GitHub Actions. The artifact is retained for 14 days.
 
 ## Deploy
 
