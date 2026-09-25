@@ -8,6 +8,7 @@ import 'package:nafir/features/upload/data/audio_picker.dart';
 import 'package:nafir/features/upload/data/upload_models.dart';
 import 'package:nafir/main.dart';
 
+import 'cache_controller_test.dart' show FakeAudioCache;
 import 'player_controller_test.dart' show FakeAudioEngine;
 import 'upload_controller_test.dart' show FakeTracksApi, FakeUploader;
 
@@ -67,6 +68,7 @@ Future<void> _pumpApp(
   FakeUploader? uploader,
   AudioPicker? picker,
   FakeTracksApi? tracks,
+  FakeAudioCache? cache,
   bool settle = true,
 }) async {
   await tester.pumpWidget(NafirApp(
@@ -75,6 +77,7 @@ Future<void> _pumpApp(
     tokenStore: tokenStore,
     tracksApi: tracks ?? FakeTracksApi(),
     audioEngine: FakeAudioEngine(),
+    audioCache: cache ?? FakeAudioCache(),
     uploader: uploader ?? FakeUploader(),
     picker: picker ?? FakePicker(null),
   ));
@@ -456,5 +459,77 @@ void main() {
     expect(tester.getCenter(find.text('0:00')).dx,
         lessThan(tester.getCenter(find.text('3:00')).dx),
         reason: 'elapsed time on the left, duration on the right');
+  });
+
+  testWidgets('settings shows the cache size and clears it after confirming',
+      (tester) async {
+    final cache = FakeAudioCache(files: {'a': 3 * 1024 * 1024});
+    await _pumpApp(tester,
+        tokenStore: MemoryTokenStore('valid-token'), cache: cache);
+
+    await tester.tap(find.byTooltip('تنظیمات'));
+    await tester.pumpAndSettle();
+    expect(find.text('حجم کش: 3.0 مگابایت'), findsOneWidget);
+
+    // Cancelling keeps everything.
+    await tester.tap(find.text('پاک کردن کش'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('انصراف'));
+    await tester.pumpAndSettle();
+    expect(cache.files, isNotEmpty);
+
+    await tester.tap(find.text('پاک کردن کش'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('پاک کن'));
+    await tester.pumpAndSettle();
+
+    expect(cache.files, isEmpty);
+    expect(find.text('حجم کش: 0 کیلوبایت'), findsOneWidget);
+    expect(find.text('کش پاک شد.'), findsOneWidget);
+    final button = tester.widget<OutlinedButton>(
+        find.widgetWithText(OutlinedButton, 'پاک کردن کش'));
+    expect(button.onPressed, isNull, reason: 'nothing left to clear');
+  });
+
+  testWidgets('clearing the cache keeps the library and the playing track', (
+    tester,
+  ) async {
+    final cache = FakeAudioCache(files: {'s1': 100, 'old': 100});
+    await _pumpApp(
+      tester,
+      tokenStore: MemoryTokenStore('valid-token'),
+      cache: cache,
+      tracks: FakeTracksApi(const [
+        Track(id: 's1', title: 'Song', contentType: 'audio/mpeg', sizeBytes: 1),
+      ]),
+    );
+    await tester.tap(find.text('Song'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('تنظیمات'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('پاک کردن کش'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('پاک کن'));
+    await tester.pumpAndSettle();
+    expect(cache.files.keys, ['s1']);
+
+    tester.state<NavigatorState>(find.byType(Navigator)).pop();
+    await tester.pumpAndSettle();
+    expect(find.text('Song'), findsWidgets);
+    expect(find.byTooltip('توقف'), findsOneWidget);
+  });
+
+  testWidgets('on the web the browser manages the cache', (tester) async {
+    await _pumpApp(tester,
+        tokenStore: MemoryTokenStore('valid-token'),
+        cache: FakeAudioCache(isManaged: false));
+
+    await tester.tap(find.byTooltip('تنظیمات'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('در نسخه‌ی وب، کش را خود مرورگر مدیریت می‌کند.'),
+        findsOneWidget);
+    expect(find.text('پاک کردن کش'), findsNothing);
   });
 }

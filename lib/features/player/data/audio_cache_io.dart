@@ -81,9 +81,32 @@ class FileAudioCache implements AudioCache {
   }
 
   @override
-  Future<void> clear() async {
+  bool get isManaged => true;
+
+  @override
+  Future<int> sizeBytes() async {
     final directory = await _directory();
-    if (await directory.exists()) await directory.delete(recursive: true);
+    if (!await directory.exists()) return 0;
+    var total = 0;
+    await for (final entity in directory.list()) {
+      if (entity is File) total += (await entity.stat()).size;
+    }
+    return total;
+  }
+
+  @override
+  Future<void> clear({String? keep}) async {
+    final directory = await _directory();
+    if (!await directory.exists()) return;
+    await for (final entity in directory.list()) {
+      if (entity is! File) continue;
+      if (entity.uri.pathSegments.last.split('.').first == keep) continue;
+      try {
+        await entity.delete();
+      } on FileSystemException {
+        // Still open by the player; it will be cleared next time.
+      }
+    }
   }
 }
 

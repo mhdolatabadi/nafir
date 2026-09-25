@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/core/format_size.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/presentation/mini_player.dart';
+import 'package:nafir/features/settings/application/cache_controller.dart';
+import 'package:nafir/features/settings/presentation/settings_screen.dart';
 import 'package:nafir/features/upload/application/upload_controller.dart';
 import 'package:nafir/features/upload/data/audio_picker.dart';
 import 'package:nafir/features/upload/presentation/upload_status_card.dart';
@@ -14,6 +17,7 @@ class LibraryScreen extends StatefulWidget {
     required this.onLogout,
     required this.library,
     required this.uploads,
+    required this.cache,
     required this.picker,
     required this.player,
   });
@@ -23,6 +27,7 @@ class LibraryScreen extends StatefulWidget {
   final LibraryController library;
   final PlayerController player;
   final UploadController uploads;
+  final CacheController cache;
   final AudioPicker picker;
 
   @override
@@ -76,6 +81,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
       appBar: AppBar(
         title: const Text('نفیر'),
         actions: [
+          IconButton(
+            tooltip: 'تنظیمات',
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => SettingsScreen(cache: widget.cache),
+            )),
+            icon: const Icon(Icons.settings_outlined),
+          ),
           IconButton(
             tooltip: 'خروج (${widget.email})',
             onPressed: widget.onLogout,
@@ -151,7 +163,7 @@ class _TrackList extends StatelessWidget {
             title:
                 Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis),
             subtitle: Text(
-              details.isEmpty ? _formatSize(track.sizeBytes) : details,
+              details.isEmpty ? formatSize(track.sizeBytes) : details,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -159,13 +171,6 @@ class _TrackList extends StatelessWidget {
         },
       ),
     );
-  }
-
-  static String _formatSize(int bytes) {
-    final megabytes = bytes / (1024 * 1024);
-    return megabytes >= 1
-        ? '${megabytes.toStringAsFixed(1)} مگابایت'
-        : '${(bytes / 1024).ceil()} کیلوبایت';
   }
 }
 
