@@ -80,7 +80,14 @@ browser storage on the web.
 Every push to `main` also builds a debug Android APK. Download the
 `nafir-android-debug` artifact from the corresponding **Quality checks** run in
 GitHub Actions. The Android application ID is `ir.mhdolatabadi.nafir`, and the
-artifact is retained for 14 days.
+artifact is retained for 14 days. The APK talks to `https://nafir.mhdolatabadi.ir`;
+set the repository variable `NAFIR_API_BASE_URL` to point it elsewhere.
+
+The Android project lives in `android/`. Build it locally with:
+
+```bash
+flutter build apk --debug --dart-define=API_BASE_URL=https://nafir.mhdolatabadi.ir
+```
 
 ## Deploy
 
