@@ -83,6 +83,12 @@ GitHub Actions. The Android application ID is `ir.mhdolatabadi.nafir`, and the
 artifact is retained for 14 days. The APK talks to `https://nafir.mhdolatabadi.ir`;
 set the repository variable `NAFIR_API_BASE_URL` to point it elsewhere.
 
+The app icon is a red nafir (the horn) on black. To change it, edit and run
+`tool/generate_icons.py` (writes `web/icons/icon.svg` and the notification
+icon), then render `web/icons/icon.svg` to the five
+`android/app/src/main/res/mipmap-*/ic_launcher.png` sizes (48, 72, 96, 144 and
+192 px) and to `assets/icon/nafir.png` (288 px, used by the loading screen).
+
 The Android project lives in `android/`. Build it locally with:
 
 ```bash
