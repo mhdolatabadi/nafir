@@ -33,6 +33,21 @@ class FakeTracksApi implements TracksApi {
     return List.of(tracks);
   }
 
+  /// How many stream links were issued, and optional failure.
+  int links = 0;
+  Object? linkError;
+
+  @override
+  Future<StreamLink> streamLink(String token, String trackId) async {
+    calls.add('stream:$trackId');
+    if (linkError != null) throw linkError!;
+    links++;
+    return StreamLink(
+      Uri.parse('https://music.example.com/nafir-music/$trackId?sig=$links'),
+      DateTime.now().add(const Duration(hours: 1)),
+    );
+  }
+
   @override
   Future<UploadTicket> createUpload(
       String token, String fileName, int sizeBytes) async {

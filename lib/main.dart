@@ -8,6 +8,8 @@ import 'package:nafir/features/auth/application/auth_controller.dart';
 import 'package:nafir/features/auth/data/token_store.dart';
 import 'package:nafir/features/auth/presentation/auth_gate.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
+import 'package:nafir/features/player/application/player_controller.dart';
+import 'package:nafir/features/player/data/audio_engine.dart';
 import 'package:nafir/features/upload/application/upload_controller.dart';
 import 'package:nafir/features/upload/data/audio_picker.dart';
 import 'package:nafir/features/upload/data/storage_uploader.dart';
@@ -25,6 +27,7 @@ class NafirApp extends StatefulWidget {
     this.tracksApi,
     this.uploader,
     this.picker,
+    this.audioEngine,
   });
 
   /// Test overrides; by default these talk to [AppConfiguration.apiBaseUri]
@@ -35,6 +38,7 @@ class NafirApp extends StatefulWidget {
   final TracksApi? tracksApi;
   final StorageUploader? uploader;
   final AudioPicker? picker;
+  final AudioEngine? audioEngine;
 
   @override
   State<NafirApp> createState() => _NafirAppState();
@@ -65,8 +69,17 @@ class _NafirAppState extends State<NafirApp> {
       ? null
       : LibraryController(api: _tracksApi, token: () => _auth?.token);
 
+  late final PlayerController? _player = _tracksApi == null
+      ? null
+      : PlayerController(
+          api: _tracksApi,
+          engine: widget.audioEngine ?? JustAudioEngine(),
+          token: () => _auth?.token,
+        );
+
   @override
   void dispose() {
+    _player?.dispose();
     _auth?.dispose();
     _uploads?.dispose();
     _library?.dispose();
@@ -93,10 +106,14 @@ class _NafirAppState extends State<NafirApp> {
       ),
       home: BackendGate(
         healthCheck: widget.healthCheck ?? _apiClient?.checkHealth,
-        child: _auth == null || _uploads == null || _library == null
+        child: _auth == null ||
+                _uploads == null ||
+                _library == null ||
+                _player == null
             ? const SizedBox.shrink()
             : AuthGate(
                 controller: _auth,
+                player: _player,
                 library: _library,
                 uploads: _uploads,
                 picker: widget.picker ?? FilePickerAudioPicker(),
