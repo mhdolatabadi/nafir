@@ -17,7 +17,9 @@ dependencies:
   audio_service: ^0.18.15
   audio_session: ^0.1.21
   cached_network_image: ^3.4.1
-  file_picker: ^8.1.6
+  # v13 compiles its Android plugin against API 36, matching the lifecycle
+  # plugin required by the current Flutter stable toolchain.
+  file_picker: ^13.1.0
   flutter_secure_storage: ^10.3.4
   dio: ^5.11.1
   path_provider: ^2.1.6
