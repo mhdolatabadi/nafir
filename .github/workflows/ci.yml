@@ -20,7 +20,7 @@ jobs:
       - run: flutter test
       - run: flutter build web --release --no-web-resources-cdn --dart-define=API_BASE_URL=https://music.example.com
       - name: Generate Android project
-        run: flutter create --platforms=android --org com.mhdolatabadi --project-name nafir .
+        run: flutter create --platforms=android --org ir.mhdolatabadi --project-name nafir .
       - name: Build Android debug APK
         run: flutter build apk --debug --dart-define=API_BASE_URL=https://music.example.com
       - name: Upload Android APK

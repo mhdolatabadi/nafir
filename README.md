@@ -79,7 +79,8 @@ browser storage on the web.
 
 Every push to `main` also builds a debug Android APK. Download the
 `nafir-android-debug` artifact from the corresponding **Quality checks** run in
-GitHub Actions. The artifact is retained for 14 days.
+GitHub Actions. The Android application ID is `ir.mhdolatabadi.nafir`, and the
+artifact is retained for 14 days.
 
 ## Deploy
 
