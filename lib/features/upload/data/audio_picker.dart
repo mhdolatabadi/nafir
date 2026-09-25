@@ -12,7 +12,7 @@ abstract interface class AudioPicker {
 class FilePickerAudioPicker implements AudioPicker {
   @override
   Future<PickedAudio?> pick({void Function()? onReading}) async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: audioContentTypes.keys.toList(),
       // Stream the file instead of loading it into memory.
@@ -43,7 +43,7 @@ class FilePickerAudioPicker implements AudioPicker {
   static Future<void> _clearPickerCache() async {
     if (kIsWeb) return;
     try {
-      await FilePicker.platform.clearTemporaryFiles();
+      await FilePicker.clearTemporaryFiles();
     } catch (_) {
       // Desktop platforms have nothing to clear.
     }
