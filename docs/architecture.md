@@ -25,7 +25,7 @@ Files go straight from the device to storage; the API never proxies audio.
 2. The client posts the file to that form and shows progress.
 3. `POST /api/v1/tracks/{id}/complete` checks the stored size and the file's leading bytes against its format, then marks the track `ready`. A file that fails the check is deleted along with its track; the client deletes the track itself when the transfer fails.
 
-Pending tracks are never listed or streamed. On Android and iOS the picker's temporary copy is cleared after each upload, so the device keeps no second copy of the file.
+Pending tracks are never listed or streamed. On Android the picker's temporary copy is cleared after each upload, so the device keeps no second copy of the file.
 
 ## Access control
 

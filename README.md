@@ -1,10 +1,10 @@
 # Nafir
 
-Cross-platform personal cloud music player. Music is stored on the user's self-hosted server and streamed to Android, iOS, and the web with a bounded, disposable device cache.
+Cross-platform personal cloud music player. Music is stored on the user's self-hosted server and streamed to Android and the web with a bounded, disposable device cache.
 
 ## Stack
 
-- Flutter client for Android, iOS, and Web/PWA
+- Flutter client for Android and Web/PWA
 - Go HTTP API
 - PostgreSQL for accounts and track metadata
 - MinIO for private audio object storage

@@ -38,7 +38,7 @@ class FilePickerAudioPicker implements AudioPicker {
     );
   }
 
-  /// Android and iOS copy picked files into the app cache; delete that copy so
+  /// Android copies picked files into the app cache; delete that copy so
   /// the upload never leaves a second permanent file on the device.
   static Future<void> _clearPickerCache() async {
     if (kIsWeb) return;
