@@ -21,10 +21,14 @@ class FilePickerAudioPicker implements AudioPicker {
     );
     if (result.isEmpty) return null;
     final file = result.single;
+    final sizeBytes = await file.length();
+    if (sizeBytes == null) {
+      throw StateError('The picked file size is unavailable.');
+    }
     var used = false;
     return PickedAudio(
       name: file.name,
-      sizeBytes: file.size,
+      sizeBytes: sizeBytes,
       openRead: () {
         // The picker's stream can only be listened to once.
         if (used) throw StateError('The picked file was already read.');
