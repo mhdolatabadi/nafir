@@ -8,14 +8,17 @@ import 'package:nafir/features/auth/application/auth_controller.dart';
 import 'package:nafir/features/auth/data/token_store.dart';
 import 'package:nafir/features/auth/presentation/auth_gate.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
+import 'package:nafir/features/player/application/media_session.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/data/audio_engine.dart';
 import 'package:nafir/features/upload/application/upload_controller.dart';
 import 'package:nafir/features/upload/data/audio_picker.dart';
 import 'package:nafir/features/upload/data/storage_uploader.dart';
 
-void main() {
-  runApp(const ProviderScope(child: NafirApp()));
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final mediaSession = await startMediaSession();
+  runApp(ProviderScope(child: NafirApp(mediaSession: mediaSession)));
 }
 
 class NafirApp extends StatefulWidget {
@@ -28,6 +31,7 @@ class NafirApp extends StatefulWidget {
     this.uploader,
     this.picker,
     this.audioEngine,
+    this.mediaSession,
   });
 
   /// Test overrides; by default these talk to [AppConfiguration.apiBaseUri]
@@ -39,6 +43,9 @@ class NafirApp extends StatefulWidget {
   final StorageUploader? uploader;
   final AudioPicker? picker;
   final AudioEngine? audioEngine;
+
+  /// System media controls; null in tests and where they are unavailable.
+  final NafirAudioHandler? mediaSession;
 
   @override
   State<NafirApp> createState() => _NafirAppState();
@@ -76,6 +83,13 @@ class _NafirAppState extends State<NafirApp> {
           engine: widget.audioEngine ?? JustAudioEngine(),
           token: () => _auth?.token,
         );
+
+  @override
+  void initState() {
+    super.initState();
+    final player = _player;
+    if (player != null) widget.mediaSession?.attach(player);
+  }
 
   @override
   void dispose() {
