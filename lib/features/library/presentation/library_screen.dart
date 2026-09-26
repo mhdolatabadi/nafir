@@ -134,8 +134,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
               builder: (context, _) => switch (widget.library.status) {
                 LibraryStatus.loading =>
                   const Center(child: CircularProgressIndicator()),
-                LibraryStatus.error =>
-                  _LoadError(onRetry: widget.library.load),
+                LibraryStatus.error => _LoadError(onRetry: widget.library.load),
                 LibraryStatus.loaded => RefreshIndicator(
                     onRefresh: _refreshCloud,
                     child: widget.library.tracks.isEmpty
@@ -154,7 +153,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Widget _deviceLibrary() => ListenableBuilder(
         listenable: widget.localAudio,
         builder: (context, _) => switch (widget.localAudio.status) {
-          LocalAudioViewStatus.idle || LocalAudioViewStatus.loading =>
+          LocalAudioViewStatus.idle ||
+          LocalAudioViewStatus.loading =>
             const Center(child: CircularProgressIndicator()),
           LocalAudioViewStatus.loaded => widget.localAudio.tracks.isEmpty
               ? _DeviceMessage(
@@ -171,7 +171,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 ),
           LocalAudioViewStatus.permissionDenied => _DeviceMessage(
               icon: Icons.folder_off_outlined,
-              message: 'برای نمایش موسیقی‌های دستگاه، اجازهٔ دسترسی صوتی لازم است.',
+              message:
+                  'برای نمایش موسیقی‌های دستگاه، اجازهٔ دسترسی صوتی لازم است.',
               onRetry: widget.localAudio.load,
             ),
           LocalAudioViewStatus.error => _DeviceMessage(
