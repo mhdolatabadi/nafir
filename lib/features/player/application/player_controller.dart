@@ -124,7 +124,7 @@ class PlayerController extends ChangeNotifier {
 
   Future<void> _start(Track track) async {
     final token = _token();
-    if (token == null) return;
+    if (!track.isLocal && token == null) return;
     final request = ++_request;
     _track = track;
     _position = Duration.zero;
@@ -134,9 +134,10 @@ class PlayerController extends ChangeNotifier {
     _loading = true;
     _setStatus(PlayerStatus.loading);
     try {
-      final link = await _api.streamLink(token, track.id);
+      final url = track.sourceUri ??
+          (await _api.streamLink(token!, track.id)).url;
       if (request != _request) return;
-      await _engine.load(track, link.url);
+      await _engine.load(track, url);
       if (request != _request) return;
       _loading = false;
       _engine.play();
@@ -225,7 +226,7 @@ class PlayerController extends ChangeNotifier {
   Future<void> _onEngineError(Object error) async {
     final track = _track;
     final token = _token();
-    if (track == null || token == null || _retriedLink) {
+    if (track == null || track.isLocal || token == null || _retriedLink) {
       _setStatus(PlayerStatus.error);
       return;
     }

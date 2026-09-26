@@ -62,7 +62,9 @@ class JustAudioEngine implements AudioEngine {
   @override
   Future<void> load(Track track, Uri url,
       {Duration start = Duration.zero}) async {
-    final source = await _cache.sourceFor(track, url);
+    final source = track.isLocal
+        ? AudioSource.uri(url, tag: track.id)
+        : await _cache.sourceFor(track, url);
     await _player.setAudioSource(source, initialPosition: start);
   }
 

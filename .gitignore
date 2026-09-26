@@ -14,3 +14,8 @@ ios/Flutter/ephemeral/
 .env
 .env.*
 .flutter-plugins-dependencies
+
+# Android signing material is generated from GitHub Secrets.
+android/key.properties
+android/app/*.jks
+android/app/*.keystore

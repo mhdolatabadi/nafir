@@ -3,6 +3,12 @@
     <!-- Streaming, uploads and the API all need the network in release builds,
          not only in debug where Flutter adds this permission itself. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Local music discovery. Android 13+ uses the media-specific permission;
+         older versions use storage permission only up to API 32. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"/>
     <!-- Background playback (audio_service): keep playing with the screen
          off and show the media notification and lock-screen controls. -->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>

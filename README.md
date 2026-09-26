@@ -95,6 +95,24 @@ The Android project lives in `android/`. Build it locally with:
 flutter build apk --debug --dart-define=API_BASE_URL=https://nafir.mhdolatabadi.ir
 ```
 
+## Publish an Android release
+
+The `Android release` workflow publishes a signed APK when a semantic version
+tag such as `v0.2.0` is pushed. Configure these GitHub Actions secrets first:
+
+- `ANDROID_KEYSTORE_BASE64`: base64-encoded production JKS file
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+- `ANDROID_STORE_PASSWORD`
+
+For example, encode a keystore on macOS with
+`base64 -i release.jks | pbcopy`, then add the copied value as the first
+secret. Keep the keystore and passwords backed up: future updates must be
+signed with the same key. The workflow derives the app version from the tag,
+builds `ir.mhdolatabadi.nafir`, generates release notes and attaches
+`nafir-vX.Y.Z-android.apk` to the GitHub Release.
+
 ## Deploy
+
 
 See [deploy/README.md](deploy/README.md). Do not commit deployment secrets or `.env`.

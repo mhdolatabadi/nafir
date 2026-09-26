@@ -8,6 +8,8 @@ import 'package:nafir/features/auth/application/auth_controller.dart';
 import 'package:nafir/features/auth/data/token_store.dart';
 import 'package:nafir/features/auth/presentation/auth_gate.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
+import 'package:nafir/features/library/application/local_audio_controller.dart';
+import 'package:nafir/features/library/data/local_audio_library.dart';
 import 'package:nafir/features/player/application/media_session.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/data/audio_cache.dart';
@@ -34,6 +36,7 @@ class NafirApp extends StatefulWidget {
     this.picker,
     this.audioEngine,
     this.audioCache,
+    this.localAudioLibrary,
     this.mediaSession,
   });
 
@@ -47,6 +50,7 @@ class NafirApp extends StatefulWidget {
   final AudioPicker? picker;
   final AudioEngine? audioEngine;
   final AudioCache? audioCache;
+  final LocalAudioLibrary? localAudioLibrary;
 
   /// System media controls; null in tests and where they are unavailable.
   final NafirAudioHandler? mediaSession;
@@ -91,6 +95,10 @@ class _NafirAppState extends State<NafirApp> {
           token: () => _auth?.token,
         );
 
+  late final LocalAudioController _localAudio = LocalAudioController(
+    widget.localAudioLibrary ?? createLocalAudioLibrary(),
+  );
+
   late final CacheController _cache = CacheController(
     cache: _audioCache,
     playing: () => _player?.track?.id,
@@ -109,6 +117,7 @@ class _NafirAppState extends State<NafirApp> {
     _auth?.dispose();
     _uploads?.dispose();
     _library?.dispose();
+    _localAudio.dispose();
     _cache.dispose();
     super.dispose();
   }
@@ -142,6 +151,7 @@ class _NafirAppState extends State<NafirApp> {
                 controller: _auth,
                 player: _player,
                 library: _library,
+                localAudio: _localAudio,
                 uploads: _uploads,
                 cache: _cache,
                 picker: widget.picker ?? FilePickerAudioPicker(),

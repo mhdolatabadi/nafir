@@ -180,6 +180,25 @@ void main() {
     expect(player.status, PlayerStatus.idle);
   });
 
+  test('a local device track plays directly without a token or API call',
+      () async {
+    final local = Track(
+      id: 'device:42',
+      title: 'On device',
+      contentType: 'audio/mpeg',
+      sizeBytes: 10,
+      sourceUri: Uri.parse('content://media/external/audio/media/42'),
+    );
+    final signedOut =
+        PlayerController(api: api, engine: engine, token: () => null);
+
+    await signedOut.play(local);
+
+    expect(api.calls, isEmpty);
+    expect(engine.loads.single.$2, local.sourceUri);
+    expect(signedOut.status, PlayerStatus.playing);
+  });
+
   test('without a session nothing is requested', () async {
     final signedOut =
         PlayerController(api: api, engine: engine, token: () => null);

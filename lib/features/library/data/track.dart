@@ -6,6 +6,7 @@ class Track {
     this.album,
     required this.contentType,
     required this.sizeBytes,
+    this.sourceUri,
   });
 
   factory Track.fromJson(Map<String, dynamic> json) => Track(
@@ -23,4 +24,9 @@ class Track {
   final String? album;
   final String contentType;
   final int sizeBytes;
+
+  /// Present only for audio discovered on this device (usually content://).
+  final Uri? sourceUri;
+
+  bool get isLocal => sourceUri != null;
 }
