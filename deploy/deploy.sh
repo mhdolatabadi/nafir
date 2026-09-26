@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Pulls the latest main branch and prebuilt images, then restarts the stack. Run on the server from the repository clone.
+# Pulls one validated commit and its prebuilt images, then restarts the stack.
 set -euo pipefail
 
+revision="${1:-main}"
 cd "$(dirname "$0")"
 
 if [[ ! -f .env ]]; then
@@ -10,16 +11,15 @@ if [[ ! -f .env ]]; then
 fi
 
 if ! grep -qE '^NAFIR_DOMAIN=' .env; then
-  echo "deploy/.env has no NAFIR_DOMAIN; rename the SOT_* variables to NAFIR_* (see deploy/README.md)." >&2
+  echo "deploy/.env has no NAFIR_DOMAIN; see deploy/README.md." >&2
   exit 1
 fi
 
 git fetch --prune origin main
-git checkout main
-git reset --hard origin/main
+git checkout --detach "$revision"
 
-# Images are tagged with the commit they were built from; pulling fails if the
-# Images workflow has not finished for this commit yet.
+# Images are tagged with the exact source commit. Pull everything before
+# changing running containers, so a missing image leaves production untouched.
 export NAFIR_IMAGE_TAG="$(git rev-parse HEAD)"
 docker compose pull api web
 docker compose up -d --no-build --remove-orphans
