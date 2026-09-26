@@ -9,5 +9,4 @@ class UnsupportedLocalAudioLibrary implements LocalAudioLibrary {
       const LocalAudioResult(LocalAudioStatus.unsupported);
 }
 
-LocalAudioLibrary createLocalAudioLibrary() =>
-    UnsupportedLocalAudioLibrary();
+LocalAudioLibrary createLocalAudioLibrary() => UnsupportedLocalAudioLibrary();

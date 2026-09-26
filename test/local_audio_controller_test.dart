@@ -42,8 +42,7 @@ void main() {
     await controller.load();
     expect(controller.status, LocalAudioViewStatus.permissionDenied);
 
-    library.result =
-        const LocalAudioResult(LocalAudioStatus.loaded, [track]);
+    library.result = const LocalAudioResult(LocalAudioStatus.loaded, [track]);
     await controller.load();
     expect(controller.status, LocalAudioViewStatus.loaded);
     expect(controller.tracks, [track]);

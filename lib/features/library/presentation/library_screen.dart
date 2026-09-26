@@ -85,10 +85,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
       appBar: AppBar(
         title: const Text('نفیر'),
         bottom: hasDeviceLibrary
-            ? const TabBar(tabs: [
-                Tab(text: 'ابری', icon: Icon(Icons.cloud_outlined)),
-                Tab(text: 'دستگاه', icon: Icon(Icons.phone_android)),
-              ])
+            ? const TabBar(
+                tabs: [
+                  Tab(text: 'ابری', icon: Icon(Icons.cloud_outlined)),
+                  Tab(text: 'دستگاه', icon: Icon(Icons.phone_android)),
+                ],
+              )
             : null,
         actions: [
           IconButton(
@@ -206,11 +208,13 @@ class _TrackList extends StatelessWidget {
             selected: current,
             onTap: () => player.playFrom(tracks, index),
             leading: CircleAvatar(
-              child: Icon(current
-                  ? Icons.graphic_eq
-                  : track.isLocal
-                      ? Icons.phone_android
-                      : Icons.music_note),
+              child: Icon(
+                current
+                    ? Icons.graphic_eq
+                    : track.isLocal
+                        ? Icons.phone_android
+                        : Icons.music_note,
+              ),
             ),
             title:
                 Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -236,11 +240,16 @@ class _EmptyLibrary extends StatelessWidget {
         SizedBox(height: 120),
         Icon(Icons.cloud_queue_outlined, size: 64),
         SizedBox(height: 16),
-        Text('کتابخانهٔ شما خالی است',
-            style: TextStyle(fontSize: 20), textAlign: TextAlign.center),
+        Text(
+          'کتابخانهٔ شما خالی است',
+          style: TextStyle(fontSize: 20),
+          textAlign: TextAlign.center,
+        ),
         SizedBox(height: 8),
-        Text('با «افزودن موسیقی» فایل‌هایت را آپلود کن.',
-            textAlign: TextAlign.center),
+        Text(
+          'با «افزودن موسیقی» فایل‌هایت را آپلود کن.',
+          textAlign: TextAlign.center,
+        ),
       ],
     );
   }

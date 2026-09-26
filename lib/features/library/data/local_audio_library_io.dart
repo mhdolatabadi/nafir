@@ -5,8 +5,7 @@ import 'package:nafir/features/library/data/local_audio_library.dart';
 import 'package:nafir/features/library/data/track.dart';
 
 class AndroidLocalAudioLibrary implements LocalAudioLibrary {
-  static const _channel =
-      MethodChannel('ir.mhdolatabadi.nafir/local_audio');
+  static const _channel = MethodChannel('ir.mhdolatabadi.nafir/local_audio');
 
   @override
   bool get supported => Platform.isAndroid;
@@ -48,5 +47,4 @@ class AndroidLocalAudioLibrary implements LocalAudioLibrary {
   }
 }
 
-LocalAudioLibrary createLocalAudioLibrary() =>
-    AndroidLocalAudioLibrary();
+LocalAudioLibrary createLocalAudioLibrary() => AndroidLocalAudioLibrary();

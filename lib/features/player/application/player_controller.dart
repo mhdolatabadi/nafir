@@ -134,8 +134,8 @@ class PlayerController extends ChangeNotifier {
     _loading = true;
     _setStatus(PlayerStatus.loading);
     try {
-      final url = track.sourceUri ??
-          (await _api.streamLink(token!, track.id)).url;
+      final url =
+          track.sourceUri ?? (await _api.streamLink(token!, track.id)).url;
       if (request != _request) return;
       await _engine.load(track, url);
       if (request != _request) return;
