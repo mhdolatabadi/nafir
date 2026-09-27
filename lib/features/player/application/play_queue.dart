@@ -14,7 +14,7 @@ class PlayQueue {
         _order = List.generate(tracks.length, (i) => i),
         _position = start.clamp(0, tracks.length - 1);
 
-  final List<Track> _tracks;
+  List<Track> _tracks;
   final Random _random;
 
   /// Indexes into [_tracks] in play order; [_position] points into it.
@@ -67,6 +67,26 @@ class PlayQueue {
 
   /// The track before the current one; at the start it wraps only when
   /// repeating the whole queue, otherwise it stays on the first track.
+  /// Removes a track while preserving the current position and play order.
+  /// Returns false when [id] is the current track, which the player must stop.
+  bool remove(String id) {
+    final removedIndex = _tracks.indexWhere((track) => track.id == id);
+    if (removedIndex < 0) return true;
+    if (_order[_position] == removedIndex) return false;
+
+    final removedOrderPosition = _order.indexOf(removedIndex);
+    _tracks = List.unmodifiable([
+      for (var i = 0; i < _tracks.length; i++)
+        if (i != removedIndex) _tracks[i],
+    ]);
+    _order = [
+      for (final index in _order)
+        if (index != removedIndex) index > removedIndex ? index - 1 : index,
+    ];
+    if (removedOrderPosition < _position) _position--;
+    return true;
+  }
+
   Track previous() {
     if (_position > 0) {
       _position--;
