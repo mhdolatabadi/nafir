@@ -14,6 +14,7 @@ type Config struct {
 	AllowedOrigin string
 	Auth          *AuthHandlers
 	Tracks        *TrackHandlers
+	Playlists     *PlaylistHandlers
 }
 
 func NewHandler(config Config) http.Handler {
@@ -24,6 +25,9 @@ func NewHandler(config Config) http.Handler {
 	}
 	if config.Tracks != nil {
 		config.Tracks.register(mux)
+	}
+	if config.Playlists != nil {
+		config.Playlists.register(mux)
 	}
 	return cors(config.AllowedOrigin, mux)
 }
