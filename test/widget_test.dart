@@ -317,6 +317,38 @@ void main() {
     expect(find.text('کتابخانهٔ شما خالی است'), findsNothing);
   });
 
+  testWidgets('deleting a cloud track requires confirmation and removes it', (
+    tester,
+  ) async {
+    final tracks = FakeTracksApi(const [
+      Track(
+        id: 's1',
+        title: 'Song to delete',
+        contentType: 'audio/mpeg',
+        sizeBytes: 1,
+      ),
+    ]);
+    await _pumpApp(
+      tester,
+      tokenStore: MemoryTokenStore('valid-token'),
+      tracks: tracks,
+    );
+
+    await tester.tap(find.byTooltip('اقدامات آهنگ'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('حذف آهنگ'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('حذف «Song to delete»؟'), findsOneWidget);
+    expect(find.textContaining('قابل بازگشت نیست'), findsOneWidget);
+    await tester.tap(find.text('حذف برای همیشه'));
+    await tester.pumpAndSettle();
+
+    expect(tracks.deleted, ['s1']);
+    expect(find.text('Song to delete'), findsNothing);
+    expect(find.text('«Song to delete» حذف شد.'), findsOneWidget);
+  });
+
   testWidgets('a failed list load offers a retry', (tester) async {
     final tracks = FakeTracksApi(const [
       Track(id: 's1', title: 'Song', contentType: 'audio/mpeg', sizeBytes: 1),
