@@ -4,6 +4,8 @@ import 'package:nafir/features/playlists/data/playlist.dart';
 
 enum PlaylistsStatus { loading, loaded, error }
 
+enum AddTrackResult { added, alreadyPresent, failure }
+
 class PlaylistsController extends ChangeNotifier {
   PlaylistsController(
       {required PlaylistsApi api, required String? Function() token})
@@ -66,6 +68,28 @@ class PlaylistsController extends ChangeNotifier {
       return playlist;
     } catch (_) {
       return null;
+    }
+  }
+
+  Future<AddTrackResult> addTrack(String id, String trackId) async {
+    final token = _token();
+    if (token == null) return AddTrackResult.failure;
+    try {
+      final playlist = await _api.getPlaylist(token, id);
+      final trackIds = playlist.tracks.map((track) => track.id).toList();
+      if (trackIds.contains(trackId)) return AddTrackResult.alreadyPresent;
+      final updated = await _api.replacePlaylistTracks(
+        token,
+        id,
+        [...trackIds, trackId],
+      );
+      playlists = playlists
+          .map((item) => item.id == id ? updated : item)
+          .toList(growable: false);
+      notifyListeners();
+      return AddTrackResult.added;
+    } catch (_) {
+      return AddTrackResult.failure;
     }
   }
 
