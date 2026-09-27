@@ -111,6 +111,7 @@ func run() error {
 			AllowedOrigin: os.Getenv("WEB_ORIGIN"),
 			Auth:          authHandlers,
 			Tracks:        httpapi.NewTrackHandlers(store.NewTracks(pool), objects, tokens, maxUploadBytes),
+			Playlists:     httpapi.NewPlaylistHandlers(store.NewPlaylists(pool), tokens),
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
