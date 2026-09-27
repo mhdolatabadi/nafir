@@ -24,23 +24,35 @@ class UploadStatusCard extends StatelessWidget {
       listenable: controller,
       builder: (context, _) {
         final name = controller.fileName ?? '';
+        final step = controller.batchTotal > 1
+            ? 'فایل ${controller.batchIndex} از ${controller.batchTotal} — '
+            : '';
         final (String label, double? progress, bool closable) =
             switch (controller.phase) {
           UploadPhase.idle => ('', null, false),
           UploadPhase.reading => ('در حال خواندن فایل…', null, false),
-          UploadPhase.preparing => ('آماده‌سازی «$name»…', null, false),
+          UploadPhase.preparing => ('$stepآماده‌سازی «$name»…', null, false),
           UploadPhase.uploading => (
-              'در حال آپلود «$name» — ${(controller.progress * 100).round()}٪',
+              '$stepدر حال آپلود «$name» — ${(controller.progress * 100).round()}٪',
               controller.progress,
               false,
             ),
-          UploadPhase.verifying => ('در حال بررسی «$name»…', null, false),
+          UploadPhase.verifying => ('$stepدر حال بررسی «$name»…', null, false),
           UploadPhase.done => (
-              '«${controller.uploaded?.title ?? name}» به کتابخانه اضافه شد.',
+              controller.batchTotal > 1
+                  ? '${controller.batchCompleted} فایل به کتابخانه اضافه شد.'
+                  : '«${controller.uploaded?.title ?? name}» به کتابخانه اضافه شد.',
               1.0,
               true,
             ),
-          UploadPhase.failed => (errorMessage(controller.error!), 0.0, true),
+          UploadPhase.failed => (
+              controller.batchTotal > 1
+                  ? '${controller.batchCompleted} از ${controller.batchTotal} فایل آپلود شد؛ '
+                      '${controller.batchFailed} فایل ناموفق بود. دوباره انتخاب و تلاش کن.'
+                  : errorMessage(controller.error!),
+              0.0,
+              true,
+            ),
         };
         if (controller.phase == UploadPhase.idle) {
           return const SizedBox.shrink();
