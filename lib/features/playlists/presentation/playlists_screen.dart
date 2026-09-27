@@ -72,11 +72,17 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
             builder: (context, _) => switch (widget.controller.status) {
               PlaylistsStatus.loading =>
                 const Center(child: CircularProgressIndicator()),
-              PlaylistsStatus.error => _Retry(onRetry: widget.controller.load),
+              PlaylistsStatus.error => _Retry(
+                  onRetry: () async {
+                    await widget.controller.load();
+                  },
+                ),
               PlaylistsStatus.loaded => widget.controller.playlists.isEmpty
                   ? const Center(child: Text('هنوز Playlistی نساخته‌ای.'))
                   : RefreshIndicator(
-                      onRefresh: widget.controller.load,
+                      onRefresh: () async {
+                        await widget.controller.load();
+                      },
                       child: ListView.separated(
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
                         itemCount: widget.controller.playlists.length,
