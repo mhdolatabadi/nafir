@@ -69,6 +69,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
     await uploads.upload(file);
   }
 
+  void _openSettings() {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => SettingsScreen(cache: widget.cache),
+    ));
+  }
+
   Future<void> _refreshCloud() async {
     final ok = await widget.library.load();
     if (!ok && mounted) {
@@ -83,7 +89,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
     final hasDeviceLibrary = widget.localAudio.supported;
     final scaffold = Scaffold(
       appBar: AppBar(
-        title: const Text('نفیر'),
+        toolbarHeight: MediaQuery.sizeOf(context).width >= 720 ? 76 : 64,
+        titleSpacing: MediaQuery.sizeOf(context).width >= 720 ? 32 : 16,
+        title: const _NafirBrand(),
         bottom: hasDeviceLibrary
             ? const TabBar(
                 tabs: [
@@ -92,20 +100,65 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 ],
               )
             : null,
-        actions: [
-          IconButton(
-            tooltip: 'تنظیمات',
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
-              builder: (_) => SettingsScreen(cache: widget.cache),
-            )),
-            icon: const Icon(Icons.settings_outlined),
-          ),
-          IconButton(
-            tooltip: 'خروج (${widget.email})',
-            onPressed: widget.onLogout,
-            icon: const Icon(Icons.logout),
-          ),
-        ],
+        actions: MediaQuery.sizeOf(context).width >= 720
+            ? [
+                _AccountChip(email: widget.email),
+                const SizedBox(width: 8),
+                FilledButton.tonalIcon(
+                  onPressed: _openSettings,
+                  icon: const Icon(Icons.settings_outlined, size: 19),
+                  label: const Text('تنظیمات'),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: widget.onLogout,
+                  icon: const Icon(Icons.logout, size: 19),
+                  label: const Text('خروج'),
+                ),
+                const SizedBox(width: 32),
+              ]
+            : [
+                PopupMenuButton<_HeaderAction>(
+                  tooltip: 'حساب و تنظیمات',
+                  icon: const Icon(Icons.account_circle_outlined),
+                  onSelected: (action) {
+                    switch (action) {
+                      case _HeaderAction.settings:
+                        _openSettings();
+                      case _HeaderAction.logout:
+                        widget.onLogout();
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem<_HeaderAction>(
+                      enabled: false,
+                      child: Text(
+                        widget.email,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem(
+                      value: _HeaderAction.settings,
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.settings_outlined),
+                        title: Text('تنظیمات'),
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: _HeaderAction.logout,
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.logout),
+                        title: Text('خروج از حساب'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 8),
+              ],
       ),
       bottomNavigationBar: MiniPlayer(player: widget.player),
       floatingActionButton: ListenableBuilder(
@@ -188,6 +241,82 @@ class _LibraryScreenState extends State<LibraryScreen> {
           },
         ),
       );
+}
+
+enum _HeaderAction { settings, logout }
+
+class _NafirBrand extends StatelessWidget {
+  const _NafirBrand();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: colors.primaryContainer,
+            borderRadius: BorderRadius.circular(13),
+          ),
+          child: Icon(Icons.graphic_eq_rounded, color: colors.onPrimaryContainer),
+        ),
+        const SizedBox(width: 12),
+        const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'نفیر',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+            ),
+            Text(
+              'کتابخانهٔ موسیقی',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w400),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _AccountChip extends StatelessWidget {
+  const _AccountChip({required this.email});
+
+  final String email;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: email,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 220),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.account_circle_outlined, size: 19),
+            const SizedBox(width: 7),
+            Flexible(
+              child: Text(
+                email,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _ResponsiveLibraryContent extends StatelessWidget {
