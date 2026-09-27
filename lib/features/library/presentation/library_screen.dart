@@ -5,6 +5,8 @@ import 'package:nafir/features/library/application/local_audio_controller.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/presentation/mini_player.dart';
+import 'package:nafir/features/playlists/application/playlists_controller.dart';
+import 'package:nafir/features/playlists/presentation/playlists_screen.dart';
 import 'package:nafir/features/settings/application/cache_controller.dart';
 import 'package:nafir/features/settings/presentation/settings_screen.dart';
 import 'package:nafir/features/upload/application/upload_controller.dart';
@@ -17,6 +19,7 @@ class LibraryScreen extends StatefulWidget {
     required this.email,
     required this.onLogout,
     required this.library,
+    this.playlists,
     required this.localAudio,
     required this.uploads,
     required this.cache,
@@ -27,6 +30,7 @@ class LibraryScreen extends StatefulWidget {
   final String email;
   final VoidCallback onLogout;
   final LibraryController library;
+  final PlaylistsController? playlists;
   final LocalAudioController localAudio;
   final PlayerController player;
   final UploadController uploads;
@@ -93,6 +97,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
               )
             : null,
         actions: [
+          if (widget.playlists != null)
+            IconButton(
+              tooltip: 'Playlistها',
+              onPressed: _openPlaylists,
+              icon: const Icon(Icons.queue_music),
+            ),
           IconButton(
             tooltip: 'تنظیمات',
             onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
