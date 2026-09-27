@@ -48,8 +48,7 @@ abstract interface class PlaylistsApi {
   Future<List<Playlist>> listPlaylists(String token);
   Future<Playlist> getPlaylist(String token, String playlistId);
   Future<Playlist> createPlaylist(String token, String name);
-  Future<Playlist> renamePlaylist(
-      String token, String playlistId, String name);
+  Future<Playlist> renamePlaylist(String token, String playlistId, String name);
   Future<Playlist> replacePlaylistTracks(
       String token, String playlistId, List<String> trackIds);
   Future<void> deletePlaylist(String token, String playlistId);
