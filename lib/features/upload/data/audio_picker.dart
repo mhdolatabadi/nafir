@@ -26,36 +26,37 @@ extension AudioPickerBatch on AudioPicker {
 class FilePickerAudioPicker implements AudioPicker {
   @override
   Future<PickedAudio?> pick({void Function()? onReading}) async {
-    final files = await _pickFiles(
-      allowMultiple: false,
-      onReading: onReading,
-    );
-    return files?.single;
-  }
-
-  Future<List<PickedAudio>?> pickMultiple({
-    void Function()? onReading,
-  }) {
-    return _pickFiles(allowMultiple: true, onReading: onReading);
-  }
-
-  Future<List<PickedAudio>?> _pickFiles({
-    required bool allowMultiple,
-    void Function()? onReading,
-  }) async {
-    final result = await FilePicker.pickFiles(
+    final file = await FilePicker.pickFile(
       type: FileType.custom,
       allowedExtensions: audioContentTypes.keys.toList(),
-      allowMultiple: allowMultiple,
       onFileLoading: (status) {
         if (status == FilePickerStatus.picking) onReading?.call();
       },
     );
-    if (result.isEmpty) return null;
+    if (file == null) return null;
+    return (await _toPickedAudio([file])).single;
+  }
 
+  Future<List<PickedAudio>?> pickMultiple({
+    void Function()? onReading,
+  }) async {
+    final files = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: audioContentTypes.keys.toList(),
+      onFileLoading: (status) {
+        if (status == FilePickerStatus.picking) onReading?.call();
+      },
+    );
+    if (files.isEmpty) return null;
+    return _toPickedAudio(files);
+  }
+
+  Future<List<PickedAudio>> _toPickedAudio(
+    List<PlatformFile> files,
+  ) async {
     final picked = <PickedAudio>[];
-    for (var index = 0; index < result.length; index++) {
-      final file = result[index];
+    for (var index = 0; index < files.length; index++) {
+      final file = files[index];
       final sizeBytes = await file.length();
       if (sizeBytes == null) {
         await _clearPickerCache();
@@ -74,7 +75,7 @@ class FilePickerAudioPicker implements AudioPicker {
           },
           // Clearing after the final sequential upload also releases the
           // temporary copies of every file in this picker batch.
-          release: index == result.length - 1 ? _clearPickerCache : null,
+          release: index == files.length - 1 ? _clearPickerCache : null,
         ),
       );
     }
