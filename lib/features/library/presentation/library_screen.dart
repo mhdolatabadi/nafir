@@ -68,9 +68,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   Future<void> _pickAndUpload() async {
     final uploads = widget.uploads;
-    final file = await widget.picker.pick(onReading: uploads.readingFile);
-    if (file == null) return uploads.pickCancelled();
-    await uploads.upload(file);
+    final files = await widget.picker.pickMany(onReading: uploads.readingFile);
+    if (files == null) return uploads.pickCancelled();
+    await uploads.uploadAll(files);
   }
 
   void _openPlaylists() {

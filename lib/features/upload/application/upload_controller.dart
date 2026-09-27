@@ -50,6 +50,10 @@ class UploadController extends ChangeNotifier {
   double _progress = 0;
   UploadError? _error;
   Track? _uploaded;
+  int _batchTotal = 1;
+  int _batchIndex = 1;
+  int _batchCompleted = 0;
+  int _batchFailed = 0;
 
   UploadPhase get phase => _phase;
   String? get fileName => _fileName;
@@ -58,6 +62,10 @@ class UploadController extends ChangeNotifier {
   double get progress => _progress;
   UploadError? get error => _error;
   Track? get uploaded => _uploaded;
+  int get batchTotal => _batchTotal;
+  int get batchIndex => _batchIndex;
+  int get batchCompleted => _batchCompleted;
+  int get batchFailed => _batchFailed;
   bool get isBusy =>
       _phase == UploadPhase.reading ||
       _phase == UploadPhase.preparing ||
@@ -92,6 +100,37 @@ class UploadController extends ChangeNotifier {
 
   Future<void> upload(PickedAudio file) async {
     if (isBusy && _phase != UploadPhase.reading) return;
+    _batchTotal = 1;
+    _batchIndex = 1;
+    _batchCompleted = 0;
+    _batchFailed = 0;
+    await _uploadOne(file);
+    if (_phase == UploadPhase.done) _batchCompleted = 1;
+    if (_phase == UploadPhase.failed) _batchFailed = 1;
+  }
+
+  Future<void> uploadAll(List<PickedAudio> files) async {
+    if (files.isEmpty || (isBusy && _phase != UploadPhase.reading)) return;
+    _batchTotal = files.length;
+    _batchIndex = 1;
+    _batchCompleted = 0;
+    _batchFailed = 0;
+    for (var index = 0; index < files.length; index++) {
+      _batchIndex = index + 1;
+      await _uploadOne(files[index]);
+      if (_phase == UploadPhase.done) {
+        _batchCompleted++;
+      } else if (_phase == UploadPhase.failed) {
+        _batchFailed++;
+      } else if (_phase == UploadPhase.idle) {
+        if (index < files.length - 1) await files.last.release?.call();
+        return;
+      }
+    }
+    _setPhase(_batchFailed == 0 ? UploadPhase.done : UploadPhase.failed);
+  }
+
+  Future<void> _uploadOne(PickedAudio file) async {
     _fileName = file.name;
     _progress = 0;
     _error = null;
