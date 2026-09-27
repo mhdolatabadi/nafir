@@ -125,8 +125,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
         : scaffold;
   }
 
-  Widget _cloudLibrary() => Column(
-        children: [
+  Widget _cloudLibrary() => _ResponsiveLibraryContent(
+        child: Column(
+          children: [
           UploadStatusCard(controller: widget.uploads),
           Expanded(
             child: ListenableBuilder(
@@ -147,10 +148,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
               },
             ),
           ),
-        ],
+          ],
+        ),
       );
 
-  Widget _deviceLibrary() => ListenableBuilder(
+  Widget _deviceLibrary() => _ResponsiveLibraryContent(
+        child: ListenableBuilder(
         listenable: widget.localAudio,
         builder: (context, _) => switch (widget.localAudio.status) {
           LocalAudioViewStatus.idle ||
@@ -182,7 +185,34 @@ class _LibraryScreenState extends State<LibraryScreen> {
             ),
           LocalAudioViewStatus.unsupported => const SizedBox.shrink(),
         },
+      ),
       );
+}
+
+class _ResponsiveLibraryContent extends StatelessWidget {
+  const _ResponsiveLibraryContent({required this.child});
+
+  static const double _maxWidth = 1180;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final horizontal = constraints.maxWidth >= 900 ? 32.0 : 12.0;
+        return Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _maxWidth),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: horizontal),
+              child: child,
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 class _TrackList extends StatelessWidget {
