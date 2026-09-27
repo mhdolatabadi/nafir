@@ -273,6 +273,26 @@ void main() {
       expect(loaded(), ['c']);
     });
 
+    test('deleting the current track stops and clears playback', () async {
+      await player.playFrom(_abc, 1);
+
+      await player.removeTrack('b');
+
+      expect(player.track, isNull);
+      expect(player.status, PlayerStatus.idle);
+      expect(engine.calls, contains('stop'));
+    });
+
+    test('deleting an upcoming track removes it from the queue', () async {
+      await player.playFrom(_abc, 0);
+
+      await player.removeTrack('b');
+      await player.next();
+
+      expect(player.track?.id, 'c');
+      expect(loaded(), ['a', 'c']);
+    });
+
     test('shuffle carries over to a newly started queue', () async {
       player.toggleShuffle();
       await player.playFrom(_abc, 0);
