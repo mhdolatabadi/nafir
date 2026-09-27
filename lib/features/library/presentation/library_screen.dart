@@ -128,64 +128,65 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Widget _cloudLibrary() => _ResponsiveLibraryContent(
         child: Column(
           children: [
-          UploadStatusCard(controller: widget.uploads),
-          Expanded(
-            child: ListenableBuilder(
-              listenable: widget.library,
-              builder: (context, _) => switch (widget.library.status) {
-                LibraryStatus.loading =>
-                  const Center(child: CircularProgressIndicator()),
-                LibraryStatus.error => _LoadError(onRetry: widget.library.load),
-                LibraryStatus.loaded => RefreshIndicator(
-                    onRefresh: _refreshCloud,
-                    child: widget.library.tracks.isEmpty
-                        ? const _EmptyLibrary()
-                        : _TrackList(
-                            tracks: widget.library.tracks,
-                            player: widget.player,
-                          ),
-                  ),
-              },
+            UploadStatusCard(controller: widget.uploads),
+            Expanded(
+              child: ListenableBuilder(
+                listenable: widget.library,
+                builder: (context, _) => switch (widget.library.status) {
+                  LibraryStatus.loading =>
+                    const Center(child: CircularProgressIndicator()),
+                  LibraryStatus.error =>
+                    _LoadError(onRetry: widget.library.load),
+                  LibraryStatus.loaded => RefreshIndicator(
+                      onRefresh: _refreshCloud,
+                      child: widget.library.tracks.isEmpty
+                          ? const _EmptyLibrary()
+                          : _TrackList(
+                              tracks: widget.library.tracks,
+                              player: widget.player,
+                            ),
+                    ),
+                },
+              ),
             ),
-          ),
           ],
         ),
       );
 
   Widget _deviceLibrary() => _ResponsiveLibraryContent(
         child: ListenableBuilder(
-        listenable: widget.localAudio,
-        builder: (context, _) => switch (widget.localAudio.status) {
-          LocalAudioViewStatus.idle ||
-          LocalAudioViewStatus.loading =>
-            const Center(child: CircularProgressIndicator()),
-          LocalAudioViewStatus.loaded => widget.localAudio.tracks.isEmpty
-              ? _DeviceMessage(
-                  icon: Icons.audio_file_outlined,
-                  message: 'فایل صوتی‌ای روی دستگاه پیدا نشد.',
-                  onRetry: widget.localAudio.load,
-                )
-              : RefreshIndicator(
-                  onRefresh: widget.localAudio.load,
-                  child: _TrackList(
-                    tracks: widget.localAudio.tracks,
-                    player: widget.player,
+          listenable: widget.localAudio,
+          builder: (context, _) => switch (widget.localAudio.status) {
+            LocalAudioViewStatus.idle ||
+            LocalAudioViewStatus.loading =>
+              const Center(child: CircularProgressIndicator()),
+            LocalAudioViewStatus.loaded => widget.localAudio.tracks.isEmpty
+                ? _DeviceMessage(
+                    icon: Icons.audio_file_outlined,
+                    message: 'فایل صوتی‌ای روی دستگاه پیدا نشد.',
+                    onRetry: widget.localAudio.load,
+                  )
+                : RefreshIndicator(
+                    onRefresh: widget.localAudio.load,
+                    child: _TrackList(
+                      tracks: widget.localAudio.tracks,
+                      player: widget.player,
+                    ),
                   ),
-                ),
-          LocalAudioViewStatus.permissionDenied => _DeviceMessage(
-              icon: Icons.folder_off_outlined,
-              message:
-                  'برای نمایش موسیقی‌های دستگاه، اجازهٔ دسترسی صوتی لازم است.',
-              onRetry: widget.localAudio.load,
-            ),
-          LocalAudioViewStatus.error => _DeviceMessage(
-              icon: Icons.error_outline,
-              message: 'خواندن موسیقی‌های دستگاه ناموفق بود.',
-              onRetry: widget.localAudio.load,
-            ),
-          LocalAudioViewStatus.unsupported => const SizedBox.shrink(),
-        },
-      ),
+            LocalAudioViewStatus.permissionDenied => _DeviceMessage(
+                icon: Icons.folder_off_outlined,
+                message:
+                    'برای نمایش موسیقی‌های دستگاه، اجازهٔ دسترسی صوتی لازم است.',
+                onRetry: widget.localAudio.load,
+              ),
+            LocalAudioViewStatus.error => _DeviceMessage(
+                icon: Icons.error_outline,
+                message: 'خواندن موسیقی‌های دستگاه ناموفق بود.',
+                onRetry: widget.localAudio.load,
+              ),
+            LocalAudioViewStatus.unsupported => const SizedBox.shrink(),
+          },
+        ),
       );
 }
 
