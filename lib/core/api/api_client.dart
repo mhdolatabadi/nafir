@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:nafir/features/auth/data/auth_models.dart';
 import 'package:nafir/features/library/data/track.dart';
+import 'package:nafir/features/playlists/data/playlist.dart';
 import 'package:nafir/features/upload/data/upload_models.dart';
 
 class ApiException implements Exception {
@@ -43,7 +44,17 @@ abstract interface class TracksApi {
   Future<void> deleteTrack(String token, String trackId);
 }
 
-class ApiClient implements AuthApi, TracksApi {
+abstract interface class PlaylistsApi {
+  Future<List<Playlist>> listPlaylists(String token);
+  Future<Playlist> getPlaylist(String token, String playlistId);
+  Future<Playlist> createPlaylist(String token, String name);
+  Future<Playlist> renamePlaylist(String token, String playlistId, String name);
+  Future<Playlist> replacePlaylistTracks(
+      String token, String playlistId, List<String> trackIds);
+  Future<void> deletePlaylist(String token, String playlistId);
+}
+
+class ApiClient implements AuthApi, TracksApi, PlaylistsApi {
   ApiClient(this.baseUri, {http.Client? httpClient})
       : _httpClient = httpClient ?? http.Client();
 
@@ -115,6 +126,50 @@ class ApiClient implements AuthApi, TracksApi {
   @override
   Future<void> deleteTrack(String token, String trackId) async {
     await _send('DELETE', '/api/v1/tracks/$trackId',
+        token: token, expectBody: false);
+  }
+
+  @override
+  Future<List<Playlist>> listPlaylists(String token) async {
+    final body = await _send('GET', '/api/v1/playlists', token: token);
+    return (body['playlists'] as List<dynamic>)
+        .map((json) => Playlist.fromJson(json as Map<String, dynamic>))
+        .toList();
+  }
+
+  @override
+  Future<Playlist> getPlaylist(String token, String playlistId) async {
+    final body =
+        await _send('GET', '/api/v1/playlists/$playlistId', token: token);
+    return Playlist.fromJson(body);
+  }
+
+  @override
+  Future<Playlist> createPlaylist(String token, String name) async {
+    final body = await _send('POST', '/api/v1/playlists',
+        token: token, body: {'name': name});
+    return Playlist.fromJson(body);
+  }
+
+  @override
+  Future<Playlist> renamePlaylist(
+      String token, String playlistId, String name) async {
+    final body = await _send('PUT', '/api/v1/playlists/$playlistId',
+        token: token, body: {'name': name});
+    return Playlist.fromJson(body);
+  }
+
+  @override
+  Future<Playlist> replacePlaylistTracks(
+      String token, String playlistId, List<String> trackIds) async {
+    final body = await _send('PUT', '/api/v1/playlists/$playlistId/tracks',
+        token: token, body: {'trackIds': trackIds});
+    return Playlist.fromJson(body);
+  }
+
+  @override
+  Future<void> deletePlaylist(String token, String playlistId) async {
+    await _send('DELETE', '/api/v1/playlists/$playlistId',
         token: token, expectBody: false);
   }
 
