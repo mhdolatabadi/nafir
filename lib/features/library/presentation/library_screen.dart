@@ -242,6 +242,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                           : _TrackList(
                               tracks: widget.library.tracks,
                               player: widget.player,
+                              playlists: widget.playlists,
                             ),
                     ),
                 },
@@ -421,10 +422,75 @@ class _ResponsiveLibraryContent extends StatelessWidget {
 }
 
 class _TrackList extends StatelessWidget {
-  const _TrackList({required this.tracks, required this.player});
+  const _TrackList({
+    required this.tracks,
+    required this.player,
+    this.playlists,
+  });
 
   final List<Track> tracks;
   final PlayerController player;
+  final PlaylistsController? playlists;
+
+  Future<void> _addToPlaylist(BuildContext context, Track track) async {
+    final controller = playlists;
+    if (controller == null) return;
+    final loaded = await controller.load();
+    if (!context.mounted) return;
+    if (!loaded) {
+      _message(context, 'دریافت Playlistها ناموفق بود.');
+      return;
+    }
+    if (controller.playlists.isEmpty) {
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Playlistی نداری'),
+          content: const Text('اول از بخش Playlistها یک Playlist بساز.'),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('متوجه شدم'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+    final playlistId = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('افزودن به Playlist'),
+        children: [
+          for (final playlist in controller.playlists)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, playlist.id),
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.queue_music),
+                title: Text(playlist.name),
+                subtitle: Text('${playlist.trackCount} قطعه موسیقی'),
+              ),
+            ),
+        ],
+      ),
+    );
+    if (playlistId == null) return;
+    final result = await controller.addTrack(playlistId, track.id);
+    if (!context.mounted) return;
+    switch (result) {
+      case AddTrackResult.added:
+        _message(context, 'آهنگ به Playlist اضافه شد.');
+      case AddTrackResult.alreadyPresent:
+        _message(context, 'این آهنگ از قبل در Playlist است.');
+      case AddTrackResult.failure:
+        _message(context, 'افزودن آهنگ به Playlist ناموفق بود.');
+    }
+  }
+
+  void _message(BuildContext context, String text) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -459,6 +525,13 @@ class _TrackList extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
+            trailing: playlists == null
+                ? null
+                : IconButton(
+                    tooltip: 'افزودن به Playlist',
+                    onPressed: () => _addToPlaylist(context, track),
+                    icon: const Icon(Icons.playlist_add),
+                  ),
           );
         },
       ),
