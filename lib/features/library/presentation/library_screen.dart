@@ -91,7 +91,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
       appBar: AppBar(
         toolbarHeight: MediaQuery.sizeOf(context).width >= 720 ? 76 : 64,
         titleSpacing: MediaQuery.sizeOf(context).width >= 720 ? 32 : 16,
-        title: const _NafirBrand(),
+        title: _NafirBrand(
+          compact: MediaQuery.sizeOf(context).width < 720,
+        ),
         bottom: hasDeviceLibrary
             ? const TabBar(
                 tabs: [
@@ -246,7 +248,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
 enum _HeaderAction { settings, logout }
 
 class _NafirBrand extends StatelessWidget {
-  const _NafirBrand();
+  const _NafirBrand({required this.compact});
+
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -265,20 +269,26 @@ class _NafirBrand extends StatelessWidget {
               Icon(Icons.graphic_eq_rounded, color: colors.onPrimaryContainer),
         ),
         const SizedBox(width: 12),
-        const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'نفیر',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-            ),
-            Text(
-              'کتابخانهٔ موسیقی',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w400),
-            ),
-          ],
-        ),
+        if (compact)
+          const Text(
+            'نفیر',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          )
+        else
+          const Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'نفیر',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+              ),
+              Text(
+                'کتابخانهٔ موسیقی',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w400),
+              ),
+            ],
+          ),
       ],
     );
   }
