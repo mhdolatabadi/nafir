@@ -261,7 +261,8 @@ class _NafirBrand extends StatelessWidget {
             color: colors.primaryContainer,
             borderRadius: BorderRadius.circular(13),
           ),
-          child: Icon(Icons.graphic_eq_rounded, color: colors.onPrimaryContainer),
+          child:
+              Icon(Icons.graphic_eq_rounded, color: colors.onPrimaryContainer),
         ),
         const SizedBox(width: 12),
         const Column(
