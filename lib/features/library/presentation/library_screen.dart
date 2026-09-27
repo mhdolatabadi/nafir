@@ -106,16 +106,22 @@ class _LibraryScreenState extends State<LibraryScreen> {
             ? [
                 _AccountChip(email: widget.email),
                 const SizedBox(width: 8),
-                FilledButton.tonalIcon(
-                  onPressed: _openSettings,
-                  icon: const Icon(Icons.settings_outlined, size: 19),
-                  label: const Text('تنظیمات'),
+                Tooltip(
+                  message: 'تنظیمات',
+                  child: FilledButton.tonalIcon(
+                    onPressed: _openSettings,
+                    icon: const Icon(Icons.settings_outlined, size: 19),
+                    label: const Text('تنظیمات'),
+                  ),
                 ),
                 const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: widget.onLogout,
-                  icon: const Icon(Icons.logout, size: 19),
-                  label: const Text('خروج'),
+                Tooltip(
+                  message: 'خروج',
+                  child: OutlinedButton.icon(
+                    onPressed: widget.onLogout,
+                    icon: const Icon(Icons.logout, size: 19),
+                    label: const Text('خروج'),
+                  ),
                 ),
                 const SizedBox(width: 32),
               ]
