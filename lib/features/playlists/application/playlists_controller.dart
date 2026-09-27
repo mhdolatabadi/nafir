@@ -5,7 +5,8 @@ import 'package:nafir/features/playlists/data/playlist.dart';
 enum PlaylistsStatus { loading, loaded, error }
 
 class PlaylistsController extends ChangeNotifier {
-  PlaylistsController({required PlaylistsApi api, required String? Function() token})
+  PlaylistsController(
+      {required PlaylistsApi api, required String? Function() token})
       : _api = api,
         _token = token;
 
