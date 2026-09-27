@@ -95,7 +95,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                             ),
                             title: Text(playlist.name),
                             subtitle: Text(
-                              playlist.trackCount.toString() + ' قطعه موسیقی',
+                              '${playlist.trackCount} قطعه موسیقی',
                             ),
                             trailing: const Icon(Icons.chevron_left),
                             onTap: () => _open(playlist),
@@ -278,10 +278,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                   padding:
                                       const EdgeInsets.fromLTRB(8, 4, 8, 96),
                                   itemCount: current.tracks.length,
-                                  onReorder: (oldIndex, newIndex) {
+                                  onReorderItem: (oldIndex, newIndex) {
                                     final tracks =
                                         List<Track>.from(current.tracks);
-                                    if (newIndex > oldIndex) newIndex--;
                                     tracks.insert(
                                       newIndex,
                                       tracks.removeAt(oldIndex),
