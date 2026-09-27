@@ -149,7 +149,8 @@ void main() {
     expect(api.deleted, isEmpty);
   });
 
-  test('uploads a selected batch sequentially and reports its summary', () async {
+  test('uploads a selected batch sequentially and reports its summary',
+      () async {
     final released = <String>[];
 
     await controller.uploadAll([
