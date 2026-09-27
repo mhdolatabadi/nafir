@@ -255,41 +255,62 @@ class _NafirBrand extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: colors.primaryContainer,
-            borderRadius: BorderRadius.circular(13),
-          ),
-          child:
-              Icon(Icons.graphic_eq_rounded, color: colors.onPrimaryContainer),
-        ),
-        const SizedBox(width: 12),
-        if (compact)
-          const Text(
-            'نفیر',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-          )
-        else
-          const Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'نفیر',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final showSubtitle = !compact && constraints.maxWidth >= 220;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: colors.primaryContainer,
+                borderRadius: BorderRadius.circular(13),
               ),
-              Text(
-                'کتابخانهٔ موسیقی',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w400),
+              child: Icon(
+                Icons.graphic_eq_rounded,
+                color: colors.onPrimaryContainer,
               ),
-            ],
-          ),
-      ],
+            ),
+            const SizedBox(width: 12),
+            Flexible(
+              child: showSubtitle
+                  ? const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'نفیر',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          'کتابخانهٔ موسیقی',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ],
+                    )
+                  : const Text(
+                      'نفیر',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
