@@ -45,6 +45,29 @@ void main() {
     expect(library.tracks, hasLength(1));
   });
 
+  test('deleting removes a track from the visible library', () async {
+    final api = FakeTracksApi([_song]);
+    final library = LibraryController(api: api, token: () => 'tok');
+    await library.load();
+
+    expect(await library.deleteTrack('s1'), isTrue);
+
+    expect(api.deleted, ['s1']);
+    expect(library.tracks, isEmpty);
+    expect(library.isDeleting('s1'), isFalse);
+  });
+
+  test('a failed delete keeps the track and clears busy state', () async {
+    final api = FakeTracksApi([_song])..deleteError = Exception('offline');
+    final library = LibraryController(api: api, token: () => 'tok');
+    await library.load();
+
+    expect(await library.deleteTrack('s1'), isFalse);
+
+    expect(library.tracks, [_song]);
+    expect(library.isDeleting('s1'), isFalse);
+  });
+
   test('clear forgets the tracks', () async {
     final library =
         LibraryController(api: FakeTracksApi([_song]), token: () => 'tok');
