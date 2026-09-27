@@ -6,6 +6,7 @@ import 'package:nafir/features/library/application/library_controller.dart';
 import 'package:nafir/features/library/application/local_audio_controller.dart';
 import 'package:nafir/features/library/presentation/library_screen.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
+import 'package:nafir/features/playlists/application/playlists_controller.dart';
 import 'package:nafir/features/settings/application/cache_controller.dart';
 import 'package:nafir/features/upload/application/upload_controller.dart';
 import 'package:nafir/features/upload/data/audio_picker.dart';
@@ -16,6 +17,7 @@ class AuthGate extends StatefulWidget {
     super.key,
     required this.controller,
     required this.library,
+    this.playlists,
     required this.localAudio,
     required this.uploads,
     required this.cache,
@@ -26,6 +28,7 @@ class AuthGate extends StatefulWidget {
   final AuthController controller;
   final PlayerController player;
   final LibraryController library;
+  final PlaylistsController? playlists;
   final LocalAudioController localAudio;
   final UploadController uploads;
   final CacheController cache;
@@ -60,10 +63,12 @@ class _AuthGateState extends State<AuthGate> {
                 // Never show one account's tracks to the next one.
                 widget.player.stop();
                 widget.library.clear();
+                widget.playlists?.clear();
                 widget.uploads.dismiss();
                 controller.logout();
               },
               library: widget.library,
+              playlists: widget.playlists,
               localAudio: widget.localAudio,
               player: widget.player,
               uploads: widget.uploads,
