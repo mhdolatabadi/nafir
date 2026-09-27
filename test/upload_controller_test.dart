@@ -149,6 +149,29 @@ void main() {
     expect(api.deleted, isEmpty);
   });
 
+  test('uploads a selected batch sequentially and reports its summary', () async {
+    final released = <String>[];
+
+    await controller.uploadAll([
+      _file('first.mp3', onRelease: () => released.add('first')),
+      _file('notes.txt', onRelease: () => released.add('notes')),
+      _file('last.mp3', onRelease: () => released.add('last')),
+    ]);
+
+    expect(controller.phase, UploadPhase.failed);
+    expect(controller.batchTotal, 3);
+    expect(controller.batchIndex, 3);
+    expect(controller.batchCompleted, 2);
+    expect(controller.batchFailed, 1);
+    expect(api.calls, [
+      'create:tok:first.mp3:4',
+      'complete:t1',
+      'create:tok:last.mp3:4',
+      'complete:t1',
+    ]);
+    expect(released, ['first', 'notes', 'last']);
+  });
+
   test('rejects unsupported, empty and oversized files without calling the API',
       () async {
     for (final (file, error) in [
