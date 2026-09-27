@@ -164,8 +164,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
 
   Future<void> _save(List<String> ids) async {
     setState(() => busy = true);
-    final saved =
-        await widget.controller.replaceTracks(widget.playlistId, ids);
+    final saved = await widget.controller.replaceTracks(widget.playlistId, ids);
     if (!mounted) return;
     setState(() {
       playlist = saved;
@@ -305,8 +304,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                     final track = current.tracks[index];
                                     return ListTile(
                                       key: ValueKey(track.id),
-                                      leading:
-                                          const Icon(Icons.drag_handle),
+                                      leading: const Icon(Icons.drag_handle),
                                       title: Text(track.title),
                                       subtitle: Text(track.artist ?? ''),
                                       onTap: () => widget.player
