@@ -14,6 +14,7 @@ import 'package:nafir/features/player/application/media_session.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/data/audio_cache.dart';
 import 'package:nafir/features/player/data/audio_engine.dart';
+import 'package:nafir/features/playlists/application/playlists_controller.dart';
 import 'package:nafir/features/settings/application/cache_controller.dart';
 import 'package:nafir/features/upload/application/upload_controller.dart';
 import 'package:nafir/features/upload/data/audio_picker.dart';
@@ -32,6 +33,7 @@ class NafirApp extends StatefulWidget {
     this.authApi,
     this.tokenStore,
     this.tracksApi,
+    this.playlistsApi,
     this.uploader,
     this.picker,
     this.audioEngine,
@@ -46,6 +48,7 @@ class NafirApp extends StatefulWidget {
   final AuthApi? authApi;
   final TokenStore? tokenStore;
   final TracksApi? tracksApi;
+  final PlaylistsApi? playlistsApi;
   final StorageUploader? uploader;
   final AudioPicker? picker;
   final AudioEngine? audioEngine;
@@ -72,6 +75,16 @@ class _NafirAppState extends State<NafirApp> {
         );
 
   late final TracksApi? _tracksApi = widget.tracksApi ?? _apiClient;
+  late final PlaylistsApi? _playlistsApi = widget.playlistsApi ??
+      (_apiClient != null
+          ? _apiClient
+          : _tracksApi is PlaylistsApi
+              ? _tracksApi as PlaylistsApi
+              : null);
+  late final PlaylistsController? _playlists = _playlistsApi == null
+      ? null
+      : PlaylistsController(api: _playlistsApi, token: () => _auth?.token);
+
   late final UploadController? _uploads = _tracksApi == null
       ? null
       : UploadController(
@@ -117,6 +130,7 @@ class _NafirAppState extends State<NafirApp> {
     _auth?.dispose();
     _uploads?.dispose();
     _library?.dispose();
+    _playlists?.dispose();
     _localAudio.dispose();
     _cache.dispose();
     super.dispose();
@@ -151,6 +165,7 @@ class _NafirAppState extends State<NafirApp> {
                 controller: _auth,
                 player: _player,
                 library: _library,
+                playlists: _playlists,
                 localAudio: _localAudio,
                 uploads: _uploads,
                 cache: _cache,
