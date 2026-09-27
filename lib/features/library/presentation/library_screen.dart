@@ -73,6 +73,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
     await uploads.upload(file);
   }
 
+  void _openPlaylists() {
+    final playlists = widget.playlists;
+    if (playlists == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PlaylistsScreen(
+          controller: playlists,
+          libraryTracks: widget.library.tracks,
+          player: widget.player,
+        ),
+      ),
+    );
+  }
+
   Future<void> _refreshCloud() async {
     final ok = await widget.library.load();
     if (!ok && mounted) {
