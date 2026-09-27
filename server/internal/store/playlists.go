@@ -66,7 +66,9 @@ func (p *Playlists) ForOwner(ctx context.Context, ownerID, playlistID string) (P
 	}
 
 	rows, err := p.pool.Query(ctx, `
-		SELECT `+trackColumns+`
+		SELECT tracks.id::text, tracks.owner_id::text, tracks.status, tracks.title,
+		       tracks.artist, tracks.album, tracks.duration_ms, tracks.storage_key,
+		       tracks.content_type, tracks.size_bytes, tracks.created_at
 		FROM playlist_tracks pt
 		JOIN tracks ON tracks.id = pt.track_id
 		WHERE pt.playlist_id = $1::uuid AND tracks.owner_id::text = $2 AND tracks.status = 'ready'
