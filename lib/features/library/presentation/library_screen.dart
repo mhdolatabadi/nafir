@@ -421,7 +421,7 @@ class _ResponsiveLibraryContent extends StatelessWidget {
   }
 }
 
-class _TrackList extends StatelessWidget {
+class _TrackList extends StatefulWidget {
   const _TrackList({
     required this.tracks,
     required this.player,
@@ -432,8 +432,34 @@ class _TrackList extends StatelessWidget {
   final PlayerController player;
   final PlaylistsController? playlists;
 
+  @override
+  State<_TrackList> createState() => _TrackListState();
+}
+
+class _TrackListState extends State<_TrackList> {
+  final TextEditingController _search = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  List<Track> get _filteredTracks {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return widget.tracks;
+    return widget.tracks.where((track) {
+      final searchable = [track.title, track.artist, track.album]
+          .whereType<String>()
+          .join(' ')
+          .toLowerCase();
+      return searchable.contains(query);
+    }).toList(growable: false);
+  }
+
   Future<void> _addToPlaylist(BuildContext context, Track track) async {
-    final controller = playlists;
+    final controller = widget.playlists;
     if (controller == null) return;
     final loaded = await controller.load();
     if (!context.mounted) return;
@@ -494,47 +520,94 @@ class _TrackList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: player,
-      builder: (context, _) => ListView.builder(
-        padding: const EdgeInsets.only(bottom: 88),
-        itemCount: tracks.length,
-        itemBuilder: (context, index) {
-          final track = tracks[index];
-          final current = player.track?.id == track.id;
-          final details = [track.artist, track.album]
-              .whereType<String>()
-              .where((text) => text.isNotEmpty)
-              .join(' — ');
-          return ListTile(
-            selected: current,
-            onTap: () => player.playFrom(tracks, index),
-            leading: CircleAvatar(
-              child: Icon(
-                current
-                    ? Icons.graphic_eq
-                    : track.isLocal
-                        ? Icons.phone_android
-                        : Icons.music_note,
-              ),
-            ),
-            title:
-                Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-            subtitle: Text(
-              details.isEmpty ? formatSize(track.sizeBytes) : details,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            trailing: playlists == null
-                ? null
-                : IconButton(
-                    tooltip: 'افزودن به Playlist',
-                    onPressed: () => _addToPlaylist(context, track),
-                    icon: const Icon(Icons.playlist_add),
-                  ),
-          );
-        },
-      ),
+    final tracks = _filteredTracks;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
+          child: SearchBar(
+            controller: _search,
+            hintText: 'جست‌وجوی آهنگ، خواننده یا آلبوم',
+            leading: const Icon(Icons.search),
+            trailing: [
+              if (_query.isNotEmpty)
+                IconButton(
+                  tooltip: 'پاک کردن جست‌وجو',
+                  onPressed: () {
+                    _search.clear();
+                    setState(() => _query = '');
+                  },
+                  icon: const Icon(Icons.close),
+                ),
+            ],
+            onChanged: (value) => setState(() => _query = value),
+          ),
+        ),
+        Expanded(
+          child: ListenableBuilder(
+            listenable: widget.player,
+            builder: (context, _) {
+              if (tracks.isEmpty) {
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: const [
+                    SizedBox(height: 96),
+                    Icon(Icons.search_off, size: 52),
+                    SizedBox(height: 12),
+                    Text(
+                      'آهنگی با این جست‌وجو پیدا نشد.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                );
+              }
+              return ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(bottom: 88),
+                itemCount: tracks.length,
+                itemBuilder: (context, index) {
+                  final track = tracks[index];
+                  final current = widget.player.track?.id == track.id;
+                  final details = [track.artist, track.album]
+                      .whereType<String>()
+                      .where((text) => text.isNotEmpty)
+                      .join(' — ');
+                  return ListTile(
+                    selected: current,
+                    onTap: () => widget.player.playFrom(tracks, index),
+                    leading: CircleAvatar(
+                      child: Icon(
+                        current
+                            ? Icons.graphic_eq
+                            : track.isLocal
+                                ? Icons.phone_android
+                                : Icons.music_note,
+                      ),
+                    ),
+                    title: Text(
+                      track.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      details.isEmpty ? formatSize(track.sizeBytes) : details,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: widget.playlists == null
+                        ? null
+                        : IconButton(
+                            tooltip: 'افزودن به Playlist',
+                            onPressed: () => _addToPlaylist(context, track),
+                            icon: const Icon(Icons.playlist_add),
+                          ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
