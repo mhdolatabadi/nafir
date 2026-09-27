@@ -5,6 +5,8 @@ import 'package:nafir/features/library/application/local_audio_controller.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/presentation/mini_player.dart';
+import 'package:nafir/features/playlists/application/playlists_controller.dart';
+import 'package:nafir/features/playlists/presentation/playlists_screen.dart';
 import 'package:nafir/features/settings/application/cache_controller.dart';
 import 'package:nafir/features/settings/presentation/settings_screen.dart';
 import 'package:nafir/features/upload/application/upload_controller.dart';
@@ -17,6 +19,7 @@ class LibraryScreen extends StatefulWidget {
     required this.email,
     required this.onLogout,
     required this.library,
+    this.playlists,
     required this.localAudio,
     required this.uploads,
     required this.cache,
@@ -27,6 +30,7 @@ class LibraryScreen extends StatefulWidget {
   final String email;
   final VoidCallback onLogout;
   final LibraryController library;
+  final PlaylistsController? playlists;
   final LocalAudioController localAudio;
   final PlayerController player;
   final UploadController uploads;
@@ -69,6 +73,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
     await uploads.upload(file);
   }
 
+  void _openPlaylists() {
+    final playlists = widget.playlists;
+    if (playlists == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PlaylistsScreen(
+          controller: playlists,
+          libraryTracks: widget.library.tracks,
+          player: widget.player,
+        ),
+      ),
+    );
+  }
+
   void _openSettings() {
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => SettingsScreen(cache: widget.cache),
@@ -104,6 +122,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
             : null,
         actions: MediaQuery.sizeOf(context).width >= 720
             ? [
+                if (widget.playlists != null) ...[
+                  FilledButton.tonalIcon(
+                    onPressed: _openPlaylists,
+                    icon: const Icon(Icons.queue_music, size: 19),
+                    label: const Text('Playlistها'),
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 _AccountChip(email: widget.email),
                 const SizedBox(width: 8),
                 Tooltip(
@@ -131,6 +157,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   icon: const Icon(Icons.account_circle_outlined),
                   onSelected: (action) {
                     switch (action) {
+                      case _HeaderAction.playlists:
+                        _openPlaylists();
                       case _HeaderAction.settings:
                         _openSettings();
                       case _HeaderAction.logout:
@@ -138,6 +166,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     }
                   },
                   itemBuilder: (context) => [
+                    if (widget.playlists != null)
+                      const PopupMenuItem(
+                        value: _HeaderAction.playlists,
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(Icons.queue_music),
+                          title: Text('Playlistها'),
+                        ),
+                      ),
                     PopupMenuItem<_HeaderAction>(
                       enabled: false,
                       child: Text(
@@ -251,7 +288,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       );
 }
 
-enum _HeaderAction { settings, logout }
+enum _HeaderAction { playlists, settings, logout }
 
 class _NafirBrand extends StatelessWidget {
   const _NafirBrand({required this.compact});
