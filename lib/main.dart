@@ -76,11 +76,8 @@ class _NafirAppState extends State<NafirApp> {
 
   late final TracksApi? _tracksApi = widget.tracksApi ?? _apiClient;
   late final PlaylistsApi? _playlistsApi = widget.playlistsApi ??
-      (_apiClient != null
-          ? _apiClient
-          : _tracksApi is PlaylistsApi
-              ? _tracksApi as PlaylistsApi
-              : null);
+      _apiClient ??
+      (_tracksApi is PlaylistsApi ? _tracksApi as PlaylistsApi : null);
   late final PlaylistsController? _playlists = _playlistsApi == null
       ? null
       : PlaylistsController(api: _playlistsApi, token: () => _auth?.token);
