@@ -24,21 +24,27 @@ type UserStore interface {
 	ByID(ctx context.Context, id string) (store.User, error)
 }
 
+type AuthRateLimiters struct {
+	Register *RateLimiter
+	Login    *RateLimiter
+}
+
 type AuthHandlers struct {
 	users     UserStore
 	passwords auth.Passwords
 	tokens    *auth.Tokens
+	limiters  AuthRateLimiters
 	// dummyHash is compared against when an email is unknown, so a login for a
 	// missing account takes as long as one with a wrong password.
 	dummyHash string
 }
 
-func NewAuthHandlers(users UserStore, passwords auth.Passwords, tokens *auth.Tokens) (*AuthHandlers, error) {
+func NewAuthHandlers(users UserStore, passwords auth.Passwords, tokens *auth.Tokens, limiters AuthRateLimiters) (*AuthHandlers, error) {
 	dummyHash, err := passwords.Hash("nafir-timing-equaliser")
 	if err != nil {
 		return nil, err
 	}
-	return &AuthHandlers{users: users, passwords: passwords, tokens: tokens, dummyHash: dummyHash}, nil
+	return &AuthHandlers{users: users, passwords: passwords, tokens: tokens, limiters: limiters, dummyHash: dummyHash}, nil
 }
 
 func (h *AuthHandlers) register(mux *http.ServeMux) {
@@ -64,6 +70,9 @@ type sessionResponse struct {
 }
 
 func (h *AuthHandlers) handleRegister(w http.ResponseWriter, r *http.Request) {
+	if !enforceRateLimit(w, h.limiters.Register, clientIP(r)) {
+		return
+	}
 	input, ok := decodeCredentials(w, r)
 	if !ok {
 		return
@@ -96,6 +105,9 @@ func (h *AuthHandlers) handleRegister(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandlers) handleLogin(w http.ResponseWriter, r *http.Request) {
+	if !enforceRateLimit(w, h.limiters.Login, clientIP(r)) {
+		return
+	}
 	input, ok := decodeCredentials(w, r)
 	if !ok {
 		return
