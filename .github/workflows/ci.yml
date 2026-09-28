@@ -96,3 +96,26 @@ jobs:
       - run: git diff --exit-code
       - run: go vet ./...
       - run: go test ./...
+
+  deployment-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Caddy configuration
+        run: >-
+          docker run --rm
+          -e NAFIR_DOMAIN=music.example.com
+          -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro"
+          caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
+      - name: Assert media bypasses response encoding
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          config = Path("deploy/Caddyfile").read_text()
+          media = config.split("handle /nafir-music/* {", 1)[1].split("}", 1)[0]
+          assert "no-transform" in media
+          assert "encode " not in media
+          assert "reverse_proxy minio:9000" in media
+          PY
