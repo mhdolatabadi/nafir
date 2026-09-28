@@ -35,8 +35,20 @@ class StreamLink {
   final DateTime expiresAt;
 }
 
+class TrackLibrary {
+  const TrackLibrary({
+    required this.tracks,
+    required this.usedBytes,
+    required this.limitBytes,
+  });
+
+  final List<Track> tracks;
+  final int usedBytes;
+  final int limitBytes;
+}
+
 abstract interface class TracksApi {
-  Future<List<Track>> listTracks(String token);
+  Future<TrackLibrary> listTracks(String token);
   Future<StreamLink> streamLink(String token, String trackId);
   Future<UploadTicket> createUpload(
       String token, String fileName, int sizeBytes);
@@ -91,11 +103,16 @@ class ApiClient implements AuthApi, TracksApi, PlaylistsApi {
   }
 
   @override
-  Future<List<Track>> listTracks(String token) async {
+  Future<TrackLibrary> listTracks(String token) async {
     final body = await _send('GET', '/api/v1/tracks', token: token);
-    return (body['tracks'] as List<dynamic>)
-        .map((json) => Track.fromJson(json as Map<String, dynamic>))
-        .toList();
+    final storage = body['storage'] as Map<String, dynamic>;
+    return TrackLibrary(
+      tracks: (body['tracks'] as List<dynamic>)
+          .map((json) => Track.fromJson(json as Map<String, dynamic>))
+          .toList(),
+      usedBytes: (storage['usedBytes'] as num).toInt(),
+      limitBytes: (storage['limitBytes'] as num).toInt(),
+    );
   }
 
   @override

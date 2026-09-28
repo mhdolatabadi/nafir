@@ -19,6 +19,8 @@ void main() {
     expect(seen.first, LibraryStatus.loading);
     expect(library.status, LibraryStatus.loaded);
     expect(library.tracks.single.title, 'Song');
+    expect(library.usedBytes, 1000);
+    expect(library.limitBytes, 5 * 1024 * 1024 * 1024);
   });
 
   test('a failed first load is an error; retry recovers', () async {
@@ -54,6 +56,7 @@ void main() {
 
     expect(api.deleted, ['s1']);
     expect(library.tracks, isEmpty);
+    expect(library.usedBytes, 0);
     expect(library.isDeleting('s1'), isFalse);
   });
 
@@ -76,6 +79,8 @@ void main() {
     library.clear();
 
     expect(library.tracks, isEmpty);
+    expect(library.usedBytes, 0);
+    expect(library.limitBytes, 0);
     expect(library.status, LibraryStatus.loading);
   });
 

@@ -141,6 +141,18 @@ func createTrack(ctx context.Context, query rowQuerier, ownerID string, track Ne
 	))
 }
 
+// UsageForOwner returns all bytes reserved by ready and pending tracks.
+// It intentionally matches the quota calculation in ReservePending.
+func (t *Tracks) UsageForOwner(ctx context.Context, ownerID string) (int64, error) {
+	var usedBytes int64
+	err := t.pool.QueryRow(ctx, `
+		SELECT COALESCE(SUM(size_bytes), 0)::bigint
+		FROM tracks
+		WHERE owner_id::text = $1
+	`, ownerID).Scan(&usedBytes)
+	return usedBytes, err
+}
+
 func (t *Tracks) ListForOwner(ctx context.Context, ownerID string) ([]Track, error) {
 	rows, err := t.pool.Query(ctx,
 		`SELECT `+trackColumns+` FROM tracks WHERE owner_id::text = $1 AND status = 'ready'

@@ -275,6 +275,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
         child: Column(
           children: [
             UploadStatusCard(controller: widget.uploads),
+            ListenableBuilder(
+              listenable: widget.library,
+              builder: (context, _) => _StorageUsage(
+                usedBytes: widget.library.usedBytes,
+                limitBytes: widget.library.limitBytes,
+              ),
+            ),
             Expanded(
               child: ListenableBuilder(
                 listenable: widget.library,
@@ -461,7 +468,7 @@ class _AccountChip extends StatelessWidget {
 class _ResponsiveLibraryContent extends StatelessWidget {
   const _ResponsiveLibraryContent({required this.child});
 
-  static const double _maxWidth = 1180;
+  static const double _maxWidth = 880;
   final Widget child;
 
   @override
@@ -662,10 +669,10 @@ class _TrackListState extends State<_TrackList> {
                 itemBuilder: (context, index) {
                   final track = tracks[index];
                   final current = widget.player.track?.id == track.id;
-                  final details = [track.artist, track.album]
-                      .whereType<String>()
-                      .where((text) => text.isNotEmpty)
-                      .join(' — ');
+                  final artist = track.artist?.trim();
+                  final artistLabel = artist == null || artist.isEmpty
+                      ? 'خواننده نامشخص'
+                      : artist;
                   return ListTile(
                     selected: current,
                     onTap: () => widget.player.playFrom(tracks, index),
@@ -694,12 +701,29 @@ class _TrackListState extends State<_TrackList> {
                         fontWeight: current ? FontWeight.w700 : FontWeight.w600,
                       ),
                     ),
-                    subtitle: Text(
-                      details.isEmpty
-                          ? formatSize(track.sizeBytes)
-                          : '$details · ${formatSize(track.sizeBytes)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    subtitle: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            artistLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          formatSize(track.sizeBytes),
+                          style: TextStyle(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
                     trailing:
                         widget.playlists == null && widget.onDelete == null
@@ -764,6 +788,78 @@ class _TrackListState extends State<_TrackList> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _StorageUsage extends StatelessWidget {
+  const _StorageUsage({required this.usedBytes, required this.limitBytes});
+
+  final int usedBytes;
+  final int limitBytes;
+
+  @override
+  Widget build(BuildContext context) {
+    if (limitBytes <= 0) return const SizedBox.shrink();
+    final progress = (usedBytes / limitBytes).clamp(0.0, 1.0);
+    final percent = (progress * 100).round();
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 880),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(4, 12, 4, 0),
+          child: GlassSurface(
+            blur: 12,
+            radius: 16,
+            shadow: false,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Semantics(
+              label: 'فضای ابری مصرف‌شده',
+              value: '$percent درصد',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.cloud_outlined, size: 19),
+                      const SizedBox(width: 8),
+                      Text(
+                        'فضای ابری',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          '${formatSize(usedBytes)} از ${formatSize(limitBytes)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.end,
+                          style:
+                              Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(99),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
