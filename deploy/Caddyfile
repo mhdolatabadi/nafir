@@ -9,7 +9,9 @@
   # Presigned audio URLs. Keep media responses byte-for-byte: content encoding
   # is lossless, but it can interfere with Range requests and media caches.
   # no-transform also prevents downstream proxies from modifying the object.
-  handle /nafir-music/* {
+  # Presigned POSTs target the bare bucket path; object reads include a suffix.
+  @musicStorage path /nafir-music /nafir-music/*
+  handle @musicStorage {
     header Cache-Control "private, no-transform"
     reverse_proxy minio:9000
   }
