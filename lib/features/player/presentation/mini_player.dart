@@ -92,8 +92,9 @@ class _MiniPlayerState extends State<MiniPlayer> {
                               Expanded(
                                 child: Slider(
                                   value: _dragMs ?? positionMs,
-                                  max:
-                                      durationMs > 0 ? durationMs.toDouble() : 1,
+                                  max: durationMs > 0
+                                      ? durationMs.toDouble()
+                                      : 1,
                                   semanticFormatterCallback: (value) => _format(
                                     Duration(milliseconds: value.round()),
                                   ),
