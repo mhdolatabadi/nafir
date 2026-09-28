@@ -718,9 +718,8 @@ class _TrackListState extends State<_TrackList> {
                         Text(
                           formatSize(track.sizeBytes),
                           style: TextStyle(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                             fontSize: 12,
                           ),
                         ),
