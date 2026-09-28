@@ -9,7 +9,10 @@ void main() {
     test('keeps the established dark visual identity', () {
       expect(theme.brightness, Brightness.dark);
       expect(theme.useMaterial3, isTrue);
-      expect(theme.scaffoldBackgroundColor, theme.colorScheme.surface);
+      expect(
+        theme.scaffoldBackgroundColor,
+        theme.colorScheme.surfaceContainerLowest,
+      );
       expect(theme.appBarTheme.surfaceTintColor, Colors.transparent);
     });
 
@@ -40,6 +43,14 @@ void main() {
       );
       expect(theme.snackBarTheme.behavior, SnackBarBehavior.floating);
       expect(theme.searchBarTheme.constraints?.minHeight, 56);
+    });
+
+    test('separates major surfaces with restrained depth', () {
+      expect(theme.cardTheme.color, theme.colorScheme.surfaceContainerLow);
+      expect(theme.cardTheme.elevation, 0);
+      expect(theme.tabBarTheme.dividerColor, Colors.transparent);
+      expect(theme.sliderTheme.trackHeight, 3);
+      expect(theme.bottomSheetTheme.showDragHandle, isTrue);
     });
   });
 }
