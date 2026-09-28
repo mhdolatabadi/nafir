@@ -73,12 +73,17 @@ type testAPI struct {
 
 func newTestAPI(t *testing.T) testAPI {
 	t.Helper()
+	return newTestAPIWithLimiters(t, AuthRateLimiters{})
+}
+
+func newTestAPIWithLimiters(t *testing.T, limiters AuthRateLimiters) testAPI {
+	t.Helper()
 	users := newMemoryUsers()
 	tokens, err := auth.NewTokens([]byte(strings.Repeat("k", auth.MinSecretBytes)), time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}
-	handlers, err := NewAuthHandlers(users, auth.Passwords{Cost: bcrypt.MinCost}, tokens)
+	handlers, err := NewAuthHandlers(users, auth.Passwords{Cost: bcrypt.MinCost}, tokens, limiters)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,5 +212,31 @@ func TestMeRejectsMissingOrInvalidTokens(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			expectError(t, api.do(t, http.MethodGet, "/api/v1/me", "", token), http.StatusUnauthorized, "unauthorized")
 		})
+	}
+}
+
+func TestAuthRateLimitsArePerIPAndReturnRetryAfter(t *testing.T) {
+	api := newTestAPIWithLimiters(t, AuthRateLimiters{
+		Register: NewRateLimiter(RateLimit{Requests: 1, Window: time.Minute}, 10),
+	})
+	body := `{"email":"one@example.com","password":"correct horse"}`
+	first := api.do(t, http.MethodPost, "/api/v1/auth/register", body, "")
+	if first.Code != http.StatusCreated {
+		t.Fatalf("first registration = %d", first.Code)
+	}
+	second := api.do(t, http.MethodPost, "/api/v1/auth/register",
+		`{"email":"two@example.com","password":"correct horse"}`, "")
+	expectError(t, second, http.StatusTooManyRequests, "rate_limited")
+	if second.Header().Get("Retry-After") == "" {
+		t.Fatal("rate limit response is missing Retry-After")
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register",
+		bytes.NewBufferString(`{"email":"three@example.com","password":"correct horse"}`))
+	request.Header.Set(clientIPHeader, "203.0.113.8")
+	response := httptest.NewRecorder()
+	api.handler.ServeHTTP(response, request)
+	if response.Code != http.StatusCreated {
+		t.Fatalf("independent IP was limited: %d %s", response.Code, response.Body.String())
 	}
 }
