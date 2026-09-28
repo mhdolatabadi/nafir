@@ -17,11 +17,15 @@ class LibraryController extends ChangeNotifier {
 
   LibraryStatus _status = LibraryStatus.loading;
   List<Track> _tracks = const [];
+  int _usedBytes = 0;
+  int _limitBytes = 0;
   int _generation = 0;
   final Set<String> _deletingTrackIds = {};
 
   LibraryStatus get status => _status;
   List<Track> get tracks => _tracks;
+  int get usedBytes => _usedBytes;
+  int get limitBytes => _limitBytes;
   bool isDeleting(String trackId) => _deletingTrackIds.contains(trackId);
 
   /// Loads the list and reports whether it succeeded. Existing tracks stay on
@@ -35,9 +39,11 @@ class LibraryController extends ChangeNotifier {
       notifyListeners();
     }
     try {
-      final tracks = await _api.listTracks(token);
+      final library = await _api.listTracks(token);
       if (generation != _generation) return false;
-      _tracks = List.unmodifiable(tracks);
+      _tracks = List.unmodifiable(library.tracks);
+      _usedBytes = library.usedBytes;
+      _limitBytes = library.limitBytes;
       _status = LibraryStatus.loaded;
       return true;
     } catch (_) {
@@ -57,11 +63,15 @@ class LibraryController extends ChangeNotifier {
     _deletingTrackIds.add(trackId);
     notifyListeners();
     try {
+      final deleted = _tracks.where((track) => track.id == trackId).firstOrNull;
       await _api.deleteTrack(token, trackId);
       _generation++;
       _tracks = List.unmodifiable(
         _tracks.where((track) => track.id != trackId),
       );
+      if (deleted != null) {
+        _usedBytes = (_usedBytes - deleted.sizeBytes).clamp(0, _usedBytes);
+      }
       return true;
     } catch (_) {
       return false;
@@ -75,6 +85,8 @@ class LibraryController extends ChangeNotifier {
   void clear() {
     _generation++;
     _tracks = const [];
+    _usedBytes = 0;
+    _limitBytes = 0;
     _status = LibraryStatus.loading;
     notifyListeners();
   }
