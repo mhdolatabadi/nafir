@@ -439,20 +439,19 @@ class _AccountChip extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 220),
           child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.account_circle_outlined, size: 19),
-            const SizedBox(width: 7),
-            Flexible(
-              child: Text(
-                email,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelMedium,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.account_circle_outlined, size: 19),
+              const SizedBox(width: 7),
+              Flexible(
+                child: Text(
+                  email,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium,
+                ),
               ),
-            ),
-          ],
-            ),
+            ],
           ),
         ),
       ),
