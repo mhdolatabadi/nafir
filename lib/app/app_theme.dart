@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/core/widgets/glass_surface.dart';
 
 abstract final class NafirTheme {
-  static const _seed = Color(0xFF1A73E8);
+  static const _seed = NafirGlass.primary;
   static const _controlRadius = 14.0;
   static const _surfaceRadius = 18.0;
 
@@ -10,6 +11,25 @@ abstract final class NafirTheme {
       seedColor: _seed,
       brightness: Brightness.dark,
       dynamicSchemeVariant: DynamicSchemeVariant.tonalSpot,
+    ).copyWith(
+      primary: NafirGlass.primary,
+      onPrimary: const Color(0xFF250005),
+      primaryContainer: const Color(0xFF462026),
+      onPrimaryContainer: const Color(0xFFFFDADB),
+      secondary: NafirGlass.secondary,
+      onSecondary: const Color(0xFF160F45),
+      secondaryContainer: const Color(0xFF2A2454),
+      onSecondaryContainer: const Color(0xFFE5DFFF),
+      surface: NafirGlass.background,
+      surfaceContainerLowest: NafirGlass.background,
+      surfaceContainerLow: const Color(0xE6121522),
+      surfaceContainer: const Color(0xEB151827),
+      surfaceContainerHigh: const Color(0xF0191D2D),
+      surfaceContainerHighest: const Color(0xFF23283A),
+      onSurface: const Color(0xFFF5F1F7),
+      onSurfaceVariant: const Color(0xFFD0C8D4),
+      outline: const Color(0xFF8B8290),
+      outlineVariant: const Color(0xFF3C3743),
     );
     final base = ThemeData(
       brightness: Brightness.dark,
@@ -32,15 +52,15 @@ abstract final class NafirTheme {
     );
 
     return base.copyWith(
-      scaffoldBackgroundColor: colors.surfaceContainerLowest,
-      canvasColor: colors.surfaceContainerLowest,
+      scaffoldBackgroundColor: NafirGlass.background,
+      canvasColor: NafirGlass.background,
       dividerTheme: DividerThemeData(
         color: colors.outlineVariant,
         space: 1,
         thickness: 1,
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: colors.surfaceContainerLowest,
+        backgroundColor: const Color(0xE60A0C14),
         foregroundColor: colors.onSurface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
@@ -53,18 +73,18 @@ abstract final class NafirTheme {
         ),
       ),
       cardTheme: CardThemeData(
-        color: colors.surfaceContainerLow,
+        color: const Color(0xB31A1D2A),
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: surfaceShape.copyWith(
           side: BorderSide(
-            color: colors.outlineVariant.withValues(alpha: 0.65),
+            color: NafirGlass.softBorder,
           ),
         ),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: colors.surfaceContainerHigh,
+        backgroundColor: const Color(0xF21B1E2D),
         surfaceTintColor: Colors.transparent,
         elevation: 6,
         shape: RoundedRectangleBorder(
@@ -80,7 +100,7 @@ abstract final class NafirTheme {
         ),
       ),
       popupMenuTheme: PopupMenuThemeData(
-        color: colors.surfaceContainerHigh,
+        color: const Color(0xF21B1E2D),
         surfaceTintColor: Colors.transparent,
         elevation: 6,
         shape: surfaceShape,
@@ -131,7 +151,7 @@ abstract final class NafirTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: colors.surfaceContainerHigh,
+        fillColor: const Color(0xB31B1E2D),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: outline,
@@ -150,7 +170,7 @@ abstract final class NafirTheme {
         errorStyle: TextStyle(color: colors.error),
       ),
       searchBarTheme: SearchBarThemeData(
-        backgroundColor: WidgetStatePropertyAll(colors.surfaceContainerHigh),
+        backgroundColor: const WidgetStatePropertyAll(Color(0xB31B1E2D)),
         surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
         elevation: const WidgetStatePropertyAll(0),
         shadowColor: const WidgetStatePropertyAll(Colors.transparent),
@@ -215,8 +235,8 @@ abstract final class NafirTheme {
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: colors.primaryContainer,
-        foregroundColor: colors.onPrimaryContainer,
+        backgroundColor: NafirGlass.primary,
+        foregroundColor: const Color(0xFF250005),
         elevation: 3,
         focusElevation: 4,
         hoverElevation: 4,

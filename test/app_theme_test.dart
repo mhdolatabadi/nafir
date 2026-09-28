@@ -39,14 +39,14 @@ void main() {
       expect(theme.inputDecorationTheme.filled, isTrue);
       expect(
         theme.inputDecorationTheme.fillColor,
-        theme.colorScheme.surfaceContainerHigh,
+        const Color(0xB31B1E2D),
       );
       expect(theme.snackBarTheme.behavior, SnackBarBehavior.floating);
       expect(theme.searchBarTheme.constraints?.minHeight, 56);
     });
 
     test('separates major surfaces with restrained depth', () {
-      expect(theme.cardTheme.color, theme.colorScheme.surfaceContainerLow);
+      expect(theme.cardTheme.color, const Color(0xB31A1D2A));
       expect(theme.cardTheme.elevation, 0);
       expect(theme.tabBarTheme.dividerColor, Colors.transparent);
       expect(theme.sliderTheme.trackHeight, 3);

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:nafir/core/format_size.dart';
+import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
 import 'package:nafir/features/library/application/local_audio_controller.dart';
 import 'package:nafir/features/library/data/track.dart';
@@ -150,6 +151,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Widget build(BuildContext context) {
     final hasDeviceLibrary = widget.localAudio.supported;
     final scaffold = Scaffold(
+      extendBody: true,
       appBar: AppBar(
         toolbarHeight: MediaQuery.sizeOf(context).width >= 720 ? 76 : 64,
         titleSpacing: MediaQuery.sizeOf(context).width >= 720 ? 32 : 16,
@@ -258,9 +260,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
           label: const Text('افزودن موسیقی'),
         ),
       ),
-      body: hasDeviceLibrary
-          ? TabBarView(children: [_cloudLibrary(), _deviceLibrary()])
-          : _cloudLibrary(),
+      body: NafirBackdrop(
+        child: hasDeviceLibrary
+            ? TabBarView(children: [_cloudLibrary(), _deviceLibrary()])
+            : _cloudLibrary(),
+      ),
     );
     return hasDeviceLibrary
         ? DefaultTabController(length: 2, child: scaffold)
@@ -346,7 +350,6 @@ class _NafirBrand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     return LayoutBuilder(
       builder: (context, constraints) {
         final showSubtitle = !compact && constraints.maxWidth >= 220;
@@ -354,15 +357,26 @@ class _NafirBrand extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 42,
-              height: 42,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                color: colors.primaryContainer,
-                borderRadius: BorderRadius.circular(13),
+                borderRadius: BorderRadius.circular(14),
+                gradient: const LinearGradient(
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                  colors: [NafirGlass.primary, Color(0xFFB72E50)],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: NafirGlass.primary.withValues(alpha: 0.24),
+                    offset: const Offset(0, 8),
+                    blurRadius: 22,
+                  ),
+                ],
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.graphic_eq_rounded,
-                color: colors.onPrimaryContainer,
+                color: Color(0xFFFFF5F5),
               ),
             ),
             const SizedBox(width: 12),
@@ -416,27 +430,28 @@ class _AccountChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Tooltip(
       message: email,
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 220),
+      child: GlassSurface(
+        blur: 0,
+        shadow: false,
+        radius: 14,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.account_circle_outlined, size: 19),
-            const SizedBox(width: 7),
-            Flexible(
-              child: Text(
-                email,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelMedium,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 220),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.account_circle_outlined, size: 19),
+              const SizedBox(width: 7),
+              Flexible(
+                child: Text(
+                  email,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -453,13 +468,13 @@ class _ResponsiveLibraryContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final horizontal = constraints.maxWidth >= 900 ? 32.0 : 12.0;
+        final horizontal = constraints.maxWidth >= 900 ? 40.0 : 16.0;
         return Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: _maxWidth),
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: horizontal),
+              padding: EdgeInsets.fromLTRB(horizontal, 12, horizontal, 0),
               child: child,
             ),
           ),
