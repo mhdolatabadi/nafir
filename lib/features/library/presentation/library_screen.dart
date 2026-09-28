@@ -468,7 +468,7 @@ class _AccountChip extends StatelessWidget {
 class _ResponsiveLibraryContent extends StatelessWidget {
   const _ResponsiveLibraryContent({required this.child});
 
-  static const double _maxWidth = 1040;
+  static const double _maxWidth = 880;
   final Widget child;
 
   @override
@@ -595,11 +595,8 @@ class _TrackListState extends State<_TrackList> {
   @override
   Widget build(BuildContext context) {
     final tracks = _filteredTracks;
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 880),
-        child: Column(
-          children: [
+    return Column(
+      children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
           child: Row(
@@ -790,10 +787,8 @@ class _TrackListState extends State<_TrackList> {
               );
             },
           ),
-            ),
-          ],
         ),
-      ),
+      ],
     );
   }
 }
@@ -838,11 +833,12 @@ class _StorageUsage extends StatelessWidget {
                       const Spacer(),
                       Text(
                         '${formatSize(usedBytes)} از ${formatSize(limitBytes)}',
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                            ),
+                        style:
+                            Theme.of(context).textTheme.labelMedium?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                ),
                       ),
                     ],
                   ),
