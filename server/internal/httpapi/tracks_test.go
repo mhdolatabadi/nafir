@@ -41,6 +41,18 @@ func (m *memoryTracks) ListForOwner(_ context.Context, ownerID string) ([]store.
 	return owned, nil
 }
 
+func (m *memoryTracks) UsageForOwner(_ context.Context, ownerID string) (int64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var used int64
+	for _, track := range m.tracks {
+		if track.OwnerID == ownerID {
+			used += track.SizeBytes
+		}
+	}
+	return used, nil
+}
+
 func (m *memoryTracks) ForOwner(_ context.Context, ownerID, trackID string) (store.Track, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -223,6 +235,9 @@ func TestListReturnsOnlyOwnTracks(t *testing.T) {
 	if len(list.Tracks) != 1 || list.Tracks[0].ID != "a1" {
 		t.Fatalf("alice should see only a1, got %+v", list.Tracks)
 	}
+	if list.Storage.UsedBytes != 0 || list.Storage.LimitBytes != testOwnerQuota {
+		t.Fatalf("unexpected storage usage %+v", list.Storage)
+	}
 	if strings.Contains(response.Body.String(), "users/") {
 		t.Fatal("storage keys must not be exposed")
 	}
@@ -230,7 +245,7 @@ func TestListReturnsOnlyOwnTracks(t *testing.T) {
 
 func TestEmptyLibraryIsAnEmptyArray(t *testing.T) {
 	api := newTracksAPI(t, &memoryTracks{})
-	if body := strings.TrimSpace(api.get(t, "/api/v1/tracks", api.alice).Body.String()); body != `{"tracks":[]}` {
+	if body := strings.TrimSpace(api.get(t, "/api/v1/tracks", api.alice).Body.String()); body != `{"tracks":[],"storage":{"usedBytes":0,"limitBytes":2000}}` {
 		t.Fatalf("unexpected body %s", body)
 	}
 }
