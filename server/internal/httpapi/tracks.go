@@ -90,7 +90,7 @@ func toTrackResponse(t store.Track) trackResponse {
 }
 
 type trackListResponse struct {
-	Tracks  []trackResponse    `json:"tracks"`
+	Tracks  []trackResponse      `json:"tracks"`
 	Storage storageUsageResponse `json:"storage"`
 }
 
