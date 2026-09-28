@@ -209,6 +209,17 @@ class PlayerController extends ChangeNotifier {
     await _engine.seek(position);
   }
 
+  /// Removes a deleted cloud track from the active queue. Deleting the
+  /// current track stops playback so a stale stream cannot keep playing.
+  Future<void> removeTrack(String trackId) async {
+    final queue = _queue;
+    if (_track?.id == trackId || (queue != null && !queue.remove(trackId))) {
+      await stop();
+      return;
+    }
+    notifyListeners();
+  }
+
   /// Stops playback and forgets the track, for example on logout.
   Future<void> stop() async {
     _request++;

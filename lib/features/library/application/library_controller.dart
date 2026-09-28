@@ -18,9 +18,11 @@ class LibraryController extends ChangeNotifier {
   LibraryStatus _status = LibraryStatus.loading;
   List<Track> _tracks = const [];
   int _generation = 0;
+  final Set<String> _deletingTrackIds = {};
 
   LibraryStatus get status => _status;
   List<Track> get tracks => _tracks;
+  bool isDeleting(String trackId) => _deletingTrackIds.contains(trackId);
 
   /// Loads the list and reports whether it succeeded. Existing tracks stay on
   /// screen while refreshing; only a first load shows the loading state.
@@ -44,6 +46,28 @@ class LibraryController extends ChangeNotifier {
       return false;
     } finally {
       if (generation == _generation) notifyListeners();
+    }
+  }
+
+  /// Deletes an owned cloud track and removes it from the visible library.
+  /// The API also removes it from playlists through the database relation.
+  Future<bool> deleteTrack(String trackId) async {
+    final token = _token();
+    if (token == null || _deletingTrackIds.contains(trackId)) return false;
+    _deletingTrackIds.add(trackId);
+    notifyListeners();
+    try {
+      await _api.deleteTrack(token, trackId);
+      _generation++;
+      _tracks = List.unmodifiable(
+        _tracks.where((track) => track.id != trackId),
+      );
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
+      _deletingTrackIds.remove(trackId);
+      notifyListeners();
     }
   }
 

@@ -73,6 +73,50 @@ class _LibraryScreenState extends State<LibraryScreen> {
     await uploads.uploadAll(files);
   }
 
+  Future<void> _confirmDeleteTrack(Track track) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.delete_forever_outlined),
+        title: Text('حذف «${track.title}»؟'),
+        content: const Text(
+          'این آهنگ برای همیشه از فضای ابری و Playlistها حذف می‌شود. '
+          'این کار قابل بازگشت نیست.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('حذف برای همیشه'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final deleted = await widget.library.deleteTrack(track.id);
+    if (!mounted) return;
+    if (!deleted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('حذف آهنگ ناموفق بود. دوباره تلاش کن.')),
+      );
+      return;
+    }
+    await widget.player.removeTrack(track.id);
+    if (!mounted) return;
+    widget.playlists?.load();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('«${track.title}» حذف شد.')),
+    );
+  }
+
   void _openPlaylists() {
     final playlists = widget.playlists;
     if (playlists == null) return;
@@ -243,6 +287,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
                               tracks: widget.library.tracks,
                               player: widget.player,
                               playlists: widget.playlists,
+                              onDelete: _confirmDeleteTrack,
+                              isDeleting: widget.library.isDeleting,
                             ),
                     ),
                 },
@@ -290,6 +336,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
 }
 
 enum _HeaderAction { playlists, settings, logout }
+
+enum _TrackAction { addToPlaylist, delete }
 
 class _NafirBrand extends StatelessWidget {
   const _NafirBrand({required this.compact});
@@ -426,11 +474,15 @@ class _TrackList extends StatefulWidget {
     required this.tracks,
     required this.player,
     this.playlists,
+    this.onDelete,
+    this.isDeleting,
   });
 
   final List<Track> tracks;
   final PlayerController player;
   final PlaylistsController? playlists;
+  final Future<void> Function(Track track)? onDelete;
+  final bool Function(String trackId)? isDeleting;
 
   @override
   State<_TrackList> createState() => _TrackListState();
@@ -594,13 +646,62 @@ class _TrackListState extends State<_TrackList> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    trailing: widget.playlists == null
-                        ? null
-                        : IconButton(
-                            tooltip: 'افزودن به Playlist',
-                            onPressed: () => _addToPlaylist(context, track),
-                            icon: const Icon(Icons.playlist_add),
-                          ),
+                    trailing:
+                        widget.playlists == null && widget.onDelete == null
+                            ? null
+                            : widget.isDeleting?.call(track.id) == true
+                                ? const SizedBox.square(
+                                    dimension: 48,
+                                    child: Padding(
+                                      padding: EdgeInsets.all(12),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                      ),
+                                    ),
+                                  )
+                                : PopupMenuButton<_TrackAction>(
+                                    tooltip: 'اقدامات آهنگ',
+                                    onSelected: (action) {
+                                      switch (action) {
+                                        case _TrackAction.addToPlaylist:
+                                          _addToPlaylist(context, track);
+                                        case _TrackAction.delete:
+                                          widget.onDelete?.call(track);
+                                      }
+                                    },
+                                    itemBuilder: (context) => [
+                                      if (widget.playlists != null)
+                                        const PopupMenuItem(
+                                          value: _TrackAction.addToPlaylist,
+                                          child: ListTile(
+                                            contentPadding: EdgeInsets.zero,
+                                            leading: Icon(Icons.playlist_add),
+                                            title: Text('افزودن به Playlist'),
+                                          ),
+                                        ),
+                                      if (widget.onDelete != null)
+                                        PopupMenuItem(
+                                          value: _TrackAction.delete,
+                                          child: ListTile(
+                                            contentPadding: EdgeInsets.zero,
+                                            leading: Icon(
+                                              Icons.delete_outline,
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .error,
+                                            ),
+                                            title: Text(
+                                              'حذف آهنگ',
+                                              style: TextStyle(
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .error,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
                   );
                 },
               );

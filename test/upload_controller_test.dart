@@ -23,6 +23,7 @@ class FakeTracksApi implements TracksApi {
   Completer<void>? createGate;
   Object? createError;
   Object? completeError;
+  Object? deleteError;
   final deleted = <String>[];
   final calls = <String>[];
 
@@ -71,7 +72,9 @@ class FakeTracksApi implements TracksApi {
 
   @override
   Future<void> deleteTrack(String token, String trackId) async {
+    if (deleteError != null) throw deleteError!;
     deleted.add(trackId);
+    tracks.removeWhere((track) => track.id == trackId);
   }
 }
 
