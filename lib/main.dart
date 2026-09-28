@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nafir/app/app_configuration.dart';
+import 'package:nafir/app/app_theme.dart';
 import 'package:nafir/app/backend_gate.dart';
 import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/features/auth/application/auth_controller.dart';
@@ -143,14 +144,7 @@ class _NafirAppState extends State<NafirApp> {
       locale: const Locale('fa'),
       supportedLocales: const [Locale('fa')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: ThemeData(
-        fontFamily: 'Vazirmatn',
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1A73E8),
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
+      theme: NafirTheme.dark(),
       home: BackendGate(
         healthCheck: widget.healthCheck ?? _apiClient?.checkHealth,
         child: _auth == null ||
