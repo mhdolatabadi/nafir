@@ -70,7 +70,8 @@ class LibraryController extends ChangeNotifier {
         _tracks.where((track) => track.id != trackId),
       );
       if (deleted != null) {
-        _usedBytes = (_usedBytes - deleted.sizeBytes).clamp(0, _usedBytes);
+        final remaining = _usedBytes - deleted.sizeBytes;
+        _usedBytes = remaining < 0 ? 0 : remaining;
       }
       return true;
     } catch (_) {
