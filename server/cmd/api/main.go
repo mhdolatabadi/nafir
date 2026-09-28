@@ -122,11 +122,19 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	reservationRate, err := rateLimiterEnv("UPLOAD_RESERVATION_RATE", 120, 10*time.Minute)
+	reservationUserRate, err := rateLimiterEnv("UPLOAD_RESERVATION_USER_RATE", 120, 10*time.Minute)
 	if err != nil {
 		return err
 	}
-	completionRate, err := rateLimiterEnv("UPLOAD_COMPLETION_RATE", 240, 10*time.Minute)
+	reservationIPRate, err := rateLimiterEnv("UPLOAD_RESERVATION_IP_RATE", 240, 10*time.Minute)
+	if err != nil {
+		return err
+	}
+	completionUserRate, err := rateLimiterEnv("UPLOAD_COMPLETION_USER_RATE", 240, 10*time.Minute)
+	if err != nil {
+		return err
+	}
+	completionIPRate, err := rateLimiterEnv("UPLOAD_COMPLETION_IP_RATE", 480, 10*time.Minute)
 	if err != nil {
 		return err
 	}
@@ -146,7 +154,8 @@ func run() error {
 			Tracks: httpapi.NewTrackHandlers(store.NewTracks(pool), objects, tokens, httpapi.UploadLimits{
 				MaxFileBytes: maxUploadBytes, MaxOwnerBytes: ownerQuotaBytes,
 				MaxPending: maxPending, Enabled: uploadsEnabled,
-				ReservationRate: reservationRate, CompletionRate: completionRate,
+				ReservationUserRate: reservationUserRate, ReservationIPRate: reservationIPRate,
+				CompletionUserRate: completionUserRate, CompletionIPRate: completionIPRate,
 			}),
 			Playlists: httpapi.NewPlaylistHandlers(store.NewPlaylists(pool), tokens),
 		}),
