@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/player/application/play_queue.dart';
@@ -220,9 +218,9 @@ class _PlaybackControls extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           if (busy)
-            const Semantics(
+            Semantics(
               label: 'در حال آماده‌سازی پخش',
-              child: SizedBox.square(
+              child: const SizedBox.square(
                 dimension: 48,
                 child: Padding(
                   padding: EdgeInsets.all(12),
