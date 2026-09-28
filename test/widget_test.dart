@@ -294,8 +294,43 @@ void main() {
     );
 
     expect(find.text('Uploaded earlier'), findsOneWidget);
-    expect(find.text('Artist'), findsOneWidget);
+    expect(find.textContaining('Artist ·'), findsOneWidget);
     expect(find.text('کتابخانهٔ شما خالی است'), findsNothing);
+  });
+
+  testWidgets('search reports result count and offers a clear action', (
+    tester,
+  ) async {
+    await _pumpApp(
+      tester,
+      tokenStore: MemoryTokenStore('valid-token'),
+      tracks: FakeTracksApi(const [
+        Track(
+          id: 's1',
+          title: 'First song',
+          contentType: 'audio/mpeg',
+          sizeBytes: 1,
+        ),
+        Track(
+          id: 's2',
+          title: 'Second song',
+          contentType: 'audio/mpeg',
+          sizeBytes: 1,
+        ),
+      ]),
+    );
+
+    expect(find.text('2 از 2 قطعه'), findsOneWidget);
+    await tester.enterText(find.byType(SearchBar), 'missing');
+    await tester.pumpAndSettle();
+
+    expect(find.text('0 از 2 قطعه'), findsOneWidget);
+    expect(find.text('نتیجه‌ای پیدا نشد'), findsOneWidget);
+    await tester.tap(find.text('پاک کردن جست‌وجو'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2 از 2 قطعه'), findsOneWidget);
+    expect(find.text('First song'), findsOneWidget);
   });
 
   testWidgets('a finished upload appears in the list', (tester) async {
@@ -359,7 +394,7 @@ void main() {
       tokenStore: MemoryTokenStore('valid-token'),
       tracks: tracks,
     );
-    expect(find.text('دریافت فهرست موسیقی ناموفق بود.'), findsOneWidget);
+    expect(find.text('کتابخانه دریافت نشد'), findsOneWidget);
 
     tracks.listError = null;
     await tester.tap(find.text('تلاش دوباره'));
