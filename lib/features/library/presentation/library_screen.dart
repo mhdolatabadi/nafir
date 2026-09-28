@@ -829,15 +829,20 @@ class _StorageUsage extends StatelessWidget {
                               fontWeight: FontWeight.w700,
                             ),
                       ),
-                      const Spacer(),
-                      Text(
-                        '${formatSize(usedBytes)} از ${formatSize(limitBytes)}',
-                        style:
-                            Theme.of(context).textTheme.labelMedium?.copyWith(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
-                                ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          '${formatSize(usedBytes)} از ${formatSize(limitBytes)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.end,
+                          style:
+                              Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                        ),
                       ),
                     ],
                   ),
