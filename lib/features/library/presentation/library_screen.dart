@@ -819,20 +819,14 @@ class _EmptyLibrary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      children: const [
-        SizedBox(height: 120),
-        Icon(Icons.cloud_queue_outlined, size: 64),
-        SizedBox(height: 16),
-        Text(
-          'کتابخانهٔ شما خالی است',
-          style: TextStyle(fontSize: 20),
-          textAlign: TextAlign.center,
-        ),
-        SizedBox(height: 8),
-        Text(
-          'با «افزودن موسیقی» فایل‌هایت را آپلود کن.',
-          textAlign: TextAlign.center,
+    return const ListView(
+      physics: AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(24, 96, 24, 120),
+      children: [
+        _LibraryState(
+          icon: Icons.cloud_queue_outlined,
+          title: 'کتابخانهٔ شما خالی است',
+          message: 'با دکمهٔ «افزودن موسیقی» اولین آهنگ‌هایت را آپلود کن.',
         ),
       ],
     );
@@ -852,22 +846,16 @@ class _DeviceMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 56),
-            const SizedBox(height: 16),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('تلاش دوباره'),
-            ),
-          ],
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: _LibraryState(
+        icon: icon,
+        title: 'کتابخانهٔ دستگاه',
+        message: message,
+        action: FilledButton.tonalIcon(
+          onPressed: onRetry,
+          icon: const Icon(Icons.refresh),
+          label: const Text('بررسی دوباره'),
         ),
       ),
     );
@@ -881,18 +869,17 @@ class _LoadError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('دریافت فهرست موسیقی ناموفق بود.'),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh),
-            label: const Text('تلاش دوباره'),
-          ),
-        ],
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: _LibraryState(
+        icon: Icons.cloud_off_outlined,
+        title: 'کتابخانه دریافت نشد',
+        message: 'اتصال اینترنت را بررسی کن و دوباره تلاش کن.',
+        action: FilledButton.icon(
+          onPressed: onRetry,
+          icon: const Icon(Icons.refresh),
+          label: const Text('تلاش دوباره'),
+        ),
       ),
     );
   }
