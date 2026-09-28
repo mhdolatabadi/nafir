@@ -28,10 +28,14 @@ class FakeTracksApi implements TracksApi {
   final calls = <String>[];
 
   @override
-  Future<List<Track>> listTracks(String token) async {
+  Future<TrackLibrary> listTracks(String token) async {
     calls.add('list');
     if (listError != null) throw listError!;
-    return List.of(tracks);
+    return TrackLibrary(
+      tracks: List.of(tracks),
+      usedBytes: tracks.fold(0, (sum, track) => sum + track.sizeBytes),
+      limitBytes: 5 * 1024 * 1024 * 1024,
+    );
   }
 
   /// How many stream links were issued, and optional failure.
