@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/features/upload/application/upload_controller.dart';
 
 /// Shows the current upload's progress, result or failure.
@@ -64,11 +65,13 @@ class UploadStatusCard extends StatelessWidget {
           return const SizedBox.shrink();
         }
         final failed = controller.phase == UploadPhase.failed;
-        return Card(
+        return GlassSurface(
           margin: const EdgeInsets.all(16),
-          child: Padding(
-            padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 8, 16),
-            child: Column(
+          padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 8, 16),
+          radius: 18,
+          blur: 16,
+          tint: failed ? Theme.of(context).colorScheme.error : NafirGlass.primary,
+          child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -104,7 +107,6 @@ class UploadStatusCard extends StatelessWidget {
                 ],
               ],
             ),
-          ),
         );
       },
     );
