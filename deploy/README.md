@@ -31,6 +31,10 @@ Open `https://music.example.com` to use the Flutter web app. The web app calls
 the API on its own origin, and Caddy serves the app while proxying `/api/*`
 requests to Go. The browser can also install it as a PWA.
 
+Audio objects under `/nafir-music/*` deliberately bypass Caddy response
+compression and are served with `Cache-Control: private, no-transform`. This
+keeps byte ranges and cached media identical to the object stored in MinIO.
+
 ## Images
 
 The **Images** workflow builds the `api` and `web` images on every push to `main`
