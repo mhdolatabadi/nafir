@@ -1,7 +1,9 @@
 {$NAFIR_DOMAIN} {
   handle /api/* {
     encode zstd gzip
-    reverse_proxy api:8080
+    reverse_proxy api:8080 {
+      header_up X-Nafir-Client-IP {remote_host}
+    }
   }
 
   # Presigned audio URLs. Keep media responses byte-for-byte: content encoding
