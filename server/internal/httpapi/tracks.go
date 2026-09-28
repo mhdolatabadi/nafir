@@ -40,10 +40,10 @@ type ObjectStore interface {
 }
 
 type UploadLimits struct {
-	MaxFileBytes   int64
-	MaxOwnerBytes  int64
-	MaxPending     int
-	Enabled        bool
+	MaxFileBytes        int64
+	MaxOwnerBytes       int64
+	MaxPending          int
+	Enabled             bool
 	ReservationUserRate *RateLimiter
 	ReservationIPRate   *RateLimiter
 	CompletionUserRate  *RateLimiter
