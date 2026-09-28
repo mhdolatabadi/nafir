@@ -88,15 +88,18 @@ void main() {
               'createdAt': '2026-09-24T00:00:00Z',
             },
           ],
+          'storage': {'usedBytes': 10, 'limitBytes': 5368709120},
         }),
         200,
         headers: {'content-type': 'application/json'},
       );
     }));
 
-    final tracks = await client.listTracks('t0ken');
+    final library = await client.listTracks('t0ken');
 
-    expect(tracks.single.title, 'آهنگ');
-    expect(tracks.single.artist, isNull);
+    expect(library.tracks.single.title, 'آهنگ');
+    expect(library.tracks.single.artist, isNull);
+    expect(library.usedBytes, 10);
+    expect(library.limitBytes, 5368709120);
   });
 }
