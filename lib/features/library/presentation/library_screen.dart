@@ -576,7 +576,27 @@ class _TrackListState extends State<_TrackList> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
+          padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
+          child: Row(
+            children: [
+              Text(
+                'آهنگ‌ها',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const Spacer(),
+              Text(
+                '${tracks.length} از ${widget.tracks.length} قطعه',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
           child: SearchBar(
             controller: _search,
             hintText: 'جست‌وجوی آهنگ، خواننده یا آلبوم',
@@ -602,13 +622,21 @@ class _TrackListState extends State<_TrackList> {
               if (tracks.isEmpty) {
                 return ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  children: const [
-                    SizedBox(height: 96),
-                    Icon(Icons.search_off, size: 52),
-                    SizedBox(height: 12),
-                    Text(
-                      'آهنگی با این جست‌وجو پیدا نشد.',
-                      textAlign: TextAlign.center,
+                  padding: const EdgeInsets.fromLTRB(24, 72, 24, 96),
+                  children: [
+                    _LibraryState(
+                      icon: Icons.search_off_rounded,
+                      title: 'نتیجه‌ای پیدا نشد',
+                      message:
+                          'عبارت دیگری را امتحان کن یا جست‌وجو را پاک کن.',
+                      action: OutlinedButton.icon(
+                        onPressed: () {
+                          _search.clear();
+                          setState(() => _query = '');
+                        },
+                        icon: const Icon(Icons.close),
+                        label: const Text('پاک کردن جست‌وجو'),
+                      ),
                     ),
                   ],
                 );
@@ -628,6 +656,14 @@ class _TrackListState extends State<_TrackList> {
                     selected: current,
                     onTap: () => widget.player.playFrom(tracks, index),
                     leading: CircleAvatar(
+                      backgroundColor: current
+                          ? Theme.of(context).colorScheme.secondaryContainer
+                          : Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
+                      foregroundColor: current
+                          ? Theme.of(context).colorScheme.onSecondaryContainer
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
                       child: Icon(
                         current
                             ? Icons.graphic_eq
@@ -640,9 +676,15 @@ class _TrackListState extends State<_TrackList> {
                       track.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontWeight:
+                            current ? FontWeight.w700 : FontWeight.w600,
+                      ),
                     ),
                     subtitle: Text(
-                      details.isEmpty ? formatSize(track.sizeBytes) : details,
+                      details.isEmpty
+                          ? formatSize(track.sizeBytes)
+                          : '$details · ${formatSize(track.sizeBytes)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -713,25 +755,78 @@ class _TrackListState extends State<_TrackList> {
   }
 }
 
+class _LibraryState extends StatelessWidget {
+  const _LibraryState({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.action,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: colors.secondaryContainer,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Icon(icon, size: 36, color: colors.onSecondaryContainer),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    height: 1.6,
+                  ),
+            ),
+            if (action != null) ...[
+              const SizedBox(height: 20),
+              action!,
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _EmptyLibrary extends StatelessWidget {
   const _EmptyLibrary();
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      children: const [
-        SizedBox(height: 120),
-        Icon(Icons.cloud_queue_outlined, size: 64),
-        SizedBox(height: 16),
-        Text(
-          'کتابخانهٔ شما خالی است',
-          style: TextStyle(fontSize: 20),
-          textAlign: TextAlign.center,
-        ),
-        SizedBox(height: 8),
-        Text(
-          'با «افزودن موسیقی» فایل‌هایت را آپلود کن.',
-          textAlign: TextAlign.center,
+    return const ListView(
+      physics: AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(24, 96, 24, 120),
+      children: [
+        _LibraryState(
+          icon: Icons.cloud_queue_outlined,
+          title: 'کتابخانهٔ شما خالی است',
+          message: 'با دکمهٔ «افزودن موسیقی» اولین آهنگ‌هایت را آپلود کن.',
         ),
       ],
     );
@@ -751,22 +846,16 @@ class _DeviceMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 56),
-            const SizedBox(height: 16),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('تلاش دوباره'),
-            ),
-          ],
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: _LibraryState(
+        icon: icon,
+        title: 'کتابخانهٔ دستگاه',
+        message: message,
+        action: FilledButton.tonalIcon(
+          onPressed: onRetry,
+          icon: const Icon(Icons.refresh),
+          label: const Text('بررسی دوباره'),
         ),
       ),
     );
@@ -780,18 +869,17 @@ class _LoadError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('دریافت فهرست موسیقی ناموفق بود.'),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh),
-            label: const Text('تلاش دوباره'),
-          ),
-        ],
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: _LibraryState(
+        icon: Icons.cloud_off_outlined,
+        title: 'کتابخانه دریافت نشد',
+        message: 'اتصال اینترنت را بررسی کن و دوباره تلاش کن.',
+        action: FilledButton.icon(
+          onPressed: onRetry,
+          icon: const Icon(Icons.refresh),
+          label: const Text('تلاش دوباره'),
+        ),
       ),
     );
   }
