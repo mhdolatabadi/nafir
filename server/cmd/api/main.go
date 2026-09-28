@@ -127,7 +127,7 @@ func run() error {
 				MaxFileBytes: maxUploadBytes, MaxOwnerBytes: ownerQuotaBytes,
 				MaxPending: maxPending, Enabled: uploadsEnabled,
 			}),
-			Playlists:     httpapi.NewPlaylistHandlers(store.NewPlaylists(pool), tokens),
+			Playlists: httpapi.NewPlaylistHandlers(store.NewPlaylists(pool), tokens),
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
