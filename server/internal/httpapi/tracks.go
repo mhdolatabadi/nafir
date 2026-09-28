@@ -40,10 +40,14 @@ type ObjectStore interface {
 }
 
 type UploadLimits struct {
-	MaxFileBytes  int64
-	MaxOwnerBytes int64
-	MaxPending    int
-	Enabled       bool
+	MaxFileBytes        int64
+	MaxOwnerBytes       int64
+	MaxPending          int
+	Enabled             bool
+	ReservationUserRate *RateLimiter
+	ReservationIPRate   *RateLimiter
+	CompletionUserRate  *RateLimiter
+	CompletionIPRate    *RateLimiter
 }
 
 type TrackHandlers struct {
@@ -192,6 +196,10 @@ func (h *TrackHandlers) handleCreateUpload(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
+	if !enforceRateLimit(w, h.limits.ReservationUserRate, userID) ||
+		!enforceRateLimit(w, h.limits.ReservationIPRate, clientIP(r)) {
+		return
+	}
 	var input createUploadRequest
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxTrackBodyBytes))
 	decoder.DisallowUnknownFields()
@@ -261,6 +269,10 @@ func (h *TrackHandlers) handleCreateUpload(w http.ResponseWriter, r *http.Reques
 func (h *TrackHandlers) handleComplete(w http.ResponseWriter, r *http.Request) {
 	track, ok := h.ownedTrack(w, r)
 	if !ok {
+		return
+	}
+	if !enforceRateLimit(w, h.limits.CompletionUserRate, track.OwnerID) ||
+		!enforceRateLimit(w, h.limits.CompletionIPRate, clientIP(r)) {
 		return
 	}
 	if track.Status == store.TrackReady {

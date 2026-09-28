@@ -26,6 +26,7 @@ const (
 	defaultMaxUpload     = 200 << 20
 	defaultOwnerQuota    = 5 << 30
 	defaultMaxPending    = 3
+	maxRateLimitKeys     = 10_000
 	storageStartupWindow = time.Minute
 )
 
@@ -113,7 +114,34 @@ func run() error {
 		return fmt.Errorf("storage bucket: %w", err)
 	}
 
-	authHandlers, err := httpapi.NewAuthHandlers(store.NewUsers(pool), auth.Passwords{Cost: 12}, tokens)
+	registerRate, err := rateLimiterEnv("REGISTER_RATE", 5, time.Hour)
+	if err != nil {
+		return err
+	}
+	loginRate, err := rateLimiterEnv("LOGIN_RATE", 30, 15*time.Minute)
+	if err != nil {
+		return err
+	}
+	reservationUserRate, err := rateLimiterEnv("UPLOAD_RESERVATION_USER_RATE", 120, 10*time.Minute)
+	if err != nil {
+		return err
+	}
+	reservationIPRate, err := rateLimiterEnv("UPLOAD_RESERVATION_IP_RATE", 240, 10*time.Minute)
+	if err != nil {
+		return err
+	}
+	completionUserRate, err := rateLimiterEnv("UPLOAD_COMPLETION_USER_RATE", 240, 10*time.Minute)
+	if err != nil {
+		return err
+	}
+	completionIPRate, err := rateLimiterEnv("UPLOAD_COMPLETION_IP_RATE", 480, 10*time.Minute)
+	if err != nil {
+		return err
+	}
+	authHandlers, err := httpapi.NewAuthHandlers(
+		store.NewUsers(pool), auth.Passwords{Cost: 12}, tokens,
+		httpapi.AuthRateLimiters{Register: registerRate, Login: loginRate},
+	)
 	if err != nil {
 		return err
 	}
@@ -126,6 +154,8 @@ func run() error {
 			Tracks: httpapi.NewTrackHandlers(store.NewTracks(pool), objects, tokens, httpapi.UploadLimits{
 				MaxFileBytes: maxUploadBytes, MaxOwnerBytes: ownerQuotaBytes,
 				MaxPending: maxPending, Enabled: uploadsEnabled,
+				ReservationUserRate: reservationUserRate, ReservationIPRate: reservationIPRate,
+				CompletionUserRate: completionUserRate, CompletionIPRate: completionIPRate,
 			}),
 			Playlists: httpapi.NewPlaylistHandlers(store.NewPlaylists(pool), tokens),
 		}),
@@ -197,4 +227,22 @@ func positiveIntEnv(name string, fallback int) (int, error) {
 		return 0, fmt.Errorf("%s is too large", name)
 	}
 	return int(value), nil
+}
+
+func rateLimiterEnv(prefix string, requestsFallback int, windowFallback time.Duration) (*httpapi.RateLimiter, error) {
+	requests, err := positiveIntEnv(prefix+"_REQUESTS", requestsFallback)
+	if err != nil {
+		return nil, err
+	}
+	window := windowFallback
+	if raw := os.Getenv(prefix + "_WINDOW"); raw != "" {
+		window, err = time.ParseDuration(raw)
+		if err != nil || window <= 0 {
+			return nil, fmt.Errorf("%s_WINDOW must be a positive duration, got %q", prefix, raw)
+		}
+	}
+	return httpapi.NewRateLimiter(
+		httpapi.RateLimit{Requests: requests, Window: window},
+		maxRateLimitKeys,
+	), nil
 }
