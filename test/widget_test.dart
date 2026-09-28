@@ -294,7 +294,9 @@ void main() {
     );
 
     expect(find.text('Uploaded earlier'), findsOneWidget);
-    expect(find.textContaining('Artist ·'), findsOneWidget);
+    expect(find.text('Artist'), findsOneWidget);
+    expect(find.text('3.0 مگابایت'), findsWidgets);
+    expect(find.textContaining('از 5.0 گیگابایت'), findsOneWidget);
     expect(find.text('کتابخانهٔ شما خالی است'), findsNothing);
   });
 
