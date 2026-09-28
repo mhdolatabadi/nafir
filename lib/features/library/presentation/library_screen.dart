@@ -646,62 +646,62 @@ class _TrackListState extends State<_TrackList> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    trailing: widget.playlists == null &&
-                            widget.onDelete == null
-                        ? null
-                        : widget.isDeleting?.call(track.id) == true
-                            ? const SizedBox.square(
-                                dimension: 48,
-                                child: Padding(
-                                  padding: EdgeInsets.all(12),
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.5,
-                                  ),
-                                ),
-                              )
-                            : PopupMenuButton<_TrackAction>(
-                                tooltip: 'اقدامات آهنگ',
-                                onSelected: (action) {
-                                  switch (action) {
-                                    case _TrackAction.addToPlaylist:
-                                      _addToPlaylist(context, track);
-                                    case _TrackAction.delete:
-                                      widget.onDelete?.call(track);
-                                  }
-                                },
-                                itemBuilder: (context) => [
-                                  if (widget.playlists != null)
-                                    const PopupMenuItem(
-                                      value: _TrackAction.addToPlaylist,
-                                      child: ListTile(
-                                        contentPadding: EdgeInsets.zero,
-                                        leading: Icon(Icons.playlist_add),
-                                        title: Text('افزودن به Playlist'),
+                    trailing:
+                        widget.playlists == null && widget.onDelete == null
+                            ? null
+                            : widget.isDeleting?.call(track.id) == true
+                                ? const SizedBox.square(
+                                    dimension: 48,
+                                    child: Padding(
+                                      padding: EdgeInsets.all(12),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
                                       ),
                                     ),
-                                  if (widget.onDelete != null)
-                                    PopupMenuItem(
-                                      value: _TrackAction.delete,
-                                      child: ListTile(
-                                        contentPadding: EdgeInsets.zero,
-                                        leading: Icon(
-                                          Icons.delete_outline,
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .error,
-                                        ),
-                                        title: Text(
-                                          'حذف آهنگ',
-                                          style: TextStyle(
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .error,
+                                  )
+                                : PopupMenuButton<_TrackAction>(
+                                    tooltip: 'اقدامات آهنگ',
+                                    onSelected: (action) {
+                                      switch (action) {
+                                        case _TrackAction.addToPlaylist:
+                                          _addToPlaylist(context, track);
+                                        case _TrackAction.delete:
+                                          widget.onDelete?.call(track);
+                                      }
+                                    },
+                                    itemBuilder: (context) => [
+                                      if (widget.playlists != null)
+                                        const PopupMenuItem(
+                                          value: _TrackAction.addToPlaylist,
+                                          child: ListTile(
+                                            contentPadding: EdgeInsets.zero,
+                                            leading: Icon(Icons.playlist_add),
+                                            title: Text('افزودن به Playlist'),
                                           ),
                                         ),
-                                      ),
-                                    ),
-                                ],
-                              ),
+                                      if (widget.onDelete != null)
+                                        PopupMenuItem(
+                                          value: _TrackAction.delete,
+                                          child: ListTile(
+                                            contentPadding: EdgeInsets.zero,
+                                            leading: Icon(
+                                              Icons.delete_outline,
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .error,
+                                            ),
+                                            title: Text(
+                                              'حذف آهنگ',
+                                              style: TextStyle(
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .error,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
                   );
                 },
               );
