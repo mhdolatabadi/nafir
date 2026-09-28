@@ -32,27 +32,36 @@ abstract final class NafirTheme {
     );
 
     return base.copyWith(
-      scaffoldBackgroundColor: colors.surface,
-      canvasColor: colors.surface,
+      scaffoldBackgroundColor: colors.surfaceContainerLowest,
+      canvasColor: colors.surfaceContainerLowest,
       dividerTheme: DividerThemeData(
         color: colors.outlineVariant,
         space: 1,
         thickness: 1,
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: colors.surface,
+        backgroundColor: colors.surfaceContainerLowest,
         foregroundColor: colors.onSurface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
+        shape: Border(
+          bottom: BorderSide(
+            color: colors.outlineVariant.withValues(alpha: 0.55),
+          ),
+        ),
       ),
       cardTheme: CardThemeData(
-        color: colors.surfaceContainer,
+        color: colors.surfaceContainerLow,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         margin: EdgeInsets.zero,
-        shape: surfaceShape,
+        shape: surfaceShape.copyWith(
+          side: BorderSide(
+            color: colors.outlineVariant.withValues(alpha: 0.65),
+          ),
+        ),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: colors.surfaceContainerHigh,
@@ -88,6 +97,28 @@ abstract final class NafirTheme {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(_controlRadius),
         ),
+      ),
+      tabBarTheme: TabBarThemeData(
+        dividerColor: Colors.transparent,
+        indicatorColor: colors.primary,
+        indicatorSize: TabBarIndicatorSize.label,
+        labelColor: colors.onSurface,
+        unselectedLabelColor: colors.onSurfaceVariant,
+        labelStyle: base.textTheme.labelLarge?.copyWith(
+          fontWeight: FontWeight.w700,
+        ),
+        unselectedLabelStyle: base.textTheme.labelLarge,
+      ),
+      chipTheme: base.chipTheme.copyWith(
+        backgroundColor: colors.surfaceContainerHigh,
+        selectedColor: colors.secondaryContainer,
+        side: BorderSide(
+          color: colors.outlineVariant.withValues(alpha: 0.7),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       ),
       listTileTheme: ListTileThemeData(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -193,6 +224,32 @@ abstract final class NafirTheme {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
+      ),
+      sliderTheme: base.sliderTheme.copyWith(
+        activeTrackColor: colors.primary,
+        inactiveTrackColor: colors.surfaceContainerHighest,
+        thumbColor: colors.primary,
+        overlayColor: colors.primary.withValues(alpha: 0.12),
+        trackHeight: 3,
+      ),
+      scrollbarTheme: ScrollbarThemeData(
+        radius: const Radius.circular(8),
+        thickness: const WidgetStatePropertyAll(6),
+        thumbColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.hovered)
+              ? colors.outline
+              : colors.outlineVariant,
+        ),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: colors.surfaceContainerHigh,
+        surfaceTintColor: Colors.transparent,
+        modalBackgroundColor: colors.surfaceContainerHigh,
+        modalBarrierColor: Colors.black.withValues(alpha: 0.62),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        showDragHandle: true,
       ),
       progressIndicatorTheme: ProgressIndicatorThemeData(
         color: colors.primary,
