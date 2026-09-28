@@ -425,7 +425,7 @@ void main() {
 
     expect(find.byTooltip('توقف'), findsOneWidget);
     expect(find.text('3:00'), findsOneWidget);
-    expect(find.byIcon(Icons.graphic_eq), findsOneWidget);
+    expect(find.byIcon(Icons.graphic_eq), findsNWidgets(2));
 
     await tester.tap(find.byTooltip('توقف'));
     await tester.pumpAndSettle();
