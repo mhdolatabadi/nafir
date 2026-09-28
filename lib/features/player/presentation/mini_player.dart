@@ -90,15 +90,12 @@ class _MiniPlayerState extends State<MiniPlayer> {
                             Expanded(
                               child: Slider(
                                 value: _dragMs ?? positionMs,
-                                max: durationMs > 0
-                                    ? durationMs.toDouble()
-                                    : 1,
+                                max: durationMs > 0 ? durationMs.toDouble() : 1,
                                 semanticFormatterCallback: (value) => _format(
                                   Duration(milliseconds: value.round()),
                                 ),
                                 onChanged: durationMs > 0
-                                    ? (value) =>
-                                        setState(() => _dragMs = value)
+                                    ? (value) => setState(() => _dragMs = value)
                                     : null,
                                 onChangeEnd: durationMs > 0
                                     ? (value) {
@@ -211,9 +208,7 @@ class _PlaybackControls extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           _Toggle(
-            tooltip: player.shuffle
-                ? 'پخش تصادفی: روشن'
-                : 'پخش تصادفی',
+            tooltip: player.shuffle ? 'پخش تصادفی: روشن' : 'پخش تصادفی',
             icon: Icons.shuffle,
             active: player.shuffle,
             onPressed: player.toggleShuffle,
@@ -264,8 +259,9 @@ class _PlaybackControls extends StatelessWidget {
               QueueRepeat.all => 'تکرار: همه',
               QueueRepeat.one => 'تکرار: همین آهنگ',
             },
-            icon:
-                player.repeat == QueueRepeat.one ? Icons.repeat_one : Icons.repeat,
+            icon: player.repeat == QueueRepeat.one
+                ? Icons.repeat_one
+                : Icons.repeat,
             active: player.repeat != QueueRepeat.off,
             onPressed: player.cycleRepeat,
           ),
@@ -288,9 +284,9 @@ class _TimeLabel extends StatelessWidget {
         value,
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
       ),
     );
   }
