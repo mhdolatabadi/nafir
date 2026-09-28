@@ -25,6 +25,9 @@ enum UploadError {
   tooLarge,
   emptyFile,
   invalidAudio,
+  quotaExceeded,
+  tooManyPending,
+  uploadsDisabled,
   network,
   unknown,
 }
@@ -205,6 +208,9 @@ class UploadController extends ChangeNotifier {
       'unsupported_format' => UploadError.unsupportedFormat,
       'invalid_size' => UploadError.tooLarge,
       'invalid_audio' => UploadError.invalidAudio,
+      'quota_exceeded' => UploadError.quotaExceeded,
+      'too_many_pending_uploads' => UploadError.tooManyPending,
+      'uploads_disabled' => UploadError.uploadsDisabled,
       _ => UploadError.unknown,
     };
   }

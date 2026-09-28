@@ -25,7 +25,7 @@ const (
 type TrackStore interface {
 	ListForOwner(ctx context.Context, ownerID string) ([]store.Track, error)
 	ForOwner(ctx context.Context, ownerID, trackID string) (store.Track, error)
-	CreatePending(ctx context.Context, ownerID string, track store.NewTrack) (store.Track, error)
+	ReservePending(ctx context.Context, ownerID string, track store.NewTrack, maxOwnerBytes int64, maxPending int) (store.Track, error)
 	MarkReady(ctx context.Context, ownerID, trackID string) (store.Track, error)
 	Delete(ctx context.Context, ownerID, trackID string) error
 }
@@ -39,15 +39,22 @@ type ObjectStore interface {
 	Remove(ctx context.Context, key string) error
 }
 
-type TrackHandlers struct {
-	tracks         TrackStore
-	storage        ObjectStore
-	tokens         *auth.Tokens
-	maxUploadBytes int64
+type UploadLimits struct {
+	MaxFileBytes  int64
+	MaxOwnerBytes int64
+	MaxPending    int
+	Enabled       bool
 }
 
-func NewTrackHandlers(tracks TrackStore, objects ObjectStore, tokens *auth.Tokens, maxUploadBytes int64) *TrackHandlers {
-	return &TrackHandlers{tracks: tracks, storage: objects, tokens: tokens, maxUploadBytes: maxUploadBytes}
+type TrackHandlers struct {
+	tracks  TrackStore
+	storage ObjectStore
+	tokens  *auth.Tokens
+	limits  UploadLimits
+}
+
+func NewTrackHandlers(tracks TrackStore, objects ObjectStore, tokens *auth.Tokens, limits UploadLimits) *TrackHandlers {
+	return &TrackHandlers{tracks: tracks, storage: objects, tokens: tokens, limits: limits}
 }
 
 func (h *TrackHandlers) register(mux *http.ServeMux) {
@@ -197,7 +204,11 @@ func (h *TrackHandlers) handleCreateUpload(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusUnsupportedMediaType, "unsupported_format")
 		return
 	}
-	if input.SizeBytes <= 0 || input.SizeBytes > h.maxUploadBytes {
+	if !h.limits.Enabled {
+		writeError(w, http.StatusServiceUnavailable, "uploads_disabled")
+		return
+	}
+	if input.SizeBytes <= 0 || input.SizeBytes > h.limits.MaxFileBytes {
 		writeError(w, http.StatusRequestEntityTooLarge, "invalid_size")
 		return
 	}
@@ -211,14 +222,23 @@ func (h *TrackHandlers) handleCreateUpload(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	track, err := h.tracks.CreatePending(r.Context(), userID, store.NewTrack{
+	track, err := h.tracks.ReservePending(r.Context(), userID, store.NewTrack{
 		Title:       *title,
 		Artist:      optionalText(input.Artist),
 		Album:       optionalText(input.Album),
 		FileName:    audio.SafeFileName(input.FileName),
 		ContentType: contentType,
 		SizeBytes:   input.SizeBytes,
-	})
+	}, h.limits.MaxOwnerBytes, h.limits.MaxPending)
+	if errors.Is(err, store.ErrQuotaExceeded) {
+		writeError(w, http.StatusRequestEntityTooLarge, "quota_exceeded")
+		return
+	}
+	if errors.Is(err, store.ErrTooManyPending) {
+		w.Header().Set("Retry-After", "60")
+		writeError(w, http.StatusTooManyRequests, "too_many_pending_uploads")
+		return
+	}
 	if err != nil {
 		internalError(w, "create track", err)
 		return

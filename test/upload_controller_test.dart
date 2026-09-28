@@ -222,6 +222,19 @@ void main() {
     expect(api.deleted, isEmpty);
   });
 
+  test('reports server-side upload safety limits', () async {
+    for (final (code, expected) in [
+      ('quota_exceeded', UploadError.quotaExceeded),
+      ('too_many_pending_uploads', UploadError.tooManyPending),
+      ('uploads_disabled', UploadError.uploadsDisabled),
+    ]) {
+      api.createError = ApiException('rejected', statusCode: 429, code: code);
+      await controller.upload(_file('song.mp3'));
+      expect(controller.error, expected);
+      expect(api.deleted, isEmpty);
+    }
+  });
+
   test('dismiss returns to idle after a result', () async {
     await controller.upload(_file('song.mp3'));
     controller.dismiss();

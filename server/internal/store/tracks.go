@@ -17,6 +17,11 @@ const (
 	TrackReady   TrackStatus = "ready"
 )
 
+var (
+	ErrQuotaExceeded  = errors.New("storage quota exceeded")
+	ErrTooManyPending = errors.New("too many pending uploads")
+)
+
 type Track struct {
 	ID          string
 	OwnerID     string
@@ -68,18 +73,57 @@ func scanTrack(row pgx.Row) (Track, error) {
 	return t, err
 }
 
-// CreatePending inserts a track that is waiting for its object to be uploaded.
-func (t *Tracks) CreatePending(ctx context.Context, ownerID string, track NewTrack) (Track, error) {
-	return t.create(ctx, ownerID, track, TrackPending)
+// ReservePending atomically checks the owner's total reserved bytes and active
+// pending count before inserting a track. The owner-scoped advisory lock makes
+// concurrent API instances unable to race past either limit.
+func (t *Tracks) ReservePending(
+	ctx context.Context,
+	ownerID string,
+	track NewTrack,
+	maxOwnerBytes int64,
+	maxPending int,
+) (Track, error) {
+	var reserved Track
+	err := pgx.BeginFunc(ctx, t.pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx,
+			`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, ownerID,
+		); err != nil {
+			return err
+		}
+		var usedBytes int64
+		var pending int
+		if err := tx.QueryRow(ctx, `
+			SELECT COALESCE(SUM(size_bytes), 0)::bigint,
+			       COUNT(*) FILTER (WHERE status = 'pending')::integer
+			FROM tracks
+			WHERE owner_id::text = $1
+		`, ownerID).Scan(&usedBytes, &pending); err != nil {
+			return err
+		}
+		if pending >= maxPending {
+			return ErrTooManyPending
+		}
+		if usedBytes > maxOwnerBytes || track.SizeBytes > maxOwnerBytes-usedBytes {
+			return ErrQuotaExceeded
+		}
+		var err error
+		reserved, err = createTrack(ctx, tx, ownerID, track, TrackPending)
+		return err
+	})
+	return reserved, err
 }
 
 // Create inserts a track whose object is already in storage.
 func (t *Tracks) Create(ctx context.Context, ownerID string, track NewTrack) (Track, error) {
-	return t.create(ctx, ownerID, track, TrackReady)
+	return createTrack(ctx, t.pool, ownerID, track, TrackReady)
 }
 
-func (t *Tracks) create(ctx context.Context, ownerID string, track NewTrack, status TrackStatus) (Track, error) {
-	return scanTrack(t.pool.QueryRow(ctx, `
+type rowQuerier interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+func createTrack(ctx context.Context, query rowQuerier, ownerID string, track NewTrack, status TrackStatus) (Track, error) {
+	return scanTrack(query.QueryRow(ctx, `
 		WITH new_id AS (SELECT gen_random_uuid() AS id)
 		INSERT INTO tracks (id, owner_id, status, title, artist, album, duration_ms, storage_key, content_type, size_bytes)
 		SELECT new_id.id, $1::uuid, $9, $2, $3, $4, $5,

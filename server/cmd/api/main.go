@@ -24,6 +24,8 @@ const (
 	defaultTokenTTL      = 30 * 24 * time.Hour
 	defaultStreamURLTTL  = time.Hour
 	defaultMaxUpload     = 200 << 20
+	defaultOwnerQuota    = 5 << 30
+	defaultMaxPending    = 3
 	storageStartupWindow = time.Minute
 )
 
@@ -64,13 +66,24 @@ func run() error {
 		}
 		streamURLTTL = parsed
 	}
-	maxUploadBytes := int64(defaultMaxUpload)
-	if raw := os.Getenv("MAX_UPLOAD_BYTES"); raw != "" {
-		parsed, err := strconv.ParseInt(raw, 10, 64)
-		if err != nil || parsed <= 0 {
-			return fmt.Errorf("MAX_UPLOAD_BYTES must be a positive integer, got %q", raw)
+	maxUploadBytes, err := positiveInt64Env("MAX_UPLOAD_BYTES", defaultMaxUpload)
+	if err != nil {
+		return err
+	}
+	ownerQuotaBytes, err := positiveInt64Env("STORAGE_QUOTA_BYTES", defaultOwnerQuota)
+	if err != nil {
+		return err
+	}
+	maxPending, err := positiveIntEnv("MAX_PENDING_UPLOADS", defaultMaxPending)
+	if err != nil {
+		return err
+	}
+	uploadsEnabled := true
+	if raw := os.Getenv("UPLOADS_ENABLED"); raw != "" {
+		uploadsEnabled, err = strconv.ParseBool(raw)
+		if err != nil {
+			return fmt.Errorf("UPLOADS_ENABLED must be true or false, got %q", raw)
 		}
-		maxUploadBytes = parsed
 	}
 	objects, err := storage.New(storage.Config{
 		Endpoint:  os.Getenv("STORAGE_ENDPOINT"),
@@ -110,8 +123,11 @@ func run() error {
 		Handler: httpapi.NewHandler(httpapi.Config{
 			AllowedOrigin: os.Getenv("WEB_ORIGIN"),
 			Auth:          authHandlers,
-			Tracks:        httpapi.NewTrackHandlers(store.NewTracks(pool), objects, tokens, maxUploadBytes),
-			Playlists:     httpapi.NewPlaylistHandlers(store.NewPlaylists(pool), tokens),
+			Tracks: httpapi.NewTrackHandlers(store.NewTracks(pool), objects, tokens, httpapi.UploadLimits{
+				MaxFileBytes: maxUploadBytes, MaxOwnerBytes: ownerQuotaBytes,
+				MaxPending: maxPending, Enabled: uploadsEnabled,
+			}),
+			Playlists: httpapi.NewPlaylistHandlers(store.NewPlaylists(pool), tokens),
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
@@ -157,4 +173,28 @@ func ensureBucket(ctx context.Context, objects *storage.Storage) error {
 		case <-time.After(2 * time.Second):
 		}
 	}
+}
+
+func positiveInt64Env(name string, fallback int64) (int64, error) {
+	raw := os.Getenv(name)
+	if raw == "" {
+		return fallback, nil
+	}
+	value, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || value <= 0 {
+		return 0, fmt.Errorf("%s must be a positive integer, got %q", name, raw)
+	}
+	return value, nil
+}
+
+func positiveIntEnv(name string, fallback int) (int, error) {
+	value, err := positiveInt64Env(name, int64(fallback))
+	if err != nil {
+		return 0, err
+	}
+	maxInt := int64(^uint(0) >> 1)
+	if value > maxInt {
+		return 0, fmt.Errorf("%s is too large", name)
+	}
+	return int(value), nil
 }
