@@ -24,6 +24,7 @@ const (
 // TrackStore reads and writes tracks for one owner; *store.Tracks implements it.
 type TrackStore interface {
 	ListForOwner(ctx context.Context, ownerID string) ([]store.Track, error)
+	UsageForOwner(ctx context.Context, ownerID string) (int64, error)
 	ForOwner(ctx context.Context, ownerID, trackID string) (store.Track, error)
 	ReservePending(ctx context.Context, ownerID string, track store.NewTrack, maxOwnerBytes int64, maxPending int) (store.Track, error)
 	MarkReady(ctx context.Context, ownerID, trackID string) (store.Track, error)
@@ -89,7 +90,13 @@ func toTrackResponse(t store.Track) trackResponse {
 }
 
 type trackListResponse struct {
-	Tracks []trackResponse `json:"tracks"`
+	Tracks  []trackResponse    `json:"tracks"`
+	Storage storageUsageResponse `json:"storage"`
+}
+
+type storageUsageResponse struct {
+	UsedBytes  int64 `json:"usedBytes"`
+	LimitBytes int64 `json:"limitBytes"`
 }
 
 type streamResponse struct {
@@ -107,7 +114,17 @@ func (h *TrackHandlers) handleList(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "list tracks", err)
 		return
 	}
-	response := trackListResponse{Tracks: make([]trackResponse, 0, len(tracks))}
+	usedBytes, err := h.tracks.UsageForOwner(r.Context(), userID)
+	if err != nil {
+		internalError(w, "read storage usage", err)
+		return
+	}
+	response := trackListResponse{
+		Tracks: make([]trackResponse, 0, len(tracks)),
+		Storage: storageUsageResponse{
+			UsedBytes: usedBytes, LimitBytes: h.limits.MaxOwnerBytes,
+		},
+	}
 	for _, track := range tracks {
 		response.Tracks = append(response.Tracks, toTrackResponse(track))
 	}
