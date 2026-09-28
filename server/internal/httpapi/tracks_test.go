@@ -15,7 +15,11 @@ import (
 	"github.com/mhdolatabadi/nafir/server/internal/store"
 )
 
-const testMaxUpload = 1000
+const (
+	testMaxUpload   = 1000
+	testOwnerQuota  = 2000
+	testMaxPending  = 3
+)
 
 type memoryTracks struct {
 	mu     sync.Mutex
@@ -48,9 +52,32 @@ func (m *memoryTracks) ForOwner(_ context.Context, ownerID, trackID string) (sto
 	return store.Track{}, store.ErrNotFound
 }
 
-func (m *memoryTracks) CreatePending(_ context.Context, ownerID string, t store.NewTrack) (store.Track, error) {
+func (m *memoryTracks) ReservePending(
+	_ context.Context,
+	ownerID string,
+	t store.NewTrack,
+	maxOwnerBytes int64,
+	maxPending int,
+) (store.Track, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	var used int64
+	var pending int
+	for _, track := range m.tracks {
+		if track.OwnerID != ownerID {
+			continue
+		}
+		used += track.SizeBytes
+		if track.Status == store.TrackPending {
+			pending++
+		}
+	}
+	if pending >= maxPending {
+		return store.Track{}, store.ErrTooManyPending
+	}
+	if used > maxOwnerBytes || t.SizeBytes > maxOwnerBytes-used {
+		return store.Track{}, store.ErrQuotaExceeded
+	}
 	m.nextID++
 	id := "t" + string(rune('0'+m.nextID))
 	track := store.Track{
@@ -139,6 +166,14 @@ type tracksAPI struct {
 
 func newTracksAPI(t *testing.T, tracks *memoryTracks) tracksAPI {
 	t.Helper()
+	return newTracksAPIWithLimits(t, tracks, UploadLimits{
+		MaxFileBytes: testMaxUpload, MaxOwnerBytes: testOwnerQuota,
+		MaxPending: testMaxPending, Enabled: true,
+	})
+}
+
+func newTracksAPIWithLimits(t *testing.T, tracks *memoryTracks, limits UploadLimits) tracksAPI {
+	t.Helper()
 	tokens, err := auth.NewTokens([]byte(strings.Repeat("k", auth.MinSecretBytes)), time.Hour)
 	if err != nil {
 		t.Fatal(err)
@@ -147,7 +182,7 @@ func newTracksAPI(t *testing.T, tracks *memoryTracks) tracksAPI {
 	bob, _, _ := tokens.Issue("bob")
 	objects := &fakeObjects{objects: map[string][]byte{}}
 	return tracksAPI{
-		handler: NewHandler(Config{Tracks: NewTrackHandlers(tracks, objects, tokens, testMaxUpload)}),
+		handler: NewHandler(Config{Tracks: NewTrackHandlers(tracks, objects, tokens, limits)}),
 		tracks:  tracks,
 		objects: objects,
 		alice:   alice,
@@ -351,5 +386,49 @@ func TestCreateUploadValidation(t *testing.T) {
 	}
 	if len(api.tracks.tracks) != 0 {
 		t.Fatalf("invalid requests created tracks: %+v", api.tracks.tracks)
+	}
+}
+
+func TestUploadReservationsEnforceOwnerQuota(t *testing.T) {
+	tracks := &memoryTracks{tracks: []store.Track{{
+		ID: "existing", OwnerID: "alice", Status: store.TrackReady,
+		SizeBytes: testOwnerQuota - 5,
+	}}}
+	api := newTracksAPI(t, tracks)
+
+	response := api.do(t, http.MethodPost, "/api/v1/tracks/uploads",
+		`{"fileName":"song.mp3","sizeBytes":6}`, api.alice)
+	expectError(t, response, http.StatusRequestEntityTooLarge, "quota_exceeded")
+	if len(tracks.tracks) != 1 {
+		t.Fatalf("quota rejection created a reservation: %+v", tracks.tracks)
+	}
+}
+
+func TestUploadReservationsLimitPendingTracks(t *testing.T) {
+	api := newTracksAPI(t, &memoryTracks{})
+	for i := 0; i < testMaxPending; i++ {
+		api.createUpload(t, `{"fileName":"song.mp3","sizeBytes":1}`)
+	}
+
+	response := api.do(t, http.MethodPost, "/api/v1/tracks/uploads",
+		`{"fileName":"one-too-many.mp3","sizeBytes":1}`, api.alice)
+	expectError(t, response, http.StatusTooManyRequests, "too_many_pending_uploads")
+	if response.Header().Get("Retry-After") == "" {
+		t.Fatal("pending limit response must tell the client when to retry")
+	}
+}
+
+func TestUploadsCanBeDisabledWithoutDisablingPlayback(t *testing.T) {
+	tracks := sampleTracks()
+	api := newTracksAPIWithLimits(t, tracks, UploadLimits{
+		MaxFileBytes: testMaxUpload, MaxOwnerBytes: testOwnerQuota,
+		MaxPending: testMaxPending, Enabled: false,
+	})
+
+	expectError(t, api.do(t, http.MethodPost, "/api/v1/tracks/uploads",
+		`{"fileName":"song.mp3","sizeBytes":1}`, api.alice),
+		http.StatusServiceUnavailable, "uploads_disabled")
+	if response := api.get(t, "/api/v1/tracks/a1", api.alice); response.Code != http.StatusOK {
+		t.Fatalf("disabling uploads also disabled playback metadata: %d", response.Code)
 	}
 }
