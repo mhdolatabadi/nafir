@@ -44,8 +44,10 @@ type UploadLimits struct {
 	MaxOwnerBytes  int64
 	MaxPending     int
 	Enabled        bool
-	ReservationRate *RateLimiter
-	CompletionRate  *RateLimiter
+	ReservationUserRate *RateLimiter
+	ReservationIPRate   *RateLimiter
+	CompletionUserRate  *RateLimiter
+	CompletionIPRate    *RateLimiter
 }
 
 type TrackHandlers struct {
@@ -194,7 +196,8 @@ func (h *TrackHandlers) handleCreateUpload(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
-	if !enforceRateLimit(w, h.limits.ReservationRate, userID+"|"+clientIP(r)) {
+	if !enforceRateLimit(w, h.limits.ReservationUserRate, userID) ||
+		!enforceRateLimit(w, h.limits.ReservationIPRate, clientIP(r)) {
 		return
 	}
 	var input createUploadRequest
@@ -268,7 +271,8 @@ func (h *TrackHandlers) handleComplete(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if !enforceRateLimit(w, h.limits.CompletionRate, track.OwnerID+"|"+clientIP(r)) {
+	if !enforceRateLimit(w, h.limits.CompletionUserRate, track.OwnerID) ||
+		!enforceRateLimit(w, h.limits.CompletionIPRate, clientIP(r)) {
 		return
 	}
 	if track.Status == store.TrackReady {
