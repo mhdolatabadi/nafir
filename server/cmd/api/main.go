@@ -26,6 +26,9 @@ const (
 	defaultMaxUpload     = 200 << 20
 	defaultOwnerQuota    = 5 << 30
 	defaultMaxPending    = 3
+	defaultPendingTTL    = 2 * time.Hour
+	defaultCleanupEvery  = 10 * time.Minute
+	defaultCleanupBatch  = 100
 	maxRateLimitKeys     = 10_000
 	storageStartupWindow = time.Minute
 )
@@ -76,6 +79,18 @@ func run() error {
 		return err
 	}
 	maxPending, err := positiveIntEnv("MAX_PENDING_UPLOADS", defaultMaxPending)
+	if err != nil {
+		return err
+	}
+	pendingTTL, err := positiveDurationEnv("PENDING_UPLOAD_TTL", defaultPendingTTL)
+	if err != nil {
+		return err
+	}
+	cleanupEvery, err := positiveDurationEnv("PENDING_CLEANUP_INTERVAL", defaultCleanupEvery)
+	if err != nil {
+		return err
+	}
+	cleanupBatch, err := positiveIntEnv("PENDING_CLEANUP_BATCH", defaultCleanupBatch)
 	if err != nil {
 		return err
 	}
@@ -146,12 +161,13 @@ func run() error {
 		return err
 	}
 
+	tracks := store.NewTracks(pool)
 	server := &http.Server{
 		Addr: ":" + port,
 		Handler: httpapi.NewHandler(httpapi.Config{
 			AllowedOrigin: os.Getenv("WEB_ORIGIN"),
 			Auth:          authHandlers,
-			Tracks: httpapi.NewTrackHandlers(store.NewTracks(pool), objects, tokens, httpapi.UploadLimits{
+			Tracks: httpapi.NewTrackHandlers(tracks, objects, tokens, httpapi.UploadLimits{
 				MaxFileBytes: maxUploadBytes, MaxOwnerBytes: ownerQuotaBytes,
 				MaxPending: maxPending, Enabled: uploadsEnabled,
 				ReservationUserRate: reservationUserRate, ReservationIPRate: reservationIPRate,
@@ -164,6 +180,8 @@ func run() error {
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
+
+	go cleanPendingUploads(ctx, tracks, objects, pendingTTL, cleanupEvery, cleanupBatch)
 
 	serverErr := make(chan error, 1)
 	go func() {
@@ -245,4 +263,60 @@ func rateLimiterEnv(prefix string, requestsFallback int, windowFallback time.Dur
 		httpapi.RateLimit{Requests: requests, Window: window},
 		maxRateLimitKeys,
 	), nil
+}
+
+func positiveDurationEnv(name string, fallback time.Duration) (time.Duration, error) {
+	raw := os.Getenv(name)
+	if raw == "" {
+		return fallback, nil
+	}
+	value, err := time.ParseDuration(raw)
+	if err != nil || value <= 0 {
+		return 0, fmt.Errorf("%s must be a positive duration, got %q", name, raw)
+	}
+	return value, nil
+}
+
+type pendingCleaner interface {
+	CleanupStalePending(context.Context, time.Time, int, func(context.Context, string) error) (int, error)
+}
+
+type objectRemover interface {
+	Remove(context.Context, string) error
+}
+
+func cleanPendingUploads(
+	ctx context.Context,
+	tracks pendingCleaner,
+	objects objectRemover,
+	lifetime time.Duration,
+	interval time.Duration,
+	batch int,
+) {
+	cleanup := func() {
+		removed, err := tracks.CleanupStalePending(
+			ctx, time.Now().Add(-lifetime), batch, objects.Remove,
+		)
+		if err != nil {
+			if ctx.Err() == nil {
+				slog.Error("pending upload cleanup failed", "error", err)
+			}
+			return
+		}
+		if removed > 0 {
+			slog.Info("pending upload cleanup completed", "removed", removed)
+		}
+	}
+
+	cleanup()
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			cleanup()
+		}
+	}
 }

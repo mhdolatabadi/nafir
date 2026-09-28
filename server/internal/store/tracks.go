@@ -63,6 +63,12 @@ func NewTracks(pool *pgxpool.Pool) *Tracks {
 	return &Tracks{pool: pool}
 }
 
+const (
+	// pendingCleanupLock serializes cleaners across API instances while leaving
+	// ordinary track reads and writes unaffected.
+	pendingCleanupLock int64 = 7_310_076
+)
+
 const trackColumns = `id::text, owner_id::text, status, title, artist, album, duration_ms,
 	storage_key, content_type, size_bytes, created_at`
 
@@ -191,4 +197,70 @@ func (t *Tracks) Delete(ctx context.Context, ownerID, trackID string) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+// CleanupStalePending removes one bounded batch of abandoned reservations.
+//
+// A transaction-scoped advisory lock makes this safe across API instances. The
+// object is removed before its row; if storage fails, the transaction rolls
+// back and a later run retries the same row. Removing an already-missing object
+// must be treated as success by remove.
+func (t *Tracks) CleanupStalePending(
+	ctx context.Context,
+	before time.Time,
+	limit int,
+	remove func(context.Context, string) error,
+) (int, error) {
+	removed := 0
+	err := pgx.BeginFunc(ctx, t.pool, func(tx pgx.Tx) error {
+		var acquired bool
+		if err := tx.QueryRow(ctx,
+			`SELECT pg_try_advisory_xact_lock($1)`, pendingCleanupLock,
+		).Scan(&acquired); err != nil {
+			return err
+		}
+		if !acquired {
+			return nil
+		}
+
+		rows, err := tx.Query(ctx, `
+			SELECT `+trackColumns+`
+			FROM tracks
+			WHERE status = 'pending' AND created_at < $1
+			ORDER BY created_at, id
+			FOR UPDATE SKIP LOCKED
+			LIMIT $2
+		`, before, limit)
+		if err != nil {
+			return err
+		}
+		stale := make([]Track, 0, limit)
+		for rows.Next() {
+			track, err := scanTrack(rows)
+			if err != nil {
+				rows.Close()
+				return err
+			}
+			stale = append(stale, track)
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return err
+		}
+		rows.Close()
+
+		for _, track := range stale {
+			if err := remove(ctx, track.StorageKey); err != nil {
+				return fmt.Errorf("remove stale upload object: %w", err)
+			}
+			if _, err := tx.Exec(ctx,
+				`DELETE FROM tracks WHERE id = $1 AND status = 'pending'`, track.ID,
+			); err != nil {
+				return err
+			}
+			removed++
+		}
+		return nil
+	})
+	return removed, err
 }
