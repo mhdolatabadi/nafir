@@ -114,7 +114,9 @@ jobs:
           from pathlib import Path
 
           config = Path("deploy/Caddyfile").read_text()
-          media = config.split("handle /nafir-music/* {", 1)[1].split("}", 1)[0]
+          matcher = "@musicStorage path /nafir-music /nafir-music/*"
+          assert matcher in config
+          media = config.split("handle @musicStorage {", 1)[1].split("}", 1)[0]
           assert "no-transform" in media
           assert "encode " not in media
           assert "reverse_proxy minio:9000" in media
