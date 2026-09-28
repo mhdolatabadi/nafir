@@ -432,3 +432,29 @@ func TestUploadsCanBeDisabledWithoutDisablingPlayback(t *testing.T) {
 		t.Fatalf("disabling uploads also disabled playback metadata: %d", response.Code)
 	}
 }
+
+func TestUploadReservationRateLimitIsPerUserAndIP(t *testing.T) {
+	limits := UploadLimits{
+		MaxFileBytes: testMaxUpload, MaxOwnerBytes: testOwnerQuota,
+		MaxPending: testMaxPending, Enabled: true,
+		ReservationRate: NewRateLimiter(
+			RateLimit{Requests: 1, Window: time.Minute}, 10,
+		),
+	}
+	api := newTracksAPIWithLimits(t, &memoryTracks{}, limits)
+	api.createUpload(t, `{"fileName":"first.mp3","sizeBytes":1}`)
+
+	response := api.do(t, http.MethodPost, "/api/v1/tracks/uploads",
+		`{"fileName":"second.mp3","sizeBytes":1}`, api.alice)
+	expectError(t, response, http.StatusTooManyRequests, "rate_limited")
+	if response.Header().Get("Retry-After") == "" {
+		t.Fatal("rate limit response is missing Retry-After")
+	}
+
+	// A different authenticated user on the same IP has an independent user+IP key.
+	response = api.do(t, http.MethodPost, "/api/v1/tracks/uploads",
+		`{"fileName":"bob.mp3","sizeBytes":1}`, api.bob)
+	if response.Code != http.StatusCreated {
+		t.Fatalf("bob was limited by alice: %d %s", response.Code, response.Body.String())
+	}
+}
