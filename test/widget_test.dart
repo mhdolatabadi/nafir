@@ -460,11 +460,42 @@ void main() {
 
     expect(find.byTooltip('توقف'), findsOneWidget);
     expect(find.text('3:00'), findsOneWidget);
-    expect(find.byIcon(Icons.graphic_eq), findsOneWidget);
+    expect(find.byIcon(Icons.graphic_eq), findsNWidgets(2));
 
     await tester.tap(find.byTooltip('توقف'));
     await tester.pumpAndSettle();
     expect(find.byTooltip('پخش'), findsOneWidget);
+  });
+
+  testWidgets('mini player stays usable on a narrow screen', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await _pumpApp(
+      tester,
+      tokenStore: MemoryTokenStore('valid-token'),
+      tracks: FakeTracksApi(const [
+        Track(
+          id: 's1',
+          title: 'A very long track title that must remain readable',
+          artist: 'A very long artist name',
+          contentType: 'audio/mpeg',
+          sizeBytes: 1,
+        ),
+      ]),
+    );
+    await tester.tap(
+      find.text('A very long track title that must remain readable'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('قبلی'), findsOneWidget);
+    expect(find.byTooltip('توقف'), findsOneWidget);
+    expect(find.byTooltip('بعدی'), findsOneWidget);
+    expect(find.byTooltip('پخش تصادفی'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('next, shuffle and repeat controls in the mini player', (
