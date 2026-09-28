@@ -16,9 +16,9 @@ import (
 )
 
 const (
-	testMaxUpload   = 1000
-	testOwnerQuota  = 2000
-	testMaxPending  = 3
+	testMaxUpload  = 1000
+	testOwnerQuota = 2000
+	testMaxPending = 3
 )
 
 type memoryTracks struct {
