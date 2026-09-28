@@ -13,6 +13,12 @@ class UploadStatusCard extends StatelessWidget {
         UploadError.tooLarge => 'حجم فایل بیشتر از ۲۰۰ مگابایت است.',
         UploadError.emptyFile => 'فایل خالی است.',
         UploadError.invalidAudio => 'این فایل، فایل صوتی معتبری نیست.',
+        UploadError.quotaExceeded =>
+          'فضای ذخیره‌سازی حسابت پر شده است. چند آهنگ را حذف کن و دوباره تلاش کن.',
+        UploadError.tooManyPending =>
+          'چند آپلود هنوز در حال تکمیل است. کمی بعد دوباره تلاش کن.',
+        UploadError.uploadsDisabled =>
+          'آپلود موقتاً غیرفعال است؛ پخش آهنگ‌های موجود همچنان در دسترس است.',
         UploadError.network =>
           'ارسال فایل ناموفق بود. اتصال را بررسی کن و دوباره تلاش کن.',
         UploadError.unknown => 'آپلود ناموفق بود. دوباره تلاش کن.',
