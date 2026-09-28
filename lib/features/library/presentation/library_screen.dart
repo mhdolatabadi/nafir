@@ -627,8 +627,7 @@ class _TrackListState extends State<_TrackList> {
                     _LibraryState(
                       icon: Icons.search_off_rounded,
                       title: 'نتیجه‌ای پیدا نشد',
-                      message:
-                          'عبارت دیگری را امتحان کن یا جست‌وجو را پاک کن.',
+                      message: 'عبارت دیگری را امتحان کن یا جست‌وجو را پاک کن.',
                       action: OutlinedButton.icon(
                         onPressed: () {
                           _search.clear();
@@ -677,8 +676,7 @@ class _TrackListState extends State<_TrackList> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontWeight:
-                            current ? FontWeight.w700 : FontWeight.w600,
+                        fontWeight: current ? FontWeight.w700 : FontWeight.w600,
                       ),
                     ),
                     subtitle: Text(
