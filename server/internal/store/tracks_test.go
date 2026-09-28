@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestTracksAreScopedToTheirOwner(t *testing.T) {
@@ -152,5 +153,136 @@ func TestReservePendingEnforcesPendingLimit(t *testing.T) {
 	}
 	if _, err := tracks.ReservePending(ctx, user.ID, newTrack, 100, 1); !errors.Is(err, ErrTooManyPending) {
 		t.Fatalf("second pending reservation error = %v", err)
+	}
+}
+
+func TestCleanupStalePendingRemovesOnlyExpiredReservations(t *testing.T) {
+	ctx := context.Background()
+	pool := newTestPool(t)
+	users, tracks := NewUsers(pool), NewTracks(pool)
+	user, err := users.Create(ctx, "cleanup@example.com", "hash")
+	if err != nil {
+		t.Fatal(err)
+	}
+	newTrack := NewTrack{
+		Title: "Song", FileName: "song.mp3",
+		ContentType: "audio/mpeg", SizeBytes: 1,
+	}
+	stale, err := tracks.ReservePending(ctx, user.ID, newTrack, 100, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fresh, err := tracks.ReservePending(ctx, user.ID, newTrack, 100, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ready, err := tracks.Create(ctx, user.ID, newTrack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx,
+		`UPDATE tracks SET created_at = now() - interval '3 hours' WHERE id = $1`, stale.ID,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	var keys []string
+	removed, err := tracks.CleanupStalePending(
+		ctx, time.Now().Add(-2*time.Hour), 100,
+		func(_ context.Context, key string) error {
+			keys = append(keys, key)
+			return nil
+		},
+	)
+	if err != nil || removed != 1 || len(keys) != 1 || keys[0] != stale.StorageKey {
+		t.Fatalf("cleanup = removed %d, keys %v, err %v", removed, keys, err)
+	}
+	if _, err := tracks.ForOwner(ctx, user.ID, stale.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("stale reservation survived: %v", err)
+	}
+	for _, id := range []string{fresh.ID, ready.ID} {
+		if _, err := tracks.ForOwner(ctx, user.ID, id); err != nil {
+			t.Fatalf("active track %s was removed: %v", id, err)
+		}
+	}
+}
+
+func TestCleanupStalePendingRollsBackOnStorageFailure(t *testing.T) {
+	ctx := context.Background()
+	pool := newTestPool(t)
+	users, tracks := NewUsers(pool), NewTracks(pool)
+	user, _ := users.Create(ctx, "retry-cleanup@example.com", "hash")
+	pending, err := tracks.ReservePending(ctx, user.ID, NewTrack{
+		Title: "Song", FileName: "song.mp3",
+		ContentType: "audio/mpeg", SizeBytes: 1,
+	}, 100, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx,
+		`UPDATE tracks SET created_at = now() - interval '3 hours' WHERE id = $1`, pending.ID,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	removed, err := tracks.CleanupStalePending(
+		ctx, time.Now().Add(-2*time.Hour), 100,
+		func(context.Context, string) error { return errors.New("storage unavailable") },
+	)
+	if err == nil || removed != 0 {
+		t.Fatalf("cleanup = removed %d, err %v", removed, err)
+	}
+	if _, err := tracks.ForOwner(ctx, user.ID, pending.ID); err != nil {
+		t.Fatalf("failed cleanup did not roll back row: %v", err)
+	}
+}
+
+func TestCleanupStalePendingSerializesCleaners(t *testing.T) {
+	ctx := context.Background()
+	pool := newTestPool(t)
+	users, tracks := NewUsers(pool), NewTracks(pool)
+	user, _ := users.Create(ctx, "concurrent-cleanup@example.com", "hash")
+	pending, err := tracks.ReservePending(ctx, user.ID, NewTrack{
+		Title: "Song", FileName: "song.mp3",
+		ContentType: "audio/mpeg", SizeBytes: 1,
+	}, 100, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx,
+		`UPDATE tracks SET created_at = now() - interval '3 hours' WHERE id = $1`, pending.ID,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	first := make(chan error, 1)
+	go func() {
+		_, err := tracks.CleanupStalePending(
+			ctx, time.Now().Add(-2*time.Hour), 100,
+			func(context.Context, string) error {
+				close(entered)
+				<-release
+				return nil
+			},
+		)
+		first <- err
+	}()
+	<-entered
+
+	removed, err := tracks.CleanupStalePending(
+		ctx, time.Now().Add(-2*time.Hour), 100,
+		func(context.Context, string) error {
+			t.Fatal("second cleaner reached the object")
+			return nil
+		},
+	)
+	if err != nil || removed != 0 {
+		t.Fatalf("second cleanup = removed %d, err %v", removed, err)
+	}
+	close(release)
+	if err := <-first; err != nil {
+		t.Fatal(err)
 	}
 }
