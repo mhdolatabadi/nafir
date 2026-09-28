@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/player/application/play_queue.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
@@ -41,80 +42,88 @@ class _MiniPlayerState extends State<MiniPlayer> {
         final playing =
             status == PlayerStatus.playing || status == PlayerStatus.buffering;
 
-        return Material(
-          elevation: 8,
-          color: Theme.of(context).colorScheme.surfaceContainerHigh,
-          child: SafeArea(
-            top: false,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final compact = constraints.maxWidth < 620;
-                final summary = _TrackSummary(track: track, status: status);
-                final controls = _PlaybackControls(
-                  player: player,
-                  status: status,
-                  busy: busy,
-                  playing: playing,
-                );
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          child: GlassSurface(
+            radius: 24,
+            blur: 24,
+            tint: NafirGlass.primary,
+            child: SafeArea(
+              top: false,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxWidth < 620;
+                  final summary = _TrackSummary(track: track, status: status);
+                  final controls = _PlaybackControls(
+                    player: player,
+                    status: status,
+                    busy: busy,
+                    playing: playing,
+                  );
 
-                return Padding(
-                  padding: EdgeInsetsDirectional.fromSTEB(
-                    compact ? 12 : 20,
-                    10,
-                    compact ? 12 : 20,
-                    8,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (compact) ...[
-                        summary,
-                        const SizedBox(height: 8),
-                        Center(child: controls),
-                      ] else
-                        Row(
-                          children: [
-                            Expanded(child: summary),
-                            const SizedBox(width: 24),
-                            controls,
-                          ],
-                        ),
-                      const SizedBox(height: 4),
-                      Directionality(
-                        textDirection: TextDirection.ltr,
-                        child: Row(
-                          children: [
-                            _TimeLabel(_format(player.position)),
-                            Expanded(
-                              child: Slider(
-                                value: _dragMs ?? positionMs,
-                                max: durationMs > 0 ? durationMs.toDouble() : 1,
-                                semanticFormatterCallback: (value) => _format(
-                                  Duration(milliseconds: value.round()),
+                  return Padding(
+                    padding: EdgeInsetsDirectional.fromSTEB(
+                      compact ? 12 : 20,
+                      10,
+                      compact ? 12 : 20,
+                      8,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (compact) ...[
+                          summary,
+                          const SizedBox(height: 8),
+                          Center(child: controls),
+                        ] else
+                          Row(
+                            children: [
+                              Expanded(child: summary),
+                              const SizedBox(width: 24),
+                              controls,
+                            ],
+                          ),
+                        const SizedBox(height: 4),
+                        Directionality(
+                          textDirection: TextDirection.ltr,
+                          child: Row(
+                            children: [
+                              _TimeLabel(_format(player.position)),
+                              Expanded(
+                                child: Slider(
+                                  value: _dragMs ?? positionMs,
+                                  max:
+                                      durationMs > 0 ? durationMs.toDouble() : 1,
+                                  semanticFormatterCallback: (value) => _format(
+                                    Duration(milliseconds: value.round()),
+                                  ),
+                                  onChanged: durationMs > 0
+                                      ? (value) =>
+                                          setState(() => _dragMs = value)
+                                      : null,
+                                  onChangeEnd: durationMs > 0
+                                      ? (value) {
+                                          setState(() => _dragMs = null);
+                                          player.seek(
+                                            Duration(
+                                              milliseconds: value.round(),
+                                            ),
+                                          );
+                                        }
+                                      : null,
                                 ),
-                                onChanged: durationMs > 0
-                                    ? (value) => setState(() => _dragMs = value)
-                                    : null,
-                                onChangeEnd: durationMs > 0
-                                    ? (value) {
-                                        setState(() => _dragMs = null);
-                                        player.seek(
-                                          Duration(milliseconds: value.round()),
-                                        );
-                                      }
-                                    : null,
                               ),
-                            ),
-                            _TimeLabel(
-                              _format(player.duration ?? Duration.zero),
-                            ),
-                          ],
+                              _TimeLabel(
+                                _format(player.duration ?? Duration.zero),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              },
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         );
@@ -138,10 +147,21 @@ class _TrackSummary extends StatelessWidget {
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: colors.primaryContainer,
+            gradient: const LinearGradient(
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+              colors: [NafirGlass.primary, Color(0xFF8D3B79)],
+            ),
             borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: NafirGlass.primary.withValues(alpha: 0.2),
+                offset: const Offset(0, 7),
+                blurRadius: 18,
+              ),
+            ],
           ),
-          child: Icon(Icons.graphic_eq, color: colors.onPrimaryContainer),
+          child: const Icon(Icons.graphic_eq, color: Color(0xFFFFF5F5)),
         ),
         const SizedBox(width: 12),
         Expanded(
