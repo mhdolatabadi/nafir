@@ -437,8 +437,11 @@ func TestUploadReservationRateLimitIsPerUserAndIP(t *testing.T) {
 	limits := UploadLimits{
 		MaxFileBytes: testMaxUpload, MaxOwnerBytes: testOwnerQuota,
 		MaxPending: testMaxPending, Enabled: true,
-		ReservationRate: NewRateLimiter(
+		ReservationUserRate: NewRateLimiter(
 			RateLimit{Requests: 1, Window: time.Minute}, 10,
+		),
+		ReservationIPRate: NewRateLimiter(
+			RateLimit{Requests: 10, Window: time.Minute}, 10,
 		),
 	}
 	api := newTracksAPIWithLimits(t, &memoryTracks{}, limits)
@@ -457,4 +460,23 @@ func TestUploadReservationRateLimitIsPerUserAndIP(t *testing.T) {
 	if response.Code != http.StatusCreated {
 		t.Fatalf("bob was limited by alice: %d %s", response.Code, response.Body.String())
 	}
+}
+
+func TestUploadReservationIPLimitCoversMultipleUsers(t *testing.T) {
+	limits := UploadLimits{
+		MaxFileBytes: testMaxUpload, MaxOwnerBytes: testOwnerQuota,
+		MaxPending: testMaxPending, Enabled: true,
+		ReservationUserRate: NewRateLimiter(
+			RateLimit{Requests: 10, Window: time.Minute}, 10,
+		),
+		ReservationIPRate: NewRateLimiter(
+			RateLimit{Requests: 1, Window: time.Minute}, 10,
+		),
+	}
+	api := newTracksAPIWithLimits(t, &memoryTracks{}, limits)
+	api.createUpload(t, `{"fileName":"alice.mp3","sizeBytes":1}`)
+
+	response := api.do(t, http.MethodPost, "/api/v1/tracks/uploads",
+		`{"fileName":"bob.mp3","sizeBytes":1}`, api.bob)
+	expectError(t, response, http.StatusTooManyRequests, "rate_limited")
 }
