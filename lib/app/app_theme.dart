@@ -101,7 +101,8 @@ abstract final class NafirTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: colors.surfaceContainerHigh,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: outline,
         enabledBorder: outline,
         focusedBorder: outline.copyWith(
