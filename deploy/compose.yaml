@@ -13,6 +13,10 @@ services:
       STORAGE_BUCKET: nafir-music
       STORAGE_ACCESS_KEY: ${MINIO_ROOT_USER}
       STORAGE_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-209715200}
+      STORAGE_QUOTA_BYTES: ${STORAGE_QUOTA_BYTES:-5368709120}
+      MAX_PENDING_UPLOADS: ${MAX_PENDING_UPLOADS:-3}
+      UPLOADS_ENABLED: ${UPLOADS_ENABLED:-true}
     depends_on:
       postgres:
         condition: service_healthy
