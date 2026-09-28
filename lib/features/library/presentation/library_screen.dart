@@ -817,9 +817,9 @@ class _EmptyLibrary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ListView(
-      physics: AlwaysScrollableScrollPhysics(),
-      padding: EdgeInsets.fromLTRB(24, 96, 24, 120),
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(24, 96, 24, 120),
       children: [
         _LibraryState(
           icon: Icons.cloud_queue_outlined,
