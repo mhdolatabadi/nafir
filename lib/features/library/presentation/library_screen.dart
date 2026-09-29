@@ -747,8 +747,7 @@ class _TrackListState extends State<_TrackList> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.only(bottom: 176),
                 itemCount: tracks.length,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 8),
+                separatorBuilder: (context, index) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
                   final track = tracks[index];
                   final current = widget.player.track?.id == track.id;
