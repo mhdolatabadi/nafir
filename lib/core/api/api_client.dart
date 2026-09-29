@@ -70,6 +70,9 @@ abstract interface class PlaylistsApi {
 abstract interface class BotsApi {
   Future<List<MessengerBot>> listBots(String token);
   Future<BotLinkCode> createBotLinkCode(String token);
+
+  /// Has the bot post a track into the account's linked chats.
+  Future<void> sendTrackToBot(String token, String provider, String trackId);
 }
 
 class ApiClient implements AuthApi, TracksApi, PlaylistsApi, BotsApi {
@@ -209,6 +212,13 @@ class ApiClient implements AuthApi, TracksApi, PlaylistsApi, BotsApi {
   Future<BotLinkCode> createBotLinkCode(String token) async {
     final body = await _send('POST', '/api/v1/bots/link-code', token: token);
     return BotLinkCode.fromJson(body);
+  }
+
+  @override
+  Future<void> sendTrackToBot(
+      String token, String provider, String trackId) async {
+    await _send('POST', '/api/v1/bots/${Uri.encodeComponent(provider)}/send',
+        token: token, body: {'trackId': trackId}, expectBody: false);
   }
 
   Future<Map<String, dynamic>> _send(

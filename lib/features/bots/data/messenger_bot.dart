@@ -5,6 +5,7 @@ class MessengerBot {
     required this.name,
     this.username,
     this.linkUrl,
+    this.linked = false,
   });
 
   factory MessengerBot.fromJson(Map<String, dynamic> json) => MessengerBot(
@@ -12,6 +13,7 @@ class MessengerBot {
         name: json['name'] as String,
         username: json['username'] as String?,
         linkUrl: json['linkUrl'] as String?,
+        linked: json['linked'] == true,
       );
 
   final String provider;
@@ -22,6 +24,10 @@ class MessengerBot {
 
   /// Opens the bot with a link code filled in; only set alongside a code.
   final String? linkUrl;
+
+  /// Whether this account has a chat linked with the bot, so tracks can be
+  /// sent to it.
+  final bool linked;
 }
 
 /// A one-time code that links a bot chat to the signed-in account.

@@ -5,17 +5,28 @@ import 'package:nafir/features/bots/data/messenger_bot.dart';
 
 const baleBot =
     MessengerBot(provider: 'bale', name: 'بله', username: 'NafirBot');
+const linkedBale = MessengerBot(
+    provider: 'bale', name: 'بله', username: 'NafirBot', linked: true);
 
 class FakeBotsApi implements BotsApi {
   FakeBotsApi({this.bots = const [baleBot]});
 
   final List<MessengerBot> bots;
   Object? codeError;
+  Object? sendError;
+  final sent = <String>[];
   int codes = 0;
   DateTime expiresAt = DateTime.utc(2026, 9, 29, 12, 10);
 
   @override
   Future<List<MessengerBot>> listBots(String token) async => bots;
+
+  @override
+  Future<void> sendTrackToBot(
+      String token, String provider, String trackId) async {
+    if (sendError != null) throw sendError!;
+    sent.add('$provider/$trackId');
+  }
 
   @override
   Future<BotLinkCode> createBotLinkCode(String token) async {
@@ -52,7 +63,8 @@ void main() {
 
     await links.requestCode();
     expect(links.code?.code, '12345671');
-    expect(links.bots.single.linkUrl, 'https://ble.ir/NafirBot?start=12345671');
+    expect(links.code?.bots.single.linkUrl,
+        'https://ble.ir/NafirBot?start=12345671');
     expect(links.error, isNull);
   });
 
@@ -85,5 +97,31 @@ void main() {
     links.clear();
     expect(links.code, isNull);
     expect(links.bots, isEmpty);
+  });
+
+  test('only linked bots are offered for sending', () async {
+    final links = controller(FakeBotsApi(bots: const [baleBot]));
+    await links.load();
+    expect(links.linkedBots, isEmpty);
+
+    final linked = controller(FakeBotsApi(bots: const [linkedBale]));
+    await linked.load();
+    expect(linked.linkedBots.single.provider, 'bale');
+  });
+
+  test('sending reports each outcome', () async {
+    final api = FakeBotsApi(bots: const [linkedBale]);
+    final links = controller(api);
+    await links.load();
+
+    expect(await links.send('bale', 't1'), BotSendResult.queued);
+    expect(api.sent, ['bale/t1']);
+
+    api.sendError = const ApiException('409', statusCode: 409);
+    expect(await links.send('bale', 't1'), BotSendResult.notLinked);
+    api.sendError = const ApiException('413', statusCode: 413);
+    expect(await links.send('bale', 't1'), BotSendResult.tooLarge);
+    api.sendError = Exception('offline');
+    expect(await links.send('bale', 't1'), BotSendResult.failed);
   });
 }

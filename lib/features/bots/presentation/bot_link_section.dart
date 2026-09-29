@@ -18,7 +18,10 @@ class _BotLinkSectionState extends State<BotLinkSection> {
   @override
   void initState() {
     super.initState();
-    widget.controller.load();
+    // After this frame: other screens listen to the same controller, and
+    // must not be told to rebuild while this one is being built.
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => widget.controller.load());
   }
 
   Future<void> _copy(String text, String done) async {
@@ -72,7 +75,7 @@ class _BotLinkSectionState extends State<BotLinkSection> {
               _CodeCard(
                 code: code.code,
                 expiresAt: code.expiresAt,
-                bots: bots,
+                bots: code.bots,
                 onCopy: _copy,
               ),
             const SizedBox(height: 16),

@@ -154,4 +154,19 @@ void main() {
     expect(bots.single.username, isNull);
     expect(bots.single.linkUrl, isNull);
   });
+
+  test('sending a track to a bot posts the track ID', () async {
+    late http.Request sent;
+    final client = ApiClient(baseUri, httpClient: MockClient((request) async {
+      sent = request;
+      return http.Response('', 202);
+    }));
+
+    await client.sendTrackToBot('t0ken', 'bale', 'track-1');
+
+    expect(sent.method, 'POST');
+    expect(sent.url.path, '/api/v1/bots/bale/send');
+    expect(sent.headers['Authorization'], 'Bearer t0ken');
+    expect(jsonDecode(sent.body), {'trackId': 'track-1'});
+  });
 }

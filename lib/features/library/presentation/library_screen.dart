@@ -9,6 +9,7 @@ import 'package:nafir/features/player/presentation/mini_player.dart';
 import 'package:nafir/features/playlists/application/playlists_controller.dart';
 import 'package:nafir/features/playlists/presentation/playlists_screen.dart';
 import 'package:nafir/features/bots/application/bot_link_controller.dart';
+import 'package:nafir/features/bots/data/messenger_bot.dart';
 import 'package:nafir/features/settings/application/cache_controller.dart';
 import 'package:nafir/features/settings/presentation/settings_screen.dart';
 import 'package:nafir/features/upload/application/upload_controller.dart';
@@ -52,6 +53,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   void initState() {
     super.initState();
     widget.library.load();
+    widget.botLinks?.load();
     if (widget.localAudio.supported) widget.localAudio.load();
     widget.uploads.addListener(_onUploadChanged);
   }
@@ -136,13 +138,36 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   void _openSettings() {
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) =>
-          SettingsScreen(cache: widget.cache, botLinks: widget.botLinks),
+    Navigator.of(context)
+        .push(MaterialPageRoute<void>(
+          builder: (_) =>
+              SettingsScreen(cache: widget.cache, botLinks: widget.botLinks),
+        ))
+        // A chat may have been linked meanwhile; offer sending to it.
+        .then((_) => widget.botLinks?.load());
+  }
+
+  Future<void> _sendToBot(Track track, MessengerBot bot) async {
+    final links = widget.botLinks;
+    if (links == null) return;
+    final result = await links.send(bot.provider, track.id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(switch (result) {
+        BotSendResult.queued =>
+          'بات نفیر «${track.title}» را در ${bot.name} برایت می‌فرستد.',
+        BotSendResult.notLinked =>
+          'گفتگوی ${bot.name} دیگر به حسابت وصل نیست. از تنظیمات دوباره وصلش کن.',
+        BotSendResult.tooLarge =>
+          '«${track.title}» برای فرستادن با بات ${bot.name} بزرگ است.',
+        BotSendResult.failed =>
+          'فرستادن به ${bot.name} ناموفق بود. دوباره تلاش کن.',
+      }),
     ));
   }
 
   Future<void> _refreshCloud() async {
+    widget.botLinks?.load();
     final ok = await widget.library.load();
     if (!ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -288,7 +313,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
             ),
             Expanded(
               child: ListenableBuilder(
-                listenable: widget.library,
+                listenable: Listenable.merge([
+                  widget.library,
+                  if (widget.botLinks != null) widget.botLinks,
+                ]),
                 builder: (context, _) => switch (widget.library.status) {
                   LibraryStatus.loading =>
                     const Center(child: CircularProgressIndicator()),
@@ -304,6 +332,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
                               playlists: widget.playlists,
                               onDelete: _confirmDeleteTrack,
                               isDeleting: widget.library.isDeleting,
+                              linkedBots:
+                                  widget.botLinks?.linkedBots ?? const [],
+                              onSendToBot: _sendToBot,
                             ),
                     ),
                 },
@@ -352,7 +383,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
 enum _HeaderAction { playlists, settings, logout }
 
-enum _TrackAction { addToPlaylist, delete }
+enum _TrackAction { addToPlaylist, sendToBot, delete }
 
 class _NafirBrand extends StatelessWidget {
   const _NafirBrand({required this.compact});
@@ -502,6 +533,8 @@ class _TrackList extends StatefulWidget {
     this.playlists,
     this.onDelete,
     this.isDeleting,
+    this.linkedBots = const [],
+    this.onSendToBot,
   });
 
   final List<Track> tracks;
@@ -509,6 +542,10 @@ class _TrackList extends StatefulWidget {
   final PlaylistsController? playlists;
   final Future<void> Function(Track track)? onDelete;
   final bool Function(String trackId)? isDeleting;
+
+  /// Bots with a linked chat, offered as «ارسال به …» for each track.
+  final List<MessengerBot> linkedBots;
+  final Future<void> Function(Track track, MessengerBot bot)? onSendToBot;
 
   @override
   State<_TrackList> createState() => _TrackListState();
@@ -729,62 +766,76 @@ class _TrackListState extends State<_TrackList> {
                         ),
                       ],
                     ),
-                    trailing:
-                        widget.playlists == null && widget.onDelete == null
-                            ? null
-                            : widget.isDeleting?.call(track.id) == true
-                                ? const SizedBox.square(
-                                    dimension: 48,
-                                    child: Padding(
-                                      padding: EdgeInsets.all(12),
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2.5,
+                    trailing: widget.playlists == null &&
+                            widget.onDelete == null &&
+                            widget.linkedBots.isEmpty
+                        ? null
+                        : widget.isDeleting?.call(track.id) == true
+                            ? const SizedBox.square(
+                                dimension: 48,
+                                child: Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                  ),
+                                ),
+                              )
+                            : PopupMenuButton<(_TrackAction, MessengerBot?)>(
+                                tooltip: 'اقدامات آهنگ',
+                                onSelected: (choice) {
+                                  switch (choice) {
+                                    case (_TrackAction.addToPlaylist, _):
+                                      _addToPlaylist(context, track);
+                                    case (_TrackAction.sendToBot, final bot?):
+                                      widget.onSendToBot?.call(track, bot);
+                                    case (_TrackAction.delete, _):
+                                      widget.onDelete?.call(track);
+                                    case (_TrackAction.sendToBot, null):
+                                      break;
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  if (widget.playlists != null)
+                                    const PopupMenuItem(
+                                      value: (_TrackAction.addToPlaylist, null),
+                                      child: ListTile(
+                                        contentPadding: EdgeInsets.zero,
+                                        leading: Icon(Icons.playlist_add),
+                                        title: Text('افزودن به Playlist'),
                                       ),
                                     ),
-                                  )
-                                : PopupMenuButton<_TrackAction>(
-                                    tooltip: 'اقدامات آهنگ',
-                                    onSelected: (action) {
-                                      switch (action) {
-                                        case _TrackAction.addToPlaylist:
-                                          _addToPlaylist(context, track);
-                                        case _TrackAction.delete:
-                                          widget.onDelete?.call(track);
-                                      }
-                                    },
-                                    itemBuilder: (context) => [
-                                      if (widget.playlists != null)
-                                        const PopupMenuItem(
-                                          value: _TrackAction.addToPlaylist,
-                                          child: ListTile(
-                                            contentPadding: EdgeInsets.zero,
-                                            leading: Icon(Icons.playlist_add),
-                                            title: Text('افزودن به Playlist'),
+                                  for (final bot in widget.linkedBots)
+                                    PopupMenuItem(
+                                      value: (_TrackAction.sendToBot, bot),
+                                      child: ListTile(
+                                        contentPadding: EdgeInsets.zero,
+                                        leading: const Icon(Icons.send),
+                                        title: Text('ارسال به ${bot.name}'),
+                                      ),
+                                    ),
+                                  if (widget.onDelete != null)
+                                    PopupMenuItem(
+                                      value: (_TrackAction.delete, null),
+                                      child: ListTile(
+                                        contentPadding: EdgeInsets.zero,
+                                        leading: Icon(
+                                          Icons.delete_outline,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .error,
+                                        ),
+                                        title: Text(
+                                          'حذف آهنگ',
+                                          style: TextStyle(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .error,
                                           ),
                                         ),
-                                      if (widget.onDelete != null)
-                                        PopupMenuItem(
-                                          value: _TrackAction.delete,
-                                          child: ListTile(
-                                            contentPadding: EdgeInsets.zero,
-                                            leading: Icon(
-                                              Icons.delete_outline,
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .error,
-                                            ),
-                                            title: Text(
-                                              'حذف آهنگ',
-                                              style: TextStyle(
-                                                color: Theme.of(context)
-                                                    .colorScheme
-                                                    .error,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
+                                      ),
+                                    ),
+                                ],
+                              ),
                   );
                 },
               );

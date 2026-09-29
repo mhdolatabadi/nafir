@@ -141,6 +141,56 @@ func (b *Bots) RedeemLinkCode(
 	return userID, nil
 }
 
+// LinkedChats lists the user's chats with the provider linked since the
+// given time; older links have expired.
+func (b *Bots) LinkedChats(ctx context.Context, userID, provider string, since time.Time) ([]string, error) {
+	rows, err := b.pool.Query(ctx, `
+		SELECT chat_id FROM bot_chats
+		WHERE user_id::text = $1 AND provider = $2 AND linked_at >= $3
+		ORDER BY linked_at DESC
+	`, userID, provider, since)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowTo[string])
+}
+
+// LinkedProviders lists the providers the user has a chat linked with since
+// the given time.
+func (b *Bots) LinkedProviders(ctx context.Context, userID string, since time.Time) ([]string, error) {
+	rows, err := b.pool.Query(ctx, `
+		SELECT DISTINCT provider FROM bot_chats
+		WHERE user_id::text = $1 AND linked_at >= $2
+		ORDER BY provider
+	`, userID, since)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowTo[string])
+}
+
+// TrackFileID returns the provider's file ID for a track, or "" if the bot
+// has not uploaded it yet.
+func (b *Bots) TrackFileID(ctx context.Context, provider, trackID string) (string, error) {
+	var fileID string
+	err := b.pool.QueryRow(ctx, `
+		SELECT file_id FROM bot_track_files WHERE provider = $1 AND track_id::text = $2
+	`, provider, trackID).Scan(&fileID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	return fileID, err
+}
+
+// SaveTrackFileID remembers (or replaces) the provider's file ID for a track.
+func (b *Bots) SaveTrackFileID(ctx context.Context, provider, trackID, fileID string) error {
+	_, err := b.pool.Exec(ctx, `
+		INSERT INTO bot_track_files (provider, track_id, file_id) VALUES ($1, $2::uuid, $3)
+		ON CONFLICT (provider, track_id) DO UPDATE SET file_id = $3, created_at = now()
+	`, provider, trackID, fileID)
+	return err
+}
+
 // FirstDelivery records an update and reports whether it is new.
 func (b *Bots) FirstDelivery(ctx context.Context, provider, updateID string) (bool, error) {
 	tag, err := b.pool.Exec(ctx, `

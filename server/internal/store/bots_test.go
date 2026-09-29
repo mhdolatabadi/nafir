@@ -148,3 +148,58 @@ func TestBotUpdatesAndImportsAreDeduplicated(t *testing.T) {
 		t.Fatalf("finished import still unfinished: %v", unfinished)
 	}
 }
+
+func TestLinkedChatsAndTrackFileIDs(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	user, _ := NewUsers(pool).Create(ctx, "bot@example.com", "hash")
+	other, _ := NewUsers(pool).Create(ctx, "other@example.com", "hash")
+	bots := NewBots(pool)
+	tracks := NewTracks(pool)
+	now := time.Now()
+
+	link := func(userID, provider, chatID string, at time.Time) {
+		t.Helper()
+		hash := []byte(provider + chatID)
+		if err := bots.CreateLinkCode(ctx, userID, hash, at.Add(time.Hour)); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := bots.RedeemLinkCode(ctx, provider, chatID, hash, at, 5, time.Hour); err != nil {
+			t.Fatal(err)
+		}
+	}
+	link(user.ID, "bale", "1", now)
+	link(user.ID, "telegram", "2", now.Add(-48*time.Hour))
+	link(other.ID, "bale", "3", now)
+
+	chats, err := bots.LinkedChats(ctx, user.ID, "bale", now.Add(-time.Hour))
+	if err != nil || len(chats) != 1 || chats[0] != "1" {
+		t.Fatalf("bale chats = %v, %v", chats, err)
+	}
+	if chats, _ := bots.LinkedChats(ctx, user.ID, "telegram", now.Add(-time.Hour)); len(chats) != 0 {
+		t.Fatalf("expired telegram link listed: %v", chats)
+	}
+	providers, err := bots.LinkedProviders(ctx, user.ID, now.Add(-72*time.Hour))
+	if err != nil || len(providers) != 2 || providers[0] != "bale" || providers[1] != "telegram" {
+		t.Fatalf("providers = %v, %v", providers, err)
+	}
+
+	track, err := tracks.Create(ctx, user.ID, NewTrack{Title: "t", FileName: "t.mp3", ContentType: "audio/mpeg", SizeBytes: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id, err := bots.TrackFileID(ctx, "bale", track.ID); err != nil || id != "" {
+		t.Fatalf("unsent track file ID = %q, %v", id, err)
+	}
+	bots.SaveTrackFileID(ctx, "bale", track.ID, "first")
+	bots.SaveTrackFileID(ctx, "bale", track.ID, "second")
+	if id, _ := bots.TrackFileID(ctx, "bale", track.ID); id != "second" {
+		t.Fatalf("file ID = %q", id)
+	}
+	if err := tracks.Delete(ctx, user.ID, track.ID); err != nil {
+		t.Fatal(err)
+	}
+	if id, _ := bots.TrackFileID(ctx, "bale", track.ID); id != "" {
+		t.Fatalf("file ID survived its track: %q", id)
+	}
+}

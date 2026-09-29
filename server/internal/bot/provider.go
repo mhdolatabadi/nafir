@@ -41,7 +41,23 @@ type Provider interface {
 	Open(ctx context.Context, fileID string) (io.ReadCloser, int64, error)
 	// MaxDownloadBytes is the largest file the provider lets bots download.
 	MaxDownloadBytes() int64
+	// SendAudio posts audio to a chat and returns the provider's file ID for
+	// it, which a later SendAudio can pass instead of the content.
+	SendAudio(ctx context.Context, chatID string, audio OutgoingAudio) (string, error)
+	// MaxUploadBytes is the largest file the provider lets bots upload.
+	MaxUploadBytes() int64
 }
 
-// ErrFileTooLarge is returned by Open for files the provider will not serve.
-var ErrFileTooLarge = errors.New("file is too large for the provider to download")
+// OutgoingAudio is audio for a bot to send: either a FileID the provider
+// already has, or Body with exactly Size bytes.
+type OutgoingAudio struct {
+	FileID    string
+	FileName  string
+	Body      io.Reader
+	Size      int64
+	Title     string
+	Performer string
+}
+
+// ErrFileTooLarge is returned for files the provider will not serve or accept.
+var ErrFileTooLarge = errors.New("file is too large for the provider")

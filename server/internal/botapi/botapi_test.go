@@ -151,3 +151,107 @@ func TestErrorsNeverContainTheToken(t *testing.T) {
 		t.Fatalf("connection error leaks the token: %v", err)
 	}
 }
+
+func TestSetWebhookRegistersTheSecretToken(t *testing.T) {
+	var params map[string]any
+	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&params)
+		io.WriteString(w, `{"ok":true,"result":true}`)
+	})
+	client.config.SecretToken = "hook-secret"
+
+	if err := client.SetWebhook(context.Background(), "https://music.example.com/hook"); err != nil {
+		t.Fatal(err)
+	}
+	if params["secret_token"] != "hook-secret" || params["url"] != "https://music.example.com/hook" {
+		t.Fatalf("setWebhook params = %v", params)
+	}
+}
+
+func TestRequestsGoThroughTheConfiguredProxy(t *testing.T) {
+	var proxied []string
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proxied = append(proxied, r.URL.Host+r.URL.Path)
+		io.WriteString(w, `{"ok":true,"result":true}`)
+	}))
+	t.Cleanup(proxy.Close)
+	client, err := New(Config{
+		Name: "telegram", BaseURL: "http://api.telegram.invalid", Token: token,
+		MaxDownloadBytes: 1, ProxyURL: proxy.URL,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := client.Send(context.Background(), "1", "x"); err != nil {
+		t.Fatal(err)
+	}
+	if len(proxied) != 1 || proxied[0] != "api.telegram.invalid/bot"+token+"/sendMessage" {
+		t.Fatalf("proxied %v", proxied)
+	}
+	if _, err := New(Config{Name: "x", BaseURL: "http://a", Token: "t", MaxDownloadBytes: 1, ProxyURL: "::"}); err == nil {
+		t.Fatal("bad proxy URL accepted")
+	}
+}
+
+func TestSendAudioUploadsThenSendsByFileID(t *testing.T) {
+	var fields map[string]string
+	var fileName, fileBody string
+	var byID map[string]any
+	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+			if err := r.ParseMultipartForm(1 << 20); err != nil {
+				t.Error(err)
+			}
+			fields = map[string]string{}
+			for k, v := range r.MultipartForm.Value {
+				fields[k] = v[0]
+			}
+			file, header, _ := r.FormFile("audio")
+			data, _ := io.ReadAll(file)
+			fileName, fileBody = header.Filename, string(data)
+			io.WriteString(w, `{"ok":true,"result":{"message_id":1,"audio":{"file_id":"AUD1"}}}`)
+			return
+		}
+		json.NewDecoder(r.Body).Decode(&byID)
+		io.WriteString(w, `{"ok":true,"result":{"message_id":2,"audio":{"file_id":"AUD1"}}}`)
+	})
+
+	id, err := client.SendAudio(context.Background(), "9007199254740993", bot.OutgoingAudio{
+		FileName: "song.mp3", Body: strings.NewReader("ID3data"), Size: 7, Title: "آهنگ", Performer: "خواننده",
+	})
+	if err != nil || id != "AUD1" {
+		t.Fatalf("upload = %q, %v", id, err)
+	}
+	if fields["chat_id"] != "9007199254740993" || fields["title"] != "آهنگ" || fields["performer"] != "خواننده" ||
+		fileName != "song.mp3" || fileBody != "ID3data" {
+		t.Fatalf("multipart = %v %q %q", fields, fileName, fileBody)
+	}
+
+	if id, err := client.SendAudio(context.Background(), "5", bot.OutgoingAudio{FileID: "AUD1", Title: "آهنگ"}); err != nil || id != "AUD1" {
+		t.Fatalf("by file ID = %q, %v", id, err)
+	}
+	if byID["audio"] != "AUD1" || byID["title"] != "آهنگ" {
+		t.Fatalf("by file ID params = %v", byID)
+	}
+}
+
+func TestSendAudioRefusesOversizedUploads(t *testing.T) {
+	calls := 0
+	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.WriteHeader(http.StatusRequestEntityTooLarge)
+		io.WriteString(w, `{"ok":false,"error_code":413,"description":"Request Entity Too Large"}`)
+	})
+	client.config.MaxUploadBytes = 5
+	if _, err := client.SendAudio(context.Background(), "1", bot.OutgoingAudio{
+		FileName: "a.mp3", Body: strings.NewReader("123456"), Size: 6,
+	}); !errors.Is(err, bot.ErrFileTooLarge) || calls != 0 {
+		t.Fatalf("over the configured limit: %v after %d calls", err, calls)
+	}
+	client.config.MaxUploadBytes = 100
+	if _, err := client.SendAudio(context.Background(), "1", bot.OutgoingAudio{
+		FileName: "a.mp3", Body: strings.NewReader("123456"), Size: 6,
+	}); !errors.Is(err, bot.ErrFileTooLarge) {
+		t.Fatalf("provider 413: %v", err)
+	}
+}
