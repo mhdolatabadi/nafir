@@ -263,14 +263,26 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                               Padding(
                                 padding:
                                     const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                                child: SizedBox(
-                                  width: double.infinity,
-                                  child: FilledButton.icon(
-                                    onPressed: () => widget.player
-                                        .playFrom(current.tracks, 0),
-                                    icon: const Icon(Icons.play_arrow),
-                                    label: const Text('پخش همه'),
-                                  ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: FilledButton.icon(
+                                        onPressed: () => widget.player
+                                            .playFrom(current.tracks, 0),
+                                        icon: const Icon(Icons.play_arrow),
+                                        label: const Text('پخش همه'),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: FilledButton.tonalIcon(
+                                        onPressed: () => widget.player
+                                            .playShuffled(current.tracks),
+                                        icon: const Icon(Icons.shuffle_rounded),
+                                        label: const Text('پخش تصادفی'),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                               Expanded(

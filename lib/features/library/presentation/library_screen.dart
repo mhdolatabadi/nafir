@@ -662,12 +662,37 @@ class _TrackListState extends State<_TrackList> {
                     ),
               ),
               const Spacer(),
-              Text(
-                '${tracks.length} از ${widget.tracks.length} قطعه',
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-              ),
+              if (MediaQuery.sizeOf(context).width >= 520)
+                FilledButton.tonalIcon(
+                  onPressed: tracks.isEmpty
+                      ? null
+                      : () => widget.player.playShuffled(tracks),
+                  icon: const Icon(Icons.shuffle_rounded, size: 18),
+                  label: Text(
+                    _query.trim().isEmpty
+                        ? 'پخش تصادفی همه'
+                        : 'پخش تصادفی نتایج',
+                  ),
+                )
+              else
+                IconButton.filledTonal(
+                  tooltip: _query.trim().isEmpty
+                      ? 'پخش تصادفی همه'
+                      : 'پخش تصادفی نتایج',
+                  onPressed: tracks.isEmpty
+                      ? null
+                      : () => widget.player.playShuffled(tracks),
+                  icon: const Icon(Icons.shuffle_rounded),
+                ),
+              if (MediaQuery.sizeOf(context).width >= 520) ...[
+                const SizedBox(width: 12),
+                Text(
+                  '${tracks.length} از ${widget.tracks.length} قطعه',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+              ],
             ],
           ),
         ),

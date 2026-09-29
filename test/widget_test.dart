@@ -474,6 +474,39 @@ void main() {
     expect(find.byTooltip('پخش'), findsOneWidget);
   });
 
+  testWidgets('shuffle-all follows the visible search result set', (
+    tester,
+  ) async {
+    await _pumpApp(
+      tester,
+      tokenStore: MemoryTokenStore('valid-token'),
+      tracks: FakeTracksApi(const [
+        Track(
+            id: 's1',
+            title: 'First Song',
+            artist: 'Alpha',
+            contentType: 'audio/mpeg',
+            sizeBytes: 1),
+        Track(
+            id: 's2',
+            title: 'Second Song',
+            artist: 'Beta',
+            contentType: 'audio/mpeg',
+            sizeBytes: 1),
+      ]),
+    );
+    expect(find.text('پخش تصادفی همه'), findsOneWidget);
+    await tester.enterText(find.byType(SearchBar), 'Beta');
+    await tester.pump();
+    expect(find.text('پخش تصادفی نتایج'), findsOneWidget);
+    expect(find.text('First Song'), findsNothing);
+    expect(find.text('Second Song'), findsOneWidget);
+    await tester.tap(find.text('پخش تصادفی نتایج'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('توقف'), findsOneWidget);
+    expect(find.text('Second Song'), findsWidgets);
+  });
+
   testWidgets('mini player stays usable on a narrow screen', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
