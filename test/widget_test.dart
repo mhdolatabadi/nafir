@@ -333,6 +333,8 @@ void main() {
 
     expect(find.text('0 از 2 قطعه'), findsOneWidget);
     expect(find.text('نتیجه‌ای پیدا نشد'), findsOneWidget);
+    await tester.ensureVisible(find.text('پاک کردن جست‌وجو'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('پاک کردن جست‌وجو'));
     await tester.pumpAndSettle();
 
