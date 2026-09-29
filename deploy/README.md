@@ -146,6 +146,98 @@ a track sent once is sent again instantly without another upload.
 To turn a bot off, clear its token and deploy. A chat can be unlinked from
 the bot with `/logout`.
 
+## Operating the bots
+
+### Secrets
+Bot tokens, `BOT_WEBHOOK_SECRET` and `OPS_TOKEN` live only in `deploy/.env` on
+the server. The GitHub deploy workflow never sees them: it runs `deploy.sh`
+over SSH, and the API reads them at start. They are not baked into images,
+and the API never logs them. Errors are stripped of bot tokens, and the
+webhook secret is never printed.
+
+### Health
+- `deploy.sh` checks the bots after every deploy when `OPS_TOKEN` is set. It
+  prints the report and warns if a bot needs attention. The site is up either
+  way, so a warning does not fail the deploy.
+- Any time:
+
+  ```bash
+  curl -s -H "Authorization: Bearer $OPS_TOKEN" https://<NAFIR_DOMAIN>/api/v1/ops/bots
+  ```
+
+  For each bot this shows:
+  - whether its webhook is registered at the right URL
+  - how many updates the messenger is still holding, and its last delivery
+    error
+  - the import queue (queued, downloading, done and failed in the last hour,
+    oldest waiting)
+  - counters since the API started: updates, duplicates, links, imports and
+    sends, and their failures
+
+  `problems` lists anything that needs attention, and `healthy` is false when
+  any bot has a problem.
+- Every five minutes the API logs a `bot health` line per bot, at warning
+  level when there is a problem:
+
+  ```bash
+  docker compose logs api | grep "bot health"
+  ```
+
+  Warnings mean one of these:
+  - the messenger's API is unreachable
+  - the webhook is not registered, or points elsewhere
+  - more than 100 updates are waiting
+  - a delivery error in the last 15 minutes
+  - an import waiting over 15 minutes
+  - more than 10 failed imports in an hour
+
+### Smoke test after changing bot settings
+1. The deploy output shows `Bot health: {"healthy":true,...}`.
+2. In the app: **Settings → اتصال به بات → دریافت کد اتصال**. Send the code to
+   the bot; it replies that the chat is linked.
+3. Send an mp3 to the bot. It replies «… به کتابخانهٔ نفیر اضافه شد.», and the
+   track appears in the app with «از بله» or «از تلگرام».
+4. From the track's menu choose «ارسال به …»; the audio arrives in the chat.
+5. `/logout` in the bot, then send another file: the bot asks to link again.
+
+### Rotating a bot token
+1. In @BotFather, revoke the token and copy the new one.
+2. Replace `BALE_BOT_TOKEN` or `TELEGRAM_BOT_TOKEN` in `deploy/.env` and run
+   `deploy/deploy.sh`. On start, the API registers the webhook again with the
+   new token.
+
+Linked chats, imports and sent-file IDs all survive the rotation.
+
+### Rotating the webhook secret
+Set a new `BOT_WEBHOOK_SECRET` (`openssl rand -hex 32`) and deploy. Each bot's
+webhook is re-registered with the new URL (and, for Telegram, the new header
+secret). Updates still addressed to the old URL get 404, and the messenger
+retries them at the new one.
+
+### When a messenger or the network is down
+- **Updates:** Telegram and Bale keep undelivered updates and retry them.
+  Nafir ignores updates it has already handled, so retries are safe. When all
+  16 update workers are busy, the webhook answers 503 so the messenger retries
+  later.
+- **Imports:** a failed download is retried three times with growing delays.
+  Imports interrupted by a restart resume when the API starts, and a failed
+  import removes its half-stored track and object.
+- **Webhook registration:** if the messenger is unreachable at start, the API
+  keeps retrying with growing delays up to five minutes.
+- **Telegram from Iran:** if Telegram becomes unreachable, check
+  `TELEGRAM_PROXY_URL` first.
+
+### Turning a bot off or rolling back
+- **Turn a bot off:** clear its token and deploy. Its webhook stays registered
+  with the messenger, which then gets 404s. To stop that too:
+
+  ```bash
+  curl -s "https://tapi.bale.ai/bot<token>/deleteWebhook"      # Bale
+  curl -s "https://api.telegram.org/bot<token>/deleteWebhook"  # Telegram
+  ```
+- **Roll back:** run `deploy/deploy.sh <previous-commit>`. Bot tables only gain
+  columns and tables, so an older API keeps working with them.
+
 ## Security rules
 
 - Never commit `.env`.

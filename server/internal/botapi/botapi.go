@@ -156,6 +156,36 @@ func (c *Client) SetWebhook(ctx context.Context, url string) error {
 	return c.call(ctx, "setWebhook", params, nil)
 }
 
+type webhookInfo struct {
+	URL                  string `json:"url"`
+	PendingUpdateCount   int    `json:"pending_update_count"`
+	LastErrorDate        int64  `json:"last_error_date"`
+	LastErrorMessage     string `json:"last_error_message"`
+	MaxConnections       int    `json:"max_connections"`
+	LastSyncErrorDate    int64  `json:"last_synchronization_error_date"`
+	HasCustomCertificate bool   `json:"has_custom_certificate"`
+}
+
+// WebhookInfo reports what the provider knows about the webhook. The URL
+// itself holds the webhook secret, so only whether it matches is returned.
+func (c *Client) WebhookInfo(ctx context.Context, expectedURL string) (bot.WebhookStatus, error) {
+	var info webhookInfo
+	if err := c.call(ctx, "getWebhookInfo", map[string]any{}, &info); err != nil {
+		return bot.WebhookStatus{}, err
+	}
+	status := bot.WebhookStatus{
+		Registered:       info.URL != "",
+		MatchesExpected:  info.URL == expectedURL,
+		PendingUpdates:   info.PendingUpdateCount,
+		LastErrorMessage: info.LastErrorMessage,
+	}
+	if info.LastErrorDate > 0 {
+		at := time.Unix(info.LastErrorDate, 0).UTC()
+		status.LastErrorAt = &at
+	}
+	return status, nil
+}
+
 type sentMessage struct {
 	Audio    *document `json:"audio"`
 	Document *document `json:"document"`

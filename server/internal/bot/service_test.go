@@ -140,6 +140,11 @@ func TestLinkWithAppCodeThenImportAudio(t *testing.T) {
 		}
 	}
 
+	m := h.service.Metrics().Snapshot()
+	if m.Links != 1 || m.LinkFailures != 2 || m.ImportsDone != 1 || m.Updates < 5 {
+		t.Fatalf("metrics = %+v", m)
+	}
+
 	if reply := h.text("/logout"); reply != msgUnlinked {
 		t.Fatalf("/logout = %q", reply)
 	}
@@ -225,6 +230,9 @@ func TestRedeliveredUpdatesAndMessagesImportOnce(t *testing.T) {
 	}
 	if len(h.tracks.tracks) != 1 {
 		t.Fatalf("imported %d tracks", len(h.tracks.tracks))
+	}
+	if d := h.service.Metrics().Duplicates.Load(); d != 1 {
+		t.Fatalf("duplicates counted = %d", d)
 	}
 }
 

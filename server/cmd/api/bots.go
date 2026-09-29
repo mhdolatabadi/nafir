@@ -28,6 +28,7 @@ const (
 	defaultBotUploadBytes   = 50 << 20
 	botWebhookConcurrency   = 16
 	botSendConcurrency      = 4
+	botHealthLogInterval    = 5 * time.Minute
 	minWebhookSecretLength  = 32
 )
 
@@ -62,16 +63,16 @@ type botDeps struct {
 }
 
 // setupBots starts every messenger bot with a token configured. It returns
-// their webhooks and the app-facing bot endpoints, which list no bots when
-// none is configured.
-func setupBots(ctx context.Context, deps botDeps) (map[string]http.Handler, *httpapi.BotHandlers, error) {
+// their webhooks, the app-facing bot endpoints (which list no bots when none
+// is configured) and a monitor of their health (nil without bots).
+func setupBots(ctx context.Context, deps botDeps) (map[string]http.Handler, *httpapi.BotHandlers, *bot.Monitor, error) {
 	linkRate, err := rateLimiterEnv("BOT_LINK_RATE", 10, time.Hour)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	sendRate, err := rateLimiterEnv("BOT_SEND_RATE", 30, time.Hour)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	var enabled []messenger
 	for _, m := range messengers {
@@ -80,19 +81,19 @@ func setupBots(ctx context.Context, deps botDeps) (map[string]http.Handler, *htt
 		}
 	}
 	if len(enabled) == 0 {
-		return nil, httpapi.NewBotHandlers(nil, nil, deps.tokens, nil, linkRate, sendRate), nil
+		return nil, httpapi.NewBotHandlers(nil, nil, deps.tokens, nil, linkRate, sendRate), nil, nil
 	}
 
 	secret := os.Getenv("BOT_WEBHOOK_SECRET")
 	if len(secret) < minWebhookSecretLength || strings.Trim(secret, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-") != "" {
-		return nil, nil, fmt.Errorf("BOT_WEBHOOK_SECRET must be at least %d letters, digits, _ or -", minWebhookSecretLength)
+		return nil, nil, nil, fmt.Errorf("BOT_WEBHOOK_SECRET must be at least %d letters, digits, _ or -", minWebhookSecretLength)
 	}
 	publicURL := os.Getenv("BOT_PUBLIC_URL")
 	if publicURL == "" {
 		publicURL = os.Getenv("STORAGE_PUBLIC_URL")
 	}
 	if parsed, err := url.Parse(publicURL); err != nil || parsed.Scheme != "https" || parsed.Host == "" {
-		return nil, nil, fmt.Errorf("BOT_PUBLIC_URL must be the https origin bots post to, got %q", publicURL)
+		return nil, nil, nil, fmt.Errorf("BOT_PUBLIC_URL must be the https origin bots post to, got %q", publicURL)
 	}
 	// Link codes get their own key, derived so AUTH_TOKEN_SECRET stays the
 	// only secret to manage.
@@ -100,22 +101,23 @@ func setupBots(ctx context.Context, deps botDeps) (map[string]http.Handler, *htt
 	mac.Write([]byte("nafir bot link codes"))
 	linker, err := bot.NewLinker(deps.bots, mac.Sum(nil), bot.DefaultLinkLimits)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	importer := bot.NewImporter(deps.bots, deps.tracks, deps.objects, deps.policy)
 
 	webhooks := map[string]http.Handler{}
 	senders := bot.Senders{}
+	var watched []bot.Watched
 	var listed []httpapi.Bot
 	for _, m := range enabled {
 		env := func(name string) string { return os.Getenv(m.envPrefix + "_" + name) }
 		maxBytes, err := positiveInt64Env(m.envPrefix+"_MAX_DOWNLOAD_BYTES", defaultBotDownloadBytes)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		maxUpload, err := positiveInt64Env(m.envPrefix+"_MAX_UPLOAD_BYTES", defaultBotUploadBytes)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		apiURL := env("API_URL")
 		if apiURL == "" {
@@ -132,7 +134,7 @@ func setupBots(ctx context.Context, deps botDeps) (map[string]http.Handler, *htt
 		}
 		client, err := botapi.New(config)
 		if err != nil {
-			return nil, nil, fmt.Errorf("%s: %w", m.name, err)
+			return nil, nil, nil, fmt.Errorf("%s: %w", m.name, err)
 		}
 		info := httpapi.Bot{Provider: m.name, Name: m.displayName}
 		if username := strings.TrimPrefix(env("BOT_USERNAME"), "@"); username != "" {
@@ -145,12 +147,18 @@ func setupBots(ctx context.Context, deps botDeps) (map[string]http.Handler, *htt
 		webhookURL := strings.TrimSuffix(publicURL, "/") + "/api/v1/bots/" + m.name + "/webhook/" + secret
 		go registerWebhook(ctx, client, webhookURL)
 		go service.Resume(ctx)
-		senders[m.name] = bot.NewSender(client, deps.bots, deps.tracks, deps.objects, linker.SessionTTL(), botSendConcurrency)
+		senders[m.name] = bot.NewSender(client, deps.bots, deps.tracks, deps.objects, linker.SessionTTL(), botSendConcurrency).
+			CountInto(service.Metrics())
+		watched = append(watched, bot.Watched{
+			Name: m.name, Webhook: client, WebhookURL: webhookURL, Metrics: service.Metrics(),
+		})
 		webhooks[m.name] = bot.Webhook(ctx, service, botapi.Parse, webhookAuth, botWebhookConcurrency)
 		slog.Info("bot enabled", "provider", m.name)
 	}
 	go forgetOldUpdates(ctx, deps.bots)
-	return webhooks, httpapi.NewBotHandlers(linker, senders, deps.tokens, listed, linkRate, sendRate), nil
+	monitor := bot.NewMonitor(deps.bots, watched...)
+	go monitor.LogHealth(ctx, botHealthLogInterval)
+	return webhooks, httpapi.NewBotHandlers(linker, senders, deps.tokens, listed, linkRate, sendRate), monitor, nil
 }
 
 // registerWebhook points the provider at Nafir, retrying while it is unreachable.

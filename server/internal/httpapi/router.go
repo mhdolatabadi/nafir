@@ -16,6 +16,8 @@ type Config struct {
 	Tracks        *TrackHandlers
 	Playlists     *PlaylistHandlers
 	Bots          *BotHandlers
+	// Ops is served only when an operator token is configured.
+	Ops *OpsHandlers
 	// Webhooks maps a messenger provider name to its bot webhook, served at
 	// /api/v1/bots/{provider}/webhook/{secret}.
 	Webhooks map[string]http.Handler
@@ -35,6 +37,9 @@ func NewHandler(config Config) http.Handler {
 	}
 	if config.Bots != nil {
 		config.Bots.register(mux)
+	}
+	if config.Ops != nil {
+		config.Ops.register(mux)
 	}
 	for provider, handler := range config.Webhooks {
 		mux.Handle("POST /api/v1/bots/"+provider+"/webhook/{secret}", handler)

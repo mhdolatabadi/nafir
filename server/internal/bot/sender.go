@@ -42,6 +42,7 @@ type Sender struct {
 	tracks     TrackReader
 	objects    ObjectReader
 	sessionTTL time.Duration
+	metrics    *Metrics
 	now        func() time.Time
 	slots      chan struct{}
 	// run starts delivery outside the request; tests replace it.
@@ -51,8 +52,16 @@ type Sender struct {
 func NewSender(p Provider, s SendStore, tracks TrackReader, objects ObjectReader, sessionTTL time.Duration, concurrency int) *Sender {
 	return &Sender{
 		provider: p, store: s, tracks: tracks, objects: objects, sessionTTL: sessionTTL,
-		now: time.Now, slots: make(chan struct{}, concurrency), run: func(work func()) { go work() },
+		metrics: &Metrics{}, now: time.Now, slots: make(chan struct{}, concurrency),
+		run: func(work func()) { go work() },
 	}
+}
+
+// CountInto makes the sender count its deliveries in m, usually the bot
+// service's metrics.
+func (s *Sender) CountInto(m *Metrics) *Sender {
+	s.metrics = m
+	return s
 }
 
 // Send checks that the track can be sent and queues it for every chat the
@@ -103,6 +112,7 @@ func (s *Sender) deliver(ctx context.Context, chatID string, track store.Track) 
 		audio.FileID = fileID
 		_, err := s.provider.SendAudio(ctx, chatID, audio)
 		if err == nil {
+			s.metrics.SendsDone.Add(1)
 			return
 		}
 		slog.Warn("bot resend by file ID failed, uploading", "provider", name, "error", err)
@@ -111,8 +121,10 @@ func (s *Sender) deliver(ctx context.Context, chatID string, track store.Track) 
 
 	err := s.upload(ctx, chatID, track, audio)
 	if err == nil {
+		s.metrics.SendsDone.Add(1)
 		return
 	}
+	s.metrics.SendsFailed.Add(1)
 	slog.Error("bot send failed", "provider", name, "track", track.ID, "error", err)
 	text := msgSendFailed(track.Title)
 	if errors.Is(err, ErrFileTooLarge) {

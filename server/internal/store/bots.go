@@ -305,6 +305,31 @@ func (b *Bots) ActiveImports(ctx context.Context, userID string) (int, error) {
 	return n, err
 }
 
+// ImportStats summarizes the import queue across all users.
+type ImportStats struct {
+	Queued         int        `json:"queued"`
+	Downloading    int        `json:"downloading"`
+	DoneLastHour   int        `json:"doneLastHour"`
+	FailedLastHour int        `json:"failedLastHour"`
+	OldestWaiting  *time.Time `json:"oldestWaiting,omitempty"`
+}
+
+// ImportStats reports how the import queue for one provider is doing.
+func (b *Bots) ImportStats(ctx context.Context, provider string, now time.Time) (ImportStats, error) {
+	var stats ImportStats
+	err := b.pool.QueryRow(ctx, `
+		SELECT
+			COUNT(*) FILTER (WHERE state = 'queued')::integer,
+			COUNT(*) FILTER (WHERE state = 'downloading')::integer,
+			COUNT(*) FILTER (WHERE state = 'done' AND updated_at >= $2)::integer,
+			COUNT(*) FILTER (WHERE state = 'failed' AND updated_at >= $2)::integer,
+			MIN(created_at) FILTER (WHERE state IN ('queued', 'downloading'))
+		FROM bot_imports WHERE provider = $1
+	`, provider, now.Add(-time.Hour)).Scan(
+		&stats.Queued, &stats.Downloading, &stats.DoneLastHour, &stats.FailedLastHour, &stats.OldestWaiting)
+	return stats, err
+}
+
 // UnfinishedImports lists imports interrupted by a restart, oldest first.
 func (b *Bots) UnfinishedImports(ctx context.Context, limit int) ([]BotImport, error) {
 	rows, err := b.pool.Query(ctx, `
