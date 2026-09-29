@@ -73,7 +73,8 @@ void main() {
         _ids(_tracks.skipWhile((t) => t.id != now).skip(1)));
   });
 
-  test('shuffle-all randomizes the first track and contains each track once', () {
+  test('shuffle-all randomizes the first track and contains each track once',
+      () {
     PlayQueue shuffledWith(int seed) =>
         PlayQueue.shuffled(_tracks, random: Random(seed));
     final first = shuffledWith(11);

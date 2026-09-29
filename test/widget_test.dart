@@ -479,8 +479,18 @@ void main() {
       tester,
       tokenStore: MemoryTokenStore('valid-token'),
       tracks: FakeTracksApi(const [
-        Track(id: 's1', title: 'First Song', artist: 'Alpha', contentType: 'audio/mpeg', sizeBytes: 1),
-        Track(id: 's2', title: 'Second Song', artist: 'Beta', contentType: 'audio/mpeg', sizeBytes: 1),
+        Track(
+            id: 's1',
+            title: 'First Song',
+            artist: 'Alpha',
+            contentType: 'audio/mpeg',
+            sizeBytes: 1),
+        Track(
+            id: 's2',
+            title: 'Second Song',
+            artist: 'Beta',
+            contentType: 'audio/mpeg',
+            sizeBytes: 1),
       ]),
     );
     expect(find.text('پخش تصادفی همه'), findsOneWidget);

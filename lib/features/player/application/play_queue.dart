@@ -19,7 +19,7 @@ class PlayQueue {
     final queue = PlayQueue(tracks, random: random);
     queue
       .._order = List.generate(tracks.length, (index) => index)
-        ..shuffle(queue._random)
+      ..shuffle(queue._random)
       .._position = 0
       .._shuffled = true;
     return queue;

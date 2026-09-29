@@ -683,13 +683,12 @@ class _TrackListState extends State<_TrackList> {
           child: Align(
             alignment: Alignment.centerRight,
             child: FilledButton.tonalIcon(
-              onPressed:
-                  tracks.isEmpty ? null : () => widget.player.playShuffled(tracks),
+              onPressed: tracks.isEmpty
+                  ? null
+                  : () => widget.player.playShuffled(tracks),
               icon: const Icon(Icons.shuffle_rounded),
               label: Text(
-                _query.trim().isEmpty
-                    ? 'پخش تصادفی همه'
-                    : 'پخش تصادفی نتایج',
+                _query.trim().isEmpty ? 'پخش تصادفی همه' : 'پخش تصادفی نتایج',
               ),
             ),
           ),

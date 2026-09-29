@@ -278,8 +278,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                       child: FilledButton.tonalIcon(
                                         onPressed: () => widget.player
                                             .playShuffled(current.tracks),
-                                        icon:
-                                            const Icon(Icons.shuffle_rounded),
+                                        icon: const Icon(Icons.shuffle_rounded),
                                         label: const Text('پخش تصادفی'),
                                       ),
                                     ),
