@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"crypto/subtle"
 	"errors"
 	"time"
 
@@ -10,42 +9,24 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type ChatState string
-
-const (
-	ChatIdle          ChatState = "idle"
-	ChatAwaitingEmail ChatState = "awaiting_email"
-	ChatAwaitingCode  ChatState = "awaiting_code"
-)
-
 var (
-	ErrCodeInvalid     = errors.New("login code is wrong or expired")
-	ErrCodeAttempts    = errors.New("too many wrong login codes")
+	ErrCodeInvalid     = errors.New("link code is wrong or expired")
+	ErrCodeAttempts    = errors.New("too many wrong link codes")
+	ErrCodeCollision   = errors.New("link code is already in use")
 	ErrDuplicateImport = errors.New("message was already imported")
 )
 
-// BotChat is one private chat with a bot. UserID is set while it is signed in.
+// BotChat is one private chat with a bot. UserID is set while it is linked
+// to a Nafir account.
 type BotChat struct {
-	Provider   string
-	ChatID     string
-	State      ChatState
-	UserID     *string
-	SignedInAt *time.Time
+	Provider string
+	ChatID   string
+	UserID   *string
+	LinkedAt *time.Time
 }
 
-// LoginCode is a new email one-time code. UserID is nil when the email has no
-// account; such a code is stored so the chat cannot tell, but never verifies.
-type LoginCode struct {
-	Provider  string
-	ChatID    string
-	Email     string
-	UserID    *string
-	CodeHash  []byte
-	ExpiresAt time.Time
-}
-
-// Bots stores messenger chats, their login codes, processed updates and
-// audio imports.
+// Bots stores messenger chats, the codes that link them to accounts,
+// processed updates and audio imports.
 type Bots struct {
 	pool *pgxpool.Pool
 }
@@ -54,141 +35,110 @@ func NewBots(pool *pgxpool.Pool) *Bots {
 	return &Bots{pool: pool}
 }
 
-// Chat returns the chat, or an idle signed-out chat if it has never been seen.
+// Chat returns the chat, or an unlinked chat if it has never been seen.
 func (b *Bots) Chat(ctx context.Context, provider, chatID string) (BotChat, error) {
-	chat := BotChat{Provider: provider, ChatID: chatID, State: ChatIdle}
+	chat := BotChat{Provider: provider, ChatID: chatID}
 	err := b.pool.QueryRow(ctx, `
-		SELECT state, user_id::text, signed_in_at FROM bot_chats
+		SELECT user_id::text, linked_at FROM bot_chats
 		WHERE provider = $1 AND chat_id = $2
-	`, provider, chatID).Scan(&chat.State, &chat.UserID, &chat.SignedInAt)
+	`, provider, chatID).Scan(&chat.UserID, &chat.LinkedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return chat, nil
 	}
 	return chat, err
 }
 
-// SetState changes what the chat's next plain message is taken as.
-func (b *Bots) SetState(ctx context.Context, provider, chatID string, state ChatState) error {
+// Unlink detaches the chat from its account.
+func (b *Bots) Unlink(ctx context.Context, provider, chatID string) error {
 	_, err := b.pool.Exec(ctx, `
-		INSERT INTO bot_chats (provider, chat_id, state) VALUES ($1, $2, $3)
-		ON CONFLICT (provider, chat_id) DO UPDATE SET state = $3, updated_at = now()
-	`, provider, chatID, string(state))
+		UPDATE bot_chats SET user_id = NULL, linked_at = NULL, updated_at = now()
+		WHERE provider = $1 AND chat_id = $2
+	`, provider, chatID)
 	return err
 }
 
-// SignOut unbinds the chat from its account and forgets unused codes.
-func (b *Bots) SignOut(ctx context.Context, provider, chatID string) error {
+// CreateLinkCode stores a new code for the user, replacing any they had, and
+// drops every expired code. ErrCodeCollision means another live code has the
+// same value; pick a new one.
+func (b *Bots) CreateLinkCode(ctx context.Context, userID string, hash []byte, expiresAt time.Time) error {
 	return pgx.BeginFunc(ctx, b.pool, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, `
-			UPDATE bot_chats SET user_id = NULL, signed_in_at = NULL, state = 'idle', updated_at = now()
-			WHERE provider = $1 AND chat_id = $2
-		`, provider, chatID); err != nil {
+			DELETE FROM bot_link_codes WHERE user_id::text = $1 OR expires_at <= now()
+		`, userID); err != nil {
 			return err
 		}
-		_, err := tx.Exec(ctx, `
-			DELETE FROM bot_login_codes WHERE provider = $1 AND chat_id = $2 AND used_at IS NULL
-		`, provider, chatID)
-		return err
+		tag, err := tx.Exec(ctx, `
+			INSERT INTO bot_link_codes (code_hash, user_id, expires_at) VALUES ($1, $2::uuid, $3)
+			ON CONFLICT DO NOTHING
+		`, hash, userID, expiresAt)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			return ErrCodeCollision
+		}
+		return nil
 	})
 }
 
-// CodesSince counts codes issued to the chat and to the email since a time,
-// and when the chat's latest code was issued.
-func (b *Bots) CodesSince(ctx context.Context, provider, chatID, email string, since time.Time) (forChat, forEmail int, last *time.Time, err error) {
-	err = b.pool.QueryRow(ctx, `
-		SELECT
-			COUNT(*) FILTER (WHERE provider = $1 AND chat_id = $2 AND created_at >= $4)::integer,
-			COUNT(*) FILTER (WHERE email = $3 AND created_at >= $4)::integer,
-			MAX(created_at) FILTER (WHERE provider = $1 AND chat_id = $2)
-		FROM bot_login_codes
-		WHERE (provider = $1 AND chat_id = $2) OR email = $3
-	`, provider, chatID, email, since).Scan(&forChat, &forEmail, &last)
-	return forChat, forEmail, last, err
-}
-
-// AddCode replaces the chat's unused codes with a new one and waits for it.
-func (b *Bots) AddCode(ctx context.Context, code LoginCode) error {
-	return pgx.BeginFunc(ctx, b.pool, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `
-			UPDATE bot_login_codes SET expires_at = LEAST(expires_at, now())
-			WHERE provider = $1 AND chat_id = $2 AND used_at IS NULL
-		`, code.Provider, code.ChatID); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(ctx, `
-			INSERT INTO bot_login_codes (provider, chat_id, email, user_id, code_hash, expires_at)
-			VALUES ($1, $2, $3, $4::uuid, $5, $6)
-		`, code.Provider, code.ChatID, code.Email, code.UserID, code.CodeHash, code.ExpiresAt); err != nil {
-			return err
-		}
-		_, err := tx.Exec(ctx, `
-			INSERT INTO bot_chats (provider, chat_id, state) VALUES ($1, $2, 'awaiting_code')
-			ON CONFLICT (provider, chat_id) DO UPDATE SET state = 'awaiting_code', updated_at = now()
-		`, code.Provider, code.ChatID)
-		return err
-	})
-}
-
-// VerifyCode checks hash against the chat's current code. A match signs the
-// chat in to the code's account and uses the code up; a miss counts as an
-// attempt, and after maxAttempts the code is dead.
-func (b *Bots) VerifyCode(ctx context.Context, provider, chatID string, hash []byte, now time.Time, maxAttempts int) (string, error) {
+// RedeemLinkCode links the chat to the account whose live code matches hash,
+// using the code up. Wrong codes count against the chat: after maxFailures
+// within window, every code is refused until the window passes.
+func (b *Bots) RedeemLinkCode(
+	ctx context.Context, provider, chatID string, hash []byte,
+	now time.Time, maxFailures int, window time.Duration,
+) (string, error) {
 	var userID string
 	var result error
 	err := pgx.BeginFunc(ctx, b.pool, func(tx pgx.Tx) error {
-		var id string
-		var stored []byte
-		var owner *string
-		var attempts int
-		err := tx.QueryRow(ctx, `
-			SELECT id::text, code_hash, user_id::text, attempts FROM bot_login_codes
-			WHERE provider = $1 AND chat_id = $2 AND used_at IS NULL AND expires_at > $3
-			ORDER BY created_at DESC LIMIT 1
-			FOR UPDATE
-		`, provider, chatID, now).Scan(&id, &stored, &owner, &attempts)
-		if errors.Is(err, pgx.ErrNoRows) {
-			result = ErrCodeInvalid
+		var failures int
+		var since *time.Time
+		if err := tx.QueryRow(ctx, `
+			INSERT INTO bot_chats (provider, chat_id) VALUES ($1, $2)
+			ON CONFLICT (provider, chat_id) DO UPDATE SET updated_at = now()
+			RETURNING failed_links, failed_since
+		`, provider, chatID).Scan(&failures, &since); err != nil {
+			return err
+		}
+		if since == nil || now.Sub(*since) >= window {
+			failures, since = 0, &now
+		}
+		if failures >= maxFailures {
+			result = ErrCodeAttempts
 			return nil
+		}
+		err := tx.QueryRow(ctx, `
+			DELETE FROM bot_link_codes WHERE code_hash = $1 AND expires_at > $2
+			RETURNING user_id::text
+		`, hash, now).Scan(&userID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			failures++
+			result = ErrCodeInvalid
+			if failures >= maxFailures {
+				result = ErrCodeAttempts
+			}
+			_, err := tx.Exec(ctx, `
+				UPDATE bot_chats SET failed_links = $3, failed_since = $4
+				WHERE provider = $1 AND chat_id = $2
+			`, provider, chatID, failures, *since)
+			return err
 		}
 		if err != nil {
 			return err
 		}
-		if attempts >= maxAttempts {
-			result = ErrCodeAttempts
-			return nil
-		}
-		if subtle.ConstantTimeCompare(stored, hash) != 1 || owner == nil {
-			if _, err := tx.Exec(ctx,
-				`UPDATE bot_login_codes SET attempts = attempts + 1 WHERE id::text = $1`, id,
-			); err != nil {
-				return err
-			}
-			result = ErrCodeInvalid
-			if attempts+1 >= maxAttempts {
-				result = ErrCodeAttempts
-			}
-			return nil
-		}
-		if _, err := tx.Exec(ctx,
-			`UPDATE bot_login_codes SET used_at = $2 WHERE id::text = $1`, id, now,
-		); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(ctx, `
-			INSERT INTO bot_chats (provider, chat_id, state, user_id, signed_in_at)
-			VALUES ($1, $2, 'idle', $3::uuid, $4)
-			ON CONFLICT (provider, chat_id) DO UPDATE
-			SET state = 'idle', user_id = $3::uuid, signed_in_at = $4, updated_at = now()
-		`, provider, chatID, *owner, now); err != nil {
-			return err
-		}
-		userID = *owner
-		return nil
+		_, err = tx.Exec(ctx, `
+			UPDATE bot_chats SET user_id = $3::uuid, linked_at = $4, failed_links = 0, failed_since = NULL
+			WHERE provider = $1 AND chat_id = $2
+		`, provider, chatID, userID, now)
+		return err
 	})
 	if err != nil {
 		return "", err
 	}
-	return userID, result
+	if result != nil {
+		return "", result
+	}
+	return userID, nil
 }
 
 // FirstDelivery records an update and reports whether it is new.

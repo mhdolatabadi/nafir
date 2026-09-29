@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -18,11 +17,10 @@ type harness struct {
 	t        *testing.T
 	store    *memStore
 	users    fakeUsers
-	mailer   *fakeMailer
 	provider *fakeProvider
 	tracks   *fakeTracks
 	objects  *fakeObjects
-	auth     *Auth
+	linker   *Linker
 	importer *Importer
 	service  *Service
 	update   int
@@ -34,22 +32,21 @@ func newHarness(t *testing.T) *harness {
 		t:        t,
 		store:    newMemStore(),
 		users:    fakeUsers{"u1": {ID: "u1", Email: "listener@example.com"}},
-		mailer:   &fakeMailer{},
 		provider: &fakeProvider{files: map[string][]byte{"song": song}, maxBytes: 20 << 20},
 		tracks:   &fakeTracks{tracks: map[string]store.Track{}},
 		objects:  &fakeObjects{objects: map[string][]byte{}},
 	}
-	auth, err := NewAuth(h.store, h.users, h.mailer, make([]byte, 32), DefaultAuthLimits)
+	linker, err := NewLinker(h.store, make([]byte, 32), DefaultLinkLimits)
 	if err != nil {
 		t.Fatal(err)
 	}
-	auth.now = func() time.Time { return clock }
-	h.auth = auth
+	linker.now = func() time.Time { return clock }
+	h.linker = linker
 	h.importer = NewImporter(h.store, h.tracks, h.objects, UploadPolicy{
 		Enabled: true, MaxFileBytes: 200 << 20, MaxOwnerBytes: 5 << 30, MaxPending: 3,
 	})
 	h.importer.retryDelay = 0
-	h.service = NewService(h.provider, h.store, auth, h.users, h.importer)
+	h.service = NewService(h.provider, h.store, linker, h.users, h.importer)
 	h.service.imports = func(work func()) { work() }
 	return h
 }
@@ -78,43 +75,50 @@ func (h *harness) text(text string) string {
 	return h.send(Update{Text: text})
 }
 
-var codePattern = regexp.MustCompile(`\d{6}`)
+// code issues a link code from the app for the listener.
+func (h *harness) code() string {
+	h.t.Helper()
+	code, _, err := h.linker.NewCode(context.Background(), "u1")
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	return code
+}
 
-// signIn completes the email login and returns the emailed code.
+// signIn links the chat with a fresh code.
 func (h *harness) signIn() {
 	h.t.Helper()
-	h.text("/start")
-	h.text("listener@example.com")
-	code := codePattern.FindString(h.mailer.sent[len(h.mailer.sent)-1].body)
-	if reply := h.text(code); !strings.Contains(reply, "l***@example.com") {
-		h.t.Fatalf("sign-in reply = %q", reply)
+	if reply := h.text(h.code()); reply != msgLinked("l***@example.com") {
+		h.t.Fatalf("link reply = %q", reply)
 	}
 }
 
-func TestLoginWithEmailCodeThenImportAudio(t *testing.T) {
+func TestLinkWithAppCodeThenImportAudio(t *testing.T) {
 	h := newHarness(t)
 
 	if reply := h.text("/start"); reply != msgWelcome {
 		t.Fatalf("/start = %q", reply)
 	}
-	if reply := h.text("  Listener@Example.com "); reply != msgCodeSent {
-		t.Fatalf("email reply = %q", reply)
+	if reply := h.send(Update{File: &File{ID: "song", Name: "a.mp3", SizeBytes: 1}}); reply != msgNotLinked {
+		t.Fatalf("file before linking = %q", reply)
 	}
-	if len(h.mailer.sent) != 1 || h.mailer.sent[0].to != "listener@example.com" {
-		t.Fatalf("mail = %+v", h.mailer.sent)
-	}
-	code := codePattern.FindString(h.mailer.sent[0].body)
-	if code == "" {
-		t.Fatalf("no code in %q", h.mailer.sent[0].body)
+	if reply := h.text("12345678"); reply != msgBadCode {
+		t.Fatalf("made-up code = %q", reply)
 	}
 
-	if reply := h.text("000000"); reply != msgBadCode && code != "000000" {
-		t.Fatalf("wrong code reply = %q", reply)
-	}
-	// Typed on a Persian keyboard.
-	persian := strings.Map(func(r rune) rune { return r - '0' + '۰' }, code)
-	if reply := h.text(persian); reply != msgSignedIn("l***@example.com") {
+	// Typed on a Persian keyboard, with the space the app shows.
+	code := h.code()
+	persian := strings.Map(func(r rune) rune {
+		if r >= '0' && r <= '9' {
+			return r - '0' + '۰'
+		}
+		return r
+	}, code[:4]+" "+code[4:])
+	if reply := h.text(persian); reply != msgLinked("l***@example.com") {
 		t.Fatalf("right code reply = %q", reply)
+	}
+	if reply := h.text(code); reply != msgBadCode {
+		t.Fatalf("used code = %q", reply)
 	}
 	if reply := h.text("/status"); reply != msgStatus("l***@example.com") {
 		t.Fatalf("/status = %q", reply)
@@ -136,11 +140,72 @@ func TestLoginWithEmailCodeThenImportAudio(t *testing.T) {
 		}
 	}
 
-	if reply := h.text("/logout"); reply != msgSignedOut {
+	if reply := h.text("/logout"); reply != msgUnlinked {
 		t.Fatalf("/logout = %q", reply)
 	}
-	if reply := h.send(Update{File: &File{ID: "song", Name: "b.mp3", SizeBytes: 1}}); reply != msgNotSignedIn {
+	if reply := h.send(Update{File: &File{ID: "song", Name: "b.mp3", SizeBytes: 1}}); reply != msgNotLinked {
 		t.Fatalf("file after logout = %q", reply)
+	}
+}
+
+func TestDeepLinkStartCarriesTheCode(t *testing.T) {
+	h := newHarness(t)
+	if reply := h.text("/start " + h.code()); reply != msgLinked("l***@example.com") {
+		t.Fatalf("/start <code> = %q", reply)
+	}
+}
+
+func TestExpiredCodeIsRefused(t *testing.T) {
+	h := newHarness(t)
+	code := h.code()
+	clock = clock.Add(DefaultLinkLimits.CodeTTL + time.Second)
+	if reply := h.text(code); reply != msgBadCode {
+		t.Fatalf("expired code = %q", reply)
+	}
+}
+
+func TestWrongCodesLockTheChatOut(t *testing.T) {
+	h := newHarness(t)
+	code := h.code()
+	wrong := "00000000"
+	if code == wrong {
+		wrong = "11111111"
+	}
+	for i := 0; i < DefaultLinkLimits.MaxFailures-1; i++ {
+		h.text(wrong)
+	}
+	if reply := h.text(wrong); reply != msgLocked {
+		t.Fatalf("last allowed wrong code = %q", reply)
+	}
+	if reply := h.text(code); reply != msgLocked {
+		t.Fatalf("right code while locked out = %q", reply)
+	}
+	clock = clock.Add(DefaultLinkLimits.FailureWindow)
+	if reply := h.text(h.code()); reply != msgLinked("l***@example.com") {
+		t.Fatalf("right code after the window = %q", reply)
+	}
+}
+
+func TestANewCodeReplacesTheOldOne(t *testing.T) {
+	h := newHarness(t)
+	old := h.code()
+	fresh := h.code()
+	if old != fresh {
+		if reply := h.text(old); reply != msgBadCode {
+			t.Fatalf("replaced code = %q", reply)
+		}
+	}
+	if reply := h.text(fresh); reply != msgLinked("l***@example.com") {
+		t.Fatalf("fresh code = %q", reply)
+	}
+}
+
+func TestExpiredSessionUnlinks(t *testing.T) {
+	h := newHarness(t)
+	h.signIn()
+	clock = clock.Add(DefaultLinkLimits.SessionTTL + time.Hour)
+	if reply := h.text("/status"); reply != msgNotLinked {
+		t.Fatalf("/status after session expiry = %q", reply)
 	}
 }
 
@@ -160,73 +225,6 @@ func TestRedeliveredUpdatesAndMessagesImportOnce(t *testing.T) {
 	}
 	if len(h.tracks.tracks) != 1 {
 		t.Fatalf("imported %d tracks", len(h.tracks.tracks))
-	}
-}
-
-func TestUnknownEmailGetsTheSameAnswerAndNoCodeWorks(t *testing.T) {
-	h := newHarness(t)
-	h.text("/login")
-	if reply := h.text("nobody@example.com"); reply != msgCodeSent {
-		t.Fatalf("unknown email reply = %q", reply)
-	}
-	if len(h.mailer.sent) != 0 {
-		t.Fatalf("mail sent for an unknown email: %+v", h.mailer.sent)
-	}
-	for _, code := range []string{"123456", "000000"} {
-		if reply := h.text(code); reply != msgBadCode {
-			t.Fatalf("code for unknown email = %q", reply)
-		}
-	}
-}
-
-func TestLoginCodesAreThrottled(t *testing.T) {
-	h := newHarness(t)
-	h.text("/login")
-	h.text("listener@example.com")
-
-	h.text("/login")
-	if reply := h.text("listener@example.com"); !strings.Contains(reply, "ثانیهٔ دیگر") {
-		t.Fatalf("second request within cooldown = %q", reply)
-	}
-
-	for i := 0; i < 4; i++ {
-		clock = clock.Add(2 * time.Minute)
-		h.text("/login")
-		h.text("listener@example.com")
-	}
-	clock = clock.Add(2 * time.Minute)
-	h.text("/login")
-	if reply := h.text("listener@example.com"); reply != msgThrottled {
-		t.Fatalf("sixth code in an hour = %q", reply)
-	}
-	if len(h.mailer.sent) != 5 {
-		t.Fatalf("sent %d codes", len(h.mailer.sent))
-	}
-}
-
-func TestWrongCodesLockTheCode(t *testing.T) {
-	h := newHarness(t)
-	h.text("/login")
-	h.text("listener@example.com")
-	code := codePattern.FindString(h.mailer.sent[0].body)
-	wrong := "111111"
-	if code == wrong {
-		wrong = "222222"
-	}
-	for i := 0; i < DefaultAuthLimits.MaxAttempts; i++ {
-		h.text(wrong)
-	}
-	if reply := h.text(code); reply != msgBadCode {
-		t.Fatalf("right code after too many attempts = %q", reply)
-	}
-}
-
-func TestExpiredSessionSignsOut(t *testing.T) {
-	h := newHarness(t)
-	h.signIn()
-	clock = clock.Add(DefaultAuthLimits.SessionTTL + time.Hour)
-	if reply := h.text("/status"); reply != msgNotSignedIn {
-		t.Fatalf("/status after session expiry = %q", reply)
 	}
 }
 
@@ -318,24 +316,25 @@ func TestResumeFinishesInterruptedImports(t *testing.T) {
 }
 
 func TestParseCommand(t *testing.T) {
-	for text, want := range map[string]string{
-		"/start": "start", "/Start@NafirBot": "start", "/login now": "login", "/": "",
+	for text, want := range map[string][2]string{
+		"/start": {"start", ""}, "/Start@NafirBot": {"start", ""},
+		"/start 1234 5678": {"start", "1234 5678"}, "/": {"", ""},
 	} {
-		got, ok := parseCommand(text)
-		if got != want || ok != (want != "") {
-			t.Errorf("parseCommand(%q) = %q, %v", text, got, ok)
+		command, argument, ok := parseCommand(text)
+		if command != want[0] || argument != want[1] || ok != (want[0] != "") {
+			t.Errorf("parseCommand(%q) = %q, %q, %v", text, command, argument, ok)
 		}
 	}
-	if _, ok := parseCommand("hello"); ok {
+	if _, _, ok := parseCommand("hello"); ok {
 		t.Error("plain text parsed as a command")
 	}
 }
 
 func TestNormalizeCode(t *testing.T) {
 	for input, want := range map[string]string{
-		"123456": "123456", "۱۲۳ ۴۵۶": "123456", "١٢٣-٤٥٦": "123456", "12345": "", "12a456": "",
+		"12345678": "12345678", "۱۲۳۴ ۵۶۷۸": "12345678", "١٢٣٤-٥٦٧٨": "12345678", "1234567": "", "1234a678": "",
 	} {
-		got, ok := normalizeCode(input)
+		got, ok := NormalizeCode(input)
 		if ok != (want != "") || (ok && got != want) {
 			t.Errorf("normalizeCode(%q) = %q, %v", input, got, ok)
 		}

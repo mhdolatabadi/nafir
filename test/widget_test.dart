@@ -8,6 +8,7 @@ import 'package:nafir/features/upload/data/audio_picker.dart';
 import 'package:nafir/features/upload/data/upload_models.dart';
 import 'package:nafir/main.dart';
 
+import 'bot_link_controller_test.dart' show FakeBotsApi;
 import 'cache_controller_test.dart' show FakeAudioCache;
 import 'player_controller_test.dart' show FakeAudioEngine;
 import 'upload_controller_test.dart' show FakeTracksApi, FakeUploader;
@@ -69,6 +70,7 @@ Future<void> _pumpApp(
   AudioPicker? picker,
   FakeTracksApi? tracks,
   FakeAudioCache? cache,
+  FakeBotsApi? bots,
   bool settle = true,
 }) async {
   await tester.pumpWidget(NafirApp(
@@ -78,6 +80,7 @@ Future<void> _pumpApp(
     tracksApi: tracks ?? FakeTracksApi(),
     audioEngine: FakeAudioEngine(),
     audioCache: cache ?? FakeAudioCache(),
+    botsApi: bots,
     uploader: uploader ?? FakeUploader(),
     picker: picker ?? FakePicker(null),
   ));
@@ -631,5 +634,44 @@ void main() {
     expect(find.text('در نسخه‌ی وب، کش را خود مرورگر مدیریت می‌کند.'),
         findsOneWidget);
     expect(find.text('پاک کردن کش'), findsNothing);
+  });
+
+  testWidgets('settings issues a bot link code to send to the bot', (
+    tester,
+  ) async {
+    final bots = FakeBotsApi()
+      ..expiresAt = DateTime.now().add(const Duration(minutes: 10));
+    await _pumpApp(tester,
+        tokenStore: MemoryTokenStore('valid-token'), bots: bots);
+
+    await tester.tap(find.byTooltip('تنظیمات'));
+    await tester.pumpAndSettle();
+    expect(find.text('اتصال به بات'), findsOneWidget);
+
+    await tester.tap(find.text('دریافت کد اتصال'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('1234 5671'), findsOneWidget);
+    expect(
+        find.text('این کد را در بله برای @NafirBot بفرستید.'), findsOneWidget);
+    expect(find.text('کپی کد'), findsOneWidget);
+    expect(find.text('کپی لینک بات بله'), findsOneWidget);
+
+    await tester.tap(find.text('کد تازه'));
+    await tester.pumpAndSettle();
+    expect(find.text('1234 5672'), findsOneWidget);
+  });
+
+  testWidgets('without bots on the server, settings shows no bot section', (
+    tester,
+  ) async {
+    await _pumpApp(tester,
+        tokenStore: MemoryTokenStore('valid-token'),
+        bots: FakeBotsApi(bots: const []));
+
+    await tester.tap(find.byTooltip('تنظیمات'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('اتصال به بات'), findsNothing);
   });
 }

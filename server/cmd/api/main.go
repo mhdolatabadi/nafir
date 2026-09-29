@@ -163,8 +163,9 @@ func run() error {
 	}
 
 	tracks := store.NewTracks(pool)
-	webhooks, err := setupBots(ctx, botDeps{
+	webhooks, botHandlers, err := setupBots(ctx, botDeps{
 		tokenSecret: []byte(os.Getenv("AUTH_TOKEN_SECRET")),
+		tokens:      tokens,
 		bots:        store.NewBots(pool),
 		users:       store.NewUsers(pool),
 		tracks:      tracks,
@@ -189,6 +190,7 @@ func run() error {
 				CompletionUserRate: completionUserRate, CompletionIPRate: completionIPRate,
 			}),
 			Playlists: httpapi.NewPlaylistHandlers(store.NewPlaylists(pool), tokens),
+			Bots:      botHandlers,
 			Webhooks:  webhooks,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,

@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func TestBotLoginCodeSignsTheChatIn(t *testing.T) {
+func TestBotLinkCodeLinksTheChatOnce(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
 	user, err := NewUsers(pool).Create(ctx, "bot@example.com", "hash")
@@ -18,101 +18,84 @@ func TestBotLoginCodeSignsTheChatIn(t *testing.T) {
 	now := time.Now()
 
 	chat, err := bots.Chat(ctx, "bale", "42")
-	if err != nil || chat.State != ChatIdle || chat.UserID != nil {
+	if err != nil || chat.UserID != nil {
 		t.Fatalf("unseen chat = %+v, %v", chat, err)
 	}
-	if err := bots.AddCode(ctx, LoginCode{
-		Provider: "bale", ChatID: "42", Email: "bot@example.com", UserID: &user.ID,
-		CodeHash: []byte("right"), ExpiresAt: now.Add(time.Minute),
-	}); err != nil {
+	if err := bots.CreateLinkCode(ctx, user.ID, []byte("right"), now.Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
-	if chat, _ := bots.Chat(ctx, "bale", "42"); chat.State != ChatAwaitingCode {
-		t.Fatalf("state after code = %s", chat.State)
-	}
-
-	if _, err := bots.VerifyCode(ctx, "bale", "42", []byte("wrong"), now, 5); !errors.Is(err, ErrCodeInvalid) {
+	if _, err := bots.RedeemLinkCode(ctx, "bale", "42", []byte("wrong"), now, 5, time.Hour); !errors.Is(err, ErrCodeInvalid) {
 		t.Fatalf("wrong code: %v", err)
 	}
-	if _, err := bots.VerifyCode(ctx, "telegram", "42", []byte("right"), now, 5); !errors.Is(err, ErrCodeInvalid) {
-		t.Fatalf("code from another provider's chat: %v", err)
-	}
-	userID, err := bots.VerifyCode(ctx, "bale", "42", []byte("right"), now, 5)
+	userID, err := bots.RedeemLinkCode(ctx, "bale", "42", []byte("right"), now, 5, time.Hour)
 	if err != nil || userID != user.ID {
 		t.Fatalf("right code = %q, %v", userID, err)
 	}
 	chat, _ = bots.Chat(ctx, "bale", "42")
-	if chat.UserID == nil || *chat.UserID != user.ID || chat.State != ChatIdle {
-		t.Fatalf("signed-in chat = %+v", chat)
+	if chat.UserID == nil || *chat.UserID != user.ID || chat.LinkedAt == nil {
+		t.Fatalf("linked chat = %+v", chat)
 	}
-	if _, err := bots.VerifyCode(ctx, "bale", "42", []byte("right"), now, 5); !errors.Is(err, ErrCodeInvalid) {
+	if _, err := bots.RedeemLinkCode(ctx, "bale", "43", []byte("right"), now, 5, time.Hour); !errors.Is(err, ErrCodeInvalid) {
 		t.Fatalf("reused code: %v", err)
 	}
 
-	if err := bots.SignOut(ctx, "bale", "42"); err != nil {
+	if err := bots.Unlink(ctx, "bale", "42"); err != nil {
 		t.Fatal(err)
 	}
 	if chat, _ := bots.Chat(ctx, "bale", "42"); chat.UserID != nil {
-		t.Fatalf("chat still signed in after sign-out: %+v", chat)
+		t.Fatalf("chat still linked after unlink: %+v", chat)
 	}
 }
 
-func TestBotLoginCodeExpiresAndLimitsAttempts(t *testing.T) {
+func TestBotLinkCodesExpireAndAreReplaced(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	user, _ := NewUsers(pool).Create(ctx, "bot@example.com", "hash")
+	other, _ := NewUsers(pool).Create(ctx, "other@example.com", "hash")
+	bots := NewBots(pool)
+	now := time.Now()
+
+	bots.CreateLinkCode(ctx, user.ID, []byte("first"), now.Add(time.Minute))
+	if _, err := bots.RedeemLinkCode(ctx, "bale", "1", []byte("first"), now.Add(2*time.Minute), 5, time.Hour); !errors.Is(err, ErrCodeInvalid) {
+		t.Fatalf("expired code: %v", err)
+	}
+
+	bots.CreateLinkCode(ctx, user.ID, []byte("old"), now.Add(time.Minute))
+	bots.CreateLinkCode(ctx, user.ID, []byte("new"), now.Add(time.Minute))
+	if _, err := bots.RedeemLinkCode(ctx, "bale", "1", []byte("old"), now, 5, time.Hour); !errors.Is(err, ErrCodeInvalid) {
+		t.Fatalf("replaced code: %v", err)
+	}
+	if err := bots.CreateLinkCode(ctx, other.ID, []byte("new"), now.Add(time.Minute)); !errors.Is(err, ErrCodeCollision) {
+		t.Fatalf("colliding code: %v", err)
+	}
+	if id, err := bots.RedeemLinkCode(ctx, "bale", "1", []byte("new"), now, 5, time.Hour); err != nil || id != user.ID {
+		t.Fatalf("new code = %q, %v", id, err)
+	}
+}
+
+func TestBotChatIsLockedOutAfterWrongCodes(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
 	user, _ := NewUsers(pool).Create(ctx, "bot@example.com", "hash")
 	bots := NewBots(pool)
 	now := time.Now()
-	add := func() {
-		t.Helper()
-		if err := bots.AddCode(ctx, LoginCode{
-			Provider: "bale", ChatID: "1", Email: "bot@example.com", UserID: &user.ID,
-			CodeHash: []byte("right"), ExpiresAt: now.Add(time.Minute),
-		}); err != nil {
-			t.Fatal(err)
-		}
-	}
+	bots.CreateLinkCode(ctx, user.ID, []byte("right"), now.Add(2*time.Hour))
 
-	add()
-	if _, err := bots.VerifyCode(ctx, "bale", "1", []byte("right"), now.Add(2*time.Minute), 3); !errors.Is(err, ErrCodeInvalid) {
-		t.Fatalf("expired code: %v", err)
+	for i := 0; i < 2; i++ {
+		bots.RedeemLinkCode(ctx, "bale", "1", []byte("x"), now, 3, time.Hour)
 	}
-
-	add()
-	bots.VerifyCode(ctx, "bale", "1", []byte("x"), now, 3)
-	bots.VerifyCode(ctx, "bale", "1", []byte("x"), now, 3)
-	if _, err := bots.VerifyCode(ctx, "bale", "1", []byte("x"), now, 3); !errors.Is(err, ErrCodeAttempts) {
+	if _, err := bots.RedeemLinkCode(ctx, "bale", "1", []byte("x"), now, 3, time.Hour); !errors.Is(err, ErrCodeAttempts) {
 		t.Fatalf("third wrong code: %v", err)
 	}
-	if _, err := bots.VerifyCode(ctx, "bale", "1", []byte("right"), now, 3); !errors.Is(err, ErrCodeAttempts) {
-		t.Fatalf("right code after too many attempts: %v", err)
+	if _, err := bots.RedeemLinkCode(ctx, "bale", "1", []byte("right"), now, 3, time.Hour); !errors.Is(err, ErrCodeAttempts) {
+		t.Fatalf("right code while locked out: %v", err)
 	}
-
-	// A new code replaces the dead one.
-	add()
-	if _, err := bots.VerifyCode(ctx, "bale", "1", []byte("right"), now, 3); err != nil {
-		t.Fatalf("fresh code: %v", err)
+	// Another chat is unaffected, and the lockout ends with its window.
+	if _, err := bots.RedeemLinkCode(ctx, "bale", "2", []byte("x"), now, 3, time.Hour); !errors.Is(err, ErrCodeInvalid) {
+		t.Fatalf("other chat: %v", err)
 	}
-}
-
-func TestBotCodeForUnknownEmailNeverVerifies(t *testing.T) {
-	pool := newTestPool(t)
-	ctx := context.Background()
-	bots := NewBots(pool)
-	now := time.Now()
-	if err := bots.AddCode(ctx, LoginCode{
-		Provider: "bale", ChatID: "1", Email: "nobody@example.com",
-		CodeHash: []byte("right"), ExpiresAt: now.Add(time.Minute),
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := bots.VerifyCode(ctx, "bale", "1", []byte("right"), now, 5); !errors.Is(err, ErrCodeInvalid) {
-		t.Fatalf("unknown email: %v", err)
-	}
-
-	forChat, forEmail, last, err := bots.CodesSince(ctx, "bale", "1", "nobody@example.com", now.Add(-time.Hour))
-	if err != nil || forChat != 1 || forEmail != 1 || last == nil {
-		t.Fatalf("CodesSince = %d, %d, %v, %v", forChat, forEmail, last, err)
+	if id, err := bots.RedeemLinkCode(ctx, "bale", "1", []byte("right"), now.Add(time.Hour), 3, time.Hour); err != nil || id != user.ID {
+		t.Fatalf("after the window = %q, %v", id, err)
 	}
 }
 

@@ -8,6 +8,7 @@ import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/features/auth/application/auth_controller.dart';
 import 'package:nafir/features/auth/data/token_store.dart';
 import 'package:nafir/features/auth/presentation/auth_gate.dart';
+import 'package:nafir/features/bots/application/bot_link_controller.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
 import 'package:nafir/features/library/application/local_audio_controller.dart';
 import 'package:nafir/features/library/data/local_audio_library.dart';
@@ -35,6 +36,7 @@ class NafirApp extends StatefulWidget {
     this.tokenStore,
     this.tracksApi,
     this.playlistsApi,
+    this.botsApi,
     this.uploader,
     this.picker,
     this.audioEngine,
@@ -50,6 +52,7 @@ class NafirApp extends StatefulWidget {
   final TokenStore? tokenStore;
   final TracksApi? tracksApi;
   final PlaylistsApi? playlistsApi;
+  final BotsApi? botsApi;
   final StorageUploader? uploader;
   final AudioPicker? picker;
   final AudioEngine? audioEngine;
@@ -82,6 +85,11 @@ class _NafirAppState extends State<NafirApp> {
   late final PlaylistsController? _playlists = _playlistsApi == null
       ? null
       : PlaylistsController(api: _playlistsApi, token: () => _auth?.token);
+
+  late final BotsApi? _botsApi = widget.botsApi ?? _apiClient;
+  late final BotLinkController? _botLinks = _botsApi == null
+      ? null
+      : BotLinkController(api: _botsApi, token: () => _auth?.token);
 
   late final UploadController? _uploads = _tracksApi == null
       ? null
@@ -129,6 +137,7 @@ class _NafirAppState extends State<NafirApp> {
     _uploads?.dispose();
     _library?.dispose();
     _playlists?.dispose();
+    _botLinks?.dispose();
     _localAudio.dispose();
     _cache.dispose();
     super.dispose();
@@ -160,6 +169,7 @@ class _NafirAppState extends State<NafirApp> {
                 localAudio: _localAudio,
                 uploads: _uploads,
                 cache: _cache,
+                botLinks: _botLinks,
                 picker: widget.picker ?? FilePickerAudioPicker(),
               ),
       ),

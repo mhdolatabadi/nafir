@@ -3,7 +3,6 @@ package bot
 import (
 	"bytes"
 	"context"
-	"crypto/subtle"
 	"errors"
 	"fmt"
 	"io"
@@ -16,29 +15,36 @@ import (
 // memStore is an in-memory store.Bots with the same rules.
 type memStore struct {
 	mu      sync.Mutex
-	chats   map[string]*store.BotChat
-	codes   []*memCode
+	chats   map[string]*memChat
+	codes   map[string]memCode
 	updates map[string]bool
 	imports map[string]*store.BotImport
 	nextID  int
 }
 
+type memChat struct {
+	store.BotChat
+	failures int
+	since    time.Time
+}
+
 type memCode struct {
-	store.LoginCode
-	attempts  int
-	used      bool
-	createdAt time.Time
+	userID    string
+	expiresAt time.Time
 }
 
 func newMemStore() *memStore {
-	return &memStore{chats: map[string]*store.BotChat{}, updates: map[string]bool{}, imports: map[string]*store.BotImport{}}
+	return &memStore{
+		chats: map[string]*memChat{}, codes: map[string]memCode{},
+		updates: map[string]bool{}, imports: map[string]*store.BotImport{},
+	}
 }
 
-func (m *memStore) chat(provider, chatID string) *store.BotChat {
+func (m *memStore) chat(provider, chatID string) *memChat {
 	key := provider + "/" + chatID
 	c, ok := m.chats[key]
 	if !ok {
-		c = &store.BotChat{Provider: provider, ChatID: chatID, State: store.ChatIdle}
+		c = &memChat{BotChat: store.BotChat{Provider: provider, ChatID: chatID}}
 		m.chats[key] = c
 	}
 	return c
@@ -47,81 +53,54 @@ func (m *memStore) chat(provider, chatID string) *store.BotChat {
 func (m *memStore) Chat(_ context.Context, provider, chatID string) (store.BotChat, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return *m.chat(provider, chatID), nil
+	return m.chat(provider, chatID).BotChat, nil
 }
 
-func (m *memStore) SetState(_ context.Context, provider, chatID string, state store.ChatState) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.chat(provider, chatID).State = state
-	return nil
-}
-
-func (m *memStore) SignOut(_ context.Context, provider, chatID string) error {
+func (m *memStore) Unlink(_ context.Context, provider, chatID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	c := m.chat(provider, chatID)
-	c.UserID, c.SignedInAt, c.State = nil, nil, store.ChatIdle
+	c.UserID, c.LinkedAt = nil, nil
 	return nil
 }
 
-func (m *memStore) CodesSince(_ context.Context, provider, chatID, email string, since time.Time) (int, int, *time.Time, error) {
+func (m *memStore) CreateLinkCode(_ context.Context, userID string, hash []byte, expiresAt time.Time) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	var forChat, forEmail int
-	var last *time.Time
-	for _, c := range m.codes {
-		sameChat := c.Provider == provider && c.ChatID == chatID
-		if sameChat && !c.createdAt.Before(since) {
-			forChat++
-		}
-		if c.Email == email && !c.createdAt.Before(since) {
-			forEmail++
-		}
-		if sameChat && (last == nil || c.createdAt.After(*last)) {
-			at := c.createdAt
-			last = &at
+	for k, c := range m.codes {
+		if c.userID == userID {
+			delete(m.codes, k)
 		}
 	}
-	return forChat, forEmail, last, nil
-}
-
-func (m *memStore) AddCode(_ context.Context, code store.LoginCode) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	for _, c := range m.codes {
-		if c.Provider == code.Provider && c.ChatID == code.ChatID {
-			c.used = true
-		}
+	if _, taken := m.codes[string(hash)]; taken {
+		return store.ErrCodeCollision
 	}
-	m.codes = append(m.codes, &memCode{LoginCode: code, createdAt: clock})
-	m.chat(code.Provider, code.ChatID).State = store.ChatAwaitingCode
+	m.codes[string(hash)] = memCode{userID, expiresAt}
 	return nil
 }
 
-func (m *memStore) VerifyCode(_ context.Context, provider, chatID string, hash []byte, now time.Time, maxAttempts int) (string, error) {
+func (m *memStore) RedeemLinkCode(_ context.Context, provider, chatID string, hash []byte, now time.Time, maxFailures int, window time.Duration) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	var current *memCode
-	for _, c := range m.codes {
-		if c.Provider == provider && c.ChatID == chatID && !c.used && c.ExpiresAt.After(now) {
-			current = c
-		}
+	c := m.chat(provider, chatID)
+	if now.Sub(c.since) >= window {
+		c.failures, c.since = 0, now
 	}
-	if current == nil {
-		return "", store.ErrCodeInvalid
-	}
-	if current.attempts >= maxAttempts {
+	if c.failures >= maxFailures {
 		return "", store.ErrCodeAttempts
 	}
-	if subtle.ConstantTimeCompare(current.CodeHash, hash) != 1 || current.UserID == nil {
-		current.attempts++
+	code, ok := m.codes[string(hash)]
+	if !ok || !code.expiresAt.After(now) {
+		c.failures++
+		if c.failures >= maxFailures {
+			return "", store.ErrCodeAttempts
+		}
 		return "", store.ErrCodeInvalid
 	}
-	current.used = true
-	c := m.chat(provider, chatID)
-	c.UserID, c.SignedInAt, c.State = current.UserID, &now, store.ChatIdle
-	return *current.UserID, nil
+	delete(m.codes, string(hash))
+	userID := code.userID
+	c.UserID, c.LinkedAt, c.failures = &userID, &now, 0
+	return userID, nil
 }
 
 func (m *memStore) FirstDelivery(_ context.Context, provider, updateID string) (bool, error) {
@@ -197,39 +176,12 @@ var clock = time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
 
 type fakeUsers map[string]store.User
 
-func (f fakeUsers) ByEmail(_ context.Context, email string) (store.User, string, error) {
-	for _, u := range f {
-		if u.Email == email {
-			return u, "hash", nil
-		}
-	}
-	return store.User{}, "", store.ErrNotFound
-}
-
 func (f fakeUsers) ByID(_ context.Context, id string) (store.User, error) {
 	u, ok := f[id]
 	if !ok {
 		return store.User{}, store.ErrNotFound
 	}
 	return u, nil
-}
-
-type sentMail struct{ to, subject, body string }
-
-type fakeMailer struct {
-	mu   sync.Mutex
-	sent []sentMail
-	err  error
-}
-
-func (f *fakeMailer) Send(to, subject, body string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if f.err != nil {
-		return f.err
-	}
-	f.sent = append(f.sent, sentMail{to, subject, body})
-	return nil
 }
 
 type fakeProvider struct {

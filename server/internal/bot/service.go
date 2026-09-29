@@ -9,26 +9,29 @@ import (
 	"github.com/mhdolatabadi/nafir/server/internal/store"
 )
 
-type ChatStore interface {
-	SetState(ctx context.Context, provider, chatID string, state store.ChatState) error
+type UpdateStore interface {
 	FirstDelivery(ctx context.Context, provider, updateID string) (bool, error)
 }
 
-// Service is one provider's bot: it answers commands, runs the login flow and
-// hands audio to the importer.
+type UserLookup interface {
+	ByID(ctx context.Context, id string) (store.User, error)
+}
+
+// Service is one provider's bot: it answers commands, links chats to
+// accounts and hands audio to the importer.
 type Service struct {
 	provider Provider
-	chats    ChatStore
-	auth     *Auth
+	updates  UpdateStore
+	linker   *Linker
 	users    UserLookup
 	importer *Importer
 	// imports runs import work outside the webhook request; tests replace it.
 	imports func(func())
 }
 
-func NewService(p Provider, chats ChatStore, auth *Auth, users UserLookup, importer *Importer) *Service {
+func NewService(p Provider, updates UpdateStore, linker *Linker, users UserLookup, importer *Importer) *Service {
 	return &Service{
-		provider: p, chats: chats, auth: auth, users: users, importer: importer,
+		provider: p, updates: updates, linker: linker, users: users, importer: importer,
 		imports: func(work func()) { go work() },
 	}
 }
@@ -37,7 +40,7 @@ func (s *Service) Provider() Provider { return s.provider }
 
 // Handle processes one update. Redelivered updates are ignored.
 func (s *Service) Handle(ctx context.Context, u Update) error {
-	first, err := s.chats.FirstDelivery(ctx, s.provider.Name(), u.ID)
+	first, err := s.updates.FirstDelivery(ctx, s.provider.Name(), u.ID)
 	if err != nil || !first {
 		return err
 	}
@@ -54,49 +57,47 @@ func (s *Service) Handle(ctx context.Context, u Update) error {
 		return s.handleFile(ctx, u)
 	}
 	text := strings.TrimSpace(u.Text)
-	if command, ok := parseCommand(text); ok {
-		return s.handleCommand(ctx, u, command)
+	if command, argument, ok := parseCommand(text); ok {
+		return s.handleCommand(ctx, u, command, argument)
 	}
-	chat, _, err := s.auth.Session(ctx, s.provider.Name(), u.ChatID)
+	// A code on its own links the chat, even one that is already linked:
+	// that is how it moves to another account.
+	if _, ok := NormalizeCode(text); ok {
+		return s.link(ctx, u, text)
+	}
+	_, linked, err := s.linker.Session(ctx, s.provider.Name(), u.ChatID)
 	if err != nil {
 		return s.fail(ctx, u, err)
 	}
-	switch chat.State {
-	case store.ChatAwaitingEmail:
-		return s.requestCode(ctx, u, text)
-	case store.ChatAwaitingCode:
-		return s.verifyCode(ctx, u, text)
-	}
-	if chat.UserID == nil {
-		return s.reply(ctx, u, msgNotSignedIn)
+	if !linked {
+		return s.reply(ctx, u, msgNotLinked)
 	}
 	return s.reply(ctx, u, msgSendAudio)
 }
 
-func (s *Service) handleCommand(ctx context.Context, u Update, command string) error {
-	name := s.provider.Name()
+func (s *Service) handleCommand(ctx context.Context, u Update, command, argument string) error {
 	switch command {
 	case "start":
-		if _, signedIn, err := s.auth.Session(ctx, name, u.ChatID); err != nil {
+		// Deep links arrive as "/start <code>".
+		if argument != "" {
+			return s.link(ctx, u, argument)
+		}
+		if _, linked, err := s.linker.Session(ctx, s.provider.Name(), u.ChatID); err != nil {
 			return s.fail(ctx, u, err)
-		} else if signedIn {
+		} else if linked {
 			return s.status(ctx, u)
 		}
-		if err := s.chats.SetState(ctx, name, u.ChatID, store.ChatAwaitingEmail); err != nil {
-			return s.fail(ctx, u, err)
-		}
 		return s.reply(ctx, u, msgWelcome)
-	case "login":
-		// Signing in again, even to another account, always takes a new code.
-		if err := s.chats.SetState(ctx, name, u.ChatID, store.ChatAwaitingEmail); err != nil {
+	case "login", "link":
+		if argument != "" {
+			return s.link(ctx, u, argument)
+		}
+		return s.reply(ctx, u, msgHowToLink)
+	case "logout", "unlink":
+		if err := s.linker.Unlink(ctx, s.provider.Name(), u.ChatID); err != nil {
 			return s.fail(ctx, u, err)
 		}
-		return s.reply(ctx, u, msgAskEmail)
-	case "logout":
-		if err := s.auth.SignOut(ctx, name, u.ChatID); err != nil {
-			return s.fail(ctx, u, err)
-		}
-		return s.reply(ctx, u, msgSignedOut)
+		return s.reply(ctx, u, msgUnlinked)
 	case "status":
 		return s.status(ctx, u)
 	default:
@@ -105,12 +106,12 @@ func (s *Service) handleCommand(ctx context.Context, u Update, command string) e
 }
 
 func (s *Service) status(ctx context.Context, u Update) error {
-	chat, signedIn, err := s.auth.Session(ctx, s.provider.Name(), u.ChatID)
+	chat, linked, err := s.linker.Session(ctx, s.provider.Name(), u.ChatID)
 	if err != nil {
 		return s.fail(ctx, u, err)
 	}
-	if !signedIn {
-		return s.reply(ctx, u, msgNotSignedIn)
+	if !linked {
+		return s.reply(ctx, u, msgNotLinked)
 	}
 	user, err := s.users.ByID(ctx, *chat.UserID)
 	if err != nil {
@@ -119,45 +120,30 @@ func (s *Service) status(ctx context.Context, u Update) error {
 	return s.reply(ctx, u, msgStatus(MaskEmail(user.Email)))
 }
 
-func (s *Service) requestCode(ctx context.Context, u Update, email string) error {
-	err := s.auth.RequestCode(ctx, s.provider.Name(), u.ChatID, email)
-	var wait WaitError
+func (s *Service) link(ctx context.Context, u Update, code string) error {
+	userID, err := s.linker.Redeem(ctx, s.provider.Name(), u.ChatID, code)
 	switch {
-	case err == nil:
-		return s.reply(ctx, u, msgCodeSent)
-	case errors.Is(err, ErrBadEmail):
-		return s.reply(ctx, u, msgBadEmail)
-	case errors.As(err, &wait):
-		return s.reply(ctx, u, msgWait(int(wait.Retry.Seconds())+1))
-	case errors.Is(err, ErrThrottled):
-		return s.reply(ctx, u, msgThrottled)
-	default:
-		return s.fail(ctx, u, err)
-	}
-}
-
-func (s *Service) verifyCode(ctx context.Context, u Update, code string) error {
-	userID, err := s.auth.VerifyCode(ctx, s.provider.Name(), u.ChatID, code)
-	if errors.Is(err, ErrBadCode) {
+	case errors.Is(err, ErrBadCode):
 		return s.reply(ctx, u, msgBadCode)
-	}
-	if err != nil {
+	case errors.Is(err, ErrLocked):
+		return s.reply(ctx, u, msgLocked)
+	case err != nil:
 		return s.fail(ctx, u, err)
 	}
 	user, err := s.users.ByID(ctx, userID)
 	if err != nil {
 		return s.fail(ctx, u, err)
 	}
-	return s.reply(ctx, u, msgSignedIn(MaskEmail(user.Email)))
+	return s.reply(ctx, u, msgLinked(MaskEmail(user.Email)))
 }
 
 func (s *Service) handleFile(ctx context.Context, u Update) error {
-	chat, signedIn, err := s.auth.Session(ctx, s.provider.Name(), u.ChatID)
+	chat, linked, err := s.linker.Session(ctx, s.provider.Name(), u.ChatID)
 	if err != nil {
 		return s.fail(ctx, u, err)
 	}
-	if !signedIn {
-		return s.reply(ctx, u, msgNotSignedIn)
+	if !linked {
+		return s.reply(ctx, u, msgNotLinked)
 	}
 	if reason := s.importer.Check(s.provider, *u.File); reason != "" {
 		return s.reply(ctx, u, s.refused(reason))
@@ -221,11 +207,12 @@ func (s *Service) fail(ctx context.Context, u Update, cause error) error {
 	return cause
 }
 
-// parseCommand reads "/start" or "/start@NafirBot extra" as "start".
-func parseCommand(text string) (string, bool) {
+// parseCommand reads "/start@NafirBot 1234" as "start" with argument "1234".
+func parseCommand(text string) (command, argument string, ok bool) {
 	if !strings.HasPrefix(text, "/") {
-		return "", false
+		return "", "", false
 	}
-	command, _, _ := strings.Cut(strings.Fields(text)[0][1:], "@")
-	return strings.ToLower(command), command != ""
+	head, argument, _ := strings.Cut(text, " ")
+	command, _, _ = strings.Cut(head[1:], "@")
+	return strings.ToLower(command), strings.TrimSpace(argument), command != ""
 }

@@ -97,31 +97,35 @@ The project was renamed from SOT to Nafir. On a server deployed before the renam
 
 ## Bale bot
 
-People can send audio to Nafir's Bale bot and it lands in their library. They
-sign in inside the chat with a one-time code emailed to their Nafir address;
-the bot never asks for a password.
+People can send audio to Nafir's Bale bot and it lands in their library. To
+link a chat to their account, they open **Settings → اتصال به بات** in the
+Nafir app (web or Android), get a one-time 8-digit code, and send it to the
+bot. Proving who they are happens in the app they are already signed in to,
+so the bot needs no email and never asks for a password.
 
-1. In Bale, create a bot with **@BotFather** and copy its token.
+1. In Bale, create a bot with **@BotFather**. Copy its token and username.
 2. In `deploy/.env`, set:
    - `BALE_BOT_TOKEN` to that token.
+   - `BALE_BOT_USERNAME` to its username, so the app can name the bot and
+     offer a link that opens it with the code filled in.
    - `BOT_WEBHOOK_SECRET` to `openssl rand -hex 32`. It is part of the webhook
      URL, so only Bale knows where to post updates.
-   - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` and `SMTP_FROM`
-     for a mail account that can send the login codes. The connection is
-     always encrypted: port 465 with TLS, or another port with STARTTLS.
 3. Deploy. On start the API registers
    `https://<NAFIR_DOMAIN>/api/v1/bots/bale/webhook/<secret>` with Bale, and
    logs `bot webhook registered provider=bale`. If Bale is unreachable it keeps
    retrying and logs each failure.
 
-The API refuses to start if a bot token is set without the webhook secret or
-SMTP settings. Bot imports follow the same rules as uploads from the app: the
-file size limit, the storage quota, the pending-upload limit and
-`UPLOADS_ENABLED`. Bale serves bots files up to 20 MB by default
-(`BALE_MAX_DOWNLOAD_BYTES`); larger files get a message explaining the limit.
+Link codes last ten minutes and work once. A chat that sends five wrong codes
+in an hour is locked out for the rest of that hour, and each account can
+request ten codes an hour (`BOT_LINK_RATE_REQUESTS`, `BOT_LINK_RATE_WINDOW`).
 
-To turn the bot off, clear `BALE_BOT_TOKEN` and deploy. People who signed in
-through the bot can sign out there with `/logout`.
+Bot imports follow the same rules as uploads from the app: the file size
+limit, the storage quota, the pending-upload limit and `UPLOADS_ENABLED`.
+Bale serves bots files up to 20 MB by default (`BALE_MAX_DOWNLOAD_BYTES`);
+larger files get a message explaining the limit.
+
+To turn the bot off, clear `BALE_BOT_TOKEN` and deploy. A chat can be
+unlinked from the bot with `/logout`.
 
 ## Security rules
 

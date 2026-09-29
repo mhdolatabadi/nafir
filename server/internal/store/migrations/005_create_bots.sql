@@ -1,35 +1,27 @@
--- Messenger bots: which Nafir account a private chat is signed in to, the
--- email one-time codes used to sign in, processed updates, and audio imports.
+-- Messenger bots: which Nafir account a private chat is linked to, the
+-- one-time codes that link them, processed updates, and audio imports.
 CREATE TABLE IF NOT EXISTS bot_chats (
     provider text NOT NULL,
     chat_id text NOT NULL,
-    state text NOT NULL DEFAULT 'idle'
-        CHECK (state IN ('idle', 'awaiting_email', 'awaiting_code')),
     user_id uuid REFERENCES users(id) ON DELETE CASCADE,
-    signed_in_at timestamptz,
+    linked_at timestamptz,
+    -- Wrong link codes sent from this chat in the current window.
+    failed_links integer NOT NULL DEFAULT 0,
+    failed_since timestamptz,
     updated_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (provider, chat_id)
 );
 
--- user_id is null when the email has no account: the chat is told the same
--- thing either way, and such a code can never be verified.
-CREATE TABLE IF NOT EXISTS bot_login_codes (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    provider text NOT NULL,
-    chat_id text NOT NULL,
-    email text NOT NULL,
-    user_id uuid REFERENCES users(id) ON DELETE CASCADE,
-    code_hash bytea NOT NULL,
-    attempts integer NOT NULL DEFAULT 0,
+-- One-time codes a signed-in app user creates to link a bot chat to their
+-- account. Only an HMAC of the code is stored.
+CREATE TABLE IF NOT EXISTS bot_link_codes (
+    code_hash bytea PRIMARY KEY,
+    user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     expires_at timestamptz NOT NULL,
-    used_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS bot_login_codes_chat_idx
-    ON bot_login_codes (provider, chat_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS bot_login_codes_email_idx
-    ON bot_login_codes (email, created_at DESC);
+CREATE INDEX IF NOT EXISTS bot_link_codes_user_idx ON bot_link_codes (user_id);
 
 -- Providers redeliver webhooks; an update is handled at most once.
 CREATE TABLE IF NOT EXISTS bot_updates (

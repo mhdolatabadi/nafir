@@ -13,9 +13,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mhdolatabadi/nafir/server/internal/auth"
 	"github.com/mhdolatabadi/nafir/server/internal/bot"
 	"github.com/mhdolatabadi/nafir/server/internal/botapi"
-	"github.com/mhdolatabadi/nafir/server/internal/mail"
+	"github.com/mhdolatabadi/nafir/server/internal/httpapi"
 	"github.com/mhdolatabadi/nafir/server/internal/storage"
 	"github.com/mhdolatabadi/nafir/server/internal/store"
 )
@@ -30,6 +31,7 @@ const (
 
 type botDeps struct {
 	tokenSecret []byte
+	tokens      *auth.Tokens
 	bots        *store.Bots
 	users       *store.Users
 	tracks      *store.Tracks
@@ -37,41 +39,42 @@ type botDeps struct {
 	policy      bot.UploadPolicy
 }
 
-// setupBots starts every messenger bot with a token configured and returns
-// their webhooks. With no bot token set, it does nothing.
-func setupBots(ctx context.Context, deps botDeps) (map[string]http.Handler, error) {
+// setupBots starts every messenger bot with a token configured. It returns
+// their webhooks and the app-facing bot endpoints, which list no bots when
+// none is configured.
+func setupBots(ctx context.Context, deps botDeps) (map[string]http.Handler, *httpapi.BotHandlers, error) {
+	linkRate, err := rateLimiterEnv("BOT_LINK_RATE", 10, time.Hour)
+	if err != nil {
+		return nil, nil, err
+	}
 	baleToken := os.Getenv("BALE_BOT_TOKEN")
 	if baleToken == "" {
-		return nil, nil
+		return nil, httpapi.NewBotHandlers(nil, deps.tokens, nil, linkRate), nil
 	}
 	secret := os.Getenv("BOT_WEBHOOK_SECRET")
 	if len(secret) < minWebhookSecretLength || strings.ContainsAny(secret, "/?#% ") {
-		return nil, fmt.Errorf("BOT_WEBHOOK_SECRET must be at least %d URL-safe characters", minWebhookSecretLength)
+		return nil, nil, fmt.Errorf("BOT_WEBHOOK_SECRET must be at least %d URL-safe characters", minWebhookSecretLength)
 	}
 	publicURL := os.Getenv("BOT_PUBLIC_URL")
 	if publicURL == "" {
 		publicURL = os.Getenv("STORAGE_PUBLIC_URL")
 	}
 	if parsed, err := url.Parse(publicURL); err != nil || parsed.Scheme != "https" || parsed.Host == "" {
-		return nil, fmt.Errorf("BOT_PUBLIC_URL must be the https origin bots post to, got %q", publicURL)
+		return nil, nil, fmt.Errorf("BOT_PUBLIC_URL must be the https origin bots post to, got %q", publicURL)
 	}
-	mailer, err := smtpFromEnv()
-	if err != nil {
-		return nil, err
-	}
-	// Login codes get their own key, derived so AUTH_TOKEN_SECRET stays the
+	// Link codes get their own key, derived so AUTH_TOKEN_SECRET stays the
 	// only secret to manage.
 	mac := hmac.New(sha256.New, deps.tokenSecret)
-	mac.Write([]byte("nafir bot login codes"))
-	auth, err := bot.NewAuth(deps.bots, deps.users, mailer, mac.Sum(nil), bot.DefaultAuthLimits)
+	mac.Write([]byte("nafir bot link codes"))
+	linker, err := bot.NewLinker(deps.bots, mac.Sum(nil), bot.DefaultLinkLimits)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	importer := bot.NewImporter(deps.bots, deps.tracks, deps.objects, deps.policy)
 
 	baleMax, err := positiveInt64Env("BALE_MAX_DOWNLOAD_BYTES", defaultBotDownloadBytes)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	baleURL := os.Getenv("BALE_API_URL")
 	if baleURL == "" {
@@ -79,34 +82,24 @@ func setupBots(ctx context.Context, deps botDeps) (map[string]http.Handler, erro
 	}
 	bale, err := botapi.New(botapi.Config{Name: "bale", BaseURL: baleURL, Token: baleToken, MaxDownloadBytes: baleMax})
 	if err != nil {
-		return nil, fmt.Errorf("bale: %w", err)
+		return nil, nil, fmt.Errorf("bale: %w", err)
+	}
+	baleInfo := httpapi.Bot{Provider: "bale", Name: "بله"}
+	if username := strings.TrimPrefix(os.Getenv("BALE_BOT_USERNAME"), "@"); username != "" {
+		baleInfo.Username = username
+		baleInfo.LinkURL = "https://ble.ir/" + url.PathEscape(username) + "?start=%s"
 	}
 
-	service := bot.NewService(bale, deps.bots, auth, deps.users, importer)
+	service := bot.NewService(bale, deps.bots, linker, deps.users, importer)
 	webhookURL := strings.TrimSuffix(publicURL, "/") + "/api/v1/bots/bale/webhook/" + secret
 	go registerWebhook(ctx, bale, webhookURL)
 	go service.Resume(ctx)
 	go forgetOldUpdates(ctx, deps.bots)
 	slog.Info("Bale bot enabled")
-	return map[string]http.Handler{
+	webhooks := map[string]http.Handler{
 		"bale": bot.Webhook(ctx, service, botapi.Parse, secret, botWebhookConcurrency),
-	}, nil
-}
-
-func smtpFromEnv() (*mail.SMTP, error) {
-	port, err := positiveIntEnv("SMTP_PORT", 587)
-	if err != nil {
-		return nil, err
 	}
-	mailer, err := mail.NewSMTP(mail.Config{
-		Host: os.Getenv("SMTP_HOST"), Port: port,
-		Username: os.Getenv("SMTP_USERNAME"), Password: os.Getenv("SMTP_PASSWORD"),
-		From: os.Getenv("SMTP_FROM"),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("bots email login codes, so SMTP must be configured: %w", err)
-	}
-	return mailer, nil
+	return webhooks, httpapi.NewBotHandlers(linker, deps.tokens, []httpapi.Bot{baleInfo}, linkRate), nil
 }
 
 // registerWebhook points the provider at Nafir, retrying while it is unreachable.

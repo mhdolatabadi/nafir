@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:nafir/core/format_size.dart';
+import 'package:nafir/features/bots/application/bot_link_controller.dart';
+import 'package:nafir/features/bots/presentation/bot_link_section.dart';
 import 'package:nafir/features/settings/application/cache_controller.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key, required this.cache});
+  const SettingsScreen({super.key, required this.cache, this.botLinks});
 
   final CacheController cache;
+
+  /// Null when the app has no API to ask about bots.
+  final BotLinkController? botLinks;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -85,6 +90,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               leading: Icon(Icons.public),
               title: Text('در نسخه‌ی وب، کش را خود مرورگر مدیریت می‌کند.'),
             ),
+          if (widget.botLinks case final botLinks?)
+            BotLinkSection(controller: botLinks),
         ],
       ),
     );

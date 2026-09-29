@@ -1,0 +1,47 @@
+/// A messenger bot the account can be linked to, such as Nafir's Bale bot.
+class MessengerBot {
+  const MessengerBot({
+    required this.provider,
+    required this.name,
+    this.username,
+    this.linkUrl,
+  });
+
+  factory MessengerBot.fromJson(Map<String, dynamic> json) => MessengerBot(
+        provider: json['provider'] as String,
+        name: json['name'] as String,
+        username: json['username'] as String?,
+        linkUrl: json['linkUrl'] as String?,
+      );
+
+  final String provider;
+
+  /// The messenger's name for people, for example «بله».
+  final String name;
+  final String? username;
+
+  /// Opens the bot with a link code filled in; only set alongside a code.
+  final String? linkUrl;
+}
+
+/// A one-time code that links a bot chat to the signed-in account.
+class BotLinkCode {
+  const BotLinkCode({
+    required this.code,
+    required this.expiresAt,
+    required this.bots,
+  });
+
+  factory BotLinkCode.fromJson(Map<String, dynamic> json) => BotLinkCode(
+        code: json['code'] as String,
+        expiresAt: DateTime.parse(json['expiresAt'] as String),
+        bots: [
+          for (final bot in json['bots'] as List<dynamic>)
+            MessengerBot.fromJson(bot as Map<String, dynamic>),
+        ],
+      );
+
+  final String code;
+  final DateTime expiresAt;
+  final List<MessengerBot> bots;
+}
