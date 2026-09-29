@@ -535,6 +535,10 @@ void main() {
     expect(find.byTooltip('توقف'), findsOneWidget);
     expect(find.byTooltip('بعدی'), findsOneWidget);
     expect(find.byTooltip('پخش تصادفی'), findsOneWidget);
+    final trackList = tester.widget<ListView>(find.byKey(
+      const ValueKey('track-list'),
+    ));
+    expect((trackList.padding! as EdgeInsets).bottom, greaterThanOrEqualTo(160));
     expect(tester.takeException(), isNull);
   });
 

@@ -523,13 +523,14 @@ class _ResponsiveLibraryContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final horizontal = constraints.maxWidth >= 900 ? 40.0 : 16.0;
+        final horizontal = constraints.maxWidth >= 900 ? 40.0 : 20.0;
+        final top = constraints.maxWidth >= 720 ? 20.0 : 16.0;
         return Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: _maxWidth),
             child: Padding(
-              padding: EdgeInsets.fromLTRB(horizontal, 12, horizontal, 0),
+              padding: EdgeInsets.fromLTRB(horizontal, top, horizontal, 0),
               child: child,
             ),
           ),
@@ -652,7 +653,7 @@ class _TrackListState extends State<_TrackList> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
+          padding: const EdgeInsets.fromLTRB(4, 20, 4, 12),
           child: Row(
             children: [
               Text(
@@ -697,7 +698,7 @@ class _TrackListState extends State<_TrackList> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+          padding: const EdgeInsets.fromLTRB(4, 0, 4, 20),
           child: SearchBar(
             controller: _search,
             hintText: 'جست‌وجوی آهنگ، خواننده یا آلبوم',
@@ -723,7 +724,7 @@ class _TrackListState extends State<_TrackList> {
               if (tracks.isEmpty) {
                 return ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(24, 72, 24, 96),
+                  padding: const EdgeInsets.fromLTRB(24, 72, 24, 176),
                   children: [
                     _LibraryState(
                       icon: Icons.search_off_rounded,
@@ -742,8 +743,9 @@ class _TrackListState extends State<_TrackList> {
                 );
               }
               return ListView.builder(
+                key: const ValueKey('track-list'),
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.only(bottom: 88),
+                padding: const EdgeInsets.only(bottom: 176),
                 itemCount: tracks.length,
                 itemBuilder: (context, index) {
                   final track = tracks[index];
@@ -752,8 +754,22 @@ class _TrackListState extends State<_TrackList> {
                   final artistLabel = artist == null || artist.isEmpty
                       ? 'خواننده نامشخص'
                       : artist;
-                  return ListTile(
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: ListTile(
                     selected: current,
+                    minVerticalPadding: 10,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    tileColor: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainer
+                        .withValues(alpha: 0.42),
                     onTap: () => widget.player.playFrom(tracks, index),
                     leading: CircleAvatar(
                       backgroundColor: current
@@ -884,6 +900,7 @@ class _TrackListState extends State<_TrackList> {
                                     ),
                                 ],
                               ),
+                    ),
                   );
                 },
               );
