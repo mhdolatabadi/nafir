@@ -1,31 +1,43 @@
 name: Android release
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
+  workflow_run:
+    workflows:
+      - Quality checks
+    types:
+      - completed
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: android-release-${{ github.ref }}
+  group: android-release-${{ github.event.workflow_run.head_sha || github.sha }}
   cancel-in-progress: false
 
 jobs:
   release:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SHA }}
 
-      - name: Validate version tag
+      - name: Prepare automatic version
+        id: version
         shell: bash
         run: |
-          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
-            echo "Expected a semantic version tag such as v1.2.3."
-            exit 1
-          fi
+          VERSION="0.1.${GITHUB_RUN_NUMBER}"
+          echo "name=${VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "tag=v${VERSION}" >> "${GITHUB_OUTPUT}"
 
       - uses: actions/setup-java@v4
         with:
@@ -54,26 +66,38 @@ jobs:
           : "${ANDROID_KEY_ALIAS:?ANDROID_KEY_ALIAS secret is required}"
           : "${ANDROID_KEY_PASSWORD:?ANDROID_KEY_PASSWORD secret is required}"
           : "${ANDROID_STORE_PASSWORD:?ANDROID_STORE_PASSWORD secret is required}"
-          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/release.jks
+          printf '%s' "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > android/app/release.jks
           {
-            printf 'storePassword=%s\n' "$ANDROID_STORE_PASSWORD"
-            printf 'keyPassword=%s\n' "$ANDROID_KEY_PASSWORD"
-            printf 'keyAlias=%s\n' "$ANDROID_KEY_ALIAS"
+            printf 'storePassword=%s\n' "${ANDROID_STORE_PASSWORD}"
+            printf 'keyPassword=%s\n' "${ANDROID_KEY_PASSWORD}"
+            printf 'keyAlias=%s\n' "${ANDROID_KEY_ALIAS}"
             printf 'storeFile=release.jks\n'
           } > android/key.properties
 
-      - name: Build signed release APK
+      - name: Build signed production packages
         shell: bash
         run: |
           flutter build apk --release \
-            --build-name="${GITHUB_REF_NAME#v}" \
+            --build-name="${{ steps.version.outputs.name }}" \
             --build-number="${GITHUB_RUN_NUMBER}" \
             --dart-define=API_BASE_URL=${{ vars.NAFIR_API_BASE_URL || 'https://nafir.mhdolatabadi.ir' }}
-          mv build/app/outputs/flutter-apk/app-release.apk "nafir-${GITHUB_REF_NAME}-android.apk"
+          flutter build appbundle --release \
+            --build-name="${{ steps.version.outputs.name }}" \
+            --build-number="${GITHUB_RUN_NUMBER}" \
+            --dart-define=API_BASE_URL=${{ vars.NAFIR_API_BASE_URL || 'https://nafir.mhdolatabadi.ir' }}
+          mv build/app/outputs/flutter-apk/app-release.apk \
+            "nafir-${{ steps.version.outputs.tag }}-android.apk"
+          mv build/app/outputs/bundle/release/app-release.aab \
+            "nafir-${{ steps.version.outputs.tag }}-android.aab"
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ env.RELEASE_SHA }}
+          name: Nafir ${{ steps.version.outputs.tag }}
           generate_release_notes: true
           fail_on_unmatched_files: true
-          files: nafir-${{ github.ref_name }}-android.apk
+          files: |
+            nafir-${{ steps.version.outputs.tag }}-android.apk
+            nafir-${{ steps.version.outputs.tag }}-android.aab
