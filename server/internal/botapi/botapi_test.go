@@ -126,3 +126,44 @@ func TestErrorsNeverContainTheToken(t *testing.T) {
 		t.Fatalf("connection error leaks the token: %v", err)
 	}
 }
+
+func TestSetWebhookRegistersTheSecretToken(t *testing.T) {
+	var params map[string]any
+	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&params)
+		io.WriteString(w, `{"ok":true,"result":true}`)
+	})
+	client.config.SecretToken = "hook-secret"
+
+	if err := client.SetWebhook(context.Background(), "https://music.example.com/hook"); err != nil {
+		t.Fatal(err)
+	}
+	if params["secret_token"] != "hook-secret" || params["url"] != "https://music.example.com/hook" {
+		t.Fatalf("setWebhook params = %v", params)
+	}
+}
+
+func TestRequestsGoThroughTheConfiguredProxy(t *testing.T) {
+	var proxied []string
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proxied = append(proxied, r.URL.Host+r.URL.Path)
+		io.WriteString(w, `{"ok":true,"result":true}`)
+	}))
+	t.Cleanup(proxy.Close)
+	client, err := New(Config{
+		Name: "telegram", BaseURL: "http://api.telegram.invalid", Token: token,
+		MaxDownloadBytes: 1, ProxyURL: proxy.URL,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := client.Send(context.Background(), "1", "x"); err != nil {
+		t.Fatal(err)
+	}
+	if len(proxied) != 1 || proxied[0] != "api.telegram.invalid/bot"+token+"/sendMessage" {
+		t.Fatalf("proxied %v", proxied)
+	}
+	if _, err := New(Config{Name: "x", BaseURL: "http://a", Token: "t", MaxDownloadBytes: 1, ProxyURL: "::"}); err == nil {
+		t.Fatal("bad proxy URL accepted")
+	}
+}

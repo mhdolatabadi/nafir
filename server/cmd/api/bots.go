@@ -22,12 +22,31 @@ import (
 )
 
 const (
-	defaultBaleAPIURL = "https://tapi.bale.ai"
 	// Telegram's Bot API serves bots files up to 20 MB; Bale follows it.
 	defaultBotDownloadBytes = 20 << 20
 	botWebhookConcurrency   = 16
 	minWebhookSecretLength  = 32
 )
+
+// messenger is a supported bot provider. Each is configured with environment
+// variables named after its prefix, for example BALE_BOT_TOKEN, and is off
+// until its token is set.
+type messenger struct {
+	name        string
+	displayName string
+	envPrefix   string
+	defaultAPI  string
+	// linkBase opens a bot by username; "?start=<code>" passes a link code.
+	linkBase string
+	// headerAuth registers the webhook secret as a secret token, which the
+	// provider then sends in a header of every update.
+	headerAuth bool
+}
+
+var messengers = []messenger{
+	{name: "bale", displayName: "بله", envPrefix: "BALE", defaultAPI: "https://tapi.bale.ai", linkBase: "https://ble.ir/"},
+	{name: "telegram", displayName: "تلگرام", envPrefix: "TELEGRAM", defaultAPI: "https://api.telegram.org", linkBase: "https://t.me/", headerAuth: true},
+}
 
 type botDeps struct {
 	tokenSecret []byte
@@ -47,13 +66,19 @@ func setupBots(ctx context.Context, deps botDeps) (map[string]http.Handler, *htt
 	if err != nil {
 		return nil, nil, err
 	}
-	baleToken := os.Getenv("BALE_BOT_TOKEN")
-	if baleToken == "" {
+	var enabled []messenger
+	for _, m := range messengers {
+		if os.Getenv(m.envPrefix+"_BOT_TOKEN") != "" {
+			enabled = append(enabled, m)
+		}
+	}
+	if len(enabled) == 0 {
 		return nil, httpapi.NewBotHandlers(nil, deps.tokens, nil, linkRate), nil
 	}
+
 	secret := os.Getenv("BOT_WEBHOOK_SECRET")
-	if len(secret) < minWebhookSecretLength || strings.ContainsAny(secret, "/?#% ") {
-		return nil, nil, fmt.Errorf("BOT_WEBHOOK_SECRET must be at least %d URL-safe characters", minWebhookSecretLength)
+	if len(secret) < minWebhookSecretLength || strings.Trim(secret, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-") != "" {
+		return nil, nil, fmt.Errorf("BOT_WEBHOOK_SECRET must be at least %d letters, digits, _ or -", minWebhookSecretLength)
 	}
 	publicURL := os.Getenv("BOT_PUBLIC_URL")
 	if publicURL == "" {
@@ -72,34 +97,47 @@ func setupBots(ctx context.Context, deps botDeps) (map[string]http.Handler, *htt
 	}
 	importer := bot.NewImporter(deps.bots, deps.tracks, deps.objects, deps.policy)
 
-	baleMax, err := positiveInt64Env("BALE_MAX_DOWNLOAD_BYTES", defaultBotDownloadBytes)
-	if err != nil {
-		return nil, nil, err
-	}
-	baleURL := os.Getenv("BALE_API_URL")
-	if baleURL == "" {
-		baleURL = defaultBaleAPIURL
-	}
-	bale, err := botapi.New(botapi.Config{Name: "bale", BaseURL: baleURL, Token: baleToken, MaxDownloadBytes: baleMax})
-	if err != nil {
-		return nil, nil, fmt.Errorf("bale: %w", err)
-	}
-	baleInfo := httpapi.Bot{Provider: "bale", Name: "بله"}
-	if username := strings.TrimPrefix(os.Getenv("BALE_BOT_USERNAME"), "@"); username != "" {
-		baleInfo.Username = username
-		baleInfo.LinkURL = "https://ble.ir/" + url.PathEscape(username) + "?start=%s"
-	}
+	webhooks := map[string]http.Handler{}
+	var listed []httpapi.Bot
+	for _, m := range enabled {
+		env := func(name string) string { return os.Getenv(m.envPrefix + "_" + name) }
+		maxBytes, err := positiveInt64Env(m.envPrefix+"_MAX_DOWNLOAD_BYTES", defaultBotDownloadBytes)
+		if err != nil {
+			return nil, nil, err
+		}
+		apiURL := env("API_URL")
+		if apiURL == "" {
+			apiURL = m.defaultAPI
+		}
+		config := botapi.Config{
+			Name: m.name, BaseURL: apiURL, Token: env("BOT_TOKEN"),
+			MaxDownloadBytes: maxBytes, ProxyURL: env("PROXY_URL"),
+		}
+		webhookAuth := bot.WebhookAuth{PathSecret: secret}
+		if m.headerAuth {
+			config.SecretToken = secret
+			webhookAuth.Header, webhookAuth.HeaderSecret = botapi.SecretTokenHeader, secret
+		}
+		client, err := botapi.New(config)
+		if err != nil {
+			return nil, nil, fmt.Errorf("%s: %w", m.name, err)
+		}
+		info := httpapi.Bot{Provider: m.name, Name: m.displayName}
+		if username := strings.TrimPrefix(env("BOT_USERNAME"), "@"); username != "" {
+			info.Username = username
+			info.LinkURL = m.linkBase + url.PathEscape(username) + "?start=%s"
+		}
+		listed = append(listed, info)
 
-	service := bot.NewService(bale, deps.bots, linker, deps.users, importer)
-	webhookURL := strings.TrimSuffix(publicURL, "/") + "/api/v1/bots/bale/webhook/" + secret
-	go registerWebhook(ctx, bale, webhookURL)
-	go service.Resume(ctx)
-	go forgetOldUpdates(ctx, deps.bots)
-	slog.Info("Bale bot enabled")
-	webhooks := map[string]http.Handler{
-		"bale": bot.Webhook(ctx, service, botapi.Parse, secret, botWebhookConcurrency),
+		service := bot.NewService(client, deps.bots, linker, deps.users, importer)
+		webhookURL := strings.TrimSuffix(publicURL, "/") + "/api/v1/bots/" + m.name + "/webhook/" + secret
+		go registerWebhook(ctx, client, webhookURL)
+		go service.Resume(ctx)
+		webhooks[m.name] = bot.Webhook(ctx, service, botapi.Parse, webhookAuth, botWebhookConcurrency)
+		slog.Info("bot enabled", "provider", m.name)
 	}
-	return webhooks, httpapi.NewBotHandlers(linker, deps.tokens, []httpapi.Bot{baleInfo}, linkRate), nil
+	go forgetOldUpdates(ctx, deps.bots)
+	return webhooks, httpapi.NewBotHandlers(linker, deps.tokens, listed, linkRate), nil
 }
 
 // registerWebhook points the provider at Nafir, retrying while it is unreachable.

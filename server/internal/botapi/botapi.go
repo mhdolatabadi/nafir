@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -27,7 +28,16 @@ type Config struct {
 	Token   string
 	// MaxDownloadBytes is the largest file the API lets bots download.
 	MaxDownloadBytes int64
+	// ProxyURL, if set, routes every request to the API through an HTTP(S)
+	// or SOCKS5 proxy, for servers that cannot reach the API directly.
+	ProxyURL string
+	// SecretToken, if set, is registered with the webhook; Telegram then
+	// sends it in the X-Telegram-Bot-Api-Secret-Token header of every update.
+	SecretToken string
 }
+
+// SecretTokenHeader carries Config.SecretToken on webhook requests.
+const SecretTokenHeader = "X-Telegram-Bot-Api-Secret-Token"
 
 type Client struct {
 	config Config
@@ -41,10 +51,23 @@ func New(config Config) (*Client, error) {
 		return nil, errors.New("bot API name, base URL, token and download limit are required")
 	}
 	config.BaseURL = strings.TrimSuffix(config.BaseURL, "/")
+	proxy := http.ProxyFromEnvironment
+	if config.ProxyURL != "" {
+		proxyURL, err := url.Parse(config.ProxyURL)
+		if err != nil || proxyURL.Host == "" {
+			return nil, fmt.Errorf("proxy URL %q is not a URL", config.ProxyURL)
+		}
+		proxy = http.ProxyURL(proxyURL)
+	}
 	return &Client{
 		config: config,
-		http:   &http.Client{Timeout: 30 * time.Second},
-		files:  &http.Client{Transport: &http.Transport{ResponseHeaderTimeout: time.Minute}},
+		http: &http.Client{
+			Timeout:   30 * time.Second,
+			Transport: &http.Transport{Proxy: proxy, TLSHandshakeTimeout: 15 * time.Second},
+		},
+		files: &http.Client{Transport: &http.Transport{
+			Proxy: proxy, TLSHandshakeTimeout: 15 * time.Second, ResponseHeaderTimeout: time.Minute,
+		}},
 	}, nil
 }
 
@@ -109,7 +132,11 @@ func (c *Client) Send(ctx context.Context, chatID, text string) error {
 
 // SetWebhook points the API at url for updates of messages only.
 func (c *Client) SetWebhook(ctx context.Context, url string) error {
-	return c.call(ctx, "setWebhook", map[string]any{"url": url, "allowed_updates": []string{"message"}}, nil)
+	params := map[string]any{"url": url, "allowed_updates": []string{"message"}}
+	if c.config.SecretToken != "" {
+		params["secret_token"] = c.config.SecretToken
+	}
+	return c.call(ctx, "setWebhook", params, nil)
 }
 
 type fileInfo struct {

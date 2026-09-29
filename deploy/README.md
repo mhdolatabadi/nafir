@@ -95,37 +95,49 @@ The project was renamed from SOT to Nafir. On a server deployed before the renam
        -c 'ALTER DATABASE nafir OWNER TO nafir;'
      ```
 
-## Bale bot
+## Bale and Telegram bots
 
-People can send audio to Nafir's Bale bot and it lands in their library. To
-link a chat to their account, they open **Settings → اتصال به بات** in the
-Nafir app (web or Android), get a one-time 8-digit code, and send it to the
-bot. Proving who they are happens in the app they are already signed in to,
-so the bot needs no email and never asks for a password.
+People can send audio to Nafir's Bale or Telegram bot and it lands in their
+library. To link a chat to their account, they open **Settings → اتصال به بات**
+in the Nafir app (web or Android), get a one-time 8-digit code, and send it to
+the bot. Proving who they are happens in the app they are already signed in to,
+so the bots need no email and never ask for a password.
 
-1. In Bale, create a bot with **@BotFather**. Copy its token and username.
+Each bot is optional and stays off while its token is empty.
+
+1. Create the bot with **@BotFather** in Bale and/or Telegram. Copy its token
+   and username.
 2. In `deploy/.env`, set:
-   - `BALE_BOT_TOKEN` to that token.
-   - `BALE_BOT_USERNAME` to its username, so the app can name the bot and
-     offer a link that opens it with the code filled in.
-   - `BOT_WEBHOOK_SECRET` to `openssl rand -hex 32`. It is part of the webhook
-     URL, so only Bale knows where to post updates.
-3. Deploy. On start the API registers
-   `https://<NAFIR_DOMAIN>/api/v1/bots/bale/webhook/<secret>` with Bale, and
-   logs `bot webhook registered provider=bale`. If Bale is unreachable it keeps
-   retrying and logs each failure.
+   - `BOT_WEBHOOK_SECRET` to `openssl rand -hex 32`. It is part of each
+     webhook URL, so only the messenger knows where to post updates; Telegram
+     also sends it back in a header, which the API checks.
+   - `BALE_BOT_TOKEN` and `BALE_BOT_USERNAME` for Bale.
+   - `TELEGRAM_BOT_TOKEN` and `TELEGRAM_BOT_USERNAME` for Telegram.
+   - The usernames let the app name each bot and offer a link that opens it
+     with the code filled in.
+3. **Telegram from a server in Iran:** `api.telegram.org` is filtered there, so
+   set `TELEGRAM_PROXY_URL` to a proxy outside Iran (`socks5://…` or
+   `http://…`). Telegram must also be able to reach
+   `https://<NAFIR_DOMAIN>` to deliver updates. Bale has a matching
+   `BALE_PROXY_URL`, which it normally does not need.
+4. Deploy. On start the API registers
+   `https://<NAFIR_DOMAIN>/api/v1/bots/<bale|telegram>/webhook/<secret>` with
+   each messenger, and logs `bot webhook registered provider=<name>`. If a
+   messenger is unreachable it keeps retrying and logs each failure.
 
 Link codes last ten minutes and work once. A chat that sends five wrong codes
 in an hour is locked out for the rest of that hour, and each account can
 request ten codes an hour (`BOT_LINK_RATE_REQUESTS`, `BOT_LINK_RATE_WINDOW`).
+One code links a chat in whichever bot it is sent to.
 
 Bot imports follow the same rules as uploads from the app: the file size
 limit, the storage quota, the pending-upload limit and `UPLOADS_ENABLED`.
-Bale serves bots files up to 20 MB by default (`BALE_MAX_DOWNLOAD_BYTES`);
-larger files get a message explaining the limit.
+Both Bot APIs serve bots files up to 20 MB by default
+(`BALE_MAX_DOWNLOAD_BYTES`, `TELEGRAM_MAX_DOWNLOAD_BYTES`); larger files get a
+message explaining the limit.
 
-To turn the bot off, clear `BALE_BOT_TOKEN` and deploy. A chat can be
-unlinked from the bot with `/logout`.
+To turn a bot off, clear its token and deploy. A chat can be unlinked from
+the bot with `/logout`.
 
 ## Security rules
 
