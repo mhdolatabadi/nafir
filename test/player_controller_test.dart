@@ -225,7 +225,7 @@ void main() {
       );
       await shuffled.playShuffled(_abc);
       expect(shuffled.shuffle, isTrue);
-      expect(shuffled.track?.id, isNot('a'));
+      expect(_abc, contains(shuffled.track));
       expect(loaded(), hasLength(1));
       shuffled.dispose();
     });

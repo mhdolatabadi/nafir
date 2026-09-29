@@ -649,12 +649,26 @@ class _TrackListState extends State<_TrackList> {
                     ),
               ),
               const Spacer(),
-              Text(
-                '${tracks.length} از ${widget.tracks.length} قطعه',
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+              FilledButton.tonalIcon(
+                onPressed: tracks.isEmpty
+                    ? null
+                    : () => widget.player.playShuffled(tracks),
+                icon: const Icon(Icons.shuffle_rounded, size: 18),
+                label: Text(
+                  _query.trim().isEmpty
+                      ? 'پخش تصادفی همه'
+                      : 'پخش تصادفی نتایج',
+                ),
               ),
+              if (MediaQuery.sizeOf(context).width >= 520) ...[
+                const SizedBox(width: 12),
+                Text(
+                  '${tracks.length} از ${widget.tracks.length} قطعه',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+              ],
             ],
           ),
         ),
@@ -676,21 +690,6 @@ class _TrackListState extends State<_TrackList> {
                 ),
             ],
             onChanged: (value) => setState(() => _query = value),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton.tonalIcon(
-              onPressed: tracks.isEmpty
-                  ? null
-                  : () => widget.player.playShuffled(tracks),
-              icon: const Icon(Icons.shuffle_rounded),
-              label: Text(
-                _query.trim().isEmpty ? 'پخش تصادفی همه' : 'پخش تصادفی نتایج',
-              ),
-            ),
           ),
         ),
         Expanded(
