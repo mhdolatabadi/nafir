@@ -173,8 +173,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
     ));
   }
 
-  Future<void> _refreshCloud() async {
+  Future<void> _refreshLibrary() async {
     widget.botLinks?.load();
+    if (widget.localAudio.supported) widget.localAudio.load();
     final ok = await widget.library.load();
     if (!ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -183,10 +184,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
     }
   }
 
+  List<Track> _unifiedTracks() {
+    final byKey = <String, Track>{};
+    for (final track in widget.library.tracks) {
+      byKey[track.id] = track;
+    }
+    for (final track in widget.localAudio.tracks) {
+      byKey.putIfAbsent(track.sourceUri?.toString() ?? track.id, () => track);
+    }
+    return byKey.values.toList(growable: false);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final hasDeviceLibrary = widget.localAudio.supported;
-    final scaffold = Scaffold(
+    return Scaffold(
       extendBody: true,
       appBar: AppBar(
         toolbarHeight: MediaQuery.sizeOf(context).width >= 720 ? 76 : 64,
@@ -194,14 +205,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
         title: _NafirBrand(
           compact: MediaQuery.sizeOf(context).width < 720,
         ),
-        bottom: hasDeviceLibrary
-            ? const TabBar(
-                tabs: [
-                  Tab(text: 'ابری', icon: Icon(Icons.cloud_outlined)),
-                  Tab(text: 'دستگاه', icon: Icon(Icons.phone_android)),
-                ],
-              )
-            : null,
         actions: MediaQuery.sizeOf(context).width >= 720
             ? [
                 if (widget.playlists != null) ...[
@@ -296,18 +299,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
           label: const Text('افزودن موسیقی'),
         ),
       ),
-      body: NafirBackdrop(
-        child: hasDeviceLibrary
-            ? TabBarView(children: [_cloudLibrary(), _deviceLibrary()])
-            : _cloudLibrary(),
-      ),
+      body: NafirBackdrop(child: _unifiedLibrary()),
     );
-    return hasDeviceLibrary
-        ? DefaultTabController(length: 2, child: scaffold)
-        : scaffold;
   }
 
-  Widget _cloudLibrary() => _ResponsiveLibraryContent(
+  Widget _unifiedLibrary() => _ResponsiveLibraryContent(
         child: Column(
           children: [
             UploadStatusCard(controller: widget.uploads),
@@ -328,75 +324,66 @@ class _LibraryScreenState extends State<LibraryScreen> {
               child: ListenableBuilder(
                 listenable: Listenable.merge([
                   widget.library,
+                  widget.localAudio,
                   if (widget.botLinks != null) widget.botLinks,
                 ]),
-                builder: (context, _) => switch (widget.library.status) {
-                  LibraryStatus.loading =>
-                    const Center(child: CircularProgressIndicator()),
-                  LibraryStatus.error =>
-                    _LoadError(onRetry: widget.library.load),
-                  LibraryStatus.loaded => RefreshIndicator(
-                      onRefresh: _refreshCloud,
-                      child: widget.library.tracks.isEmpty
-                          ? const _EmptyLibrary()
-                          : _TrackList(
-                              tracks: widget.library.tracks,
-                              player: widget.player,
-                              playlists: widget.playlists,
-                              onDelete: _confirmDeleteTrack,
-                              isDeleting: widget.library.isDeleting,
-                              linkedBots:
-                                  widget.botLinks?.linkedBots ?? const [],
-                              onSendToBot: _sendToBot,
-                            ),
-                    ),
+                builder: (context, _) {
+                  final localStatus = widget.localAudio.status;
+                  final localLoading = widget.localAudio.supported &&
+                      (localStatus == LocalAudioViewStatus.idle ||
+                          localStatus == LocalAudioViewStatus.loading);
+                  final tracks = _unifiedTracks();
+
+                  if (widget.library.status == LibraryStatus.loading &&
+                      tracks.isEmpty) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (widget.library.status == LibraryStatus.error &&
+                      tracks.isEmpty) {
+                    return _LoadError(onRetry: widget.library.load);
+                  }
+                  if (localLoading && tracks.isEmpty) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  final notice = _DeviceNotice.fromStatus(
+                    localStatus,
+                    widget.localAudio.supported,
+                  );
+                  return RefreshIndicator(
+                    onRefresh: _refreshLibrary,
+                    child: tracks.isEmpty
+                        ? _EmptyLibrary(deviceNotice: notice)
+                        : _TrackList(
+                            tracks: tracks,
+                            player: widget.player,
+                            playlists: widget.playlists,
+                            onDelete: _confirmDeleteTrack,
+                            isDeleting: widget.library.isDeleting,
+                            linkedBots: widget.botLinks?.linkedBots ?? const [],
+                            onSendToBot: _sendToBot,
+                            deviceNotice: notice,
+                            showLocationBadges: true,
+                          ),
+                  );
                 },
               ),
             ),
           ],
         ),
       );
-
-  Widget _deviceLibrary() => _ResponsiveLibraryContent(
-        child: ListenableBuilder(
-          listenable: widget.localAudio,
-          builder: (context, _) => switch (widget.localAudio.status) {
-            LocalAudioViewStatus.idle ||
-            LocalAudioViewStatus.loading =>
-              const Center(child: CircularProgressIndicator()),
-            LocalAudioViewStatus.loaded => widget.localAudio.tracks.isEmpty
-                ? _DeviceMessage(
-                    icon: Icons.audio_file_outlined,
-                    message: 'فایل صوتی‌ای روی دستگاه پیدا نشد.',
-                    onRetry: widget.localAudio.load,
-                  )
-                : RefreshIndicator(
-                    onRefresh: widget.localAudio.load,
-                    child: _TrackList(
-                      tracks: widget.localAudio.tracks,
-                      player: widget.player,
-                    ),
-                  ),
-            LocalAudioViewStatus.permissionDenied => _DeviceMessage(
-                icon: Icons.folder_off_outlined,
-                message:
-                    'برای نمایش موسیقی‌های دستگاه، اجازهٔ دسترسی صوتی لازم است.',
-                onRetry: widget.localAudio.load,
-              ),
-            LocalAudioViewStatus.error => _DeviceMessage(
-                icon: Icons.error_outline,
-                message: 'خواندن موسیقی‌های دستگاه ناموفق بود.',
-                onRetry: widget.localAudio.load,
-              ),
-            LocalAudioViewStatus.unsupported => const SizedBox.shrink(),
-          },
-        ),
-      );
 }
 
 enum _HeaderAction { playlists, settings, logout }
 
-enum _TrackAction { addToPlaylist, sendToBot, delete }
+enum _TrackAction {
+  addToPlaylist,
+  sendToBot,
+  uploadToServer,
+  downloadToDevice,
+  removeFromDevice,
+  delete,
+}
 
 class _NafirBrand extends StatelessWidget {
   const _NafirBrand({required this.compact});
@@ -523,14 +510,13 @@ class _ResponsiveLibraryContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final horizontal = constraints.maxWidth >= 900 ? 40.0 : 20.0;
-        final top = constraints.maxWidth >= 720 ? 20.0 : 16.0;
+        final horizontal = constraints.maxWidth >= 900 ? 40.0 : 16.0;
         return Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: _maxWidth),
             child: Padding(
-              padding: EdgeInsets.fromLTRB(horizontal, top, horizontal, 0),
+              padding: EdgeInsets.fromLTRB(horizontal, 12, horizontal, 0),
               child: child,
             ),
           ),
@@ -549,6 +535,8 @@ class _TrackList extends StatefulWidget {
     this.isDeleting,
     this.linkedBots = const [],
     this.onSendToBot,
+    this.deviceNotice,
+    this.showLocationBadges = false,
   });
 
   final List<Track> tracks;
@@ -560,6 +548,8 @@ class _TrackList extends StatefulWidget {
   /// Bots with a linked chat, offered as «ارسال به …» for each track.
   final List<MessengerBot> linkedBots;
   final Future<void> Function(Track track, MessengerBot bot)? onSendToBot;
+  final _DeviceNotice? deviceNotice;
+  final bool showLocationBadges;
 
   @override
   State<_TrackList> createState() => _TrackListState();
@@ -653,7 +643,7 @@ class _TrackListState extends State<_TrackList> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(4, 20, 4, 12),
+          padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
           child: Row(
             children: [
               Text(
@@ -697,8 +687,10 @@ class _TrackListState extends State<_TrackList> {
             ],
           ),
         ),
+        if (widget.deviceNotice case final notice?)
+          _DeviceStatusBanner(notice: notice),
         Padding(
-          padding: const EdgeInsets.fromLTRB(4, 0, 4, 20),
+          padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
           child: SearchBar(
             controller: _search,
             hintText: 'جست‌وجوی آهنگ، خواننده یا آلبوم',
@@ -724,7 +716,7 @@ class _TrackListState extends State<_TrackList> {
               if (tracks.isEmpty) {
                 return ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(24, 72, 24, 176),
+                  padding: const EdgeInsets.fromLTRB(24, 72, 24, 96),
                   children: [
                     _LibraryState(
                       icon: Icons.search_off_rounded,
@@ -742,12 +734,10 @@ class _TrackListState extends State<_TrackList> {
                   ],
                 );
               }
-              return ListView.separated(
-                key: const ValueKey('track-list'),
+              return ListView.builder(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.only(bottom: 176),
+                padding: const EdgeInsets.only(bottom: 128),
                 itemCount: tracks.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
                   final track = tracks[index];
                   final current = widget.player.track?.id == track.id;
@@ -783,9 +773,13 @@ class _TrackListState extends State<_TrackList> {
                         fontWeight: current ? FontWeight.w700 : FontWeight.w600,
                       ),
                     ),
-                    subtitle: Row(
+                    subtitle: Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Expanded(
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 220),
                           child: Text(
                             artistLabel,
                             maxLines: 1,
@@ -796,30 +790,23 @@ class _TrackListState extends State<_TrackList> {
                             ),
                           ),
                         ),
-                        if (track.importedFrom case final from?) ...[
-                          const SizedBox(width: 12),
-                          Text(
-                            'از $from',
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.primary,
-                              fontSize: 12,
-                            ),
+                        if (widget.showLocationBadges)
+                          _TrackLocationBadge(track: track),
+                        if (track.importedFrom case final from?)
+                          _TrackMetaPill(
+                            icon: Icons.smart_toy_outlined,
+                            label: 'از $from',
                           ),
-                        ],
-                        const SizedBox(width: 12),
-                        Text(
-                          formatSize(track.sizeBytes),
-                          style: TextStyle(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
-                            fontSize: 12,
-                          ),
+                        _TrackMetaPill(
+                          icon: Icons.sd_storage_outlined,
+                          label: formatSize(track.sizeBytes),
                         ),
                       ],
                     ),
                     trailing: widget.playlists == null &&
                             widget.onDelete == null &&
-                            widget.linkedBots.isEmpty
+                            widget.linkedBots.isEmpty &&
+                            !widget.showLocationBadges
                         ? null
                         : widget.isDeleting?.call(track.id) == true
                             ? const SizedBox.square(
@@ -841,12 +828,47 @@ class _TrackListState extends State<_TrackList> {
                                       widget.onSendToBot?.call(track, bot);
                                     case (_TrackAction.delete, _):
                                       widget.onDelete?.call(track);
+                                    case (_TrackAction.uploadToServer, _):
+                                      _message(
+                                        context,
+                                        'آپلود آهنگ‌های دستگاه به سرور در گام بعدی کامل می‌شود.',
+                                      );
+                                    case (_TrackAction.downloadToDevice, _):
+                                      _message(
+                                        context,
+                                        'دانلود روی دستگاه در issue #43 دنبال می‌شود.',
+                                      );
+                                    case (_TrackAction.removeFromDevice, _):
+                                      _message(
+                                        context,
+                                        'حذف نسخهٔ دستگاه در گام sync اضافه می‌شود.',
+                                      );
                                     case (_TrackAction.sendToBot, null):
                                       break;
                                   }
                                 },
                                 itemBuilder: (context) => [
-                                  if (widget.playlists != null)
+                                  if (widget.showLocationBadges && track.isLocal)
+                                    const PopupMenuItem(
+                                      value: (_TrackAction.uploadToServer, null),
+                                      child: ListTile(
+                                        contentPadding: EdgeInsets.zero,
+                                        leading: Icon(Icons.cloud_upload_outlined),
+                                        title: Text('آپلود به سرور'),
+                                      ),
+                                    ),
+                                  if (widget.showLocationBadges && !track.isLocal)
+                                    const PopupMenuItem(
+                                      value: (_TrackAction.downloadToDevice, null),
+                                      child: ListTile(
+                                        contentPadding: EdgeInsets.zero,
+                                        leading: Icon(
+                                          Icons.download_for_offline_outlined,
+                                        ),
+                                        title: Text('دانلود روی دستگاه'),
+                                      ),
+                                    ),
+                                  if (widget.playlists != null && !track.isLocal)
                                     const PopupMenuItem(
                                       value: (_TrackAction.addToPlaylist, null),
                                       child: ListTile(
@@ -855,16 +877,17 @@ class _TrackListState extends State<_TrackList> {
                                         title: Text('افزودن به Playlist'),
                                       ),
                                     ),
-                                  for (final bot in widget.linkedBots)
-                                    PopupMenuItem(
-                                      value: (_TrackAction.sendToBot, bot),
-                                      child: ListTile(
-                                        contentPadding: EdgeInsets.zero,
-                                        leading: const Icon(Icons.send),
-                                        title: Text('ارسال به ${bot.name}'),
+                                  if (!track.isLocal)
+                                    for (final bot in widget.linkedBots)
+                                      PopupMenuItem(
+                                        value: (_TrackAction.sendToBot, bot),
+                                        child: ListTile(
+                                          contentPadding: EdgeInsets.zero,
+                                          leading: const Icon(Icons.send),
+                                          title: Text('ارسال به ${bot.name}'),
+                                        ),
                                       ),
-                                    ),
-                                  if (widget.onDelete != null)
+                                  if (widget.onDelete != null && !track.isLocal)
                                     PopupMenuItem(
                                       value: (_TrackAction.delete, null),
                                       child: ListTile(
@@ -894,6 +917,146 @@ class _TrackListState extends State<_TrackList> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _TrackLocationBadge extends StatelessWidget {
+  const _TrackLocationBadge({required this.track});
+
+  final Track track;
+
+  @override
+  Widget build(BuildContext context) {
+    return _TrackMetaPill(
+      icon: track.isLocal ? Icons.phone_android : Icons.cloud_done_outlined,
+      label: track.isLocal ? 'دستگاه' : 'سرور',
+      emphasized: !track.isLocal,
+    );
+  }
+}
+
+class _TrackMetaPill extends StatelessWidget {
+  const _TrackMetaPill({
+    required this.icon,
+    required this.label,
+    this.emphasized = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool emphasized;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final foreground =
+        emphasized ? colors.primary : colors.onSurfaceVariant;
+    final background = emphasized
+        ? colors.primaryContainer.withValues(alpha: 0.35)
+        : colors.surfaceContainerHighest.withValues(alpha: 0.55);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12, color: foreground),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: foreground,
+                fontSize: 11,
+                fontWeight: emphasized ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DeviceNotice {
+  const _DeviceNotice({
+    required this.icon,
+    required this.message,
+    required this.actionLabel,
+  });
+
+  final IconData icon;
+  final String message;
+  final String actionLabel;
+
+  static _DeviceNotice? fromStatus(
+    LocalAudioViewStatus status,
+    bool supported,
+  ) {
+    if (!supported || status == LocalAudioViewStatus.loaded) return null;
+    return switch (status) {
+      LocalAudioViewStatus.permissionDenied => const _DeviceNotice(
+          icon: Icons.folder_off_outlined,
+          message: 'برای نمایش آهنگ‌های دستگاه، اجازهٔ دسترسی صوتی لازم است.',
+          actionLabel: 'از تنظیمات دستگاه اجازه بده',
+        ),
+      LocalAudioViewStatus.error => const _DeviceNotice(
+          icon: Icons.error_outline,
+          message: 'خواندن آهنگ‌های دستگاه ناموفق بود؛ آهنگ‌های سرور همچنان دیده می‌شوند.',
+          actionLabel: 'صفحه را پایین بکش',
+        ),
+      LocalAudioViewStatus.unsupported => null,
+      LocalAudioViewStatus.idle || LocalAudioViewStatus.loading =>
+        const _DeviceNotice(
+          icon: Icons.sync,
+          message: 'در حال بررسی آهنگ‌های روی دستگاه…',
+          actionLabel: 'Library یکپارچه می‌ماند',
+        ),
+      LocalAudioViewStatus.loaded => null,
+    };
+  }
+}
+
+class _DeviceStatusBanner extends StatelessWidget {
+  const _DeviceStatusBanner({required this.notice});
+
+  final _DeviceNotice notice;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+      child: GlassSurface(
+        blur: 8,
+        radius: 16,
+        shadow: false,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Icon(notice.icon, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                notice.message,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              notice.actionLabel,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1060,49 +1223,27 @@ class _LibraryState extends StatelessWidget {
 }
 
 class _EmptyLibrary extends StatelessWidget {
-  const _EmptyLibrary();
+  const _EmptyLibrary({this.deviceNotice});
+
+  final _DeviceNotice? deviceNotice;
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(24, 96, 24, 120),
+      padding: const EdgeInsets.fromLTRB(24, 72, 24, 140),
       children: [
-        _LibraryState(
-          icon: Icons.cloud_queue_outlined,
+        if (deviceNotice case final notice?) ...[
+          _DeviceStatusBanner(notice: notice),
+          const SizedBox(height: 16),
+        ],
+        const _LibraryState(
+          icon: Icons.library_music_outlined,
           title: 'کتابخانهٔ شما خالی است',
-          message: 'با دکمهٔ «افزودن موسیقی» اولین آهنگ‌هایت را آپلود کن.',
+          message:
+              'با «افزودن موسیقی» آهنگ آپلود کن یا اجازه بده نفیر آهنگ‌های دستگاه را هم همین‌جا نشان بدهد.',
         ),
       ],
-    );
-  }
-}
-
-class _DeviceMessage extends StatelessWidget {
-  const _DeviceMessage({
-    required this.icon,
-    required this.message,
-    required this.onRetry,
-  });
-
-  final IconData icon;
-  final String message;
-  final Future<void> Function() onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: _LibraryState(
-        icon: icon,
-        title: 'کتابخانهٔ دستگاه',
-        message: message,
-        action: FilledButton.tonalIcon(
-          onPressed: onRetry,
-          icon: const Icon(Icons.refresh),
-          label: const Text('بررسی دوباره'),
-        ),
-      ),
     );
   }
 }
