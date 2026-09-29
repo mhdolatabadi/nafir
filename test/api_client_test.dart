@@ -169,4 +169,30 @@ void main() {
     expect(sent.headers['Authorization'], 'Bearer t0ken');
     expect(jsonDecode(sent.body), {'trackId': 'track-1'});
   });
+
+  test('track list carries each source and the imports in progress', () async {
+    final client = ApiClient(baseUri, httpClient: MockClient((_) async {
+      return http.Response(
+        jsonEncode({
+          'tracks': [
+            {
+              'id': 't1',
+              'title': 'Song',
+              'contentType': 'audio/mpeg',
+              'sizeBytes': 1,
+              'source': 'telegram',
+            },
+          ],
+          'storage': {'usedBytes': 1, 'limitBytes': 10},
+          'importsInProgress': 3,
+        }),
+        200,
+      );
+    }));
+
+    final library = await client.listTracks('t0ken');
+
+    expect(library.tracks.single.importedFrom, 'تلگرام');
+    expect(library.importsInProgress, 3);
+  });
 }

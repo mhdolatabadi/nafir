@@ -7,6 +7,7 @@ class Track {
     required this.contentType,
     required this.sizeBytes,
     this.sourceUri,
+    this.source,
   });
 
   factory Track.fromJson(Map<String, dynamic> json) => Track(
@@ -16,6 +17,7 @@ class Track {
         album: json['album'] as String?,
         contentType: json['contentType'] as String,
         sizeBytes: (json['sizeBytes'] as num).toInt(),
+        source: json['source'] as String?,
       );
 
   final String id;
@@ -29,4 +31,16 @@ class Track {
   final Uri? sourceUri;
 
   bool get isLocal => sourceUri != null;
+
+  /// Where a cloud track came from: `upload`, or the bot that imported it
+  /// (`bale`, `telegram`).
+  final String? source;
+
+  /// The messenger a bot imported this track from, for people; null for
+  /// tracks uploaded in the app.
+  String? get importedFrom => switch (source) {
+        'bale' => 'بله',
+        'telegram' => 'تلگرام',
+        _ => null,
+      };
 }

@@ -132,7 +132,7 @@ func TestLinkWithAppCodeThenImportAudio(t *testing.T) {
 		t.Fatalf("tracks = %+v", h.tracks.tracks)
 	}
 	for _, track := range h.tracks.tracks {
-		if track.OwnerID != "u1" || track.Status != store.TrackReady || *track.Artist != "خواننده" {
+		if track.OwnerID != "u1" || track.Status != store.TrackReady || *track.Artist != "خواننده" || track.Source != "bale" {
 			t.Fatalf("track = %+v", track)
 		}
 		if string(h.objects.objects[track.StorageKey]) != string(song) {

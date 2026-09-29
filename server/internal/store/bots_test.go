@@ -136,6 +136,9 @@ func TestBotUpdatesAndImportsAreDeduplicated(t *testing.T) {
 		t.Fatal("stale import was not reclaimable")
 	}
 
+	if n, err := bots.ActiveImports(ctx, user.ID); err != nil || n != 1 {
+		t.Fatalf("active imports = %d, %v", n, err)
+	}
 	unfinished, err := bots.UnfinishedImports(ctx, 10)
 	if err != nil || len(unfinished) != 1 {
 		t.Fatalf("UnfinishedImports = %v, %v", unfinished, err)
@@ -146,6 +149,9 @@ func TestBotUpdatesAndImportsAreDeduplicated(t *testing.T) {
 	}
 	if unfinished, _ := bots.UnfinishedImports(ctx, 10); len(unfinished) != 0 {
 		t.Fatalf("finished import still unfinished: %v", unfinished)
+	}
+	if n, _ := bots.ActiveImports(ctx, user.ID); n != 0 {
+		t.Fatalf("finished import still active: %d", n)
 	}
 }
 

@@ -20,6 +20,7 @@ class FakeTracksApi implements TracksApi {
   /// What the server lists; a completed upload is added to it.
   final List<Track> tracks;
   Object? listError;
+  int importsInProgress = 0;
   Completer<void>? createGate;
   Object? createError;
   Object? completeError;
@@ -35,6 +36,7 @@ class FakeTracksApi implements TracksApi {
       tracks: List.of(tracks),
       usedBytes: tracks.fold(0, (sum, track) => sum + track.sizeBytes),
       limitBytes: 5 * 1024 * 1024 * 1024,
+      importsInProgress: importsInProgress,
     );
   }
 

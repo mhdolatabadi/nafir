@@ -163,10 +163,11 @@ func run() error {
 	}
 
 	tracks := store.NewTracks(pool)
+	bots := store.NewBots(pool)
 	webhooks, botHandlers, err := setupBots(ctx, botDeps{
 		tokenSecret: []byte(os.Getenv("AUTH_TOKEN_SECRET")),
 		tokens:      tokens,
-		bots:        store.NewBots(pool),
+		bots:        bots,
 		users:       store.NewUsers(pool),
 		tracks:      tracks,
 		objects:     objects,
@@ -188,7 +189,7 @@ func run() error {
 				MaxPending: maxPending, Enabled: uploadsEnabled,
 				ReservationUserRate: reservationUserRate, ReservationIPRate: reservationIPRate,
 				CompletionUserRate: completionUserRate, CompletionIPRate: completionIPRate,
-			}),
+			}).WithImports(bots),
 			Playlists: httpapi.NewPlaylistHandlers(store.NewPlaylists(pool), tokens),
 			Bots:      botHandlers,
 			Webhooks:  webhooks,

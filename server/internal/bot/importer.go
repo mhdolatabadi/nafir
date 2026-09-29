@@ -191,6 +191,7 @@ func (im *Importer) importOnce(ctx context.Context, p Provider, job store.BotImp
 	track, err := im.tracks.ReservePending(ctx, job.UserID, store.NewTrack{
 		Title: title, Artist: truncatePtr(job.Artist),
 		FileName: audio.SafeFileName(job.FileName), ContentType: contentType, SizeBytes: size,
+		Source: p.Name(),
 	}, im.policy.MaxOwnerBytes, im.policy.MaxPending)
 	switch {
 	case errors.Is(err, store.ErrQuotaExceeded):

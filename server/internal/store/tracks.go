@@ -33,7 +33,9 @@ type Track struct {
 	StorageKey  string
 	ContentType string
 	SizeBytes   int64
-	CreatedAt   time.Time
+	// Source is "upload" for the app, or the bot provider that imported it.
+	Source    string
+	CreatedAt time.Time
 }
 
 // NewTrack is what a caller supplies; the ID is chosen by the store so the
@@ -46,6 +48,8 @@ type NewTrack struct {
 	FileName    string
 	ContentType string
 	SizeBytes   int64
+	// Source defaults to "upload".
+	Source string
 }
 
 // StorageKey is the owner-scoped object path for a track.
@@ -70,12 +74,12 @@ const (
 )
 
 const trackColumns = `id::text, owner_id::text, status, title, artist, album, duration_ms,
-	storage_key, content_type, size_bytes, created_at`
+	storage_key, content_type, size_bytes, source, created_at`
 
 func scanTrack(row pgx.Row) (Track, error) {
 	var t Track
 	err := row.Scan(&t.ID, &t.OwnerID, &t.Status, &t.Title, &t.Artist, &t.Album, &t.DurationMS,
-		&t.StorageKey, &t.ContentType, &t.SizeBytes, &t.CreatedAt)
+		&t.StorageKey, &t.ContentType, &t.SizeBytes, &t.Source, &t.CreatedAt)
 	return t, err
 }
 
@@ -129,15 +133,19 @@ type rowQuerier interface {
 }
 
 func createTrack(ctx context.Context, query rowQuerier, ownerID string, track NewTrack, status TrackStatus) (Track, error) {
+	source := track.Source
+	if source == "" {
+		source = "upload"
+	}
 	return scanTrack(query.QueryRow(ctx, `
 		WITH new_id AS (SELECT gen_random_uuid() AS id)
-		INSERT INTO tracks (id, owner_id, status, title, artist, album, duration_ms, storage_key, content_type, size_bytes)
+		INSERT INTO tracks (id, owner_id, status, title, artist, album, duration_ms, storage_key, content_type, size_bytes, source)
 		SELECT new_id.id, $1::uuid, $9, $2, $3, $4, $5,
-		       'users/' || $1::text || '/tracks/' || new_id.id::text || '/' || $6::text, $7, $8
+		       'users/' || $1::text || '/tracks/' || new_id.id::text || '/' || $6::text, $7, $8, $10
 		FROM new_id
 		RETURNING `+trackColumns,
 		ownerID, track.Title, track.Artist, track.Album, track.DurationMS,
-		track.FileName, track.ContentType, track.SizeBytes, string(status),
+		track.FileName, track.ContentType, track.SizeBytes, string(status), source,
 	))
 }
 

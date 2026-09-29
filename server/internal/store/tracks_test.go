@@ -286,3 +286,24 @@ func TestCleanupStalePendingSerializesCleaners(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestTrackSourceDefaultsToUpload(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	user, _ := NewUsers(pool).Create(ctx, "source@example.com", "hash")
+	tracks := NewTracks(pool)
+
+	uploaded, err := tracks.Create(ctx, user.ID, NewTrack{Title: "a", FileName: "a.mp3", ContentType: "audio/mpeg", SizeBytes: 1})
+	if err != nil || uploaded.Source != "upload" {
+		t.Fatalf("uploaded source = %q, %v", uploaded.Source, err)
+	}
+	imported, err := tracks.ReservePending(ctx, user.ID, NewTrack{
+		Title: "b", FileName: "b.mp3", ContentType: "audio/mpeg", SizeBytes: 1, Source: "bale",
+	}, 1000, 3)
+	if err != nil || imported.Source != "bale" {
+		t.Fatalf("imported source = %q, %v", imported.Source, err)
+	}
+	if ready, _ := tracks.MarkReady(ctx, user.ID, imported.ID); ready.Source != "bale" {
+		t.Fatalf("source lost when ready: %q", ready.Source)
+	}
+}
