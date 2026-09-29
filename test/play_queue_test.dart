@@ -73,6 +73,20 @@ void main() {
         _ids(_tracks.skipWhile((t) => t.id != now).skip(1)));
   });
 
+  test('shuffle-all randomizes the first track and contains each track once', () {
+    PlayQueue shuffledWith(int seed) =>
+        PlayQueue.shuffled(_tracks, random: Random(seed));
+    final first = shuffledWith(11);
+    final second = shuffledWith(11);
+    final firstOrder = [first.current, ...first.upcoming];
+    final secondOrder = [second.current, ...second.upcoming];
+    expect(_ids(firstOrder), _ids(secondOrder));
+    expect(_ids(firstOrder)..sort(), ['a', 'b', 'c', 'd', 'e']);
+    expect(first.current.id, isNot('a'),
+        reason: 'seed 11 randomizes the first track too');
+    expect(first.shuffled, isTrue);
+  });
+
   test('a single track queue', () {
     final queue = PlayQueue(_tracks.take(1).toList())..repeat = QueueRepeat.all;
     expect(queue.next()?.id, 'a');

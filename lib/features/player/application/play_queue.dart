@@ -14,6 +14,17 @@ class PlayQueue {
         _order = List.generate(tracks.length, (i) => i),
         _position = start.clamp(0, tracks.length - 1);
 
+  /// Creates a queue whose first track and remaining order are randomized.
+  factory PlayQueue.shuffled(List<Track> tracks, {Random? random}) {
+    final queue = PlayQueue(tracks, random: random);
+    queue
+      .._order = List.generate(tracks.length, (index) => index)
+        ..shuffle(queue._random)
+      .._position = 0
+      .._shuffled = true;
+    return queue;
+  }
+
   List<Track> _tracks;
   final Random _random;
 

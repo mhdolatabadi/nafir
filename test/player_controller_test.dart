@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nafir/features/library/data/track.dart';
@@ -214,6 +215,20 @@ void main() {
       engine.stateCtl.add(EngineState.completed);
       await pumpEventQueue();
     }
+
+    test('shuffle-all starts randomized and keeps shuffle enabled', () async {
+      final shuffled = PlayerController(
+        api: api,
+        engine: engine,
+        token: () => 'tok',
+        random: Random(11),
+      );
+      await shuffled.playShuffled(_abc);
+      expect(shuffled.shuffle, isTrue);
+      expect(shuffled.track?.id, isNot('a'));
+      expect(loaded(), hasLength(1));
+      shuffled.dispose();
+    });
 
     test('a finished track moves on to the next one', () async {
       await player.playFrom(_abc, 0);
