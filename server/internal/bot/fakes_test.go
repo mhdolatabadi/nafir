@@ -19,6 +19,7 @@ type memStore struct {
 	codes   map[string]memCode
 	updates map[string]bool
 	imports map[string]*store.BotImport
+	fileIDs map[string]string
 	nextID  int
 }
 
@@ -36,7 +37,7 @@ type memCode struct {
 func newMemStore() *memStore {
 	return &memStore{
 		chats: map[string]*memChat{}, codes: map[string]memCode{},
-		updates: map[string]bool{}, imports: map[string]*store.BotImport{},
+		updates: map[string]bool{}, imports: map[string]*store.BotImport{}, fileIDs: map[string]string{},
 	}
 }
 
@@ -101,6 +102,45 @@ func (m *memStore) RedeemLinkCode(_ context.Context, provider, chatID string, ha
 	userID := code.userID
 	c.UserID, c.LinkedAt, c.failures = &userID, &now, 0
 	return userID, nil
+}
+
+func (m *memStore) LinkedChats(_ context.Context, userID, provider string, since time.Time) ([]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var chats []string
+	for _, c := range m.chats {
+		if c.Provider == provider && c.UserID != nil && *c.UserID == userID && !c.LinkedAt.Before(since) {
+			chats = append(chats, c.ChatID)
+		}
+	}
+	return chats, nil
+}
+
+func (m *memStore) LinkedProviders(_ context.Context, userID string, since time.Time) ([]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	seen := map[string]bool{}
+	var providers []string
+	for _, c := range m.chats {
+		if c.UserID != nil && *c.UserID == userID && !c.LinkedAt.Before(since) && !seen[c.Provider] {
+			seen[c.Provider] = true
+			providers = append(providers, c.Provider)
+		}
+	}
+	return providers, nil
+}
+
+func (m *memStore) TrackFileID(_ context.Context, provider, trackID string) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.fileIDs[provider+"/"+trackID], nil
+}
+
+func (m *memStore) SaveTrackFileID(_ context.Context, provider, trackID, fileID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.fileIDs[provider+"/"+trackID] = fileID
+	return nil
 }
 
 func (m *memStore) FirstDelivery(_ context.Context, provider, updateID string) (bool, error) {
@@ -185,12 +225,47 @@ func (f fakeUsers) ByID(_ context.Context, id string) (store.User, error) {
 }
 
 type fakeProvider struct {
-	mu       sync.Mutex
-	messages []string
-	files    map[string][]byte
-	openErr  error
-	maxBytes int64
+	mu        sync.Mutex
+	messages  []string
+	files     map[string][]byte
+	openErr   error
+	maxBytes  int64
+	maxUpload int64
+	// sent records every SendAudio; fileIDs the provider knows.
+	sent     []OutgoingAudio
+	uploaded map[string][]byte
+	sendErr  error
+	staleIDs map[string]bool
 }
+
+func (p *fakeProvider) SendAudio(_ context.Context, chatID string, audio OutgoingAudio) (string, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if audio.Body != nil {
+		data, err := io.ReadAll(audio.Body)
+		if err != nil {
+			return "", err
+		}
+		audio.Body = nil
+		p.sent = append(p.sent, audio)
+		if p.sendErr != nil {
+			return "", p.sendErr
+		}
+		if p.uploaded == nil {
+			p.uploaded = map[string][]byte{}
+		}
+		id := fmt.Sprint("file-", len(p.uploaded)+1)
+		p.uploaded[id] = data
+		return id, nil
+	}
+	p.sent = append(p.sent, audio)
+	if p.staleIDs[audio.FileID] {
+		return "", errors.New("Bad Request: wrong file identifier")
+	}
+	return audio.FileID, p.sendErr
+}
+
+func (p *fakeProvider) MaxUploadBytes() int64 { return p.maxUpload }
 
 func (p *fakeProvider) Name() string { return "bale" }
 
@@ -248,6 +323,16 @@ func (f *fakeTracks) ReservePending(_ context.Context, ownerID string, t store.N
 	return track, nil
 }
 
+func (f *fakeTracks) ForOwner(_ context.Context, ownerID, trackID string) (store.Track, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	t, ok := f.tracks[trackID]
+	if !ok || t.OwnerID != ownerID {
+		return store.Track{}, store.ErrNotFound
+	}
+	return t, nil
+}
+
 func (f *fakeTracks) MarkReady(_ context.Context, ownerID, trackID string) (store.Track, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -285,6 +370,16 @@ func (f *fakeObjects) Put(_ context.Context, key string, r io.Reader, size int64
 	defer f.mu.Unlock()
 	f.objects[key] = data
 	return nil
+}
+
+func (f *fakeObjects) Open(_ context.Context, key string) (io.ReadCloser, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	data, ok := f.objects[key]
+	if !ok {
+		return nil, errors.New("no such object")
+	}
+	return io.NopCloser(bytes.NewReader(data)), nil
 }
 
 func (f *fakeObjects) Remove(_ context.Context, key string) error {

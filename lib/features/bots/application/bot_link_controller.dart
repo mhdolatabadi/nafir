@@ -4,6 +4,8 @@ import 'package:nafir/features/bots/data/messenger_bot.dart';
 
 enum BotLinkStatus { idle, loading, ready, failed }
 
+enum BotSendResult { queued, notLinked, tooLarge, failed }
+
 /// Which messenger bots exist, and the one-time code that links one of their
 /// chats to this account.
 class BotLinkController extends ChangeNotifier {
@@ -27,6 +29,12 @@ class BotLinkController extends ChangeNotifier {
 
   BotLinkStatus get status => _status;
   List<MessengerBot> get bots => _bots;
+
+  /// Bots this account can send tracks to.
+  List<MessengerBot> get linkedBots => [
+        for (final bot in _bots)
+          if (bot.linked) bot
+      ];
   bool get requesting => _requesting;
 
   /// Why the last code request failed, for people.
@@ -59,9 +67,7 @@ class BotLinkController extends ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      final code = await _api.createBotLinkCode(token);
-      _code = code;
-      if (code.bots.isNotEmpty) _bots = code.bots;
+      _code = await _api.createBotLinkCode(token);
     } on ApiException catch (e) {
       _error = e.statusCode == 429
           ? 'کد زیادی درخواست شده است. کمی بعد دوباره امتحان کنید.'
@@ -71,6 +77,27 @@ class BotLinkController extends ChangeNotifier {
     }
     _requesting = false;
     notifyListeners();
+  }
+
+  /// Asks [provider]'s bot to post the track in the linked chat. The bot
+  /// uploads it in the background.
+  Future<BotSendResult> send(String provider, String trackId) async {
+    final token = _token();
+    if (token == null) return BotSendResult.failed;
+    try {
+      await _api.sendTrackToBot(token, provider, trackId);
+      return BotSendResult.queued;
+    } on ApiException catch (e) {
+      if (e.statusCode == 409) {
+        // The chat was unlinked from the bot; refresh what the app offers.
+        load();
+        return BotSendResult.notLinked;
+      }
+      if (e.statusCode == 413) return BotSendResult.tooLarge;
+      return BotSendResult.failed;
+    } catch (_) {
+      return BotSendResult.failed;
+    }
   }
 
   /// Forgets the code, for example when the account signs out.

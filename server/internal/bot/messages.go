@@ -48,3 +48,11 @@ func msgRefused(reason string, maxMB int64) string {
 		return "افزودن این فایل ناموفق بود. دوباره بفرستید."
 	}
 }
+
+func msgSendFailed(title string) string {
+	return fmt.Sprintf("فرستادن «%s» از نفیر ناموفق بود. کمی بعد دوباره از اپ امتحان کنید.", title)
+}
+
+func msgSendTooLarge(title string, maxMB int64) string {
+	return fmt.Sprintf("«%s» بیشتر از %d مگابایت است و ربات نمی‌تواند آن را بفرستد.", title, maxMB)
+}

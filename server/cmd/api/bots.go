@@ -22,9 +22,12 @@ import (
 )
 
 const (
-	// Telegram's Bot API serves bots files up to 20 MB; Bale follows it.
+	// Telegram's Bot API serves bots files up to 20 MB and accepts uploads
+	// up to 50 MB; Bale follows it.
 	defaultBotDownloadBytes = 20 << 20
+	defaultBotUploadBytes   = 50 << 20
 	botWebhookConcurrency   = 16
+	botSendConcurrency      = 4
 	minWebhookSecretLength  = 32
 )
 
@@ -66,6 +69,10 @@ func setupBots(ctx context.Context, deps botDeps) (map[string]http.Handler, *htt
 	if err != nil {
 		return nil, nil, err
 	}
+	sendRate, err := rateLimiterEnv("BOT_SEND_RATE", 30, time.Hour)
+	if err != nil {
+		return nil, nil, err
+	}
 	var enabled []messenger
 	for _, m := range messengers {
 		if os.Getenv(m.envPrefix+"_BOT_TOKEN") != "" {
@@ -73,7 +80,7 @@ func setupBots(ctx context.Context, deps botDeps) (map[string]http.Handler, *htt
 		}
 	}
 	if len(enabled) == 0 {
-		return nil, httpapi.NewBotHandlers(nil, deps.tokens, nil, linkRate), nil
+		return nil, httpapi.NewBotHandlers(nil, nil, deps.tokens, nil, linkRate, sendRate), nil
 	}
 
 	secret := os.Getenv("BOT_WEBHOOK_SECRET")
@@ -98,10 +105,15 @@ func setupBots(ctx context.Context, deps botDeps) (map[string]http.Handler, *htt
 	importer := bot.NewImporter(deps.bots, deps.tracks, deps.objects, deps.policy)
 
 	webhooks := map[string]http.Handler{}
+	senders := bot.Senders{}
 	var listed []httpapi.Bot
 	for _, m := range enabled {
 		env := func(name string) string { return os.Getenv(m.envPrefix + "_" + name) }
 		maxBytes, err := positiveInt64Env(m.envPrefix+"_MAX_DOWNLOAD_BYTES", defaultBotDownloadBytes)
+		if err != nil {
+			return nil, nil, err
+		}
+		maxUpload, err := positiveInt64Env(m.envPrefix+"_MAX_UPLOAD_BYTES", defaultBotUploadBytes)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -111,7 +123,7 @@ func setupBots(ctx context.Context, deps botDeps) (map[string]http.Handler, *htt
 		}
 		config := botapi.Config{
 			Name: m.name, BaseURL: apiURL, Token: env("BOT_TOKEN"),
-			MaxDownloadBytes: maxBytes, ProxyURL: env("PROXY_URL"),
+			MaxDownloadBytes: maxBytes, MaxUploadBytes: maxUpload, ProxyURL: env("PROXY_URL"),
 		}
 		webhookAuth := bot.WebhookAuth{PathSecret: secret}
 		if m.headerAuth {
@@ -133,11 +145,12 @@ func setupBots(ctx context.Context, deps botDeps) (map[string]http.Handler, *htt
 		webhookURL := strings.TrimSuffix(publicURL, "/") + "/api/v1/bots/" + m.name + "/webhook/" + secret
 		go registerWebhook(ctx, client, webhookURL)
 		go service.Resume(ctx)
+		senders[m.name] = bot.NewSender(client, deps.bots, deps.tracks, deps.objects, linker.SessionTTL(), botSendConcurrency)
 		webhooks[m.name] = bot.Webhook(ctx, service, botapi.Parse, webhookAuth, botWebhookConcurrency)
 		slog.Info("bot enabled", "provider", m.name)
 	}
 	go forgetOldUpdates(ctx, deps.bots)
-	return webhooks, httpapi.NewBotHandlers(linker, deps.tokens, listed, linkRate), nil
+	return webhooks, httpapi.NewBotHandlers(linker, senders, deps.tokens, listed, linkRate, sendRate), nil
 }
 
 // registerWebhook points the provider at Nafir, retrying while it is unreachable.

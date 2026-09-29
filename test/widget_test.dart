@@ -8,7 +8,7 @@ import 'package:nafir/features/upload/data/audio_picker.dart';
 import 'package:nafir/features/upload/data/upload_models.dart';
 import 'package:nafir/main.dart';
 
-import 'bot_link_controller_test.dart' show FakeBotsApi;
+import 'bot_link_controller_test.dart' show FakeBotsApi, linkedBale;
 import 'cache_controller_test.dart' show FakeAudioCache;
 import 'player_controller_test.dart' show FakeAudioEngine;
 import 'upload_controller_test.dart' show FakeTracksApi, FakeUploader;
@@ -673,5 +673,46 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('اتصال به بات'), findsNothing);
+  });
+
+  testWidgets('a track can be sent to a linked bot from its menu', (
+    tester,
+  ) async {
+    final bots = FakeBotsApi(bots: const [linkedBale]);
+    await _pumpApp(
+      tester,
+      tokenStore: MemoryTokenStore('valid-token'),
+      bots: bots,
+      tracks: FakeTracksApi(const [
+        Track(id: 's1', title: 'Song', contentType: 'audio/mpeg', sizeBytes: 1),
+      ]),
+    );
+
+    await tester.tap(find.byTooltip('اقدامات آهنگ'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ارسال به بله'));
+    await tester.pumpAndSettle();
+
+    expect(bots.sent, ['bale/s1']);
+    expect(
+        find.text('بات نفیر «Song» را در بله برایت می‌فرستد.'), findsOneWidget);
+  });
+
+  testWidgets('without a linked bot the track menu offers no sending', (
+    tester,
+  ) async {
+    await _pumpApp(
+      tester,
+      tokenStore: MemoryTokenStore('valid-token'),
+      bots: FakeBotsApi(),
+      tracks: FakeTracksApi(const [
+        Track(id: 's1', title: 'Song', contentType: 'audio/mpeg', sizeBytes: 1),
+      ]),
+    );
+
+    await tester.tap(find.byTooltip('اقدامات آهنگ'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('ارسال به'), findsNothing);
   });
 }

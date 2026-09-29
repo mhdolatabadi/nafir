@@ -168,3 +168,8 @@ func (s *Storage) Put(ctx context.Context, key string, r io.Reader, size int64, 
 	_, err := s.internal.PutObject(ctx, s.bucket, key, r, size, minio.PutObjectOptions{ContentType: contentType})
 	return err
 }
+
+// Open streams the object at key.
+func (s *Storage) Open(ctx context.Context, key string) (io.ReadCloser, error) {
+	return s.internal.GetObject(ctx, s.bucket, key, minio.GetObjectOptions{})
+}

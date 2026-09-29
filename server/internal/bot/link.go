@@ -25,6 +25,7 @@ type LinkStore interface {
 	Unlink(ctx context.Context, provider, chatID string) error
 	CreateLinkCode(ctx context.Context, userID string, hash []byte, expiresAt time.Time) error
 	RedeemLinkCode(ctx context.Context, provider, chatID string, hash []byte, now time.Time, maxFailures int, window time.Duration) (string, error)
+	LinkedProviders(ctx context.Context, userID string, since time.Time) ([]string, error)
 }
 
 type LinkLimits struct {
@@ -108,6 +109,14 @@ func (l *Linker) Session(ctx context.Context, provider, chatID string) (store.Bo
 	}
 	return chat, true, nil
 }
+
+// LinkedProviders lists the bots the user has a live chat link with.
+func (l *Linker) LinkedProviders(ctx context.Context, userID string) ([]string, error) {
+	return l.store.LinkedProviders(ctx, userID, l.now().Add(-l.limits.SessionTTL))
+}
+
+// SessionTTL is how long a chat link lasts.
+func (l *Linker) SessionTTL() time.Duration { return l.limits.SessionTTL }
 
 func (l *Linker) Unlink(ctx context.Context, provider, chatID string) error {
 	return l.store.Unlink(ctx, provider, chatID)

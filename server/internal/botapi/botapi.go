@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strings"
@@ -28,6 +29,8 @@ type Config struct {
 	Token   string
 	// MaxDownloadBytes is the largest file the API lets bots download.
 	MaxDownloadBytes int64
+	// MaxUploadBytes is the largest file the API lets bots upload.
+	MaxUploadBytes int64
 	// ProxyURL, if set, routes every request to the API through an HTTP(S)
 	// or SOCKS5 proxy, for servers that cannot reach the API directly.
 	ProxyURL string
@@ -50,6 +53,9 @@ func New(config Config) (*Client, error) {
 	if config.Name == "" || config.BaseURL == "" || config.Token == "" || config.MaxDownloadBytes <= 0 {
 		return nil, errors.New("bot API name, base URL, token and download limit are required")
 	}
+	if config.MaxUploadBytes <= 0 {
+		config.MaxUploadBytes = defaultMaxUploadBytes
+	}
 	config.BaseURL = strings.TrimSuffix(config.BaseURL, "/")
 	proxy := http.ProxyFromEnvironment
 	if config.ProxyURL != "" {
@@ -71,8 +77,12 @@ func New(config Config) (*Client, error) {
 	}, nil
 }
 
+// defaultMaxUploadBytes is Telegram's limit for files bots upload.
+const defaultMaxUploadBytes = 50 << 20
+
 func (c *Client) Name() string            { return c.config.Name }
 func (c *Client) MaxDownloadBytes() int64 { return c.config.MaxDownloadBytes }
+func (c *Client) MaxUploadBytes() int64   { return c.config.MaxUploadBytes }
 
 type apiResponse struct {
 	OK          bool            `json:"ok"`
@@ -87,13 +97,17 @@ func (c *Client) call(ctx context.Context, method string, params, result any) er
 	if err != nil {
 		return err
 	}
+	return c.post(ctx, c.http, method, bytes.NewReader(body), "application/json", result)
+}
+
+func (c *Client) post(ctx context.Context, client *http.Client, method string, body io.Reader, contentType string, result any) error {
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		c.config.BaseURL+"/bot"+c.config.Token+"/"+method, bytes.NewReader(body))
+		c.config.BaseURL+"/bot"+c.config.Token+"/"+method, body)
 	if err != nil {
 		return c.redact(method, err)
 	}
-	request.Header.Set("Content-Type", "application/json")
-	response, err := c.http.Do(request)
+	request.Header.Set("Content-Type", contentType)
+	response, err := client.Do(request)
 	if err != nil {
 		return c.redact(method, err)
 	}
@@ -103,6 +117,9 @@ func (c *Client) call(ctx context.Context, method string, params, result any) er
 		return fmt.Errorf("%s %s: HTTP %d: %w", c.config.Name, method, response.StatusCode, err)
 	}
 	if !decoded.OK {
+		if decoded.ErrorCode == 0 {
+			decoded.ErrorCode = response.StatusCode
+		}
 		return &APIError{Method: method, Code: decoded.ErrorCode, Description: decoded.Description}
 	}
 	if result == nil {
@@ -137,6 +154,83 @@ func (c *Client) SetWebhook(ctx context.Context, url string) error {
 		params["secret_token"] = c.config.SecretToken
 	}
 	return c.call(ctx, "setWebhook", params, nil)
+}
+
+type sentMessage struct {
+	Audio    *document `json:"audio"`
+	Document *document `json:"document"`
+}
+
+// SendAudio posts audio to a chat: by file ID when the API already has it,
+// otherwise by streaming Body as a multipart upload.
+func (c *Client) SendAudio(ctx context.Context, chatID string, audio bot.OutgoingAudio) (string, error) {
+	var sent sentMessage
+	var err error
+	if audio.FileID != "" {
+		params := map[string]any{"chat_id": json.Number(chatID), "audio": audio.FileID}
+		if audio.Title != "" {
+			params["title"] = audio.Title
+		}
+		if audio.Performer != "" {
+			params["performer"] = audio.Performer
+		}
+		err = c.call(ctx, "sendAudio", params, &sent)
+	} else {
+		if audio.Size > c.config.MaxUploadBytes {
+			return "", bot.ErrFileTooLarge
+		}
+		err = c.upload(ctx, chatID, audio, &sent)
+	}
+	var apiErr *APIError
+	if errors.As(err, &apiErr) && (apiErr.Code == http.StatusRequestEntityTooLarge ||
+		strings.Contains(strings.ToLower(apiErr.Description), "too large") ||
+		strings.Contains(strings.ToLower(apiErr.Description), "too big")) {
+		return "", bot.ErrFileTooLarge
+	}
+	if err != nil {
+		return "", err
+	}
+	for _, f := range []*document{sent.Audio, sent.Document} {
+		if f != nil && f.FileID != "" {
+			return f.FileID, nil
+		}
+	}
+	return "", nil
+}
+
+// upload streams the audio as multipart/form-data without buffering it.
+func (c *Client) upload(ctx context.Context, chatID string, audio bot.OutgoingAudio, result any) error {
+	reader, writer := io.Pipe()
+	form := multipart.NewWriter(writer)
+	go func() {
+		err := func() error {
+			fields := map[string]string{"chat_id": chatID, "title": audio.Title, "performer": audio.Performer}
+			for _, name := range []string{"chat_id", "title", "performer"} {
+				if fields[name] == "" {
+					continue
+				}
+				if err := form.WriteField(name, fields[name]); err != nil {
+					return err
+				}
+			}
+			part, err := form.CreateFormFile("audio", audio.FileName)
+			if err != nil {
+				return err
+			}
+			n, err := io.Copy(part, io.LimitReader(audio.Body, audio.Size+1))
+			if err != nil {
+				return err
+			}
+			if n != audio.Size {
+				return fmt.Errorf("audio has %d bytes, expected %d", n, audio.Size)
+			}
+			return form.Close()
+		}()
+		writer.CloseWithError(err)
+	}()
+	err := c.post(ctx, c.files, "sendAudio", reader, form.FormDataContentType(), result)
+	reader.Close()
+	return err
 }
 
 type fileInfo struct {
