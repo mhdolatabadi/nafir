@@ -333,6 +333,8 @@ void main() {
 
     expect(find.text('0 از 2 قطعه'), findsOneWidget);
     expect(find.text('نتیجه‌ای پیدا نشد'), findsOneWidget);
+    await tester.ensureVisible(find.text('پاک کردن جست‌وجو'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('پاک کردن جست‌وجو'));
     await tester.pumpAndSettle();
 
@@ -535,6 +537,11 @@ void main() {
     expect(find.byTooltip('توقف'), findsOneWidget);
     expect(find.byTooltip('بعدی'), findsOneWidget);
     expect(find.byTooltip('پخش تصادفی'), findsOneWidget);
+    final trackList = tester.widget<ListView>(find.byKey(
+      const ValueKey('track-list'),
+    ));
+    expect(
+        (trackList.padding! as EdgeInsets).bottom, greaterThanOrEqualTo(160));
     expect(tester.takeException(), isNull);
   });
 

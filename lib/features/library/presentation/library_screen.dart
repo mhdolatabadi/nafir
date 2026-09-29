@@ -523,13 +523,14 @@ class _ResponsiveLibraryContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final horizontal = constraints.maxWidth >= 900 ? 40.0 : 16.0;
+        final horizontal = constraints.maxWidth >= 900 ? 40.0 : 20.0;
+        final top = constraints.maxWidth >= 720 ? 20.0 : 16.0;
         return Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: _maxWidth),
             child: Padding(
-              padding: EdgeInsets.fromLTRB(horizontal, 12, horizontal, 0),
+              padding: EdgeInsets.fromLTRB(horizontal, top, horizontal, 0),
               child: child,
             ),
           ),
@@ -652,7 +653,7 @@ class _TrackListState extends State<_TrackList> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
+          padding: const EdgeInsets.fromLTRB(4, 20, 4, 12),
           child: Row(
             children: [
               Text(
@@ -697,7 +698,7 @@ class _TrackListState extends State<_TrackList> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+          padding: const EdgeInsets.fromLTRB(4, 0, 4, 20),
           child: SearchBar(
             controller: _search,
             hintText: 'جست‌وجوی آهنگ، خواننده یا آلبوم',
@@ -723,7 +724,7 @@ class _TrackListState extends State<_TrackList> {
               if (tracks.isEmpty) {
                 return ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(24, 72, 24, 96),
+                  padding: const EdgeInsets.fromLTRB(24, 72, 24, 176),
                   children: [
                     _LibraryState(
                       icon: Icons.search_off_rounded,
@@ -741,10 +742,12 @@ class _TrackListState extends State<_TrackList> {
                   ],
                 );
               }
-              return ListView.builder(
+              return ListView.separated(
+                key: const ValueKey('track-list'),
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.only(bottom: 88),
+                padding: const EdgeInsets.only(bottom: 176),
                 itemCount: tracks.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
                   final track = tracks[index];
                   final current = widget.player.track?.id == track.id;
