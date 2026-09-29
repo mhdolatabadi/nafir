@@ -655,9 +655,7 @@ class _TrackListState extends State<_TrackList> {
                     : () => widget.player.playShuffled(tracks),
                 icon: const Icon(Icons.shuffle_rounded, size: 18),
                 label: Text(
-                  _query.trim().isEmpty
-                      ? 'پخش تصادفی همه'
-                      : 'پخش تصادفی نتایج',
+                  _query.trim().isEmpty ? 'پخش تصادفی همه' : 'پخش تصادفی نتایج',
                 ),
               ),
               if (MediaQuery.sizeOf(context).width >= 520) ...[
