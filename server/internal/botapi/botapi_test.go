@@ -112,6 +112,31 @@ func TestSendMessageAndDownloadFile(t *testing.T) {
 	}
 }
 
+func TestDownloadSizeComesFromTheResponseNotGetFile(t *testing.T) {
+	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/bot" + token + "/getFile":
+			// Bale reported 85 here for a 17 MB file.
+			io.WriteString(w, `{"ok":true,"result":{"file_id":"f","file_path":"music/f.mp3","file_size":85}}`)
+		case "/file/bot" + token + "/music/f.mp3":
+			w.Header().Set("Content-Length", "5")
+			io.WriteString(w, "ID3xy")
+		default:
+			http.NotFound(w, r)
+		}
+	})
+
+	body, size, err := client.Open(context.Background(), "f")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer body.Close()
+	data, _ := io.ReadAll(body)
+	if size != 5 || string(data) != "ID3xy" {
+		t.Fatalf("download = %d %q", size, data)
+	}
+}
+
 func TestErrorsNeverContainTheToken(t *testing.T) {
 	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, `{"ok":false,"error_code":400,"description":"Bad Request: file is too big"}`)

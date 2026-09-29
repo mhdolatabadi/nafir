@@ -143,13 +143,11 @@ func (c *Client) Open(ctx context.Context, fileID string) (io.ReadCloser, int64,
 		response.Body.Close()
 		return nil, 0, fmt.Errorf("%s download: HTTP %d", c.config.Name, response.StatusCode)
 	}
+	// Bale's getFile can report a file_size unrelated to the file (85 for a
+	// 17 MB audio), so the size of the download itself wins when it is known.
 	size := response.ContentLength
 	if size < 0 {
 		size = info.FileSize
-	}
-	if info.FileSize > 0 && size != info.FileSize {
-		response.Body.Close()
-		return nil, 0, fmt.Errorf("%s download: %d bytes, getFile said %d", c.config.Name, size, info.FileSize)
 	}
 	return response.Body, size, nil
 }
