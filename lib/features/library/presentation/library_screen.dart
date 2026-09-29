@@ -742,11 +742,13 @@ class _TrackListState extends State<_TrackList> {
                   ],
                 );
               }
-              return ListView.builder(
+              return ListView.separated(
                 key: const ValueKey('track-list'),
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.only(bottom: 176),
                 itemCount: tracks.length,
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 8),
                 itemBuilder: (context, index) {
                   final track = tracks[index];
                   final current = widget.player.track?.id == track.id;
@@ -754,22 +756,8 @@ class _TrackListState extends State<_TrackList> {
                   final artistLabel = artist == null || artist.isEmpty
                       ? 'خواننده نامشخص'
                       : artist;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: ListTile(
+                  return ListTile(
                     selected: current,
-                    minVerticalPadding: 10,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 4,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    tileColor: Theme.of(context)
-                        .colorScheme
-                        .surfaceContainer
-                        .withValues(alpha: 0.42),
                     onTap: () => widget.player.playFrom(tracks, index),
                     leading: CircleAvatar(
                       backgroundColor: current
@@ -900,7 +888,6 @@ class _TrackListState extends State<_TrackList> {
                                     ),
                                 ],
                               ),
-                    ),
                   );
                 },
               );

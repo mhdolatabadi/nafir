@@ -538,7 +538,8 @@ void main() {
     final trackList = tester.widget<ListView>(find.byKey(
       const ValueKey('track-list'),
     ));
-    expect((trackList.padding! as EdgeInsets).bottom, greaterThanOrEqualTo(160));
+    expect(
+        (trackList.padding! as EdgeInsets).bottom, greaterThanOrEqualTo(160));
     expect(tester.takeException(), isNull);
   });
 
