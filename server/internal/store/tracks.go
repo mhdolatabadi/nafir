@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -73,8 +74,23 @@ const (
 	pendingCleanupLock int64 = 7_310_076
 )
 
-const trackColumns = `id::text, owner_id::text, status, title, artist, album, duration_ms,
-	storage_key, content_type, size_bytes, source, created_at`
+// trackColumnNames is the one list of columns scanTrack reads, in order.
+var trackColumnNames = []string{
+	"id::text", "owner_id::text", "status", "title", "artist", "album", "duration_ms",
+	"storage_key", "content_type", "size_bytes", "source", "created_at",
+}
+
+var trackColumns = strings.Join(trackColumnNames, ", ")
+
+// qualifiedTrackColumns is trackColumns for a query that joins tracks with
+// other tables, each column prefixed with the table name.
+func qualifiedTrackColumns(table string) string {
+	qualified := make([]string, len(trackColumnNames))
+	for i, name := range trackColumnNames {
+		qualified[i] = table + "." + name
+	}
+	return strings.Join(qualified, ", ")
+}
 
 func scanTrack(row pgx.Row) (Track, error) {
 	var t Track
