@@ -161,3 +161,10 @@ func (s *Storage) Head(ctx context.Context, key string, n int64) ([]byte, error)
 func (s *Storage) Remove(ctx context.Context, key string) error {
 	return s.internal.RemoveObject(ctx, s.bucket, key, minio.RemoveObjectOptions{})
 }
+
+// Put streams exactly size bytes from r into key. The API uses it for audio it
+// fetches itself, such as bot imports; clients upload through PresignUpload.
+func (s *Storage) Put(ctx context.Context, key string, r io.Reader, size int64, contentType string) error {
+	_, err := s.internal.PutObject(ctx, s.bucket, key, r, size, minio.PutObjectOptions{ContentType: contentType})
+	return err
+}

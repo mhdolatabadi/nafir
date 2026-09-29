@@ -1,0 +1,216 @@
+// Package botapi talks to Telegram-style Bot APIs. Bale's Bot API follows
+// Telegram's methods and update format, so one client serves both; each
+// messenger differs only in its Config.
+package botapi
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/mhdolatabadi/nafir/server/internal/bot"
+)
+
+type Config struct {
+	// Name is the provider name Nafir uses, for example "bale".
+	Name string
+	// BaseURL is the API origin, for example https://tapi.bale.ai. Methods
+	// are called at {BaseURL}/bot{token}/{method} and files are downloaded
+	// from {BaseURL}/file/bot{token}/{file_path}.
+	BaseURL string
+	Token   string
+	// MaxDownloadBytes is the largest file the API lets bots download.
+	MaxDownloadBytes int64
+}
+
+type Client struct {
+	config Config
+	http   *http.Client
+	// files downloads without the overall timeout, since audio can be large.
+	files *http.Client
+}
+
+func New(config Config) (*Client, error) {
+	if config.Name == "" || config.BaseURL == "" || config.Token == "" || config.MaxDownloadBytes <= 0 {
+		return nil, errors.New("bot API name, base URL, token and download limit are required")
+	}
+	config.BaseURL = strings.TrimSuffix(config.BaseURL, "/")
+	return &Client{
+		config: config,
+		http:   &http.Client{Timeout: 30 * time.Second},
+		files:  &http.Client{Transport: &http.Transport{ResponseHeaderTimeout: time.Minute}},
+	}, nil
+}
+
+func (c *Client) Name() string            { return c.config.Name }
+func (c *Client) MaxDownloadBytes() int64 { return c.config.MaxDownloadBytes }
+
+type apiResponse struct {
+	OK          bool            `json:"ok"`
+	Result      json.RawMessage `json:"result"`
+	Description string          `json:"description"`
+	ErrorCode   int             `json:"error_code"`
+}
+
+// call posts a method. Errors never include the token, which is part of the URL.
+func (c *Client) call(ctx context.Context, method string, params, result any) error {
+	body, err := json.Marshal(params)
+	if err != nil {
+		return err
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		c.config.BaseURL+"/bot"+c.config.Token+"/"+method, bytes.NewReader(body))
+	if err != nil {
+		return c.redact(method, err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	response, err := c.http.Do(request)
+	if err != nil {
+		return c.redact(method, err)
+	}
+	defer response.Body.Close()
+	var decoded apiResponse
+	if err := json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(&decoded); err != nil {
+		return fmt.Errorf("%s %s: HTTP %d: %w", c.config.Name, method, response.StatusCode, err)
+	}
+	if !decoded.OK {
+		return &APIError{Method: method, Code: decoded.ErrorCode, Description: decoded.Description}
+	}
+	if result == nil {
+		return nil
+	}
+	return json.Unmarshal(decoded.Result, result)
+}
+
+// APIError is a request the API refused.
+type APIError struct {
+	Method      string
+	Code        int
+	Description string
+}
+
+func (e *APIError) Error() string {
+	return fmt.Sprintf("%s: %d %s", e.Method, e.Code, e.Description)
+}
+
+func (c *Client) redact(method string, err error) error {
+	return fmt.Errorf("%s %s: %s", c.config.Name, method, strings.ReplaceAll(err.Error(), c.config.Token, "<token>"))
+}
+
+func (c *Client) Send(ctx context.Context, chatID, text string) error {
+	return c.call(ctx, "sendMessage", map[string]any{"chat_id": json.Number(chatID), "text": text}, nil)
+}
+
+// SetWebhook points the API at url for updates of messages only.
+func (c *Client) SetWebhook(ctx context.Context, url string) error {
+	return c.call(ctx, "setWebhook", map[string]any{"url": url, "allowed_updates": []string{"message"}}, nil)
+}
+
+type fileInfo struct {
+	FilePath string `json:"file_path"`
+	FileSize int64  `json:"file_size"`
+}
+
+// Open resolves a file ID and streams its content.
+func (c *Client) Open(ctx context.Context, fileID string) (io.ReadCloser, int64, error) {
+	var info fileInfo
+	if err := c.call(ctx, "getFile", map[string]any{"file_id": fileID}, &info); err != nil {
+		var apiErr *APIError
+		if errors.As(err, &apiErr) && strings.Contains(strings.ToLower(apiErr.Description), "too big") {
+			return nil, 0, bot.ErrFileTooLarge
+		}
+		return nil, 0, err
+	}
+	if info.FilePath == "" {
+		return nil, 0, fmt.Errorf("%s getFile: no file path", c.config.Name)
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		c.config.BaseURL+"/file/bot"+c.config.Token+"/"+strings.TrimPrefix(info.FilePath, "/"), nil)
+	if err != nil {
+		return nil, 0, c.redact("download", err)
+	}
+	response, err := c.files.Do(request)
+	if err != nil {
+		return nil, 0, c.redact("download", err)
+	}
+	if response.StatusCode != http.StatusOK {
+		response.Body.Close()
+		return nil, 0, fmt.Errorf("%s download: HTTP %d", c.config.Name, response.StatusCode)
+	}
+	size := response.ContentLength
+	if size < 0 {
+		size = info.FileSize
+	}
+	if info.FileSize > 0 && size != info.FileSize {
+		response.Body.Close()
+		return nil, 0, fmt.Errorf("%s download: %d bytes, getFile said %d", c.config.Name, size, info.FileSize)
+	}
+	return response.Body, size, nil
+}
+
+type update struct {
+	UpdateID json.Number `json:"update_id"`
+	Message  *message    `json:"message"`
+}
+
+type message struct {
+	MessageID json.Number `json:"message_id"`
+	Chat      struct {
+		ID   json.Number `json:"id"`
+		Type string      `json:"type"`
+	} `json:"chat"`
+	Text     string    `json:"text"`
+	Audio    *document `json:"audio"`
+	Document *document `json:"document"`
+}
+
+type document struct {
+	FileID    string `json:"file_id"`
+	FileName  string `json:"file_name"`
+	MIMEType  string `json:"mime_type"`
+	FileSize  int64  `json:"file_size"`
+	Title     string `json:"title"`
+	Performer string `json:"performer"`
+}
+
+// Parse reads a webhook body. Only new messages are handled; edits, channel
+// posts and other update kinds are acknowledged and ignored.
+func Parse(body []byte) (bot.Update, bool, error) {
+	var u update
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.UseNumber()
+	if err := decoder.Decode(&u); err != nil {
+		return bot.Update{}, false, err
+	}
+	if u.UpdateID == "" {
+		return bot.Update{}, false, errors.New("update without update_id")
+	}
+	if u.Message == nil {
+		return bot.Update{}, false, nil
+	}
+	m := u.Message
+	parsed := bot.Update{
+		ID:        u.UpdateID.String(),
+		ChatID:    m.Chat.ID.String(),
+		Private:   m.Chat.Type == "private",
+		MessageID: m.MessageID.String(),
+		Text:      m.Text,
+	}
+	file := m.Audio
+	if file == nil {
+		file = m.Document
+	}
+	if file != nil && file.FileID != "" {
+		parsed.File = &bot.File{
+			ID: file.FileID, Name: file.FileName, MIMEType: file.MIMEType, SizeBytes: file.FileSize,
+			Title: file.Title, Performer: file.Performer,
+		}
+	}
+	return parsed, true, nil
+}

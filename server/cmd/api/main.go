@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/mhdolatabadi/nafir/server/internal/auth"
+	"github.com/mhdolatabadi/nafir/server/internal/bot"
 	"github.com/mhdolatabadi/nafir/server/internal/httpapi"
 	"github.com/mhdolatabadi/nafir/server/internal/storage"
 	"github.com/mhdolatabadi/nafir/server/internal/store"
@@ -162,6 +163,20 @@ func run() error {
 	}
 
 	tracks := store.NewTracks(pool)
+	webhooks, err := setupBots(ctx, botDeps{
+		tokenSecret: []byte(os.Getenv("AUTH_TOKEN_SECRET")),
+		bots:        store.NewBots(pool),
+		users:       store.NewUsers(pool),
+		tracks:      tracks,
+		objects:     objects,
+		policy: bot.UploadPolicy{
+			Enabled: uploadsEnabled, MaxFileBytes: maxUploadBytes,
+			MaxOwnerBytes: ownerQuotaBytes, MaxPending: maxPending,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("bots: %w", err)
+	}
 	server := &http.Server{
 		Addr: ":" + port,
 		Handler: httpapi.NewHandler(httpapi.Config{
@@ -174,6 +189,7 @@ func run() error {
 				CompletionUserRate: completionUserRate, CompletionIPRate: completionIPRate,
 			}),
 			Playlists: httpapi.NewPlaylistHandlers(store.NewPlaylists(pool), tokens),
+			Webhooks:  webhooks,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,

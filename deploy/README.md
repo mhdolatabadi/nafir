@@ -95,6 +95,34 @@ The project was renamed from SOT to Nafir. On a server deployed before the renam
        -c 'ALTER DATABASE nafir OWNER TO nafir;'
      ```
 
+## Bale bot
+
+People can send audio to Nafir's Bale bot and it lands in their library. They
+sign in inside the chat with a one-time code emailed to their Nafir address;
+the bot never asks for a password.
+
+1. In Bale, create a bot with **@BotFather** and copy its token.
+2. In `deploy/.env`, set:
+   - `BALE_BOT_TOKEN` to that token.
+   - `BOT_WEBHOOK_SECRET` to `openssl rand -hex 32`. It is part of the webhook
+     URL, so only Bale knows where to post updates.
+   - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` and `SMTP_FROM`
+     for a mail account that can send the login codes. The connection is
+     always encrypted: port 465 with TLS, or another port with STARTTLS.
+3. Deploy. On start the API registers
+   `https://<NAFIR_DOMAIN>/api/v1/bots/bale/webhook/<secret>` with Bale, and
+   logs `bot webhook registered provider=bale`. If Bale is unreachable it keeps
+   retrying and logs each failure.
+
+The API refuses to start if a bot token is set without the webhook secret or
+SMTP settings. Bot imports follow the same rules as uploads from the app: the
+file size limit, the storage quota, the pending-upload limit and
+`UPLOADS_ENABLED`. Bale serves bots files up to 20 MB by default
+(`BALE_MAX_DOWNLOAD_BYTES`); larger files get a message explaining the limit.
+
+To turn the bot off, clear `BALE_BOT_TOKEN` and deploy. People who signed in
+through the bot can sign out there with `/logout`.
+
 ## Security rules
 
 - Never commit `.env`.
