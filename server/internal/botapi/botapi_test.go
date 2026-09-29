@@ -255,3 +255,25 @@ func TestSendAudioRefusesOversizedUploads(t *testing.T) {
 		t.Fatalf("provider 413: %v", err)
 	}
 }
+
+func TestWebhookInfoNeverReturnsTheURL(t *testing.T) {
+	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		io.WriteString(w, `{"ok":true,"result":{"url":"https://music.example.com/api/v1/bots/bale/webhook/s3cret",
+			"pending_update_count":4,"last_error_date":1759150000,"last_error_message":"Connection timed out"}}`)
+	})
+	status, err := client.WebhookInfo(context.Background(), "https://music.example.com/api/v1/bots/bale/webhook/s3cret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !status.Registered || !status.MatchesExpected || status.PendingUpdates != 4 ||
+		status.LastErrorMessage != "Connection timed out" || status.LastErrorAt == nil {
+		t.Fatalf("status = %+v", status)
+	}
+	encoded, _ := json.Marshal(status)
+	if strings.Contains(string(encoded), "s3cret") {
+		t.Fatalf("webhook secret leaked: %s", encoded)
+	}
+	if other, _ := client.WebhookInfo(context.Background(), "https://elsewhere.example.com/hook"); other.MatchesExpected {
+		t.Fatal("a different URL was reported as matching")
+	}
+}

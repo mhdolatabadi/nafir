@@ -139,6 +139,10 @@ func TestBotUpdatesAndImportsAreDeduplicated(t *testing.T) {
 	if n, err := bots.ActiveImports(ctx, user.ID); err != nil || n != 1 {
 		t.Fatalf("active imports = %d, %v", n, err)
 	}
+	stats, err := bots.ImportStats(ctx, "bale", time.Now())
+	if err != nil || stats.Downloading != 1 || stats.Queued != 0 || stats.OldestWaiting == nil {
+		t.Fatalf("stats while downloading = %+v, %v", stats, err)
+	}
 	unfinished, err := bots.UnfinishedImports(ctx, 10)
 	if err != nil || len(unfinished) != 1 {
 		t.Fatalf("UnfinishedImports = %v, %v", unfinished, err)
@@ -152,6 +156,9 @@ func TestBotUpdatesAndImportsAreDeduplicated(t *testing.T) {
 	}
 	if n, _ := bots.ActiveImports(ctx, user.ID); n != 0 {
 		t.Fatalf("finished import still active: %d", n)
+	}
+	if stats, _ := bots.ImportStats(ctx, "bale", time.Now()); stats.FailedLastHour != 1 || stats.OldestWaiting != nil {
+		t.Fatalf("stats after failure = %+v", stats)
 	}
 }
 

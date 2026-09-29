@@ -164,7 +164,7 @@ func run() error {
 
 	tracks := store.NewTracks(pool)
 	bots := store.NewBots(pool)
-	webhooks, botHandlers, err := setupBots(ctx, botDeps{
+	webhooks, botHandlers, botMonitor, err := setupBots(ctx, botDeps{
 		tokenSecret: []byte(os.Getenv("AUTH_TOKEN_SECRET")),
 		tokens:      tokens,
 		bots:        bots,
@@ -179,6 +179,17 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("bots: %w", err)
 	}
+	var ops *httpapi.OpsHandlers
+	if opsToken := os.Getenv("OPS_TOKEN"); opsToken != "" {
+		if len(opsToken) < 32 {
+			return errors.New("OPS_TOKEN must be at least 32 characters")
+		}
+		var reporter httpapi.BotHealthReporter
+		if botMonitor != nil {
+			reporter = botMonitor
+		}
+		ops = httpapi.NewOpsHandlers(opsToken, reporter)
+	}
 	server := &http.Server{
 		Addr: ":" + port,
 		Handler: httpapi.NewHandler(httpapi.Config{
@@ -192,6 +203,7 @@ func run() error {
 			}).WithImports(bots),
 			Playlists: httpapi.NewPlaylistHandlers(store.NewPlaylists(pool), tokens),
 			Bots:      botHandlers,
+			Ops:       ops,
 			Webhooks:  webhooks,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,

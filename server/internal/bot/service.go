@@ -25,6 +25,7 @@ type Service struct {
 	linker   *Linker
 	users    UserLookup
 	importer *Importer
+	metrics  *Metrics
 	// imports runs import work outside the webhook request; tests replace it.
 	imports func(func())
 }
@@ -32,16 +33,23 @@ type Service struct {
 func NewService(p Provider, updates UpdateStore, linker *Linker, users UserLookup, importer *Importer) *Service {
 	return &Service{
 		provider: p, updates: updates, linker: linker, users: users, importer: importer,
-		imports: func(work func()) { go work() },
+		metrics: &Metrics{}, imports: func(work func()) { go work() },
 	}
 }
 
 func (s *Service) Provider() Provider { return s.provider }
 
+// Metrics counts what this bot has done since the API started.
+func (s *Service) Metrics() *Metrics { return s.metrics }
+
 // Handle processes one update. Redelivered updates are ignored.
 func (s *Service) Handle(ctx context.Context, u Update) error {
+	s.metrics.Updates.Add(1)
 	first, err := s.updates.FirstDelivery(ctx, s.provider.Name(), u.ID)
 	if err != nil || !first {
+		if err == nil {
+			s.metrics.Duplicates.Add(1)
+		}
 		return err
 	}
 	if u.ChatID == "" {
@@ -122,6 +130,11 @@ func (s *Service) status(ctx context.Context, u Update) error {
 
 func (s *Service) link(ctx context.Context, u Update, code string) error {
 	userID, err := s.linker.Redeem(ctx, s.provider.Name(), u.ChatID, code)
+	if err == nil {
+		s.metrics.Links.Add(1)
+	} else {
+		s.metrics.LinkFailures.Add(1)
+	}
 	switch {
 	case errors.Is(err, ErrBadCode):
 		return s.reply(ctx, u, msgBadCode)
@@ -184,8 +197,12 @@ func (s *Service) runImport(ctx context.Context, id string, interrupted bool) {
 	text := s.refused(result.Reason)
 	if result.Track != nil {
 		text = msgImported(result.Track.Title)
+		s.metrics.ImportsDone.Add(1)
+	} else {
+		s.metrics.ImportsFailed.Add(1)
 	}
 	if err := s.provider.Send(ctx, result.Import.ChatID, text); err != nil {
+		s.metrics.ReplyFailures.Add(1)
 		slog.Warn("bot import reply failed", "provider", s.provider.Name(), "error", err)
 	}
 }
@@ -196,7 +213,11 @@ func (s *Service) refused(reason string) string {
 }
 
 func (s *Service) reply(ctx context.Context, u Update, text string) error {
-	return s.provider.Send(ctx, u.ChatID, text)
+	err := s.provider.Send(ctx, u.ChatID, text)
+	if err != nil {
+		s.metrics.ReplyFailures.Add(1)
+	}
+	return err
 }
 
 // fail tells the chat something went wrong and returns the cause for logging.

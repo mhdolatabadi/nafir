@@ -26,10 +26,28 @@ docker compose up -d --no-build --remove-orphans
 docker image prune -f
 
 domain="$(grep -E '^NAFIR_DOMAIN=' .env | cut -d= -f2-)"
+ops_token="$(grep -E '^OPS_TOKEN=' .env | cut -d= -f2- || true)"
+
+# Reports the bots' webhook and import queue once they have registered. A
+# problem is printed but does not fail the deploy: the site itself is up.
+check_bots() {
+  [[ -n "$ops_token" ]] || return 0
+  local report=""
+  for attempt in $(seq 1 6); do
+    report="$(curl -fsS -H "Authorization: Bearer ${ops_token}" "https://${domain}/api/v1/ops/bots" || true)"
+    [[ "$report" == *'"healthy":true'* ]] && break
+    sleep 5
+  done
+  echo "Bot health: ${report:-unavailable}"
+  if [[ "$report" != *'"healthy":true'* ]]; then
+    echo "WARNING: a bot needs attention; see deploy/README.md, Operating the bots." >&2
+  fi
+}
 for attempt in $(seq 1 30); do
   if curl -fsS "https://${domain}/api/v1/health"; then
     echo
     echo "Deployed $(git rev-parse --short HEAD) to https://${domain}"
+    check_bots
     exit 0
   fi
   sleep 5
