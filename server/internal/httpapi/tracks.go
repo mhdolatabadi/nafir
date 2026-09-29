@@ -56,6 +56,7 @@ type TrackHandlers struct {
 	storage ObjectStore
 	tokens  *auth.Tokens
 	limits  UploadLimits
+	imports ImportCounter
 }
 
 func NewTrackHandlers(tracks TrackStore, objects ObjectStore, tokens *auth.Tokens, limits UploadLimits) *TrackHandlers {
@@ -79,19 +80,34 @@ type trackResponse struct {
 	DurationMS  *int32    `json:"durationMs"`
 	ContentType string    `json:"contentType"`
 	SizeBytes   int64     `json:"sizeBytes"`
+	Source      string    `json:"source"`
 	CreatedAt   time.Time `json:"createdAt"`
 }
 
 func toTrackResponse(t store.Track) trackResponse {
 	return trackResponse{
 		ID: t.ID, Title: t.Title, Artist: t.Artist, Album: t.Album, DurationMS: t.DurationMS,
-		ContentType: t.ContentType, SizeBytes: t.SizeBytes, CreatedAt: t.CreatedAt.UTC(),
+		ContentType: t.ContentType, SizeBytes: t.SizeBytes, Source: t.Source, CreatedAt: t.CreatedAt.UTC(),
 	}
 }
 
 type trackListResponse struct {
 	Tracks  []trackResponse      `json:"tracks"`
 	Storage storageUsageResponse `json:"storage"`
+	// ImportsInProgress counts bot imports not yet in the list, so the app
+	// knows to check again soon.
+	ImportsInProgress int `json:"importsInProgress"`
+}
+
+// ImportCounter counts a user's bot imports still in progress.
+type ImportCounter interface {
+	ActiveImports(ctx context.Context, userID string) (int, error)
+}
+
+// WithImports makes the track list report bot imports in progress.
+func (h *TrackHandlers) WithImports(imports ImportCounter) *TrackHandlers {
+	h.imports = imports
+	return h
 }
 
 type storageUsageResponse struct {
@@ -127,6 +143,12 @@ func (h *TrackHandlers) handleList(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, track := range tracks {
 		response.Tracks = append(response.Tracks, toTrackResponse(track))
+	}
+	if h.imports != nil {
+		if response.ImportsInProgress, err = h.imports.ActiveImports(r.Context(), userID); err != nil {
+			internalError(w, "count bot imports", err)
+			return
+		}
 	}
 	writeJSON(w, http.StatusOK, response)
 }

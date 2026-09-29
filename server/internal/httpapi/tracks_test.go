@@ -3,6 +3,7 @@ package httpapi
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -245,7 +246,7 @@ func TestListReturnsOnlyOwnTracks(t *testing.T) {
 
 func TestEmptyLibraryIsAnEmptyArray(t *testing.T) {
 	api := newTracksAPI(t, &memoryTracks{})
-	if body := strings.TrimSpace(api.get(t, "/api/v1/tracks", api.alice).Body.String()); body != `{"tracks":[],"storage":{"usedBytes":0,"limitBytes":2000}}` {
+	if body := strings.TrimSpace(api.get(t, "/api/v1/tracks", api.alice).Body.String()); body != `{"tracks":[],"storage":{"usedBytes":0,"limitBytes":2000},"importsInProgress":0}` {
 		t.Fatalf("unexpected body %s", body)
 	}
 }
@@ -494,4 +495,29 @@ func TestUploadReservationIPLimitCoversMultipleUsers(t *testing.T) {
 	response := api.do(t, http.MethodPost, "/api/v1/tracks/uploads",
 		`{"fileName":"bob.mp3","sizeBytes":1}`, api.bob)
 	expectError(t, response, http.StatusTooManyRequests, "rate_limited")
+}
+
+type countingImports map[string]int
+
+func (c countingImports) ActiveImports(_ context.Context, userID string) (int, error) {
+	return c[userID], nil
+}
+
+func TestTrackListReportsBotImportsInProgress(t *testing.T) {
+	api := newTracksAPI(t, &memoryTracks{})
+	tokens, _ := auth.NewTokens([]byte(strings.Repeat("k", auth.MinSecretBytes)), time.Hour)
+	handlers := NewTrackHandlers(api.tracks, api.objects, tokens, UploadLimits{MaxOwnerBytes: testOwnerQuota}).
+		WithImports(countingImports{"alice": 2})
+	handler := NewHandler(Config{Tracks: handlers})
+
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/tracks", nil)
+	request.Header.Set("Authorization", "Bearer "+api.alice)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	var body trackListResponse
+	json.NewDecoder(response.Body).Decode(&body)
+	if response.Code != http.StatusOK || body.ImportsInProgress != 2 {
+		t.Fatalf("list = %d, importsInProgress %d", response.Code, body.ImportsInProgress)
+	}
 }

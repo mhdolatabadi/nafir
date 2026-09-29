@@ -318,6 +318,7 @@ func (f *fakeTracks) ReservePending(_ context.Context, ownerID string, t store.N
 	track := store.Track{
 		ID: id, OwnerID: ownerID, Status: store.TrackPending, Title: t.Title, Artist: t.Artist,
 		StorageKey: store.StorageKey(ownerID, id, t.FileName), ContentType: t.ContentType, SizeBytes: t.SizeBytes,
+		Source: t.Source,
 	}
 	f.tracks[id] = track
 	return track, nil

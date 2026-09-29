@@ -48,10 +48,16 @@ class LibraryScreen extends StatefulWidget {
 
 class _LibraryScreenState extends State<LibraryScreen> {
   UploadPhase _lastPhase = UploadPhase.idle;
+  late final AppLifecycleListener _lifecycle;
 
   @override
   void initState() {
     super.initState();
+    // Coming back from Bale or Telegram, show what was sent to the bot.
+    _lifecycle = AppLifecycleListener(onResume: () {
+      widget.library.load();
+      widget.botLinks?.load();
+    });
     widget.library.load();
     widget.botLinks?.load();
     if (widget.localAudio.supported) widget.localAudio.load();
@@ -60,6 +66,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   @override
   void dispose() {
+    _lifecycle.dispose();
     widget.uploads.removeListener(_onUploadChanged);
     super.dispose();
   }
@@ -306,9 +313,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
             UploadStatusCard(controller: widget.uploads),
             ListenableBuilder(
               listenable: widget.library,
-              builder: (context, _) => _StorageUsage(
-                usedBytes: widget.library.usedBytes,
-                limitBytes: widget.library.limitBytes,
+              builder: (context, _) => Column(
+                children: [
+                  _StorageUsage(
+                    usedBytes: widget.library.usedBytes,
+                    limitBytes: widget.library.limitBytes,
+                  ),
+                  if (widget.library.importsInProgress case final n when n > 0)
+                    _ImportsInProgress(count: n),
+                ],
               ),
             ),
             Expanded(
@@ -755,6 +768,16 @@ class _TrackListState extends State<_TrackList> {
                             ),
                           ),
                         ),
+                        if (track.importedFrom case final from?) ...[
+                          const SizedBox(width: 12),
+                          Text(
+                            'از $from',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                         const SizedBox(width: 12),
                         Text(
                           formatSize(track.sizeBytes),
@@ -843,6 +866,36 @@ class _TrackListState extends State<_TrackList> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ImportsInProgress extends StatelessWidget {
+  const _ImportsInProgress({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: Row(
+        children: [
+          const SizedBox.square(
+            dimension: 14,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              count == 1
+                  ? 'یک فایل از بات در حال اضافه شدن است…'
+                  : '$count فایل از بات در حال اضافه شدن است…',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

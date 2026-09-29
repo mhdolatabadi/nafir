@@ -6,6 +6,8 @@ import 'package:nafir/features/auth/data/token_store.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/upload/data/audio_picker.dart';
 import 'package:nafir/features/upload/data/upload_models.dart';
+import 'package:nafir/features/library/application/library_controller.dart'
+    show importPollDelays;
 import 'package:nafir/main.dart';
 
 import 'bot_link_controller_test.dart' show FakeBotsApi, linkedBale;
@@ -714,5 +716,41 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('ارسال به'), findsNothing);
+  });
+
+  testWidgets('imported tracks say where they came from; imports show progress',
+      (tester) async {
+    final tracks = FakeTracksApi(const [
+      Track(
+          id: 'b1',
+          title: 'Imported',
+          contentType: 'audio/mpeg',
+          sizeBytes: 1,
+          source: 'bale'),
+      Track(
+          id: 'u1',
+          title: 'Uploaded',
+          contentType: 'audio/mpeg',
+          sizeBytes: 1,
+          source: 'upload'),
+    ])
+      ..importsInProgress = 1;
+    await _pumpApp(tester,
+        tokenStore: MemoryTokenStore('valid-token'),
+        tracks: tracks,
+        settle: false);
+    // The spinner never settles, so step through startup instead.
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    expect(find.text('از بله'), findsOneWidget);
+    expect(find.text('یک فایل از بات در حال اضافه شدن است…'), findsOneWidget);
+
+    // The import finishes; the next scheduled check picks it up.
+    tracks.importsInProgress = 0;
+    await tester.pump(importPollDelays.first);
+    await tester.pump();
+    expect(find.text('یک فایل از بات در حال اضافه شدن است…'), findsNothing);
   });
 }

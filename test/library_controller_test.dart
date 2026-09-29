@@ -91,4 +91,69 @@ void main() {
     expect(await library.load(), isFalse);
     expect(api.calls, isEmpty);
   });
+
+  group('while bot imports are in progress', () {
+    late List<(Duration, void Function())> scheduled;
+    late int cancelled;
+    late FakeTracksApi api;
+    late LibraryController library;
+
+    setUp(() {
+      scheduled = [];
+      cancelled = 0;
+      api = FakeTracksApi([_song])..importsInProgress = 2;
+      library = LibraryController(
+        api: api,
+        token: () => 'tok',
+        schedule: (delay, callback) {
+          scheduled.add((delay, callback));
+          return () => cancelled++;
+        },
+      );
+    });
+
+    test('the library is checked again, less and less often', () async {
+      await library.load();
+      expect(library.importsInProgress, 2);
+      expect(scheduled.single.$1, importPollDelays[0]);
+
+      scheduled.single.$2();
+      await Future<void>.delayed(Duration.zero);
+      expect(api.calls.where((c) => c == 'list'), hasLength(2));
+      expect(scheduled[1].$1, importPollDelays[1]);
+    });
+
+    test('polling stops when the imports finish', () async {
+      await library.load();
+      api
+        ..importsInProgress = 0
+        ..tracks.add(const Track(
+            id: 'imported',
+            title: 'From Bale',
+            contentType: 'audio/mpeg',
+            sizeBytes: 1,
+            source: 'bale'));
+      scheduled.single.$2();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(library.importsInProgress, 0);
+      expect(library.tracks.map((t) => t.id), contains('imported'));
+      expect(library.tracks.last.importedFrom, 'بله');
+      expect(scheduled, hasLength(1));
+    });
+
+    test('polling gives up after the last delay', () async {
+      for (var i = 0; i <= importPollDelays.length; i++) {
+        await library.load();
+      }
+      expect(scheduled, hasLength(importPollDelays.length));
+    });
+
+    test('clearing the library cancels polling', () async {
+      await library.load();
+      library.clear();
+      expect(cancelled, 1);
+      expect(library.importsInProgress, 0);
+    });
+  });
 }

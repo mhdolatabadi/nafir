@@ -1,19 +1,48 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/features/library/data/track.dart';
 
 enum LibraryStatus { loading, error, loaded }
 
+/// Runs [callback] after [delay] and returns a function that cancels it.
+typedef Schedule = void Function() Function(
+    Duration delay, void Function() callback);
+
+void Function() _timer(Duration delay, void Function() callback) =>
+    Timer(delay, callback).cancel;
+
+/// How long to wait between checks while bot imports are in progress: soon
+/// at first, then less often, and not at all after about a quarter hour.
+const importPollDelays = [
+  Duration(seconds: 3),
+  Duration(seconds: 5),
+  Duration(seconds: 10),
+  Duration(seconds: 20),
+  Duration(seconds: 30),
+  Duration(minutes: 1),
+  Duration(minutes: 2),
+  Duration(minutes: 5),
+  Duration(minutes: 5),
+];
+
 /// The signed-in user's tracks, as the server lists them.
 class LibraryController extends ChangeNotifier {
   LibraryController({
     required TracksApi api,
     required String? Function() token,
+    Schedule? schedule,
   })  : _api = api,
-        _token = token;
+        _token = token,
+        _schedule = schedule ?? _timer;
 
   final TracksApi _api;
   final String? Function() _token;
+  final Schedule _schedule;
+  void Function()? _cancelPoll;
+  int _pollStep = 0;
+  int _importsInProgress = 0;
 
   LibraryStatus _status = LibraryStatus.loading;
   List<Track> _tracks = const [];
@@ -26,6 +55,9 @@ class LibraryController extends ChangeNotifier {
   List<Track> get tracks => _tracks;
   int get usedBytes => _usedBytes;
   int get limitBytes => _limitBytes;
+
+  /// Files sent to a Nafir bot that are still being added.
+  int get importsInProgress => _importsInProgress;
   bool isDeleting(String trackId) => _deletingTrackIds.contains(trackId);
 
   /// Loads the list and reports whether it succeeded. Existing tracks stay on
@@ -45,6 +77,7 @@ class LibraryController extends ChangeNotifier {
       _usedBytes = library.usedBytes;
       _limitBytes = library.limitBytes;
       _status = LibraryStatus.loaded;
+      _followImports(library.importsInProgress);
       return true;
     } catch (_) {
       if (generation != _generation) return false;
@@ -82,8 +115,37 @@ class LibraryController extends ChangeNotifier {
     }
   }
 
+  /// While bot imports are in progress, loads again after a growing delay
+  /// so finished imports appear on their own.
+  void _followImports(int inProgress) {
+    final started = _importsInProgress == 0 && inProgress > 0;
+    _importsInProgress = inProgress;
+    _cancelPoll?.call();
+    _cancelPoll = null;
+    if (inProgress == 0) {
+      _pollStep = 0;
+      return;
+    }
+    if (started) _pollStep = 0;
+    if (_pollStep >= importPollDelays.length) return;
+    _cancelPoll = _schedule(importPollDelays[_pollStep++], () {
+      _cancelPoll = null;
+      load();
+    });
+  }
+
+  @override
+  void dispose() {
+    _cancelPoll?.call();
+    super.dispose();
+  }
+
   /// Forgets the previous user's tracks, for example on logout.
   void clear() {
+    _cancelPoll?.call();
+    _cancelPoll = null;
+    _importsInProgress = 0;
+    _pollStep = 0;
     _generation++;
     _tracks = const [];
     _usedBytes = 0;

@@ -41,11 +41,15 @@ class TrackLibrary {
     required this.tracks,
     required this.usedBytes,
     required this.limitBytes,
+    this.importsInProgress = 0,
   });
 
   final List<Track> tracks;
   final int usedBytes;
   final int limitBytes;
+
+  /// Bot imports not in [tracks] yet.
+  final int importsInProgress;
 }
 
 abstract interface class TracksApi {
@@ -121,6 +125,7 @@ class ApiClient implements AuthApi, TracksApi, PlaylistsApi, BotsApi {
           .toList(),
       usedBytes: (storage['usedBytes'] as num).toInt(),
       limitBytes: (storage['limitBytes'] as num).toInt(),
+      importsInProgress: (body['importsInProgress'] as num?)?.toInt() ?? 0,
     );
   }
 

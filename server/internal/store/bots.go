@@ -295,6 +295,16 @@ func (b *Bots) RequeueImport(ctx context.Context, id string) error {
 	return err
 }
 
+// ActiveImports counts the user's imports still queued or downloading.
+func (b *Bots) ActiveImports(ctx context.Context, userID string) (int, error) {
+	var n int
+	err := b.pool.QueryRow(ctx, `
+		SELECT COUNT(*)::integer FROM bot_imports
+		WHERE user_id::text = $1 AND state IN ('queued', 'downloading')
+	`, userID).Scan(&n)
+	return n, err
+}
+
 // UnfinishedImports lists imports interrupted by a restart, oldest first.
 func (b *Bots) UnfinishedImports(ctx context.Context, limit int) ([]BotImport, error) {
 	rows, err := b.pool.Query(ctx, `
