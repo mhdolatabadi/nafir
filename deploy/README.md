@@ -136,6 +136,13 @@ Both Bot APIs serve bots files up to 20 MB by default
 (`BALE_MAX_DOWNLOAD_BYTES`, `TELEGRAM_MAX_DOWNLOAD_BYTES`); larger files get a
 message explaining the limit.
 
+Once a chat is linked, each track's menu in the app offers «ارسال به بله» or
+«ارسال به تلگرام»: the bot posts that audio into the chat, where it can be
+played or forwarded. Bots upload files up to 50 MB by default
+(`BALE_MAX_UPLOAD_BYTES`, `TELEGRAM_MAX_UPLOAD_BYTES`), each account can send
+thirty tracks an hour (`BOT_SEND_RATE_REQUESTS`, `BOT_SEND_RATE_WINDOW`), and
+a track sent once is sent again instantly without another upload.
+
 To turn a bot off, clear its token and deploy. A chat can be unlinked from
 the bot with `/logout`.
 
