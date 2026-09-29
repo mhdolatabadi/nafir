@@ -102,4 +102,56 @@ void main() {
     expect(library.usedBytes, 10);
     expect(library.limitBytes, 5368709120);
   });
+
+  test('bot link code is requested with the token and parsed', () async {
+    late http.Request sent;
+    final client = ApiClient(baseUri, httpClient: MockClient((request) async {
+      sent = request;
+      return http.Response(
+        jsonEncode({
+          'code': '12345678',
+          'expiresAt': '2026-09-29T12:10:00Z',
+          'bots': [
+            {
+              'provider': 'bale',
+              'name': 'بله',
+              'username': 'NafirBot',
+              'linkUrl': 'https://ble.ir/NafirBot?start=12345678',
+            },
+          ],
+        }),
+        201,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    }));
+
+    final code = await client.createBotLinkCode('t0ken');
+
+    expect(sent.method, 'POST');
+    expect(sent.url.path, '/api/v1/bots/link-code');
+    expect(sent.headers['Authorization'], 'Bearer t0ken');
+    expect(code.code, '12345678');
+    expect(code.expiresAt, DateTime.utc(2026, 9, 29, 12, 10));
+    expect(code.bots.single.name, 'بله');
+    expect(code.bots.single.linkUrl, 'https://ble.ir/NafirBot?start=12345678');
+  });
+
+  test('bot list parses bots without links', () async {
+    final client = ApiClient(baseUri, httpClient: MockClient((_) async {
+      return http.Response(
+        jsonEncode({
+          'bots': [
+            {'provider': 'bale', 'name': 'bale'},
+          ],
+        }),
+        200,
+      );
+    }));
+
+    final bots = await client.listBots('t0ken');
+
+    expect(bots.single.provider, 'bale');
+    expect(bots.single.username, isNull);
+    expect(bots.single.linkUrl, isNull);
+  });
 }

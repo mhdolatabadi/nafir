@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:nafir/features/auth/data/auth_models.dart';
+import 'package:nafir/features/bots/data/messenger_bot.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/playlists/data/playlist.dart';
 import 'package:nafir/features/upload/data/upload_models.dart';
@@ -66,7 +67,12 @@ abstract interface class PlaylistsApi {
   Future<void> deletePlaylist(String token, String playlistId);
 }
 
-class ApiClient implements AuthApi, TracksApi, PlaylistsApi {
+abstract interface class BotsApi {
+  Future<List<MessengerBot>> listBots(String token);
+  Future<BotLinkCode> createBotLinkCode(String token);
+}
+
+class ApiClient implements AuthApi, TracksApi, PlaylistsApi, BotsApi {
   ApiClient(this.baseUri, {http.Client? httpClient})
       : _httpClient = httpClient ?? http.Client();
 
@@ -188,6 +194,21 @@ class ApiClient implements AuthApi, TracksApi, PlaylistsApi {
   Future<void> deletePlaylist(String token, String playlistId) async {
     await _send('DELETE', '/api/v1/playlists/$playlistId',
         token: token, expectBody: false);
+  }
+
+  @override
+  Future<List<MessengerBot>> listBots(String token) async {
+    final body = await _send('GET', '/api/v1/bots', token: token);
+    return [
+      for (final bot in body['bots'] as List<dynamic>)
+        MessengerBot.fromJson(bot as Map<String, dynamic>),
+    ];
+  }
+
+  @override
+  Future<BotLinkCode> createBotLinkCode(String token) async {
+    final body = await _send('POST', '/api/v1/bots/link-code', token: token);
+    return BotLinkCode.fromJson(body);
   }
 
   Future<Map<String, dynamic>> _send(

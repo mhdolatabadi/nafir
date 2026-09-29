@@ -8,6 +8,7 @@ import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/presentation/mini_player.dart';
 import 'package:nafir/features/playlists/application/playlists_controller.dart';
 import 'package:nafir/features/playlists/presentation/playlists_screen.dart';
+import 'package:nafir/features/bots/application/bot_link_controller.dart';
 import 'package:nafir/features/settings/application/cache_controller.dart';
 import 'package:nafir/features/settings/presentation/settings_screen.dart';
 import 'package:nafir/features/upload/application/upload_controller.dart';
@@ -24,6 +25,7 @@ class LibraryScreen extends StatefulWidget {
     required this.localAudio,
     required this.uploads,
     required this.cache,
+    this.botLinks,
     required this.picker,
     required this.player,
   });
@@ -36,6 +38,7 @@ class LibraryScreen extends StatefulWidget {
   final PlayerController player;
   final UploadController uploads;
   final CacheController cache;
+  final BotLinkController? botLinks;
   final AudioPicker picker;
 
   @override
@@ -134,7 +137,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   void _openSettings() {
     Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => SettingsScreen(cache: widget.cache),
+      builder: (_) =>
+          SettingsScreen(cache: widget.cache, botLinks: widget.botLinks),
     ));
   }
 

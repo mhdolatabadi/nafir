@@ -63,3 +63,25 @@ func TestOptionsOnUnknownPathIsNotFound(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusNotFound, response.Code)
 	}
 }
+
+func TestBotWebhooksAreMountedPerProvider(t *testing.T) {
+	var secret string
+	handler := NewHandler(Config{Webhooks: map[string]http.Handler{
+		"bale": http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			secret = r.PathValue("secret")
+			w.WriteHeader(http.StatusOK)
+		}),
+	}})
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/api/v1/bots/bale/webhook/abc", nil))
+	if response.Code != http.StatusOK || secret != "abc" {
+		t.Fatalf("bale webhook = %d, secret %q", response.Code, secret)
+	}
+
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/api/v1/bots/telegram/webhook/abc", nil))
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("unconfigured provider = %d", response.Code)
+	}
+}

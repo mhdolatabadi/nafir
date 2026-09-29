@@ -15,6 +15,10 @@ type Config struct {
 	Auth          *AuthHandlers
 	Tracks        *TrackHandlers
 	Playlists     *PlaylistHandlers
+	Bots          *BotHandlers
+	// Webhooks maps a messenger provider name to its bot webhook, served at
+	// /api/v1/bots/{provider}/webhook/{secret}.
+	Webhooks map[string]http.Handler
 }
 
 func NewHandler(config Config) http.Handler {
@@ -28,6 +32,12 @@ func NewHandler(config Config) http.Handler {
 	}
 	if config.Playlists != nil {
 		config.Playlists.register(mux)
+	}
+	if config.Bots != nil {
+		config.Bots.register(mux)
+	}
+	for provider, handler := range config.Webhooks {
+		mux.Handle("POST /api/v1/bots/"+provider+"/webhook/{secret}", handler)
 	}
 	return cors(config.AllowedOrigin, mux)
 }
