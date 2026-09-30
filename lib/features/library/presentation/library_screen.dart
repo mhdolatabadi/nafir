@@ -3,6 +3,7 @@ import 'package:nafir/core/format_size.dart';
 import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
 import 'package:nafir/features/library/application/local_audio_controller.dart';
+import 'package:nafir/features/library/data/local_audio_upload.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/presentation/mini_player.dart';
@@ -49,10 +50,12 @@ class LibraryScreen extends StatefulWidget {
 class _LibraryScreenState extends State<LibraryScreen> {
   UploadPhase _lastPhase = UploadPhase.idle;
   late final AppLifecycleListener _lifecycle;
+  late final LocalAudioUploadSource _localUpload;
 
   @override
   void initState() {
     super.initState();
+    _localUpload = createLocalAudioUploadSource();
     // Coming back from Bale or Telegram, show what was sent to the bot.
     _lifecycle = AppLifecycleListener(onResume: () {
       widget.library.load();
@@ -84,6 +87,30 @@ class _LibraryScreenState extends State<LibraryScreen> {
     final files = await widget.picker.pickMany(onReading: uploads.readingFile);
     if (files == null) return uploads.pickCancelled();
     await uploads.uploadAll(files);
+  }
+
+  Future<void> _uploadLocalTrack(Track track) async {
+    if (!track.isLocal || widget.uploads.isBusy) return;
+    widget.uploads.readingFile();
+    try {
+      final file = await _localUpload.prepare(track);
+      await widget.uploads.upload(file);
+      if (!mounted) return;
+      if (widget.uploads.phase == UploadPhase.done) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('«${track.title}» روی سرور آپلود شد.')),
+        );
+        await _refreshLibrary();
+      }
+    } catch (_) {
+      if (!mounted) return;
+      widget.uploads.pickCancelled();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('آماده‌سازی آهنگ دستگاه برای آپلود ناموفق بود.'),
+        ),
+      );
+    }
   }
 
   Future<void> _confirmDeleteTrack(Track track) async {
@@ -362,6 +389,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
                             isDeleting: widget.library.isDeleting,
                             linkedBots: widget.botLinks?.linkedBots ?? const [],
                             onSendToBot: _sendToBot,
+                            onUploadToServer: _uploadLocalTrack,
+                            uploadsBusy: widget.uploads.isBusy,
                             deviceNotice: notice,
                             showLocationBadges: true,
                           ),
@@ -535,6 +564,8 @@ class _TrackList extends StatefulWidget {
     this.isDeleting,
     this.linkedBots = const [],
     this.onSendToBot,
+    this.onUploadToServer,
+    this.uploadsBusy = false,
     this.deviceNotice,
     this.showLocationBadges = false,
   });
@@ -548,6 +579,8 @@ class _TrackList extends StatefulWidget {
   /// Bots with a linked chat, offered as «ارسال به …» for each track.
   final List<MessengerBot> linkedBots;
   final Future<void> Function(Track track, MessengerBot bot)? onSendToBot;
+  final Future<void> Function(Track track)? onUploadToServer;
+  final bool uploadsBusy;
   final _DeviceNotice? deviceNotice;
   final bool showLocationBadges;
 
@@ -829,10 +862,7 @@ class _TrackListState extends State<_TrackList> {
                                     case (_TrackAction.delete, _):
                                       widget.onDelete?.call(track);
                                     case (_TrackAction.uploadToServer, _):
-                                      _message(
-                                        context,
-                                        'آپلود آهنگ‌های دستگاه به سرور در گام بعدی کامل می‌شود.',
-                                      );
+                                      widget.onUploadToServer?.call(track);
                                     case (_TrackAction.downloadToDevice, _):
                                       _message(
                                         context,
@@ -850,12 +880,13 @@ class _TrackListState extends State<_TrackList> {
                                 itemBuilder: (context) => [
                                   if (widget.showLocationBadges &&
                                       track.isLocal)
-                                    const PopupMenuItem(
-                                      value: (
+                                    PopupMenuItem(
+                                      value: const (
                                         _TrackAction.uploadToServer,
                                         null
                                       ),
-                                      child: ListTile(
+                                      enabled: !widget.uploadsBusy,
+                                      child: const ListTile(
                                         contentPadding: EdgeInsets.zero,
                                         leading:
                                             Icon(Icons.cloud_upload_outlined),
