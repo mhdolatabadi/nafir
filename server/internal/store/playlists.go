@@ -19,16 +19,19 @@ type Playlist struct {
 	Name    string
 	// ShareToken is set while the playlist is shared.
 	ShareToken *string
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	Tracks     []Track
+	// IsPublic lists a shared playlist for everyone to discover; otherwise
+	// only people with its link find it.
+	IsPublic  bool
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	Tracks    []Track
 }
 
 // ErrShareTokenTaken means a newly drawn share token collided; draw again.
 var ErrShareTokenTaken = errors.New("share token is already in use")
 
 // playlistColumnNames is the one list of columns scanPlaylist reads, in order.
-var playlistColumnNames = []string{"id::text", "owner_id::text", "name", "share_token", "created_at", "updated_at"}
+var playlistColumnNames = []string{"id::text", "owner_id::text", "name", "share_token", "is_public", "created_at", "updated_at"}
 
 var (
 	playlistColumns          = strings.Join(playlistColumnNames, ", ")
@@ -37,7 +40,7 @@ var (
 
 func scanPlaylist(row pgx.Row) (Playlist, error) {
 	var p Playlist
-	err := row.Scan(&p.ID, &p.OwnerID, &p.Name, &p.ShareToken, &p.CreatedAt, &p.UpdatedAt)
+	err := row.Scan(&p.ID, &p.OwnerID, &p.Name, &p.ShareToken, &p.IsPublic, &p.CreatedAt, &p.UpdatedAt)
 	return p, err
 }
 
@@ -182,12 +185,13 @@ func (p *Playlists) Delete(ctx context.Context, ownerID, playlistID string) erro
 }
 
 // Share makes the playlist shared with the given token, or keeps the token
-// it already has, so sharing twice gives the same link.
-func (p *Playlists) Share(ctx context.Context, ownerID, playlistID, token string) (Playlist, error) {
+// it already has, so sharing twice gives the same link. A non-nil public
+// sets whether it is listed for everyone; nil keeps what it was.
+func (p *Playlists) Share(ctx context.Context, ownerID, playlistID, token string, public *bool) (Playlist, error) {
 	playlist, err := scanPlaylist(p.pool.QueryRow(ctx, `
-		UPDATE playlists SET share_token = COALESCE(share_token, $3)
+		UPDATE playlists SET share_token = COALESCE(share_token, $3), is_public = COALESCE($4, is_public)
 		WHERE id::text = $1 AND owner_id::text = $2
-		RETURNING `+playlistColumns, playlistID, ownerID, token))
+		RETURNING `+playlistColumns, playlistID, ownerID, token, public))
 	var pgErr *pgconn.PgError
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
@@ -198,10 +202,11 @@ func (p *Playlists) Share(ctx context.Context, ownerID, playlistID, token string
 	return playlist, err
 }
 
-// Unshare makes the playlist private; its link stops working for good.
+// Unshare makes the playlist private; its link stops working for good and
+// it is no longer listed. Its likes are kept for if it is shared again.
 func (p *Playlists) Unshare(ctx context.Context, ownerID, playlistID string) error {
 	tag, err := p.pool.Exec(ctx, `
-		UPDATE playlists SET share_token = NULL
+		UPDATE playlists SET share_token = NULL, is_public = false
 		WHERE id::text = $1 AND owner_id::text = $2
 	`, playlistID, ownerID)
 	if err != nil {
@@ -228,7 +233,7 @@ func (p *Playlists) ForShareToken(ctx context.Context, token string) (SharedPlay
 		FROM playlists JOIN users ON users.id = playlists.owner_id
 		WHERE playlists.share_token = $1
 	`, token).Scan(&shared.ID, &shared.OwnerID, &shared.Name, &shared.ShareToken,
-		&shared.CreatedAt, &shared.UpdatedAt, &shared.OwnerEmail)
+		&shared.IsPublic, &shared.CreatedAt, &shared.UpdatedAt, &shared.OwnerEmail)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return SharedPlaylist{}, ErrNotFound
 	}
@@ -359,4 +364,105 @@ func (p *Playlists) SaveShared(
 	}
 	saved.Tracks, err = p.tracks(ctx, saved)
 	return saved, err
+}
+
+// Likes is a shared playlist's like count and whether one user likes it.
+type Likes struct {
+	Count int
+	Liked bool
+}
+
+// LikesFor returns the playlist's likes as userID sees them.
+func (p *Playlists) LikesFor(ctx context.Context, playlistID, userID string) (Likes, error) {
+	var likes Likes
+	err := p.pool.QueryRow(ctx, `
+		SELECT count(*)::int, COALESCE(bool_or(user_id::text = $2), false)
+		FROM playlist_likes WHERE playlist_id = $1::uuid
+	`, playlistID, userID).Scan(&likes.Count, &likes.Liked)
+	return likes, err
+}
+
+// SetLike likes or unlikes the playlist shared with token for the user and
+// returns its likes after. Doing it twice is the same as once. It is
+// ErrNotFound when no playlist is shared with the token.
+func (p *Playlists) SetLike(ctx context.Context, userID, token string, liked bool) (Likes, error) {
+	var likes Likes
+	err := pgx.BeginFunc(ctx, p.pool, func(tx pgx.Tx) error {
+		// Holding the row keeps it shared until the like is in.
+		var playlistID string
+		err := tx.QueryRow(ctx, `
+			SELECT id::text FROM playlists WHERE share_token = $1 FOR SHARE
+		`, token).Scan(&playlistID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if liked {
+			_, err = tx.Exec(ctx, `
+				INSERT INTO playlist_likes (playlist_id, user_id) VALUES ($1::uuid, $2::uuid)
+				ON CONFLICT DO NOTHING
+			`, playlistID, userID)
+		} else {
+			_, err = tx.Exec(ctx, `
+				DELETE FROM playlist_likes WHERE playlist_id = $1::uuid AND user_id::text = $2
+			`, playlistID, userID)
+		}
+		if err != nil {
+			return err
+		}
+		return tx.QueryRow(ctx, `
+			SELECT count(*)::int FROM playlist_likes WHERE playlist_id = $1::uuid
+		`, playlistID).Scan(&likes.Count)
+	})
+	likes.Liked = liked
+	return likes, err
+}
+
+// PublicPlaylist is a public playlist as it is listed for discovery.
+type PublicPlaylist struct {
+	ShareToken string
+	Name       string
+	OwnerID    string
+	OwnerEmail string
+	TrackCount int
+	Likes      Likes
+	UpdatedAt  time.Time
+}
+
+// Popular lists up to limit public shared playlists, most liked first;
+// ties go to the most recently updated, then by id, so the order is stable.
+// Link-only playlists are never listed.
+func (p *Playlists) Popular(ctx context.Context, userID string, limit int) ([]PublicPlaylist, error) {
+	rows, err := p.pool.Query(ctx, `
+		SELECT playlists.share_token, playlists.name, playlists.owner_id::text, users.email,
+			(SELECT count(*)::int FROM playlist_tracks pt JOIN tracks ON tracks.id = pt.track_id
+			 WHERE pt.playlist_id = playlists.id AND tracks.owner_id = playlists.owner_id
+			   AND tracks.status = 'ready'),
+			likes.count, likes.liked, playlists.updated_at
+		FROM playlists
+		JOIN users ON users.id = playlists.owner_id
+		CROSS JOIN LATERAL (
+			SELECT count(*)::int AS count, COALESCE(bool_or(user_id::text = $1), false) AS liked
+			FROM playlist_likes WHERE playlist_id = playlists.id
+		) likes
+		WHERE playlists.is_public AND playlists.share_token IS NOT NULL
+		ORDER BY likes.count DESC, playlists.updated_at DESC, playlists.id
+		LIMIT $2
+	`, userID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	listed := []PublicPlaylist{}
+	for rows.Next() {
+		var pp PublicPlaylist
+		if err := rows.Scan(&pp.ShareToken, &pp.Name, &pp.OwnerID, &pp.OwnerEmail, &pp.TrackCount,
+			&pp.Likes.Count, &pp.Likes.Liked, &pp.UpdatedAt); err != nil {
+			return nil, err
+		}
+		listed = append(listed, pp)
+	}
+	return listed, rows.Err()
 }

@@ -4,8 +4,11 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/mhdolatabadi/nafir/server/internal/bot"
@@ -17,12 +20,20 @@ const shareTokenBytes = 16
 
 // SharedPlaylistStore is what sharing needs from playlists.
 type SharedPlaylistStore interface {
-	Share(ctx context.Context, ownerID, playlistID, token string) (store.Playlist, error)
+	Share(ctx context.Context, ownerID, playlistID, token string, public *bool) (store.Playlist, error)
 	Unshare(ctx context.Context, ownerID, playlistID string) error
 	ForShareToken(ctx context.Context, token string) (store.SharedPlaylist, error)
 	SharedTrack(ctx context.Context, token, trackID string) (store.Track, error)
 	SaveShared(ctx context.Context, userID, token string, maxOwnerBytes int64, objects store.ObjectCopier) (store.Playlist, error)
+	LikesFor(ctx context.Context, playlistID, userID string) (store.Likes, error)
+	SetLike(ctx context.Context, userID, token string, liked bool) (store.Likes, error)
+	Popular(ctx context.Context, userID string, limit int) ([]store.PublicPlaylist, error)
 }
+
+const (
+	defaultPublicPlaylists = 50
+	maxPublicPlaylists     = 100
+)
 
 // SavePolicy is what saving a shared playlist into an account must respect:
 // the same quota and uploads switch as uploading the tracks would.
@@ -50,6 +61,9 @@ func (h *PlaylistHandlers) registerSharing(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/shared-playlists/{token}", h.handleShared)
 	mux.HandleFunc("GET /api/v1/shared-playlists/{token}/tracks/{trackId}/stream", h.handleSharedStream)
 	mux.HandleFunc("POST /api/v1/shared-playlists/{token}/save", h.handleSaveShared)
+	mux.HandleFunc("PUT /api/v1/shared-playlists/{token}/like", h.handleLike(true))
+	mux.HandleFunc("DELETE /api/v1/shared-playlists/{token}/like", h.handleLike(false))
+	mux.HandleFunc("GET /api/v1/public-playlists", h.handlePublic)
 }
 
 // handleSaveShared copies a shared playlist and its tracks into the caller's
@@ -83,8 +97,14 @@ func (h *PlaylistHandlers) handleSaveShared(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+type shareRequest struct {
+	// Public lists the playlist for everyone; absent keeps what it was.
+	Public *bool `json:"public"`
+}
+
 type shareResponse struct {
 	ShareToken string `json:"shareToken"`
+	Public     bool   `json:"public"`
 }
 
 func (h *PlaylistHandlers) handleShare(w http.ResponseWriter, r *http.Request) {
@@ -92,13 +112,21 @@ func (h *PlaylistHandlers) handleShare(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	var request shareRequest
+	if r.ContentLength != 0 {
+		r.Body = http.MaxBytesReader(w, r.Body, maxPlaylistBodyBytes)
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil && !errors.Is(err, io.EOF) {
+			writeError(w, http.StatusBadRequest, "invalid_json")
+			return
+		}
+	}
 	for range 3 {
 		token, err := newShareToken()
 		if err != nil {
 			internalError(w, "draw share token", err)
 			return
 		}
-		playlist, err := h.shared.Share(r.Context(), userID, r.PathValue("id"), token)
+		playlist, err := h.shared.Share(r.Context(), userID, r.PathValue("id"), token, request.Public)
 		switch {
 		case errors.Is(err, store.ErrShareTokenTaken):
 			continue
@@ -107,7 +135,7 @@ func (h *PlaylistHandlers) handleShare(w http.ResponseWriter, r *http.Request) {
 		case err != nil:
 			internalError(w, "share playlist", err)
 		default:
-			writeJSON(w, http.StatusOK, shareResponse{ShareToken: *playlist.ShareToken})
+			writeJSON(w, http.StatusOK, shareResponse{ShareToken: *playlist.ShareToken, Public: playlist.IsPublic})
 		}
 		return
 	}
@@ -134,7 +162,10 @@ type sharedPlaylistResponse struct {
 	Name       string          `json:"name"`
 	Owner      string          `json:"owner"`
 	IsOwner    bool            `json:"isOwner"`
+	Public     bool            `json:"public"`
 	TrackCount int             `json:"trackCount"`
+	LikeCount  int             `json:"likeCount"`
+	Liked      bool            `json:"liked"`
 	Tracks     []trackResponse `json:"tracks"`
 	UpdatedAt  time.Time       `json:"updatedAt"`
 }
@@ -168,10 +199,15 @@ func (h *PlaylistHandlers) handleShared(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
+	likes, err := h.shared.LikesFor(r.Context(), shared.ID, userID)
+	if err != nil {
+		internalError(w, "load playlist likes", err)
+		return
+	}
 	response := sharedPlaylistResponse{
 		Name: shared.Name, Owner: bot.MaskEmail(shared.OwnerEmail), IsOwner: shared.OwnerID == userID,
-		TrackCount: len(shared.Tracks), Tracks: make([]trackResponse, 0, len(shared.Tracks)),
-		UpdatedAt: shared.UpdatedAt.UTC(),
+		Public: shared.IsPublic, TrackCount: len(shared.Tracks), LikeCount: likes.Count, Liked: likes.Liked,
+		Tracks: make([]trackResponse, 0, len(shared.Tracks)), UpdatedAt: shared.UpdatedAt.UTC(),
 	}
 	for _, track := range shared.Tracks {
 		response.Tracks = append(response.Tracks, toTrackResponse(track))
@@ -205,6 +241,80 @@ func (h *PlaylistHandlers) handleSharedStream(w http.ResponseWriter, r *http.Req
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, streamResponse{URL: url, ExpiresAt: expiresAt.UTC()})
+}
+
+type likeResponse struct {
+	Liked     bool `json:"liked"`
+	LikeCount int  `json:"likeCount"`
+}
+
+// handleLike likes (PUT) or unlikes (DELETE) the playlist shared at
+// {token}. Both are idempotent, so a retried request changes nothing.
+func (h *PlaylistHandlers) handleLike(liked bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, ok := authenticate(h.tokens, w, r)
+		if !ok {
+			return
+		}
+		token := r.PathValue("token")
+		if !validShareToken(token) {
+			writeError(w, http.StatusNotFound, "not_found")
+			return
+		}
+		likes, err := h.shared.SetLike(r.Context(), userID, token, liked)
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			writeError(w, http.StatusNotFound, "not_found")
+		case err != nil:
+			internalError(w, "like playlist", err)
+		default:
+			writeJSON(w, http.StatusOK, likeResponse{Liked: likes.Liked, LikeCount: likes.Count})
+		}
+	}
+}
+
+type publicPlaylistResponse struct {
+	ShareToken string    `json:"shareToken"`
+	Name       string    `json:"name"`
+	Owner      string    `json:"owner"`
+	IsOwner    bool      `json:"isOwner"`
+	TrackCount int       `json:"trackCount"`
+	LikeCount  int       `json:"likeCount"`
+	Liked      bool      `json:"liked"`
+	UpdatedAt  time.Time `json:"updatedAt"`
+}
+
+// handlePublic lists public playlists, most liked first. ?limit= caps how
+// many (default 50, at most 100).
+func (h *PlaylistHandlers) handlePublic(w http.ResponseWriter, r *http.Request) {
+	userID, ok := authenticate(h.tokens, w, r)
+	if !ok {
+		return
+	}
+	limit := defaultPublicPlaylists
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n < 1 {
+			writeError(w, http.StatusBadRequest, "invalid_limit")
+			return
+		}
+		limit = min(n, maxPublicPlaylists)
+	}
+	listed, err := h.shared.Popular(r.Context(), userID, limit)
+	if err != nil {
+		internalError(w, "list public playlists", err)
+		return
+	}
+	response := make([]publicPlaylistResponse, 0, len(listed))
+	for _, p := range listed {
+		response = append(response, publicPlaylistResponse{
+			ShareToken: p.ShareToken, Name: p.Name, Owner: bot.MaskEmail(p.OwnerEmail),
+			IsOwner: p.OwnerID == userID, TrackCount: p.TrackCount,
+			LikeCount: p.Likes.Count, Liked: p.Likes.Liked, UpdatedAt: p.UpdatedAt.UTC(),
+		})
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, map[string]any{"playlists": response})
 }
 
 func newShareToken() (string, error) {

@@ -4,6 +4,7 @@ import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/playlists/application/playlists_controller.dart';
 import 'package:nafir/features/playlists/data/playlist.dart';
+import 'package:nafir/features/playlists/presentation/popular_playlists_screen.dart';
 import 'package:nafir/features/playlists/presentation/shared_playlist_screen.dart';
 
 class PlaylistsScreen extends StatefulWidget {
@@ -100,12 +101,27 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
     ));
   }
 
+  Future<void> _openPopular() async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => PopularPlaylistsScreen(
+        controller: widget.controller,
+        player: widget.player,
+      ),
+    ));
+    if (mounted) widget.controller.load();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Playlistها'),
         actions: [
+          IconButton(
+            tooltip: 'Playlistهای محبوب',
+            onPressed: _openPopular,
+            icon: const Icon(Icons.local_fire_department_outlined),
+          ),
           IconButton(
             tooltip: 'باز کردن لینک اشتراک',
             onPressed: _openLink,

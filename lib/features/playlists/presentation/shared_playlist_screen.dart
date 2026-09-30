@@ -56,6 +56,24 @@ class _SharedPlaylistScreenState extends State<SharedPlaylistScreen> {
     ));
   }
 
+  Future<void> _like() async {
+    final playlist = _playlist;
+    if (playlist == null) return;
+    final result = await widget.controller.setLike(
+      widget.shareToken,
+      playlist.likes,
+      onChange: (likes) {
+        if (mounted) setState(() => _playlist = _playlist?.withLikes(likes));
+      },
+    );
+    if (!mounted || result == LikeResult.done) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(result == LikeResult.gone
+          ? 'این Playlist دیگر به اشتراک گذاشته نمی‌شود.'
+          : 'پسندیدن ثبت نشد. دوباره تلاش کن.'),
+    ));
+  }
+
   @override
   void initState() {
     super.initState();
@@ -105,11 +123,16 @@ class _SharedPlaylistScreenState extends State<SharedPlaylistScreen> {
               label: const Text('تلاش دوباره'),
             ),
           ),
-        _Load.loaded => _Contents(
-            playlist: playlist!,
-            player: widget.player,
-            saving: _saving,
-            onSave: playlist.isOwner ? null : _save,
+        _Load.loaded => ListenableBuilder(
+            listenable: widget.controller,
+            builder: (context, _) => _Contents(
+              playlist: playlist!,
+              player: widget.player,
+              saving: _saving,
+              onSave: playlist.isOwner ? null : _save,
+              onLike:
+                  widget.controller.isLiking(widget.shareToken) ? null : _like,
+            ),
           ),
       },
     );
@@ -122,11 +145,15 @@ class _Contents extends StatelessWidget {
     required this.player,
     required this.saving,
     this.onSave,
+    this.onLike,
   });
 
   final SharedPlaylist playlist;
   final PlayerController player;
   final bool saving;
+
+  /// Likes or unlikes it; null while a like is on its way.
+  final VoidCallback? onLike;
 
   /// Saves a copy to the account; null for the owner's own playlist.
   final VoidCallback? onSave;
@@ -149,7 +176,38 @@ class _Contents extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              subtitle: Text('${tracks.length} آهنگ'),
+              subtitle: Text([
+                '${tracks.length} آهنگ',
+                if (playlist.isOwner)
+                  playlist.isPublic ? 'عمومی' : 'فقط با لینک',
+              ].join(' · ')),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (tracks.isNotEmpty)
+                    FilledButton.icon(
+                      onPressed: () => player.playFrom(tracks, 0),
+                      icon: const Icon(Icons.play_arrow),
+                      label: const Text('پخش همه'),
+                    ),
+                  PlaylistLikeButton(likes: playlist.likes, onPressed: onLike),
+                  if (onSave != null && tracks.isNotEmpty)
+                    OutlinedButton.icon(
+                      onPressed: saving ? null : onSave,
+                      icon: saving
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.library_add),
+                      label: const Text('افزودن به حساب من'),
+                    ),
+                ],
+              ),
             ),
             if (tracks.isEmpty)
               const Expanded(
@@ -158,33 +216,7 @@ class _Contents extends StatelessWidget {
                   text: 'این Playlist فعلاً آهنگی ندارد.',
                 ),
               )
-            else ...[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    FilledButton.icon(
-                      onPressed: () => player.playFrom(tracks, 0),
-                      icon: const Icon(Icons.play_arrow),
-                      label: const Text('پخش همه'),
-                    ),
-                    if (onSave != null)
-                      OutlinedButton.icon(
-                        onPressed: saving ? null : onSave,
-                        icon: saving
-                            ? const SizedBox.square(
-                                dimension: 18,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.library_add),
-                        label: const Text('افزودن به حساب من'),
-                      ),
-                  ],
-                ),
-              ),
+            else
               Expanded(
                 child: ListView.builder(
                   padding: const EdgeInsets.fromLTRB(8, 4, 8, 96),
@@ -204,9 +236,60 @@ class _Contents extends StatelessWidget {
                   },
                 ),
               ),
-            ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Likes or unlikes a shared playlist. The heart is filled when liked and
+/// the words say so too, so the state never rests on color alone.
+class PlaylistLikeButton extends StatelessWidget {
+  const PlaylistLikeButton({
+    super.key,
+    required this.likes,
+    required this.onPressed,
+    this.compact = false,
+  });
+
+  final PlaylistLikes likes;
+
+  /// Null while a like is on its way.
+  final VoidCallback? onPressed;
+
+  /// Shows only the heart and the count, for a row in a list.
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final liked = likes.liked;
+    final count = likes.likeCount;
+    final color = liked ? Theme.of(context).colorScheme.primary : null;
+    final icon =
+        Icon(liked ? Icons.favorite : Icons.favorite_border, color: color);
+    final tooltip = liked ? 'برداشتن پسند' : 'پسندیدن این Playlist';
+    return Tooltip(
+      message: tooltip,
+      child: Semantics(
+        label: liked ? 'پسندیده‌ای، $count پسند' : 'نپسندیده‌ای، $count پسند',
+        toggled: liked,
+        excludeSemantics: true,
+        button: true,
+        enabled: onPressed != null,
+        onTap: onPressed,
+        child: compact
+            ? TextButton.icon(
+                onPressed: onPressed,
+                icon: icon,
+                label: Text('$count'),
+                style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+              )
+            : OutlinedButton.icon(
+                onPressed: onPressed,
+                icon: icon,
+                label: Text(liked ? 'پسندیدی · $count' : 'پسندیدن · $count'),
+              ),
       ),
     );
   }
@@ -265,21 +348,39 @@ class _ShareSheet extends StatefulWidget {
 
 class _ShareSheetState extends State<_ShareSheet> {
   late String? _token = widget.playlist.shareToken;
+  late bool _public = widget.playlist.isPublic;
   bool _busy = false;
   String? _error;
 
-  Future<void> _share() async {
+  /// Creates the link with the chosen visibility, or changes the visibility
+  /// of the link there is; the link itself stays the same.
+  Future<void> _share({required bool public, required String failure}) async {
     setState(() {
       _busy = true;
       _error = null;
     });
-    final token = await widget.controller.share(widget.playlist.id);
+    final shared =
+        await widget.controller.share(widget.playlist.id, public: public);
     if (!mounted) return;
     setState(() {
       _busy = false;
-      _token = token ?? _token;
-      if (token == null) _error = 'ساخت لینک ناموفق بود. دوباره تلاش کن.';
+      if (shared == null) {
+        _error = failure;
+      } else {
+        _token = shared.shareToken;
+        _public = shared.isPublic;
+      }
     });
+  }
+
+  Future<void> _choose(bool public) async {
+    if (public == _public) return;
+    if (_token == null) {
+      setState(() => _public = public);
+      return;
+    }
+    await _share(
+        public: public, failure: 'تغییر نمایش ناموفق بود. دوباره تلاش کن.');
   }
 
   Future<void> _unshare() async {
@@ -293,6 +394,7 @@ class _ShareSheetState extends State<_ShareSheet> {
       _busy = false;
       if (ok) {
         _token = null;
+        _public = false;
       } else {
         _error = 'لغو اشتراک ناموفق بود. دوباره تلاش کن.';
       }
@@ -308,6 +410,7 @@ class _ShareSheetState extends State<_ShareSheet> {
         : origin == null
             ? token
             : sharedPlaylistLink(origin, token).toString();
+    final theme = Theme.of(context);
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
@@ -317,7 +420,7 @@ class _ShareSheetState extends State<_ShareSheet> {
           children: [
             Text(
               'اشتراک‌گذاری «${widget.playlist.name}»',
-              style: Theme.of(context).textTheme.titleMedium,
+              style: theme.textTheme.titleMedium,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -326,6 +429,35 @@ class _ShareSheetState extends State<_ShareSheet> {
               link == null
                   ? 'با لینک اشتراک، هر کسی که حساب نفیر دارد می‌تواند این Playlist را ببیند و آهنگ‌هایش را پخش کند. هر وقت بخواهی می‌توانی لینک را باطل کنی.'
                   : 'هر کسی که این لینک را دارد و وارد نفیر شده، این Playlist را می‌بیند و پخش می‌کند.',
+            ),
+            const SizedBox(height: 16),
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(
+                  value: false,
+                  icon: Icon(Icons.link),
+                  label: Text('فقط با لینک'),
+                ),
+                ButtonSegment(
+                  value: true,
+                  icon: Icon(Icons.public),
+                  label: Text('عمومی'),
+                ),
+              ],
+              selected: {_public},
+              onSelectionChanged:
+                  _busy ? null : (selected) => _choose(selected.single),
+              style: const ButtonStyle(
+                minimumSize: WidgetStatePropertyAll(Size(0, 48)),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _public
+                  ? 'در «Playlistهای محبوب» به همه‌ی کاربران نفیر نشان داده می‌شود و می‌توانند آن را بپسندند.'
+                  : 'در هیچ فهرستی نمی‌آید؛ فقط کسی که لینک را دارد پیدایش می‌کند.',
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 16),
             if (link != null) ...[
@@ -352,7 +484,11 @@ class _ShareSheetState extends State<_ShareSheet> {
               ),
             ] else
               FilledButton.icon(
-                onPressed: _busy ? null : _share,
+                onPressed: _busy
+                    ? null
+                    : () => _share(
+                        public: _public,
+                        failure: 'ساخت لینک ناموفق بود. دوباره تلاش کن.'),
                 icon: const Icon(Icons.link),
                 label: const Text('ساخت لینک اشتراک'),
               ),
@@ -360,8 +496,7 @@ class _ShareSheetState extends State<_ShareSheet> {
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(error,
-                    style:
-                        TextStyle(color: Theme.of(context).colorScheme.error)),
+                    style: TextStyle(color: theme.colorScheme.error)),
               ),
           ],
         ),
