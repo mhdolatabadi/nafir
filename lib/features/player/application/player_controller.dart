@@ -92,6 +92,15 @@ class PlayerController extends ChangeNotifier {
     await _start(_queue!.current);
   }
 
+  /// Starts with a randomized first track and keeps the full source shuffled.
+  Future<void> playShuffled(List<Track> tracks) async {
+    if (tracks.isEmpty) return;
+    _shuffle = true;
+    _queue = PlayQueue.shuffled(tracks, random: _random)..repeat = _repeat;
+    notifyListeners();
+    await _start(_queue!.current);
+  }
+
   /// Plays a single track.
   Future<void> play(Track track) => playFrom([track], 0);
 
