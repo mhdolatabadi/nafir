@@ -3,6 +3,7 @@ package ir.mhdolatabadi.nafir
 import android.Manifest
 import android.content.ContentUris
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import androidx.core.app.ActivityCompat
@@ -24,11 +25,22 @@ class MainActivity : AudioServiceActivity() {
             flutterEngine.dartExecutor.binaryMessenger,
             channelName,
         ).setMethodCallHandler { call, result ->
-            if (call.method != "queryAudio") {
-                result.notImplemented()
-            } else if (hasAudioPermission()) {
-                result.success(queryAudio())
-            } else if (pendingResult != null) {
+            when (call.method) {
+                "queryAudio" -> handleQueryAudio(result)
+                "copyAudioToCache" -> handleCopyAudioToCache(
+                    call.argument<String>("uri"),
+                    call.argument<String>("fileName"),
+                    result,
+                )
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    private fun handleQueryAudio(result: MethodChannel.Result) {
+        if (hasAudioPermission()) {
+            result.success(queryAudio())
+        } else if (pendingResult != null) {
                 result.error("BUSY", "An audio permission request is already active.", null)
             } else {
                 pendingResult = result
@@ -38,6 +50,39 @@ class MainActivity : AudioServiceActivity() {
                     permissionRequest,
                 )
             }
+        }
+    }
+
+    private fun handleCopyAudioToCache(
+        uri: String?,
+        fileName: String?,
+        result: MethodChannel.Result,
+    ) {
+        if (uri == null || fileName == null) {
+            result.error("INVALID_ARGUMENT", "Audio uri and filename are required.", null)
+            return
+        }
+        if (!hasAudioPermission()) {
+            result.error("PERMISSION_DENIED", "Audio access was denied.", null)
+            return
+        }
+        try {
+            val safeName = fileName.replace(Regex("[^A-Za-z0-9._-]"), "_")
+            val output = kotlin.io.path.createTempFile(
+                cacheDir.toPath(),
+                "nafir-upload-",
+                "-$safeName",
+            ).toFile()
+            contentResolver.openInputStream(Uri.parse(uri)).use { input ->
+                if (input == null) {
+                    result.error("NOT_FOUND", "Audio file could not be opened.", null)
+                    return
+                }
+                output.outputStream().use { outputStream -> input.copyTo(outputStream) }
+            }
+            result.success(output.absolutePath)
+        } catch (error: Exception) {
+            result.error("READ_FAILED", error.message, null)
         }
     }
 
@@ -105,6 +150,7 @@ class MainActivity : AudioServiceActivity() {
                     "album" to cursor.getString(albumColumn),
                     "contentType" to (cursor.getString(typeColumn) ?: "audio/*"),
                     "sizeBytes" to cursor.getLong(sizeColumn),
+                    "fileName" to cursor.getString(nameColumn),
                     "uri" to ContentUris.withAppendedId(
                         MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
                         id,
