@@ -27,7 +27,7 @@ This file defines the standing rules for every contributor and coding agent work
 - Long Persian, Arabic, and Latin titles must truncate gracefully without overflow.
 - Desktop content must use a centered maximum width and must not stick to the viewport edges.
 - Preserve accessibility semantics, visible focus, useful tooltips, and adequate contrast.
-- Before making substantial UI changes, inspect and follow the relevant guidance stored under `.skill/`.
+- Before making substantial UI changes, inspect and follow the relevant guidance stored under `.skills/`.
 
 ## Music and file behavior
 
