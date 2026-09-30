@@ -6,6 +6,7 @@ class Track {
     this.album,
     required this.contentType,
     required this.sizeBytes,
+    this.fileName,
     this.sourceUri,
     this.source,
     this.sharedVia,
@@ -19,6 +20,7 @@ class Track {
         album: json['album'] as String?,
         contentType: json['contentType'] as String,
         sizeBytes: (json['sizeBytes'] as num).toInt(),
+        fileName: json['fileName'] as String?,
         source: json['source'] as String?,
         sharedVia: sharedVia,
       );
@@ -29,6 +31,10 @@ class Track {
   final String? album;
   final String contentType;
   final int sizeBytes;
+
+  /// Original filename when the platform exposes it. Local uploads use this
+  /// to preserve the extension for format detection.
+  final String? fileName;
 
   /// Present only for audio discovered on this device (usually content://).
   final Uri? sourceUri;

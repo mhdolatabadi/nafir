@@ -1,7 +1,10 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
+import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
+
+const _fallbackArtwork = 'asset:///assets/icon/nafir.png';
 
 /// Connects the system's media controls (notification, lock screen, headset
 /// buttons and, on the web, the browser's MediaSession) to [PlayerController].
@@ -48,15 +51,9 @@ class NafirAudioHandler extends BaseAudioHandler with SeekHandler {
     if (track?.id != _mediaId || player.duration != _mediaDuration) {
       _mediaId = track?.id;
       _mediaDuration = player.duration;
-      mediaItem.add(track == null
-          ? null
-          : MediaItem(
-              id: track.id,
-              title: track.title,
-              artist: track.artist,
-              album: track.album,
-              duration: player.duration,
-            ));
+      mediaItem.add(
+        track == null ? null : _mediaItemFor(track, player.duration),
+      );
     }
 
     final playing = player.status == PlayerStatus.playing ||
@@ -87,6 +84,33 @@ class NafirAudioHandler extends BaseAudioHandler with SeekHandler {
     if (_last != null && !_changed(_last!, next)) return;
     _last = next;
     playbackState.add(next);
+  }
+
+  MediaItem _mediaItemFor(Track track, Duration? duration) {
+    final artist = track.artist?.trim();
+    final album = track.album?.trim();
+    final sourceLabel = track.isLocal ? 'روی دستگاه' : 'روی سرور';
+    final subtitle = artist == null || artist.isEmpty ? sourceLabel : artist;
+    return MediaItem(
+      id: track.id,
+      title: track.title,
+      artist: subtitle,
+      album: album == null || album.isEmpty ? 'Nafir' : album,
+      duration: duration,
+      artUri: Uri.parse(_fallbackArtwork),
+      displayTitle: track.title,
+      displaySubtitle: subtitle,
+      displayDescription: track.isLocal
+          ? 'پخش از فایل‌های دستگاه'
+          : switch (track.importedFrom) {
+              final from? => 'واردشده از $from',
+              null => 'پخش از کتابخانهٔ نفیر',
+            },
+      extras: {
+        'source': track.source ?? (track.isLocal ? 'device' : 'upload'),
+        'location': track.isLocal ? 'device' : 'server',
+      },
+    );
   }
 
   static bool _changed(PlaybackState before, PlaybackState after) {

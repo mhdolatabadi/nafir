@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/playlists/application/playlists_controller.dart';
@@ -136,41 +137,132 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                       onRefresh: () async {
                         await widget.controller.load();
                       },
-                      child: ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-                        itemCount: widget.controller.playlists.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (context, index) {
-                          final playlist = widget.controller.playlists[index];
-                          return ListTile(
-                            leading: const CircleAvatar(
-                              child: Icon(Icons.queue_music),
-                            ),
-                            title: Row(
-                              children: [
-                                Flexible(child: Text(playlist.name)),
-                                if (playlist.shareToken != null)
-                                  const Padding(
-                                    padding:
-                                        EdgeInsetsDirectional.only(start: 6),
-                                    child: Tooltip(
-                                      message: 'با لینک به اشتراک گذاشته شده',
-                                      child: Icon(Icons.link, size: 16),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            subtitle: Text(
-                              '${playlist.trackCount} قطعه موسیقی',
-                            ),
-                            trailing: const Icon(Icons.chevron_left),
-                            onTap: () => _open(playlist),
-                          );
-                        },
+                      child: _PlaylistsOverview(
+                        playlists: widget.controller.playlists,
+                        onOpen: _open,
                       ),
                     ),
             },
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlaylistsOverview extends StatelessWidget {
+  const _PlaylistsOverview({
+    required this.playlists,
+    required this.onOpen,
+  });
+
+  final List<Playlist> playlists;
+  final void Function(Playlist playlist) onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final featured = playlists.take(3).toList(growable: false);
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 112),
+      children: [
+        if (featured.isNotEmpty) ...[
+          SizedBox(
+            height: 184,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: featured.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 14),
+              itemBuilder: (context, index) {
+                final playlist = featured[index];
+                return _PlaylistFeatureCard(
+                  playlist: playlist,
+                  onTap: () => onOpen(playlist),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
+        Padding(
+          padding: const EdgeInsetsDirectional.only(start: 4, bottom: 8),
+          child: Text(
+            'همهٔ Playlistها',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ),
+        for (final playlist in playlists)
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+            leading: _PlaylistCover(trackCount: playlist.trackCount, size: 56),
+            title: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    playlist.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (playlist.shareToken != null)
+                  const Padding(
+                    padding: EdgeInsetsDirectional.only(start: 6),
+                    child: Tooltip(
+                      message: 'با لینک به اشتراک گذاشته شده',
+                      child: Icon(Icons.link, size: 16),
+                    ),
+                  ),
+              ],
+            ),
+            subtitle: Text('${playlist.trackCount} قطعه موسیقی'),
+            trailing: const Icon(Icons.chevron_left),
+            onTap: () => onOpen(playlist),
+          ),
+      ],
+    );
+  }
+}
+
+class _PlaylistFeatureCard extends StatelessWidget {
+  const _PlaylistFeatureCard({
+    required this.playlist,
+    required this.onTap,
+  });
+
+  final Playlist playlist;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 148,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _PlaylistCover(trackCount: playlist.trackCount, size: 148),
+            const SizedBox(height: 10),
+            Text(
+              playlist.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            Text(
+              '${playlist.trackCount} قطعه موسیقی',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ],
         ),
       ),
     );
@@ -339,35 +431,17 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                           )
                         : Column(
                             children: [
-                              Padding(
-                                padding:
-                                    const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: FilledButton.icon(
-                                        onPressed: () => widget.player
-                                            .playFrom(current.tracks, 0),
-                                        icon: const Icon(Icons.play_arrow),
-                                        label: const Text('پخش همه'),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: FilledButton.tonalIcon(
-                                        onPressed: () => widget.player
-                                            .playShuffled(current.tracks),
-                                        icon: const Icon(Icons.shuffle_rounded),
-                                        label: const Text('پخش تصادفی'),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                              _PlaylistDetailHeader(
+                                playlist: current,
+                                onPlay: () =>
+                                    widget.player.playFrom(current.tracks, 0),
+                                onShuffle: () =>
+                                    widget.player.playShuffled(current.tracks),
                               ),
                               Expanded(
                                 child: ReorderableListView.builder(
                                   padding:
-                                      const EdgeInsets.fromLTRB(8, 4, 8, 96),
+                                      const EdgeInsets.fromLTRB(8, 8, 8, 112),
                                   itemCount: current.tracks.length,
                                   onReorderItem: (oldIndex, newIndex) {
                                     final tracks =
@@ -395,9 +469,20 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                     final track = current.tracks[index];
                                     return ListTile(
                                       key: ValueKey(track.id),
-                                      leading: const Icon(Icons.drag_handle),
-                                      title: Text(track.title),
-                                      subtitle: Text(track.artist ?? ''),
+                                      leading: const _PlaylistTrackHandle(),
+                                      title: Text(
+                                        track.title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      subtitle: Text(
+                                        track.artist?.trim().isNotEmpty == true
+                                            ? track.artist!
+                                            : 'خواننده نامشخص',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      trailing: const Icon(Icons.more_vert),
                                       onTap: () => widget.player
                                           .playFrom(current.tracks, index),
                                     );
@@ -408,6 +493,149 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                           ),
                   ),
                 ),
+    );
+  }
+}
+
+class _PlaylistDetailHeader extends StatelessWidget {
+  const _PlaylistDetailHeader({
+    required this.playlist,
+    required this.onPlay,
+    required this.onShuffle,
+  });
+
+  final Playlist playlist;
+  final VoidCallback onPlay;
+  final VoidCallback onShuffle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: GlassSurface(
+        blur: 12,
+        radius: 24,
+        shadow: false,
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            _PlaylistCover(trackCount: playlist.trackCount, size: 92),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    playlist.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${playlist.trackCount} قطعه موسیقی',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      FilledButton.icon(
+                        onPressed: playlist.tracks.isEmpty ? null : onPlay,
+                        icon: const Icon(Icons.play_arrow),
+                        label: const Text('پخش'),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton.filledTonal(
+                        tooltip: 'پخش تصادفی',
+                        onPressed: playlist.tracks.isEmpty ? null : onShuffle,
+                        icon: const Icon(Icons.shuffle_rounded),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PlaylistCover extends StatelessWidget {
+  const _PlaylistCover({required this.trackCount, required this.size});
+
+  final int trackCount;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(size > 100 ? 24 : 18),
+        gradient: const LinearGradient(
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+          colors: [NafirGlass.primary, Color(0xFF4E3B8D)],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: NafirGlass.primary.withValues(alpha: 0.2),
+            offset: const Offset(0, 10),
+            blurRadius: 24,
+          ),
+        ],
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Icon(
+            trackCount == 0 ? Icons.queue_music : Icons.library_music,
+            size: size * 0.36,
+            color: const Color(0xFFFFF5F5),
+          ),
+          PositionedDirectional(
+            end: 10,
+            bottom: 10,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: colors.surface.withValues(alpha: 0.66),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                child: Text(
+                  trackCount.toString(),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: colors.onSurface,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlaylistTrackHandle extends StatelessWidget {
+  const _PlaylistTrackHandle();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      width: 40,
+      height: 40,
+      child: Icon(Icons.drag_handle),
     );
   }
 }

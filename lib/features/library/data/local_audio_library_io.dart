@@ -34,6 +34,7 @@ class AndroidLocalAudioLibrary implements LocalAudioLibrary {
           album: text('album'),
           contentType: text('contentType') ?? 'audio/*',
           sizeBytes: (map['sizeBytes'] as num?)?.toInt() ?? 0,
+          fileName: text('fileName'),
           sourceUri: Uri.parse(map['uri']! as String),
         );
       }).toList(growable: false);

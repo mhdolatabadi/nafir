@@ -39,6 +39,11 @@ void main() {
     expect(item.artist, 'Artist');
     expect(item.album, 'Album');
     expect(item.duration, const Duration(minutes: 3));
+    expect(item.artUri, Uri.parse('asset:///assets/icon/nafir.png'));
+    expect(item.displayTitle, 'First');
+    expect(item.displaySubtitle, 'Artist');
+    expect(item.displayDescription, 'پخش از کتابخانهٔ نفیر');
+    expect(item.extras?['location'], 'server');
   });
 
   test('playback state mirrors the player with prev/pause/next controls',
@@ -72,6 +77,8 @@ void main() {
     await handler.skipToNext();
     expect(player.track?.id, 'b');
     expect(handler.mediaItem.value?.title, 'Second');
+    expect(handler.mediaItem.value?.artist, 'روی سرور');
+    expect(handler.mediaItem.value?.displaySubtitle, 'روی سرور');
 
     await handler.skipToPrevious();
     expect(player.track?.id, 'a');
