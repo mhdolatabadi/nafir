@@ -545,6 +545,42 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('mini player controls are at least 48 px on a 360 px phone',
+      (tester) async {
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await _pumpApp(
+      tester,
+      tokenStore: MemoryTokenStore('valid-token'),
+      tracks: FakeTracksApi(const [
+        Track(
+          id: 's1',
+          title: 'A very long track title that must remain readable',
+          artist: 'A very long artist name',
+          contentType: 'audio/mpeg',
+          sizeBytes: 1,
+        ),
+      ]),
+    );
+    await tester.tap(
+      find.text('A very long track title that must remain readable'),
+    );
+    await tester.pumpAndSettle();
+
+    for (final tooltip in ['قبلی', 'توقف', 'بعدی']) {
+      final size = tester.getSize(find.descendant(
+        of: find.byTooltip(tooltip),
+        matching: find.byType(InkWell),
+      ));
+      expect(size.width, greaterThanOrEqualTo(48), reason: tooltip);
+      expect(size.height, greaterThanOrEqualTo(48), reason: tooltip);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('next, shuffle and repeat controls in the mini player', (
     tester,
   ) async {
