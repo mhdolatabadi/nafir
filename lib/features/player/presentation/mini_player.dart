@@ -91,7 +91,8 @@ class _MiniPlayerState extends State<MiniPlayer> {
                   }
 
                   return Padding(
-                    padding: const EdgeInsetsDirectional.fromSTEB(20, 10, 20, 8),
+                    padding:
+                        const EdgeInsetsDirectional.fromSTEB(20, 10, 20, 8),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -524,9 +525,10 @@ class _NowPlayingScreenState extends State<_NowPlayingScreen> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
                     ),
                     const SizedBox(height: 8),
                     Text(
