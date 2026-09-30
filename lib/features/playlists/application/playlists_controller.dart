@@ -15,6 +15,8 @@ enum SaveSharedResult {
   failed
 }
 
+enum LikeResult { done, gone, failed }
+
 /// A shared playlist link that is malformed, unknown or no longer shared.
 class SharedPlaylistUnavailable implements Exception {
   const SharedPlaylistUnavailable();
@@ -31,6 +33,65 @@ class PlaylistsController extends ChangeNotifier {
 
   PlaylistsStatus status = PlaylistsStatus.loading;
   List<Playlist> playlists = const [];
+
+  /// Public playlists, most liked first, once [loadPopular] has run.
+  PlaylistsStatus popularStatus = PlaylistsStatus.loading;
+  List<PublicPlaylist> popular = const [];
+
+  /// Share tokens whose like is on its way to the server.
+  final Set<String> _liking = {};
+  bool isLiking(String shareToken) => _liking.contains(shareToken);
+
+  Future<void> loadPopular() async {
+    final token = _token();
+    if (token == null) return;
+    popularStatus = PlaylistsStatus.loading;
+    notifyListeners();
+    try {
+      popular = await _api.listPublicPlaylists(token);
+      popularStatus = PlaylistsStatus.loaded;
+    } catch (_) {
+      popularStatus = PlaylistsStatus.error;
+    }
+    notifyListeners();
+  }
+
+  /// Likes or unlikes a shared playlist. The popular list shows the change
+  /// at once and goes back if the server refuses it; [onChange] lets a
+  /// screen do the same with its own copy. A like already on its way is
+  /// not sent twice.
+  Future<LikeResult> setLike(String shareToken, PlaylistLikes current,
+      {void Function(PlaylistLikes likes)? onChange}) async {
+    final token = _token();
+    if (token == null || _liking.contains(shareToken)) {
+      return LikeResult.failed;
+    }
+    void show(PlaylistLikes likes) {
+      onChange?.call(likes);
+      popular = [
+        for (final p in popular)
+          p.shareToken == shareToken ? p.withLikes(likes) : p,
+      ];
+      notifyListeners();
+    }
+
+    final wanted = current.toggled();
+    _liking.add(shareToken);
+    show(wanted);
+    try {
+      show(await _api.setPlaylistLike(token, shareToken, wanted.liked));
+      return LikeResult.done;
+    } on ApiException catch (e) {
+      show(current);
+      return e.statusCode == 404 ? LikeResult.gone : LikeResult.failed;
+    } catch (_) {
+      show(current);
+      return LikeResult.failed;
+    } finally {
+      _liking.remove(shareToken);
+      notifyListeners();
+    }
+  }
 
   Future<bool> load() async {
     final token = _token();
@@ -63,12 +124,13 @@ class PlaylistsController extends ChangeNotifier {
     }
   }
 
-  /// Shares the playlist by link and returns its share token, or null.
-  Future<String?> share(String id) async {
+  /// Shares the playlist by link, or changes whether it is [public], and
+  /// returns how it is shared now, or null when that failed.
+  Future<PlaylistShare?> share(String id, {bool? public}) async {
     final token = _token();
     if (token == null) return null;
     try {
-      return await _api.sharePlaylist(token, id);
+      return await _api.sharePlaylist(token, id, public: public);
     } catch (_) {
       return null;
     }
@@ -193,7 +255,9 @@ class PlaylistsController extends ChangeNotifier {
 
   void clear() {
     playlists = const [];
+    popular = const [];
     status = PlaylistsStatus.loading;
+    popularStatus = PlaylistsStatus.loading;
     notifyListeners();
   }
 }

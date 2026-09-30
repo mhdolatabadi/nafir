@@ -82,8 +82,11 @@ abstract interface class PlaylistsApi {
   Future<void> deletePlaylist(String token, String playlistId);
 
   /// Shares the playlist by link and returns its share token; sharing again
-  /// returns the same one.
-  Future<String> sharePlaylist(String token, String playlistId);
+  /// returns the same one. [public] lists it among the popular playlists
+  /// (true) or keeps it to people with the link (false); null keeps what
+  /// it was.
+  Future<PlaylistShare> sharePlaylist(String token, String playlistId,
+      {bool? public});
 
   /// Stops sharing; the old link stops working.
   Future<void> unsharePlaylist(String token, String playlistId);
@@ -91,7 +94,17 @@ abstract interface class PlaylistsApi {
 
   /// Copies a shared playlist and its tracks into the caller's account.
   Future<Playlist> saveSharedPlaylist(String token, String shareToken);
+
+  /// Likes or unlikes a shared playlist; doing it twice is the same as once.
+  Future<PlaylistLikes> setPlaylistLike(
+      String token, String shareToken, bool liked);
+
+  /// Public playlists, most liked first.
+  Future<List<PublicPlaylist>> listPublicPlaylists(String token);
 }
+
+/// A playlist's share link as its owner set it.
+typedef PlaylistShare = ({String shareToken, bool isPublic});
 
 abstract interface class BotsApi {
   Future<List<MessengerBot>> listBots(String token);
@@ -204,11 +217,33 @@ class ApiClient implements AuthApi, TracksApi, PlaylistsApi, BotsApi {
   }
 
   @override
-  Future<String> sharePlaylist(String token, String playlistId) async {
+  Future<PlaylistShare> sharePlaylist(String token, String playlistId,
+      {bool? public}) async {
     final body = await _send(
         'POST', '/api/v1/playlists/${Uri.encodeComponent(playlistId)}/share',
+        token: token, body: public == null ? null : {'public': public});
+    return (
+      shareToken: body['shareToken'] as String,
+      isPublic: body['public'] == true,
+    );
+  }
+
+  @override
+  Future<PlaylistLikes> setPlaylistLike(
+      String token, String shareToken, bool liked) async {
+    final body = await _send(liked ? 'PUT' : 'DELETE',
+        '/api/v1/shared-playlists/${Uri.encodeComponent(shareToken)}/like',
         token: token);
-    return body['shareToken'] as String;
+    return PlaylistLikes.fromJson(body);
+  }
+
+  @override
+  Future<List<PublicPlaylist>> listPublicPlaylists(String token) async {
+    final body = await _send('GET', '/api/v1/public-playlists', token: token);
+    return [
+      for (final json in body['playlists'] as List<dynamic>)
+        PublicPlaylist.fromJson(json as Map<String, dynamic>),
+    ];
   }
 
   @override

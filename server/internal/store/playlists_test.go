@@ -3,6 +3,8 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sync"
 	"testing"
 )
 
@@ -48,14 +50,14 @@ func TestSharingAPlaylist(t *testing.T) {
 	if _, err := playlists.ForShareToken(ctx, "nothing"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("unshared lookup: %v", err)
 	}
-	if _, err := playlists.Share(ctx, other.ID, playlist.ID, "stolen"); !errors.Is(err, ErrNotFound) {
+	if _, err := playlists.Share(ctx, other.ID, playlist.ID, "stolen", nil); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("sharing someone else's playlist: %v", err)
 	}
-	shared, err := playlists.Share(ctx, owner.ID, playlist.ID, "token-1")
+	shared, err := playlists.Share(ctx, owner.ID, playlist.ID, "token-1", nil)
 	if err != nil || shared.ShareToken == nil || *shared.ShareToken != "token-1" {
 		t.Fatalf("share = %+v, %v", shared, err)
 	}
-	again, _ := playlists.Share(ctx, owner.ID, playlist.ID, "token-2")
+	again, _ := playlists.Share(ctx, owner.ID, playlist.ID, "token-2", nil)
 	if *again.ShareToken != "token-1" {
 		t.Fatalf("sharing again changed the link: %q", *again.ShareToken)
 	}
@@ -73,7 +75,7 @@ func TestSharingAPlaylist(t *testing.T) {
 	}
 
 	other2, _ := playlists.Create(ctx, other.ID, "theirs")
-	if _, err := playlists.Share(ctx, other.ID, other2.ID, "token-1"); !errors.Is(err, ErrShareTokenTaken) {
+	if _, err := playlists.Share(ctx, other.ID, other2.ID, "token-1", nil); !errors.Is(err, ErrShareTokenTaken) {
 		t.Fatalf("colliding token: %v", err)
 	}
 
@@ -86,7 +88,7 @@ func TestSharingAPlaylist(t *testing.T) {
 	if _, err := playlists.SharedTrack(ctx, "token-1", inList.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("track after unsharing: %v", err)
 	}
-	reshared, _ := playlists.Share(ctx, owner.ID, playlist.ID, "token-3")
+	reshared, _ := playlists.Share(ctx, owner.ID, playlist.ID, "token-3", nil)
 	if *reshared.ShareToken != "token-3" {
 		t.Fatalf("resharing reused the old link: %q", *reshared.ShareToken)
 	}
@@ -127,7 +129,7 @@ func TestSavingASharedPlaylistCopiesItIntoTheAccount(t *testing.T) {
 	objects.objects[a.StorageKey], objects.objects[b.StorageKey] = "A", "B"
 	playlist, _ := playlists.Create(ctx, owner.ID, "mix")
 	playlists.ReplaceTracks(ctx, owner.ID, playlist.ID, []string{b.ID, a.ID})
-	playlists.Share(ctx, owner.ID, playlist.ID, "tok")
+	playlists.Share(ctx, owner.ID, playlist.ID, "tok", nil)
 
 	if _, err := playlists.SaveShared(ctx, owner.ID, "tok", 1000, objects); !errors.Is(err, ErrOwnPlaylist) {
 		t.Fatalf("owner saving their own: %v", err)
@@ -170,5 +172,149 @@ func TestSavingASharedPlaylistCopiesItIntoTheAccount(t *testing.T) {
 	tracks.Delete(ctx, owner.ID, a.ID)
 	if again, _ := playlists.ForOwner(ctx, friend.ID, saved.ID); len(again.Tracks) != 2 {
 		t.Fatalf("saved playlist changed with the original: %+v", again.Tracks)
+	}
+}
+
+func TestLikingASharedPlaylist(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	users := NewUsers(pool)
+	owner, _ := users.Create(ctx, "likes-owner@example.com", "hash")
+	fan, _ := users.Create(ctx, "fan@example.com", "hash")
+	playlists := NewPlaylists(pool)
+	playlist, _ := playlists.Create(ctx, owner.ID, "mix")
+
+	if _, err := playlists.SetLike(ctx, fan.ID, "tok", true); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("liking an unshared playlist: %v", err)
+	}
+	playlists.Share(ctx, owner.ID, playlist.ID, "tok", nil)
+
+	for range 2 {
+		likes, err := playlists.SetLike(ctx, fan.ID, "tok", true)
+		if err != nil || likes != (Likes{Count: 1, Liked: true}) {
+			t.Fatalf("like = %+v %v", likes, err)
+		}
+	}
+	if likes, _ := playlists.LikesFor(ctx, playlist.ID, owner.ID); likes != (Likes{Count: 1}) {
+		t.Fatalf("owner sees %+v", likes)
+	}
+
+	// Unsharing hides the likes but keeps them for when it is shared again.
+	playlists.Unshare(ctx, owner.ID, playlist.ID)
+	if _, err := playlists.SetLike(ctx, fan.ID, "tok", false); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("unliking through a revoked link: %v", err)
+	}
+	playlists.Share(ctx, owner.ID, playlist.ID, "tok2", nil)
+	if likes, _ := playlists.LikesFor(ctx, playlist.ID, fan.ID); likes != (Likes{Count: 1, Liked: true}) {
+		t.Fatalf("after resharing = %+v", likes)
+	}
+
+	for range 2 {
+		likes, err := playlists.SetLike(ctx, fan.ID, "tok2", false)
+		if err != nil || likes != (Likes{}) {
+			t.Fatalf("unlike = %+v %v", likes, err)
+		}
+	}
+
+	// Deleting the playlist or the user takes their likes with it.
+	playlists.SetLike(ctx, fan.ID, "tok2", true)
+	playlists.Delete(ctx, owner.ID, playlist.ID)
+	var left int
+	pool.QueryRow(ctx, `SELECT count(*) FROM playlist_likes`).Scan(&left)
+	if left != 0 {
+		t.Fatalf("%d likes outlived their playlist", left)
+	}
+}
+
+func TestConcurrentLikesAreCountedOnce(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	users := NewUsers(pool)
+	owner, _ := users.Create(ctx, "busy-owner@example.com", "hash")
+	playlists := NewPlaylists(pool)
+	playlist, _ := playlists.Create(ctx, owner.ID, "hit")
+	playlists.Share(ctx, owner.ID, playlist.ID, "tok", nil)
+
+	var fans []User
+	for i := range 5 {
+		fan, err := users.Create(ctx, fmt.Sprintf("fan%d@example.com", i), "hash")
+		if err != nil {
+			t.Fatal(err)
+		}
+		fans = append(fans, fan)
+	}
+	var wg sync.WaitGroup
+	for _, fan := range fans {
+		for range 4 {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				if _, err := playlists.SetLike(ctx, fan.ID, "tok", true); err != nil {
+					t.Error(err)
+				}
+			}()
+		}
+	}
+	wg.Wait()
+	if likes, _ := playlists.LikesFor(ctx, playlist.ID, fans[0].ID); likes != (Likes{Count: 5, Liked: true}) {
+		t.Fatalf("likes = %+v", likes)
+	}
+	pool.Exec(ctx, `DELETE FROM users WHERE id::text = $1`, fans[0].ID)
+	if likes, _ := playlists.LikesFor(ctx, playlist.ID, owner.ID); likes.Count != 4 {
+		t.Fatalf("after a fan is deleted = %+v", likes)
+	}
+}
+
+func TestOnlyPublicPlaylistsAreListedMostLikedFirst(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	users := NewUsers(pool)
+	owner, _ := users.Create(ctx, "lister@example.com", "hash")
+	fan, _ := users.Create(ctx, "listener@example.com", "hash")
+	other, _ := users.Create(ctx, "other-listener@example.com", "hash")
+	tracks := NewTracks(pool)
+	playlists := NewPlaylists(pool)
+	public, private := true, false
+
+	song, _ := tracks.Create(ctx, owner.ID, NewTrack{Title: "s", FileName: "a.mp3", ContentType: "audio/mpeg", SizeBytes: 1})
+	quiet, _ := playlists.Create(ctx, owner.ID, "quiet")
+	loved, _ := playlists.Create(ctx, owner.ID, "loved")
+	linkOnly, _ := playlists.Create(ctx, owner.ID, "link only")
+	unshared, _ := playlists.Create(ctx, owner.ID, "unshared")
+	playlists.ReplaceTracks(ctx, owner.ID, loved.ID, []string{song.ID})
+	playlists.Share(ctx, owner.ID, quiet.ID, "quiet", &public)
+	playlists.Share(ctx, owner.ID, loved.ID, "loved", &public)
+	playlists.Share(ctx, owner.ID, linkOnly.ID, "link", &private)
+	playlists.Share(ctx, owner.ID, unshared.ID, "gone", &public)
+	playlists.Unshare(ctx, owner.ID, unshared.ID)
+	for _, u := range []User{fan, other} {
+		playlists.SetLike(ctx, u.ID, "loved", true)
+		playlists.SetLike(ctx, u.ID, "link", true)
+	}
+
+	listed, err := playlists.Popular(ctx, fan.ID, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listed) != 2 || listed[0].Name != "loved" || listed[1].Name != "quiet" {
+		t.Fatalf("listed = %+v", listed)
+	}
+	if first := listed[0]; first.Likes != (Likes{Count: 2, Liked: true}) || first.TrackCount != 1 ||
+		first.ShareToken != "loved" || first.OwnerEmail != owner.Email {
+		t.Fatalf("most liked = %+v", first)
+	}
+	if limited, _ := playlists.Popular(ctx, fan.ID, 1); len(limited) != 1 {
+		t.Fatalf("limit ignored: %d", len(limited))
+	}
+
+	// Sharing again without saying keeps it public; unsharing resets it.
+	again, _ := playlists.Share(ctx, owner.ID, quiet.ID, "x", nil)
+	if !again.IsPublic {
+		t.Fatal("resharing made it link-only")
+	}
+	playlists.Unshare(ctx, owner.ID, quiet.ID)
+	reshared, _ := playlists.Share(ctx, owner.ID, quiet.ID, "y", nil)
+	if reshared.IsPublic {
+		t.Fatal("a reshared playlist is public by default")
 	}
 }
