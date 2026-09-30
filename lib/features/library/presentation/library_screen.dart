@@ -214,8 +214,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
   void _openSettings() {
     Navigator.of(context)
         .push(MaterialPageRoute<void>(
-          builder: (_) =>
-              SettingsScreen(cache: widget.cache, botLinks: widget.botLinks),
+          builder: (_) => SettingsScreen(
+            cache: widget.cache,
+            botLinks: widget.botLinks,
+            library: widget.library,
+          ),
         ))
         // A chat may have been linked meanwhile; offer sending to it.
         .then((_) => widget.botLinks?.load());
@@ -378,10 +381,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
               listenable: widget.library,
               builder: (context, _) => Column(
                 children: [
-                  _StorageUsage(
-                    usedBytes: widget.library.usedBytes,
-                    limitBytes: widget.library.limitBytes,
-                  ),
                   if (widget.library.importsInProgress case final n when n > 0)
                     _ImportsInProgress(count: n),
                 ],
@@ -1315,78 +1314,6 @@ class _ImportsInProgress extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _StorageUsage extends StatelessWidget {
-  const _StorageUsage({required this.usedBytes, required this.limitBytes});
-
-  final int usedBytes;
-  final int limitBytes;
-
-  @override
-  Widget build(BuildContext context) {
-    if (limitBytes <= 0) return const SizedBox.shrink();
-    final progress = (usedBytes / limitBytes).clamp(0.0, 1.0);
-    final percent = (progress * 100).round();
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 880),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(4, 12, 4, 0),
-          child: GlassSurface(
-            blur: 12,
-            radius: 16,
-            shadow: false,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Semantics(
-              label: 'فضای ابری مصرف‌شده',
-              value: '$percent درصد',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.cloud_outlined, size: 19),
-                      const SizedBox(width: 8),
-                      Text(
-                        'فضای ابری',
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          '${formatSize(usedBytes)} از ${formatSize(limitBytes)}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.end,
-                          style:
-                              Theme.of(context).textTheme.labelMedium?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                                  ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(99),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }

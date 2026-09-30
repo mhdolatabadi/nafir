@@ -2,12 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:nafir/core/format_size.dart';
 import 'package:nafir/features/bots/application/bot_link_controller.dart';
 import 'package:nafir/features/bots/presentation/bot_link_section.dart';
+import 'package:nafir/features/library/application/library_controller.dart';
 import 'package:nafir/features/settings/application/cache_controller.dart';
+import 'package:nafir/features/settings/presentation/storage_usage_card.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key, required this.cache, this.botLinks});
+  const SettingsScreen({
+    super.key,
+    required this.cache,
+    this.botLinks,
+    this.library,
+  });
 
   final CacheController cache;
+
+  /// Reports the account's cloud storage use; null when there is none.
+  final LibraryController? library;
 
   /// Null when the app has no API to ask about bots.
   final BotLinkController? botLinks;
@@ -58,6 +68,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
       appBar: AppBar(title: const Text('تنظیمات')),
       body: ListView(
         children: [
+          if (widget.library case final library?)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: ListenableBuilder(
+                listenable: library,
+                builder: (context, _) => StorageUsageCard(
+                  usedBytes: library.usedBytes,
+                  limitBytes: library.limitBytes,
+                ),
+              ),
+            ),
           const ListTile(
             title: Text('کش موسیقی'),
             subtitle: Text(
