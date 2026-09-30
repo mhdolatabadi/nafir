@@ -184,8 +184,8 @@ class ApiClient implements AuthApi, TracksApi, PlaylistsApi, BotsApi {
     String? artist,
     String? album,
   }) async {
-    final body = await _send('PATCH', '/api/v1/tracks/$trackId', token: token,
-        body: {'title': title, 'artist': artist, 'album': album});
+    final body = await _send('PATCH', '/api/v1/tracks/$trackId',
+        token: token, body: {'title': title, 'artist': artist, 'album': album});
     return Track.fromJson(body);
   }
 
