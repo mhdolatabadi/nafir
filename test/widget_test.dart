@@ -300,7 +300,7 @@ void main() {
 
     expect(find.text('Uploaded earlier'), findsOneWidget);
     expect(find.text('Artist'), findsOneWidget);
-    expect(find.text('3.0 مگابایت'), findsWidgets);
+    expect(find.textContaining('3.0 مگابایت'), findsWidgets);
     // Storage use lives in the account screen, not above the tracks.
     expect(find.textContaining('از 5.0 گیگابایت'), findsNothing);
     expect(find.text('کتابخانهٔ شما خالی است'), findsNothing);
@@ -359,19 +359,88 @@ void main() {
       ]),
     );
 
-    expect(find.text('2 از 2 قطعه'), findsOneWidget);
+    expect(find.text('2 آهنگ'), findsOneWidget);
     await tester.enterText(find.byType(SearchBar), 'missing');
     await tester.pumpAndSettle();
 
-    expect(find.text('0 از 2 قطعه'), findsOneWidget);
+    expect(find.text('0 از 2 آهنگ'), findsOneWidget);
     expect(find.text('نتیجه‌ای پیدا نشد'), findsOneWidget);
     await tester.ensureVisible(find.text('پاک کردن جست‌وجو'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('پاک کردن جست‌وجو'));
     await tester.pumpAndSettle();
 
-    expect(find.text('2 از 2 قطعه'), findsOneWidget);
+    expect(find.text('2 آهنگ'), findsOneWidget);
     expect(find.text('First song'), findsOneWidget);
+  });
+
+  testWidgets('the track list sorts by title and artist', (tester) async {
+    await _pumpApp(
+      tester,
+      tokenStore: MemoryTokenStore('valid-token'),
+      tracks: FakeTracksApi(const [
+        Track(
+            id: 's1',
+            title: 'Zebra',
+            artist: 'Alpha',
+            contentType: 'audio/mpeg',
+            sizeBytes: 1),
+        Track(
+            id: 's2',
+            title: 'Apple',
+            artist: 'Beta',
+            contentType: 'audio/mpeg',
+            sizeBytes: 1),
+      ]),
+    );
+    double top(String title) => tester.getTopLeft(find.text(title)).dy;
+    expect(top('Zebra'), lessThan(top('Apple')));
+
+    await tester.tap(find.byTooltip('مرتب‌سازی: تازه‌ترین'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('نام آهنگ'));
+    await tester.pumpAndSettle();
+    expect(top('Apple'), lessThan(top('Zebra')));
+
+    await tester.tap(find.byTooltip('مرتب‌سازی: نام آهنگ'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('خواننده'));
+    await tester.pumpAndSettle();
+    expect(top('Zebra'), lessThan(top('Apple')));
+  });
+
+  testWidgets('compact rows fit many tracks on a 360 px phone', (tester) async {
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await _pumpApp(
+      tester,
+      tokenStore: MemoryTokenStore('valid-token'),
+      tracks: FakeTracksApi([
+        for (var i = 0; i < 20; i++)
+          Track(
+            id: 's$i',
+            title: 'یک عنوان خیلی خیلی طولانی برای آهنگ شماره‌ی $i Long Title',
+            artist: 'Artist with a really long name number $i',
+            contentType: 'audio/mpeg',
+            sizeBytes: 3 * 1024 * 1024,
+          ),
+      ]),
+    );
+
+    expect(tester.takeException(), isNull);
+    final height = tester
+        .getSize(find.ancestor(
+            of: find.text('Artist with a really long name number 0'),
+            matching: find.byType(ListTile)))
+        .height;
+    expect(height, inInclusiveRange(56, 72));
+    // Artist first, the size after it on the same line.
+    expect(
+        find.text('Artist with a really long name number 0'), findsOneWidget);
+    expect(find.text(' · 3.0 مگابایت'), findsWidgets);
+    expect(find.byTooltip('روی سرور'), findsWidgets);
   });
 
   testWidgets('a finished upload appears in the list', (tester) async {
@@ -502,7 +571,13 @@ void main() {
     expect(find.byTooltip('توقف'), findsOneWidget);
     expect(find.text('3:00'), findsOneWidget);
     expect(find.text('Song'), findsWidgets);
-    expect(find.byIcon(Icons.graphic_eq), findsOneWidget);
+    // The playing row says so with an icon and in words, not color alone.
+    expect(
+        find.descendant(
+            of: find.widgetWithText(ListTile, 'Song'),
+            matching: find.byIcon(Icons.graphic_eq_rounded)),
+        findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('در حال پخش')), findsWidgets);
 
     await tester.tap(find.byTooltip('توقف'));
     await tester.pumpAndSettle();
@@ -530,7 +605,7 @@ void main() {
             sizeBytes: 1),
       ]),
     );
-    expect(find.text('پخش تصادفی همه'), findsOneWidget);
+    expect(find.text('پخش تصادفی'), findsOneWidget);
     await tester.enterText(find.byType(SearchBar), 'Beta');
     await tester.pump();
     expect(find.text('پخش تصادفی نتایج'), findsOneWidget);
@@ -852,7 +927,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
     }
 
-    expect(find.text('از بله'), findsOneWidget);
+    expect(find.byTooltip('از بله'), findsOneWidget);
     expect(find.text('یک فایل از بات در حال اضافه شدن است…'), findsOneWidget);
 
     // The import finishes; the next scheduled check picks it up.

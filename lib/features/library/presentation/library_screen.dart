@@ -3,6 +3,7 @@ import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/core/format_size.dart';
 import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
+import 'package:nafir/features/library/application/track_sort.dart';
 import 'package:nafir/features/library/application/local_audio_controller.dart';
 import 'package:nafir/features/library/data/local_audio_upload.dart';
 import 'package:nafir/features/library/data/track.dart';
@@ -637,6 +638,10 @@ class _TrackListState extends State<_TrackList> {
   final TextEditingController _search = TextEditingController();
   String _query = '';
 
+  /// Kept for the whole session, whichever screen shows the list.
+  static TrackSort _sessionSort = TrackSort.recent;
+  TrackSort _sort = _sessionSort;
+
   @override
   void dispose() {
     _search.dispose();
@@ -645,14 +650,137 @@ class _TrackListState extends State<_TrackList> {
 
   List<Track> get _filteredTracks {
     final query = _query.trim().toLowerCase();
-    if (query.isEmpty) return widget.tracks;
-    return widget.tracks.where((track) {
-      final searchable = [track.title, track.artist, track.album]
-          .whereType<String>()
-          .join(' ')
-          .toLowerCase();
-      return searchable.contains(query);
-    }).toList(growable: false);
+    final matching = query.isEmpty
+        ? widget.tracks
+        : widget.tracks.where((track) {
+            final searchable = [track.title, track.artist, track.album]
+                .whereType<String>()
+                .join(' ')
+                .toLowerCase();
+            return searchable.contains(query);
+          }).toList(growable: false);
+    return sortTracks(matching, _sort);
+  }
+
+  void _setSort(TrackSort sort) => setState(() {
+        _sort = sort;
+        _sessionSort = sort;
+      });
+
+  /// The track's «اقدامات آهنگ» menu, or null when there is nothing to offer.
+  Widget? _actionsFor(BuildContext context, Track track) {
+    return widget.playlists == null &&
+            widget.onDelete == null &&
+            widget.linkedBots.isEmpty &&
+            !widget.showLocationBadges
+        ? null
+        : widget.isDeleting?.call(track.id) == true
+            ? const SizedBox.square(
+                dimension: 48,
+                child: Padding(
+                  padding: EdgeInsets.all(12),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                  ),
+                ),
+              )
+            : PopupMenuButton<(_TrackAction, MessengerBot?)>(
+                tooltip: 'اقدامات آهنگ',
+                onSelected: (choice) {
+                  switch (choice) {
+                    case (_TrackAction.addToPlaylist, _):
+                      _addToPlaylist(context, track);
+                    case (_TrackAction.sendToBot, final bot?):
+                      widget.onSendToBot?.call(track, bot);
+                    case (_TrackAction.delete, _):
+                      widget.onDelete?.call(track);
+                    case (_TrackAction.editMetadata, _):
+                      widget.onEditMetadata?.call(track);
+                    case (_TrackAction.uploadToServer, _):
+                      widget.onUploadToServer?.call(track);
+                    case (_TrackAction.downloadToDevice, _):
+                      _message(
+                        context,
+                        'دانلود روی دستگاه در issue #43 دنبال می‌شود.',
+                      );
+                    case (_TrackAction.removeFromDevice, _):
+                      _message(
+                        context,
+                        'حذف نسخهٔ دستگاه در گام sync اضافه می‌شود.',
+                      );
+                    case (_TrackAction.sendToBot, null):
+                      break;
+                  }
+                },
+                itemBuilder: (context) => [
+                  if (widget.showLocationBadges && track.isLocal)
+                    PopupMenuItem(
+                      value: const (_TrackAction.uploadToServer, null),
+                      enabled: !widget.uploadsBusy,
+                      child: const ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.cloud_upload_outlined),
+                        title: Text('آپلود به سرور'),
+                      ),
+                    ),
+                  if (widget.showLocationBadges && !track.isLocal)
+                    const PopupMenuItem(
+                      value: (_TrackAction.downloadToDevice, null),
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          Icons.download_for_offline_outlined,
+                        ),
+                        title: Text('دانلود روی دستگاه'),
+                      ),
+                    ),
+                  if (!track.isLocal)
+                    const PopupMenuItem(
+                      value: (_TrackAction.editMetadata, null),
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.edit_outlined),
+                        title: Text('ویرایش اطلاعات آهنگ'),
+                      ),
+                    ),
+                  if (widget.playlists != null && !track.isLocal)
+                    const PopupMenuItem(
+                      value: (_TrackAction.addToPlaylist, null),
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.playlist_add),
+                        title: Text('افزودن به Playlist'),
+                      ),
+                    ),
+                  if (!track.isLocal)
+                    for (final bot in widget.linkedBots)
+                      PopupMenuItem(
+                        value: (_TrackAction.sendToBot, bot),
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.send),
+                          title: Text('ارسال به ${bot.name}'),
+                        ),
+                      ),
+                  if (widget.onDelete != null && !track.isLocal)
+                    PopupMenuItem(
+                      value: (_TrackAction.delete, null),
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          Icons.delete_outline,
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                        title: Text(
+                          'حذف آهنگ',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
   }
 
   Future<void> _addToPlaylist(BuildContext context, Track track) async {
@@ -722,53 +850,20 @@ class _TrackListState extends State<_TrackList> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
-          child: Row(
-            children: [
-              Text(
-                'آهنگ‌ها',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-              const Spacer(),
-              if (MediaQuery.sizeOf(context).width >= 520)
-                FilledButton.tonalIcon(
-                  onPressed: tracks.isEmpty
-                      ? null
-                      : () => widget.player.playShuffled(tracks),
-                  icon: const Icon(Icons.shuffle_rounded, size: 18),
-                  label: Text(
-                    _query.trim().isEmpty
-                        ? 'پخش تصادفی همه'
-                        : 'پخش تصادفی نتایج',
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(
+              'آهنگ‌ها',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
-                )
-              else
-                IconButton.filledTonal(
-                  tooltip: _query.trim().isEmpty
-                      ? 'پخش تصادفی همه'
-                      : 'پخش تصادفی نتایج',
-                  onPressed: tracks.isEmpty
-                      ? null
-                      : () => widget.player.playShuffled(tracks),
-                  icon: const Icon(Icons.shuffle_rounded),
-                ),
-              if (MediaQuery.sizeOf(context).width >= 520) ...[
-                const SizedBox(width: 12),
-                Text(
-                  '${tracks.length} از ${widget.tracks.length} قطعه',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                ),
-              ],
-            ],
+            ),
           ),
         ),
         if (widget.deviceNotice case final notice?)
           _DeviceStatusBanner(notice: notice),
         Padding(
-          padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+          padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
           child: SearchBar(
             controller: _search,
             hintText: 'جست‌وجوی آهنگ، خواننده یا آلبوم',
@@ -786,6 +881,15 @@ class _TrackListState extends State<_TrackList> {
             ],
             onChanged: (value) => setState(() => _query = value),
           ),
+        ),
+        _TrackListHeader(
+          shown: tracks.length,
+          total: widget.tracks.length,
+          filtered: _query.trim().isNotEmpty,
+          sort: _sort,
+          onSort: _setSort,
+          onShuffle:
+              tracks.isEmpty ? null : () => widget.player.playShuffled(tracks),
         ),
         Expanded(
           child: ListenableBuilder(
@@ -818,195 +922,11 @@ class _TrackListState extends State<_TrackList> {
                 itemCount: tracks.length,
                 itemBuilder: (context, index) {
                   final track = tracks[index];
-                  final current = widget.player.track?.id == track.id;
-                  final artist = track.artist?.trim();
-                  final artistLabel = artist == null || artist.isEmpty
-                      ? 'خواننده نامشخص'
-                      : artist;
-                  return ListTile(
-                    selected: current,
+                  return _TrackRow(
+                    track: track,
+                    current: widget.player.track?.id == track.id,
                     onTap: () => widget.player.playFrom(tracks, index),
-                    leading: CircleAvatar(
-                      backgroundColor: current
-                          ? Theme.of(context).colorScheme.secondaryContainer
-                          : Theme.of(context)
-                              .colorScheme
-                              .surfaceContainerHighest,
-                      foregroundColor: current
-                          ? Theme.of(context).colorScheme.onSecondaryContainer
-                          : Theme.of(context).colorScheme.onSurfaceVariant,
-                      child: Icon(
-                        current
-                            ? Icons.graphic_eq
-                            : track.isLocal
-                                ? Icons.phone_android
-                                : Icons.music_note,
-                      ),
-                    ),
-                    title: Text(
-                      track.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontWeight: current ? FontWeight.w700 : FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 220),
-                          child: Text(
-                            artistLabel,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurface,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        if (widget.showLocationBadges)
-                          _TrackLocationBadge(track: track),
-                        if (track.importedFrom case final from?)
-                          _TrackMetaPill(
-                            icon: Icons.smart_toy_outlined,
-                            label: 'از $from',
-                          ),
-                        _TrackMetaPill(
-                          icon: Icons.sd_storage_outlined,
-                          label: formatSize(track.sizeBytes),
-                        ),
-                      ],
-                    ),
-                    trailing: widget.playlists == null &&
-                            widget.onDelete == null &&
-                            widget.linkedBots.isEmpty &&
-                            !widget.showLocationBadges
-                        ? null
-                        : widget.isDeleting?.call(track.id) == true
-                            ? const SizedBox.square(
-                                dimension: 48,
-                                child: Padding(
-                                  padding: EdgeInsets.all(12),
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.5,
-                                  ),
-                                ),
-                              )
-                            : PopupMenuButton<(_TrackAction, MessengerBot?)>(
-                                tooltip: 'اقدامات آهنگ',
-                                onSelected: (choice) {
-                                  switch (choice) {
-                                    case (_TrackAction.addToPlaylist, _):
-                                      _addToPlaylist(context, track);
-                                    case (_TrackAction.sendToBot, final bot?):
-                                      widget.onSendToBot?.call(track, bot);
-                                    case (_TrackAction.delete, _):
-                                      widget.onDelete?.call(track);
-                                    case (_TrackAction.editMetadata, _):
-                                      widget.onEditMetadata?.call(track);
-                                    case (_TrackAction.uploadToServer, _):
-                                      widget.onUploadToServer?.call(track);
-                                    case (_TrackAction.downloadToDevice, _):
-                                      _message(
-                                        context,
-                                        'دانلود روی دستگاه در issue #43 دنبال می‌شود.',
-                                      );
-                                    case (_TrackAction.removeFromDevice, _):
-                                      _message(
-                                        context,
-                                        'حذف نسخهٔ دستگاه در گام sync اضافه می‌شود.',
-                                      );
-                                    case (_TrackAction.sendToBot, null):
-                                      break;
-                                  }
-                                },
-                                itemBuilder: (context) => [
-                                  if (widget.showLocationBadges &&
-                                      track.isLocal)
-                                    PopupMenuItem(
-                                      value: const (
-                                        _TrackAction.uploadToServer,
-                                        null
-                                      ),
-                                      enabled: !widget.uploadsBusy,
-                                      child: const ListTile(
-                                        contentPadding: EdgeInsets.zero,
-                                        leading:
-                                            Icon(Icons.cloud_upload_outlined),
-                                        title: Text('آپلود به سرور'),
-                                      ),
-                                    ),
-                                  if (widget.showLocationBadges &&
-                                      !track.isLocal)
-                                    const PopupMenuItem(
-                                      value: (
-                                        _TrackAction.downloadToDevice,
-                                        null
-                                      ),
-                                      child: ListTile(
-                                        contentPadding: EdgeInsets.zero,
-                                        leading: Icon(
-                                          Icons.download_for_offline_outlined,
-                                        ),
-                                        title: Text('دانلود روی دستگاه'),
-                                      ),
-                                    ),
-                                  if (!track.isLocal)
-                                    const PopupMenuItem(
-                                      value: (_TrackAction.editMetadata, null),
-                                      child: ListTile(
-                                        contentPadding: EdgeInsets.zero,
-                                        leading: Icon(Icons.edit_outlined),
-                                        title: Text('ویرایش اطلاعات آهنگ'),
-                                      ),
-                                    ),
-                                  if (widget.playlists != null &&
-                                      !track.isLocal)
-                                    const PopupMenuItem(
-                                      value: (_TrackAction.addToPlaylist, null),
-                                      child: ListTile(
-                                        contentPadding: EdgeInsets.zero,
-                                        leading: Icon(Icons.playlist_add),
-                                        title: Text('افزودن به Playlist'),
-                                      ),
-                                    ),
-                                  if (!track.isLocal)
-                                    for (final bot in widget.linkedBots)
-                                      PopupMenuItem(
-                                        value: (_TrackAction.sendToBot, bot),
-                                        child: ListTile(
-                                          contentPadding: EdgeInsets.zero,
-                                          leading: const Icon(Icons.send),
-                                          title: Text('ارسال به ${bot.name}'),
-                                        ),
-                                      ),
-                                  if (widget.onDelete != null && !track.isLocal)
-                                    PopupMenuItem(
-                                      value: (_TrackAction.delete, null),
-                                      child: ListTile(
-                                        contentPadding: EdgeInsets.zero,
-                                        leading: Icon(
-                                          Icons.delete_outline,
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .error,
-                                        ),
-                                        title: Text(
-                                          'حذف آهنگ',
-                                          style: TextStyle(
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .error,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
+                    actions: _actionsFor(context, track),
                   );
                 },
               );
@@ -1014,6 +934,201 @@ class _TrackListState extends State<_TrackList> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// «N آهنگ» with sorting and shuffle, above the track list.
+class _TrackListHeader extends StatelessWidget {
+  const _TrackListHeader({
+    required this.shown,
+    required this.total,
+    required this.filtered,
+    required this.sort,
+    required this.onSort,
+    required this.onShuffle,
+  });
+
+  final int shown;
+  final int total;
+  final bool filtered;
+  final TrackSort sort;
+  final ValueChanged<TrackSort> onSort;
+  final VoidCallback? onShuffle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(8, 0, 0, 0),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              filtered ? '$shown از $total آهنگ' : '$total آهنگ',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelLarge
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+          ),
+          PopupMenuButton<TrackSort>(
+            tooltip: 'مرتب‌سازی: ${sort.label}',
+            onSelected: onSort,
+            icon: const Icon(Icons.sort_rounded),
+            itemBuilder: (context) => [
+              for (final option in TrackSort.values)
+                CheckedPopupMenuItem(
+                  value: option,
+                  checked: option == sort,
+                  child: Text(option.label),
+                ),
+            ],
+          ),
+          TextButton.icon(
+            onPressed: onShuffle,
+            icon: const Icon(Icons.shuffle_rounded, size: 20),
+            label: Text(filtered ? 'پخش تصادفی نتایج' : 'پخش تصادفی'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One track: artwork, title, then artist and size on one line.
+class _TrackRow extends StatelessWidget {
+  const _TrackRow({
+    required this.track,
+    required this.current,
+    required this.onTap,
+    required this.actions,
+  });
+
+  final Track track;
+
+  /// Whether this is the track in the player.
+  final bool current;
+  final VoidCallback onTap;
+  final Widget? actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final artist = track.artist?.trim();
+    final secondary = theme.textTheme.bodySmall
+        ?.copyWith(color: colors.onSurfaceVariant, height: 1.3);
+    return ListTile(
+      selected: current,
+      onTap: onTap,
+      minTileHeight: 64,
+      // With tall Persian text ListTile lays out by padding, not by
+      // minTileHeight, so the padding is what keeps the row about 64 px.
+      minVerticalPadding: 14,
+      contentPadding: const EdgeInsetsDirectional.only(start: 8, end: 0),
+      horizontalTitleGap: 12,
+      leading: _TrackArtwork(track: track, current: current),
+      title: Row(
+        children: [
+          if (current) ...[
+            Semantics(
+              label: 'در حال پخش',
+              child: Icon(Icons.graphic_eq_rounded,
+                  size: 18, color: colors.primary),
+            ),
+            const SizedBox(width: 4),
+          ],
+          Expanded(
+            child: Text(
+              track.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: current ? FontWeight.w700 : FontWeight.w600,
+                color: current ? colors.primary : colors.onSurface,
+              ),
+            ),
+          ),
+        ],
+      ),
+      subtitle: Row(
+        children: [
+          Flexible(
+            child: Text(
+              artist == null || artist.isEmpty ? 'خواننده نامشخص' : artist,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: secondary,
+            ),
+          ),
+          Text(' · ${formatSize(track.sizeBytes)}',
+              maxLines: 1, style: secondary),
+        ],
+      ),
+      trailing: actions,
+    );
+  }
+}
+
+/// A rounded artwork square with a small badge saying where the track is.
+class _TrackArtwork extends StatelessWidget {
+  const _TrackArtwork({required this.track, required this.current});
+
+  final Track track;
+  final bool current;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final (badge, where) = switch (track) {
+      Track(isLocal: true) => (Icons.phone_android_rounded, 'روی دستگاه'),
+      Track(importedFrom: final String from) => (
+          Icons.smart_toy_outlined,
+          'از $from'
+        ),
+      _ => (Icons.cloud_done_outlined, 'روی سرور'),
+    };
+    return SizedBox.square(
+      dimension: 48,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: current
+                  ? colors.primaryContainer
+                  : colors.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.music_note_rounded,
+              color:
+                  current ? colors.onPrimaryContainer : colors.onSurfaceVariant,
+            ),
+          ),
+          PositionedDirectional(
+            end: -4,
+            bottom: -4,
+            child: Tooltip(
+              message: where,
+              child: Semantics(
+                label: where,
+                child: Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    color: colors.surface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(badge, size: 13, color: colors.onSurfaceVariant),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1144,67 +1259,6 @@ class _TrackMetadataDialogState extends State<_TrackMetadataDialog> {
           label: const Text('ذخیره'),
         ),
       ],
-    );
-  }
-}
-
-class _TrackLocationBadge extends StatelessWidget {
-  const _TrackLocationBadge({required this.track});
-
-  final Track track;
-
-  @override
-  Widget build(BuildContext context) {
-    return _TrackMetaPill(
-      icon: track.isLocal ? Icons.phone_android : Icons.cloud_done_outlined,
-      label: track.isLocal ? 'دستگاه' : 'سرور',
-      emphasized: !track.isLocal,
-    );
-  }
-}
-
-class _TrackMetaPill extends StatelessWidget {
-  const _TrackMetaPill({
-    required this.icon,
-    required this.label,
-    this.emphasized = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool emphasized;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final foreground = emphasized ? colors.primary : colors.onSurfaceVariant;
-    final background = emphasized
-        ? colors.primaryContainer.withValues(alpha: 0.35)
-        : colors.surfaceContainerHighest.withValues(alpha: 0.55);
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 12, color: foreground),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: foreground,
-                fontSize: 11,
-                fontWeight: emphasized ? FontWeight.w700 : FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
