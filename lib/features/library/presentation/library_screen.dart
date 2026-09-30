@@ -1108,7 +1108,9 @@ class _TrackMetadataDialogState extends State<_TrackMetadataDialog> {
               controller: _album,
               enabled: !_saving,
               textInputAction: TextInputAction.done,
-              onSubmitted: (_) => _saving ? null : _save(),
+              onSubmitted: (_) {
+                if (!_saving) _save();
+              },
               decoration: const InputDecoration(
                 labelText: 'آلبوم',
                 prefixIcon: Icon(Icons.album_outlined),
