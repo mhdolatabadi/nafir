@@ -41,15 +41,14 @@ class MainActivity : AudioServiceActivity() {
         if (hasAudioPermission()) {
             result.success(queryAudio())
         } else if (pendingResult != null) {
-                result.error("BUSY", "An audio permission request is already active.", null)
-            } else {
-                pendingResult = result
-                ActivityCompat.requestPermissions(
-                    this,
-                    arrayOf(audioPermission()),
-                    permissionRequest,
-                )
-            }
+            result.error("BUSY", "An audio permission request is already active.", null)
+        } else {
+            pendingResult = result
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(audioPermission()),
+                permissionRequest,
+            )
         }
     }
 
