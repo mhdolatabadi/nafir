@@ -58,6 +58,13 @@ abstract interface class TracksApi {
   Future<UploadTicket> createUpload(
       String token, String fileName, int sizeBytes);
   Future<Track> completeUpload(String token, String trackId);
+  Future<Track> updateTrackMetadata(
+    String token,
+    String trackId, {
+    required String title,
+    String? artist,
+    String? album,
+  });
   Future<void> deleteTrack(String token, String trackId);
 
   /// A playback link for a track in a playlist shared with [shareToken].
@@ -166,6 +173,19 @@ class ApiClient implements AuthApi, TracksApi, PlaylistsApi, BotsApi {
   Future<Track> completeUpload(String token, String trackId) async {
     final body =
         await _send('POST', '/api/v1/tracks/$trackId/complete', token: token);
+    return Track.fromJson(body);
+  }
+
+  @override
+  Future<Track> updateTrackMetadata(
+    String token,
+    String trackId, {
+    required String title,
+    String? artist,
+    String? album,
+  }) async {
+    final body = await _send('PATCH', '/api/v1/tracks/$trackId', token: token,
+        body: {'title': title, 'artist': artist, 'album': album});
     return Track.fromJson(body);
   }
 
