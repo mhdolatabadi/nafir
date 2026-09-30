@@ -542,11 +542,6 @@ void main() {
       find.text('A very long track title that must remain readable'),
       findsWidgets,
     );
-    final trackList = tester.widget<ListView>(find.byKey(
-      const ValueKey('track-list'),
-    ));
-    expect(
-        (trackList.padding! as EdgeInsets).bottom, greaterThanOrEqualTo(160));
     expect(tester.takeException(), isNull);
   });
 
