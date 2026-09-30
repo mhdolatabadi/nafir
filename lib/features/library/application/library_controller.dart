@@ -50,6 +50,7 @@ class LibraryController extends ChangeNotifier {
   int _limitBytes = 0;
   int _generation = 0;
   final Set<String> _deletingTrackIds = {};
+  final Set<String> _updatingTrackIds = {};
 
   LibraryStatus get status => _status;
   List<Track> get tracks => _tracks;
@@ -59,6 +60,7 @@ class LibraryController extends ChangeNotifier {
   /// Files sent to a Nafir bot that are still being added.
   int get importsInProgress => _importsInProgress;
   bool isDeleting(String trackId) => _deletingTrackIds.contains(trackId);
+  bool isUpdating(String trackId) => _updatingTrackIds.contains(trackId);
 
   /// Loads the list and reports whether it succeeded. Existing tracks stay on
   /// screen while refreshing; only a first load shows the loading state.
@@ -115,6 +117,44 @@ class LibraryController extends ChangeNotifier {
     }
   }
 
+  /// Updates the editable display metadata for an owned cloud track.
+  Future<bool> updateTrackMetadata(
+    String trackId, {
+    required String title,
+    String? artist,
+    String? album,
+  }) async {
+    final token = _token();
+    if (token == null || _updatingTrackIds.contains(trackId)) return false;
+    final trimmedTitle = title.trim();
+    if (trimmedTitle.isEmpty) return false;
+    String? clean(String? value) {
+      final trimmed = value?.trim();
+      return trimmed == null || trimmed.isEmpty ? null : trimmed;
+    }
+
+    _updatingTrackIds.add(trackId);
+    notifyListeners();
+    try {
+      final updated = await _api.updateTrackMetadata(
+        token,
+        trackId,
+        title: trimmedTitle,
+        artist: clean(artist),
+        album: clean(album),
+      );
+      _tracks = List.unmodifiable([
+        for (final track in _tracks) track.id == updated.id ? updated : track,
+      ]);
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
+      _updatingTrackIds.remove(trackId);
+      notifyListeners();
+    }
+  }
+
   /// While bot imports are in progress, loads again after a growing delay
   /// so finished imports appear on their own.
   void _followImports(int inProgress) {
@@ -148,6 +188,8 @@ class LibraryController extends ChangeNotifier {
     _pollStep = 0;
     _generation++;
     _tracks = const [];
+    _deletingTrackIds.clear();
+    _updatingTrackIds.clear();
     _usedBytes = 0;
     _limitBytes = 0;
     _status = LibraryStatus.loading;
