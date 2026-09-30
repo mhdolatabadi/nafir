@@ -53,6 +53,15 @@ type NewTrack struct {
 	Source string
 }
 
+// TrackMetadata is the editable identity shown in the app. It intentionally
+// does not rewrite the stored audio object; embedded tag rewriting is a later
+// step in the metadata epic.
+type TrackMetadata struct {
+	Title  string
+	Artist *string
+	Album  *string
+}
+
 // StorageKey is the owner-scoped object path for a track.
 func StorageKey(ownerID, trackID, fileName string) string {
 	return fmt.Sprintf("users/%s/tracks/%s/%s", ownerID, trackID, fileName)
@@ -220,6 +229,20 @@ func (t *Tracks) MarkReady(ctx context.Context, ownerID, trackID string) (Track,
 		 WHERE id::text = $1 AND owner_id::text = $2
 		 RETURNING `+trackColumns,
 		trackID, ownerID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Track{}, ErrNotFound
+	}
+	return track, err
+}
+
+// UpdateMetadata changes the display metadata for one ready track owned by the
+// caller. Pending uploads cannot be edited because they are not visible yet.
+func (t *Tracks) UpdateMetadata(ctx context.Context, ownerID, trackID string, metadata TrackMetadata) (Track, error) {
+	track, err := scanTrack(t.pool.QueryRow(ctx,
+		`UPDATE tracks SET title = $3, artist = $4, album = $5
+		 WHERE id::text = $1 AND owner_id::text = $2 AND status = 'ready'
+		 RETURNING `+trackColumns,
+		trackID, ownerID, metadata.Title, metadata.Artist, metadata.Album))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Track{}, ErrNotFound
 	}
