@@ -848,18 +848,27 @@ class _TrackListState extends State<_TrackList> {
                                   }
                                 },
                                 itemBuilder: (context) => [
-                                  if (widget.showLocationBadges && track.isLocal)
+                                  if (widget.showLocationBadges &&
+                                      track.isLocal)
                                     const PopupMenuItem(
-                                      value: (_TrackAction.uploadToServer, null),
+                                      value: (
+                                        _TrackAction.uploadToServer,
+                                        null
+                                      ),
                                       child: ListTile(
                                         contentPadding: EdgeInsets.zero,
-                                        leading: Icon(Icons.cloud_upload_outlined),
+                                        leading:
+                                            Icon(Icons.cloud_upload_outlined),
                                         title: Text('آپلود به سرور'),
                                       ),
                                     ),
-                                  if (widget.showLocationBadges && !track.isLocal)
+                                  if (widget.showLocationBadges &&
+                                      !track.isLocal)
                                     const PopupMenuItem(
-                                      value: (_TrackAction.downloadToDevice, null),
+                                      value: (
+                                        _TrackAction.downloadToDevice,
+                                        null
+                                      ),
                                       child: ListTile(
                                         contentPadding: EdgeInsets.zero,
                                         leading: Icon(
@@ -868,7 +877,8 @@ class _TrackListState extends State<_TrackList> {
                                         title: Text('دانلود روی دستگاه'),
                                       ),
                                     ),
-                                  if (widget.playlists != null && !track.isLocal)
+                                  if (widget.playlists != null &&
+                                      !track.isLocal)
                                     const PopupMenuItem(
                                       value: (_TrackAction.addToPlaylist, null),
                                       child: ListTile(
@@ -950,8 +960,7 @@ class _TrackMetaPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final foreground =
-        emphasized ? colors.primary : colors.onSurfaceVariant;
+    final foreground = emphasized ? colors.primary : colors.onSurfaceVariant;
     final background = emphasized
         ? colors.primaryContainer.withValues(alpha: 0.35)
         : colors.surfaceContainerHighest.withValues(alpha: 0.55);
@@ -1007,11 +1016,13 @@ class _DeviceNotice {
         ),
       LocalAudioViewStatus.error => const _DeviceNotice(
           icon: Icons.error_outline,
-          message: 'خواندن آهنگ‌های دستگاه ناموفق بود؛ آهنگ‌های سرور همچنان دیده می‌شوند.',
+          message:
+              'خواندن آهنگ‌های دستگاه ناموفق بود؛ آهنگ‌های سرور همچنان دیده می‌شوند.',
           actionLabel: 'صفحه را پایین بکش',
         ),
       LocalAudioViewStatus.unsupported => null,
-      LocalAudioViewStatus.idle || LocalAudioViewStatus.loading =>
+      LocalAudioViewStatus.idle ||
+      LocalAudioViewStatus.loading =>
         const _DeviceNotice(
           icon: Icons.sync,
           message: 'در حال بررسی آهنگ‌های روی دستگاه…',
