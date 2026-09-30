@@ -28,6 +28,7 @@ type TrackStore interface {
 	ForOwner(ctx context.Context, ownerID, trackID string) (store.Track, error)
 	ReservePending(ctx context.Context, ownerID string, track store.NewTrack, maxOwnerBytes int64, maxPending int) (store.Track, error)
 	MarkReady(ctx context.Context, ownerID, trackID string) (store.Track, error)
+	UpdateMetadata(ctx context.Context, ownerID, trackID string, metadata store.TrackMetadata) (store.Track, error)
 	Delete(ctx context.Context, ownerID, trackID string) error
 }
 
@@ -67,6 +68,7 @@ func (h *TrackHandlers) register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/tracks", h.handleList)
 	mux.HandleFunc("POST /api/v1/tracks/uploads", h.handleCreateUpload)
 	mux.HandleFunc("GET /api/v1/tracks/{id}", h.handleGet)
+	mux.HandleFunc("PATCH /api/v1/tracks/{id}", h.handleUpdate)
 	mux.HandleFunc("DELETE /api/v1/tracks/{id}", h.handleDelete)
 	mux.HandleFunc("POST /api/v1/tracks/{id}/complete", h.handleComplete)
 	mux.HandleFunc("GET /api/v1/tracks/{id}/stream", h.handleStream)
@@ -118,6 +120,12 @@ type storageUsageResponse struct {
 type streamResponse struct {
 	URL       string    `json:"url"`
 	ExpiresAt time.Time `json:"expiresAt"`
+}
+
+type updateTrackRequest struct {
+	Title  *string `json:"title"`
+	Artist *string `json:"artist"`
+	Album  *string `json:"album"`
 }
 
 func (h *TrackHandlers) handleList(w http.ResponseWriter, r *http.Request) {
@@ -173,6 +181,43 @@ func (h *TrackHandlers) handleStream(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, streamResponse{URL: url, ExpiresAt: expiresAt.UTC()})
+}
+
+func (h *TrackHandlers) handleUpdate(w http.ResponseWriter, r *http.Request) {
+	track, ok := h.readyTrack(w, r)
+	if !ok {
+		return
+	}
+	var input updateTrackRequest
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxTrackBodyBytes))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&input); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	title := optionalText(input.Title)
+	if title == nil {
+		writeError(w, http.StatusBadRequest, "invalid_metadata")
+		return
+	}
+	artist := optionalText(input.Artist)
+	album := optionalText(input.Album)
+	if tooLong(title) || tooLong(artist) || tooLong(album) {
+		writeError(w, http.StatusBadRequest, "invalid_metadata")
+		return
+	}
+	updated, err := h.tracks.UpdateMetadata(r.Context(), track.OwnerID, track.ID, store.TrackMetadata{
+		Title: *title, Artist: artist, Album: album,
+	})
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "not_found")
+		return
+	}
+	if err != nil {
+		internalError(w, "update track metadata", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, toTrackResponse(updated))
 }
 
 // ownedTrack loads the {id} track for the authenticated user. Another user's
