@@ -40,7 +40,7 @@ This file defines the standing rules for every contributor and coding agent work
 
 ## Backend, storage, and abuse protection
 
-- Treat the per-user storage quota as a server-enforced invariant; the current product limit is 5 GiB unless configuration says otherwise.
+- Treat the per-user storage quota as a server-enforced invariant; the current product limit is 1 GiB unless configuration says otherwise.
 - Enforce upload size, quota, rate, and concurrent-upload limits on the server. Client checks are only supplementary.
 - Clean up failed, cancelled, expired, and incomplete object uploads.
 - Deleting tracks or users must keep PostgreSQL records and MinIO objects consistent and auditable.
