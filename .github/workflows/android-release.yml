@@ -55,6 +55,7 @@ jobs:
       - run: flutter test
 
       - name: Configure Android release signing
+        id: signing
         shell: bash
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -62,19 +63,23 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
         run: |
-          : "${ANDROID_KEYSTORE_BASE64:?ANDROID_KEYSTORE_BASE64 secret is required}"
-          : "${ANDROID_KEY_ALIAS:?ANDROID_KEY_ALIAS secret is required}"
-          : "${ANDROID_KEY_PASSWORD:?ANDROID_KEY_PASSWORD secret is required}"
-          : "${ANDROID_STORE_PASSWORD:?ANDROID_STORE_PASSWORD secret is required}"
-          printf '%s' "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > android/app/release.jks
-          {
-            printf 'storePassword=%s\n' "${ANDROID_STORE_PASSWORD}"
-            printf 'keyPassword=%s\n' "${ANDROID_KEY_PASSWORD}"
-            printf 'keyAlias=%s\n' "${ANDROID_KEY_ALIAS}"
-            printf 'storeFile=release.jks\n'
-          } > android/key.properties
+          if [[ -n "${ANDROID_KEYSTORE_BASE64}" && -n "${ANDROID_KEY_ALIAS}" && -n "${ANDROID_KEY_PASSWORD}" && -n "${ANDROID_STORE_PASSWORD}" ]]; then
+            printf '%s' "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > android/app/release.jks
+            {
+              printf 'storePassword=%s\n' "${ANDROID_STORE_PASSWORD}"
+              printf 'keyPassword=%s\n' "${ANDROID_KEY_PASSWORD}"
+              printf 'keyAlias=%s\n' "${ANDROID_KEY_ALIAS}"
+              printf 'storeFile=release.jks\n'
+            } > android/key.properties
+            echo "configured=true" >> "${GITHUB_OUTPUT}"
+            echo "label=production-signed" >> "${GITHUB_OUTPUT}"
+          else
+            echo "::warning::Android release signing secrets are missing; building test-signed packages with the debug key and skipping GitHub Release publication."
+            echo "configured=false" >> "${GITHUB_OUTPUT}"
+            echo "label=test-signed" >> "${GITHUB_OUTPUT}"
+          fi
 
-      - name: Build signed production packages
+      - name: Build Android packages
         shell: bash
         run: |
           flutter build apk --release \
@@ -86,11 +91,21 @@ jobs:
             --build-number="${GITHUB_RUN_NUMBER}" \
             --dart-define=API_BASE_URL=${{ vars.NAFIR_API_BASE_URL || 'https://nafir.mhdolatabadi.ir' }}
           mv build/app/outputs/flutter-apk/app-release.apk \
-            "nafir-${{ steps.version.outputs.tag }}-android.apk"
+            "nafir-${{ steps.version.outputs.tag }}-android-${{ steps.signing.outputs.label }}.apk"
           mv build/app/outputs/bundle/release/app-release.aab \
-            "nafir-${{ steps.version.outputs.tag }}-android.aab"
+            "nafir-${{ steps.version.outputs.tag }}-android-${{ steps.signing.outputs.label }}.aab"
+
+      - name: Upload Android packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: nafir-${{ steps.version.outputs.tag }}-android-${{ steps.signing.outputs.label }}
+          path: |
+            nafir-${{ steps.version.outputs.tag }}-android-${{ steps.signing.outputs.label }}.apk
+            nafir-${{ steps.version.outputs.tag }}-android-${{ steps.signing.outputs.label }}.aab
+          if-no-files-found: error
 
       - name: Publish GitHub Release
+        if: steps.signing.outputs.configured == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
@@ -99,5 +114,5 @@ jobs:
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |
-            nafir-${{ steps.version.outputs.tag }}-android.apk
-            nafir-${{ steps.version.outputs.tag }}-android.aab
+            nafir-${{ steps.version.outputs.tag }}-android-production-signed.apk
+            nafir-${{ steps.version.outputs.tag }}-android-production-signed.aab
