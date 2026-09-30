@@ -85,8 +85,12 @@ var trackColumns = strings.Join(trackColumnNames, ", ")
 // qualifiedTrackColumns is trackColumns for a query that joins tracks with
 // other tables, each column prefixed with the table name.
 func qualifiedTrackColumns(table string) string {
-	qualified := make([]string, len(trackColumnNames))
-	for i, name := range trackColumnNames {
+	return qualifyColumns(table, trackColumnNames)
+}
+
+func qualifyColumns(table string, names []string) string {
+	qualified := make([]string, len(names))
+	for i, name := range names {
 		qualified[i] = table + "." + name
 	}
 	return strings.Join(qualified, ", ")

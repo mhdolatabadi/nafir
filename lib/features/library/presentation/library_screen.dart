@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/core/format_size.dart';
 import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
@@ -7,6 +8,7 @@ import 'package:nafir/features/library/data/local_audio_upload.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/presentation/mini_player.dart';
+import 'package:nafir/features/playlists/presentation/shared_playlist_screen.dart';
 import 'package:nafir/features/playlists/application/playlists_controller.dart';
 import 'package:nafir/features/playlists/presentation/playlists_screen.dart';
 import 'package:nafir/features/bots/application/bot_link_controller.dart';
@@ -64,6 +66,22 @@ class _LibraryScreenState extends State<LibraryScreen> {
     widget.library.load();
     widget.botLinks?.load();
     if (widget.localAudio.supported) widget.localAudio.load();
+    // Opened from a shared playlist link: show it once signed in.
+    final shareToken = AppConfiguration.takeInitialShareToken();
+    final playlists = widget.playlists;
+    if (shareToken != null && playlists != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => SharedPlaylistScreen(
+            shareToken: shareToken,
+            controller: playlists,
+            player: widget.player,
+            onSaved: widget.library.load,
+          ),
+        ));
+      });
+    }
     widget.uploads.addListener(_onUploadChanged);
   }
 
@@ -160,15 +178,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
   void _openPlaylists() {
     final playlists = widget.playlists;
     if (playlists == null) return;
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => PlaylistsScreen(
-          controller: playlists,
-          libraryTracks: widget.library.tracks,
-          player: widget.player,
-        ),
-      ),
-    );
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute<void>(
+            builder: (_) => PlaylistsScreen(
+              controller: playlists,
+              libraryTracks: widget.library.tracks,
+              player: widget.player,
+            ),
+          ),
+        )
+        // A shared playlist may have been saved, bringing its tracks along.
+        .then((_) => widget.library.load());
   }
 
   void _openSettings() {

@@ -49,9 +49,7 @@ class MethodChannelLocalAudioUploadSource implements LocalAudioUploadSource {
       'audio/wav' || 'audio/x-wav' => '.wav',
       _ => '.audio',
     };
-    final title = track.title
-        .replaceAll(RegExp(r'[\\/:*?"<>|]+'), '_')
-        .trim();
+    final title = track.title.replaceAll(RegExp(r'[\\/:*?"<>|]+'), '_').trim();
     return '${title.isEmpty ? 'track' : title}$extension';
   }
 }

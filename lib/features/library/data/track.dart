@@ -9,9 +9,11 @@ class Track {
     this.fileName,
     this.sourceUri,
     this.source,
+    this.sharedVia,
   });
 
-  factory Track.fromJson(Map<String, dynamic> json) => Track(
+  factory Track.fromJson(Map<String, dynamic> json, {String? sharedVia}) =>
+      Track(
         id: json['id'] as String,
         title: json['title'] as String,
         artist: json['artist'] as String?,
@@ -20,6 +22,7 @@ class Track {
         sizeBytes: (json['sizeBytes'] as num).toInt(),
         fileName: json['fileName'] as String?,
         source: json['source'] as String?,
+        sharedVia: sharedVia,
       );
 
   final String id;
@@ -41,6 +44,10 @@ class Track {
   /// Where a cloud track came from: `upload`, or the bot that imported it
   /// (`bale`, `telegram`).
   final String? source;
+
+  /// The share token of the playlist this track was opened from, when it is
+  /// someone else's track; it is then played through that link.
+  final String? sharedVia;
 
   /// The messenger a bot imported this track from, for people; null for
   /// tracks uploaded in the app.

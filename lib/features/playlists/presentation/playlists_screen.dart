@@ -4,6 +4,7 @@ import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/playlists/application/playlists_controller.dart';
 import 'package:nafir/features/playlists/data/playlist.dart';
+import 'package:nafir/features/playlists/presentation/shared_playlist_screen.dart';
 
 class PlaylistsScreen extends StatefulWidget {
   const PlaylistsScreen({
@@ -56,10 +57,62 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
+  /// Opens a playlist someone shared, from a pasted link.
+  Future<void> _openLink() async {
+    final field = TextEditingController();
+    final input = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('باز کردن لینک اشتراک'),
+        content: TextField(
+          controller: field,
+          autofocus: true,
+          textDirection: TextDirection.ltr,
+          decoration:
+              const InputDecoration(hintText: 'لینک Playlist را اینجا بچسبان'),
+          onSubmitted: (value) => Navigator.pop(context, value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, field.text),
+            child: const Text('باز کن'),
+          ),
+        ],
+      ),
+    );
+    field.dispose();
+    if (input == null || !mounted) return;
+    final token = shareTokenFrom(input);
+    if (token == null) {
+      _message('این لینک Playlist نفیر نیست.');
+      return;
+    }
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => SharedPlaylistScreen(
+        shareToken: token,
+        controller: widget.controller,
+        player: widget.player,
+      ),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Playlistها')),
+      appBar: AppBar(
+        title: const Text('Playlistها'),
+        actions: [
+          IconButton(
+            tooltip: 'باز کردن لینک اشتراک',
+            onPressed: _openLink,
+            icon: const Icon(Icons.add_link),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _create,
         icon: const Icon(Icons.playlist_add),
@@ -144,10 +197,24 @@ class _PlaylistsOverview extends StatelessWidget {
           ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 4),
             leading: _PlaylistCover(trackCount: playlist.trackCount, size: 56),
-            title: Text(
-              playlist.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            title: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    playlist.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (playlist.shareToken != null)
+                  const Padding(
+                    padding: EdgeInsetsDirectional.only(start: 6),
+                    child: Tooltip(
+                      message: 'با لینک به اشتراک گذاشته شده',
+                      child: Icon(Icons.link, size: 16),
+                    ),
+                  ),
+              ],
             ),
             subtitle: Text('${playlist.trackCount} قطعه موسیقی'),
             trailing: const Icon(Icons.chevron_left),
@@ -264,6 +331,14 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     if (saved == null) _message('ذخیرهٔ Playlist ناموفق بود.');
   }
 
+  Future<void> _share() async {
+    final current = playlist;
+    if (current == null) return;
+    await showShareSheet(context,
+        playlist: current, controller: widget.controller);
+    if (mounted) await _load();
+  }
+
   Future<void> _rename() async {
     final current = playlist;
     if (current == null) return;
@@ -322,6 +397,11 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
         title: Text(current?.name ?? 'Playlist'),
         actions: [
           IconButton(
+            tooltip: 'اشتراک‌گذاری',
+            onPressed: current == null ? null : _share,
+            icon: Icon(current?.shareToken == null ? Icons.share : Icons.link),
+          ),
+          IconButton(
             tooltip: 'تغییر نام',
             onPressed: current == null ? null : _rename,
             icon: const Icon(Icons.edit_outlined),
@@ -378,6 +458,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                         tracks: tracks,
                                         createdAt: current.createdAt,
                                         updatedAt: current.updatedAt,
+                                        shareToken: current.shareToken,
                                       );
                                     });
                                     _save(tracks
