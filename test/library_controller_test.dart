@@ -82,7 +82,8 @@ void main() {
     expect(library.isUpdating('s1'), isFalse);
   });
 
-  test('a failed metadata edit keeps the track and clears busy state', () async {
+  test('a failed metadata edit keeps the track and clears busy state',
+      () async {
     final api = FakeTracksApi([_song])..updateError = Exception('offline');
     final library = LibraryController(api: api, token: () => 'tok');
     await library.load();
