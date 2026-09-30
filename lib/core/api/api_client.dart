@@ -81,6 +81,9 @@ abstract interface class PlaylistsApi {
   /// Stops sharing; the old link stops working.
   Future<void> unsharePlaylist(String token, String playlistId);
   Future<SharedPlaylist> getSharedPlaylist(String token, String shareToken);
+
+  /// Copies a shared playlist and its tracks into the caller's account.
+  Future<Playlist> saveSharedPlaylist(String token, String shareToken);
 }
 
 abstract interface class BotsApi {
@@ -202,6 +205,14 @@ class ApiClient implements AuthApi, TracksApi, PlaylistsApi, BotsApi {
         'GET', '/api/v1/shared-playlists/${Uri.encodeComponent(shareToken)}',
         token: token);
     return SharedPlaylist.fromJson(shareToken, body);
+  }
+
+  @override
+  Future<Playlist> saveSharedPlaylist(String token, String shareToken) async {
+    final body = await _send('POST',
+        '/api/v1/shared-playlists/${Uri.encodeComponent(shareToken)}/save',
+        token: token);
+    return Playlist.fromJson(body);
   }
 
   @override

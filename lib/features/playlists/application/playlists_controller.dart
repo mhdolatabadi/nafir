@@ -6,6 +6,15 @@ enum PlaylistsStatus { loading, loaded, error }
 
 enum AddTrackResult { added, alreadyPresent, failure }
 
+enum SaveSharedResult {
+  saved,
+  alreadyYours,
+  noSpace,
+  uploadsDisabled,
+  gone,
+  failed
+}
+
 /// A shared playlist link that is malformed, unknown or no longer shared.
 class SharedPlaylistUnavailable implements Exception {
   const SharedPlaylistUnavailable();
@@ -87,6 +96,29 @@ class PlaylistsController extends ChangeNotifier {
     } on ApiException catch (e) {
       if (e.statusCode == 404) throw const SharedPlaylistUnavailable();
       rethrow;
+    }
+  }
+
+  /// Copies a shared playlist and its tracks into this account.
+  Future<SaveSharedResult> saveShared(String shareToken) async {
+    final token = _token();
+    if (token == null) return SaveSharedResult.failed;
+    try {
+      final saved = await _api.saveSharedPlaylist(token, shareToken);
+      playlists = [saved, ...playlists];
+      status = PlaylistsStatus.loaded;
+      notifyListeners();
+      return SaveSharedResult.saved;
+    } on ApiException catch (e) {
+      return switch (e.statusCode) {
+        409 => SaveSharedResult.alreadyYours,
+        413 => SaveSharedResult.noSpace,
+        503 => SaveSharedResult.uploadsDisabled,
+        404 => SaveSharedResult.gone,
+        _ => SaveSharedResult.failed,
+      };
+    } catch (_) {
+      return SaveSharedResult.failed;
     }
   }
 

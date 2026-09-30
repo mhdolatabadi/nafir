@@ -3,6 +3,8 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
+	"path"
 	"strings"
 	"time"
 
@@ -252,4 +254,109 @@ func (p *Playlists) SharedTrack(ctx context.Context, token, trackID string) (Tra
 		return Track{}, ErrNotFound
 	}
 	return track, err
+}
+
+// ErrOwnPlaylist means someone tried to save their own shared playlist.
+var ErrOwnPlaylist = errors.New("the playlist is already yours")
+
+// ObjectCopier copies and removes stored audio.
+type ObjectCopier interface {
+	Copy(ctx context.Context, srcKey, dstKey string) error
+	Remove(ctx context.Context, key string) error
+}
+
+// SaveShared copies the playlist shared with token into the user's account:
+// each of its tracks becomes the user's own track (its audio copied in
+// storage), collected in a new playlist with the same name. The copies
+// count against the user's quota; if they don't fit, nothing is copied.
+// A failure part way removes what was copied so far.
+func (p *Playlists) SaveShared(
+	ctx context.Context, userID, token string, maxOwnerBytes int64, objects ObjectCopier,
+) (Playlist, error) {
+	shared, err := p.ForShareToken(ctx, token)
+	if err != nil {
+		return Playlist{}, err
+	}
+	if shared.OwnerID == userID {
+		return Playlist{}, ErrOwnPlaylist
+	}
+
+	// Reserve every copy as pending under the quota, atomically.
+	var copies []Track
+	err = pgx.BeginFunc(ctx, p.pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, userID); err != nil {
+			return err
+		}
+		var used, needed int64
+		if err := tx.QueryRow(ctx, `
+			SELECT COALESCE(SUM(size_bytes), 0)::bigint FROM tracks WHERE owner_id::text = $1
+		`, userID).Scan(&used); err != nil {
+			return err
+		}
+		for _, t := range shared.Tracks {
+			needed += t.SizeBytes
+		}
+		if used > maxOwnerBytes || needed > maxOwnerBytes-used {
+			return ErrQuotaExceeded
+		}
+		for _, t := range shared.Tracks {
+			copied, err := createTrack(ctx, tx, userID, NewTrack{
+				Title: t.Title, Artist: t.Artist, Album: t.Album, DurationMS: t.DurationMS,
+				FileName: path.Base(t.StorageKey), ContentType: t.ContentType, SizeBytes: t.SizeBytes,
+				Source: "shared",
+			}, TrackPending)
+			if err != nil {
+				return err
+			}
+			copies = append(copies, copied)
+		}
+		return nil
+	})
+	if err != nil {
+		return Playlist{}, err
+	}
+
+	discard := func(done int) {
+		cleanup := context.WithoutCancel(ctx)
+		for _, c := range copies[:done] {
+			_ = objects.Remove(cleanup, c.StorageKey)
+		}
+		for _, c := range copies {
+			_, _ = p.pool.Exec(cleanup, `DELETE FROM tracks WHERE id::text = $1 AND status = 'pending'`, c.ID)
+		}
+	}
+	for i, c := range copies {
+		if err := objects.Copy(ctx, shared.Tracks[i].StorageKey, c.StorageKey); err != nil {
+			discard(i)
+			return Playlist{}, fmt.Errorf("copy track audio: %w", err)
+		}
+	}
+
+	var saved Playlist
+	err = pgx.BeginFunc(ctx, p.pool, func(tx pgx.Tx) error {
+		var err error
+		saved, err = scanPlaylist(tx.QueryRow(ctx, `
+			INSERT INTO playlists (owner_id, name) VALUES ($1::uuid, $2)
+			RETURNING `+playlistColumns, userID, shared.Name))
+		if err != nil {
+			return err
+		}
+		for i, c := range copies {
+			if _, err := tx.Exec(ctx, `UPDATE tracks SET status = 'ready' WHERE id::text = $1`, c.ID); err != nil {
+				return err
+			}
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES ($1::uuid, $2::uuid, $3)
+			`, saved.ID, c.ID, i); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		discard(len(copies))
+		return Playlist{}, err
+	}
+	saved.Tracks, err = p.tracks(ctx, saved)
+	return saved, err
 }

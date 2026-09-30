@@ -74,6 +74,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             shareToken: shareToken,
             controller: playlists,
             player: widget.player,
+            onSaved: widget.library.load,
           ),
         ));
       });
@@ -150,15 +151,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
   void _openPlaylists() {
     final playlists = widget.playlists;
     if (playlists == null) return;
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => PlaylistsScreen(
-          controller: playlists,
-          libraryTracks: widget.library.tracks,
-          player: widget.player,
-        ),
-      ),
-    );
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute<void>(
+            builder: (_) => PlaylistsScreen(
+              controller: playlists,
+              libraryTracks: widget.library.tracks,
+              player: widget.player,
+            ),
+          ),
+        )
+        // A shared playlist may have been saved, bringing its tracks along.
+        .then((_) => widget.library.load());
   }
 
   void _openSettings() {

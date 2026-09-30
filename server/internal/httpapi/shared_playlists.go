@@ -21,6 +21,15 @@ type SharedPlaylistStore interface {
 	Unshare(ctx context.Context, ownerID, playlistID string) error
 	ForShareToken(ctx context.Context, token string) (store.SharedPlaylist, error)
 	SharedTrack(ctx context.Context, token, trackID string) (store.Track, error)
+	SaveShared(ctx context.Context, userID, token string, maxOwnerBytes int64, objects store.ObjectCopier) (store.Playlist, error)
+}
+
+// SavePolicy is what saving a shared playlist into an account must respect:
+// the same quota and uploads switch as uploading the tracks would.
+type SavePolicy struct {
+	Objects       store.ObjectCopier
+	MaxOwnerBytes int64
+	Enabled       bool
 }
 
 // StreamPresigner hands out short-lived playback URLs.
@@ -30,8 +39,8 @@ type StreamPresigner interface {
 
 // WithSharing serves playlist sharing: owners turn a playlist's link on and
 // off, and anyone signed in who has the link can view it and play its tracks.
-func (h *PlaylistHandlers) WithSharing(shared SharedPlaylistStore, streams StreamPresigner) *PlaylistHandlers {
-	h.shared, h.streams = shared, streams
+func (h *PlaylistHandlers) WithSharing(shared SharedPlaylistStore, streams StreamPresigner, save SavePolicy) *PlaylistHandlers {
+	h.shared, h.streams, h.save = shared, streams, save
 	return h
 }
 
@@ -40,6 +49,38 @@ func (h *PlaylistHandlers) registerSharing(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /api/v1/playlists/{id}/share", h.handleUnshare)
 	mux.HandleFunc("GET /api/v1/shared-playlists/{token}", h.handleShared)
 	mux.HandleFunc("GET /api/v1/shared-playlists/{token}/tracks/{trackId}/stream", h.handleSharedStream)
+	mux.HandleFunc("POST /api/v1/shared-playlists/{token}/save", h.handleSaveShared)
+}
+
+// handleSaveShared copies a shared playlist and its tracks into the caller's
+// account, so they keep it whatever the owner does later.
+func (h *PlaylistHandlers) handleSaveShared(w http.ResponseWriter, r *http.Request) {
+	userID, ok := authenticate(h.tokens, w, r)
+	if !ok {
+		return
+	}
+	token := r.PathValue("token")
+	if !validShareToken(token) {
+		writeError(w, http.StatusNotFound, "not_found")
+		return
+	}
+	if !h.save.Enabled || h.save.Objects == nil {
+		writeError(w, http.StatusServiceUnavailable, "uploads_disabled")
+		return
+	}
+	saved, err := h.shared.SaveShared(r.Context(), userID, token, h.save.MaxOwnerBytes, h.save.Objects)
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		writeError(w, http.StatusNotFound, "not_found")
+	case errors.Is(err, store.ErrOwnPlaylist):
+		writeError(w, http.StatusConflict, "own_playlist")
+	case errors.Is(err, store.ErrQuotaExceeded):
+		writeError(w, http.StatusRequestEntityTooLarge, "quota_exceeded")
+	case err != nil:
+		internalError(w, "save shared playlist", err)
+	default:
+		writeJSON(w, http.StatusCreated, toPlaylistResponse(saved, true))
+	}
 }
 
 type shareResponse struct {

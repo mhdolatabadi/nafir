@@ -202,7 +202,9 @@ func run() error {
 				ReservationUserRate: reservationUserRate, ReservationIPRate: reservationIPRate,
 				CompletionUserRate: completionUserRate, CompletionIPRate: completionIPRate,
 			}).WithImports(bots),
-			Playlists: httpapi.NewPlaylistHandlers(playlists, tokens).WithSharing(playlists, objects),
+			Playlists: httpapi.NewPlaylistHandlers(playlists, tokens).WithSharing(playlists, objects, httpapi.SavePolicy{
+				Objects: objects, MaxOwnerBytes: ownerQuotaBytes, Enabled: uploadsEnabled,
+			}),
 			Bots:      botHandlers,
 			Ops:       ops,
 			Webhooks:  webhooks,

@@ -47,6 +47,18 @@ class FakePlaylistsApi implements PlaylistsApi {
     return playlist;
   }
 
+  int? saveStatus;
+  final saved = <String>[];
+
+  @override
+  Future<Playlist> saveSharedPlaylist(String t, String shareToken) async {
+    if (saveStatus != null) {
+      throw ApiException('$saveStatus', statusCode: saveStatus);
+    }
+    saved.add(shareToken);
+    return playlist;
+  }
+
   @override
   Future<Playlist> getPlaylist(String t, String id) async => playlist;
   @override
@@ -156,6 +168,28 @@ void main() {
       await tester.tap(find.text('Their song'));
       await tester.pumpAndSettle();
       expect(tracks.calls, contains('shared:$token:s1'));
+    });
+
+    testWidgets('a recipient saves the playlist to their account',
+        (tester) async {
+      final (_, playlists) = await pump(tester, token);
+
+      await tester.tap(find.text('افزودن به حساب من'));
+      await tester.pumpAndSettle();
+      expect(playlists.saved, [token]);
+      expect(
+          find.text(
+              'به Playlistها و کتابخانه‌ات اضافه شد. این نسخه مال خودت است.'),
+          findsOneWidget);
+    });
+
+    testWidgets('no room in the account is explained', (tester) async {
+      final (_, playlists) = await pump(tester, token);
+      playlists.saveStatus = 413;
+
+      await tester.tap(find.text('افزودن به حساب من'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('فضای کافی'), findsOneWidget);
     });
 
     testWidgets('a revoked or wrong link says so', (tester) async {

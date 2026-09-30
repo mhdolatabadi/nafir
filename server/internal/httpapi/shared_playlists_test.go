@@ -78,6 +78,24 @@ func (s *sharingStore) SharedTrack(_ context.Context, token, trackID string) (st
 	return store.Track{}, store.ErrNotFound
 }
 
+func (s *sharingStore) SaveShared(_ context.Context, userID, token string, maxOwnerBytes int64, _ store.ObjectCopier) (store.Playlist, error) {
+	if s.token == nil || *s.token != token {
+		return store.Playlist{}, store.ErrNotFound
+	}
+	if userID == "alice" {
+		return store.Playlist{}, store.ErrOwnPlaylist
+	}
+	if maxOwnerBytes < 100 {
+		return store.Playlist{}, store.ErrQuotaExceeded
+	}
+	return store.Playlist{ID: "copy", OwnerID: userID, Name: "mix", Tracks: s.tracks}, nil
+}
+
+type noCopies struct{}
+
+func (noCopies) Copy(context.Context, string, string) error { return nil }
+func (noCopies) Remove(context.Context, string) error       { return nil }
+
 type fixedPresigner struct{}
 
 func (fixedPresigner) PresignGet(_ context.Context, key string) (string, time.Time, error) {
@@ -92,7 +110,7 @@ func TestSharingAPlaylistEndToEnd(t *testing.T) {
 		tracks:  []store.Track{{ID: "t1", Title: "in", StorageKey: "users/alice/tracks/t1/a.mp3", Status: store.TrackReady}},
 		outside: store.Track{ID: "t2"},
 	}
-	handler := NewHandler(Config{Playlists: NewPlaylistHandlers(data, tokens).WithSharing(data, fixedPresigner{})})
+	handler := NewHandler(Config{Playlists: NewPlaylistHandlers(data, tokens).WithSharing(data, fixedPresigner{}, SavePolicy{Objects: noCopies{}, MaxOwnerBytes: 1000, Enabled: true})})
 	call := func(method, path, token string) *httptest.ResponseRecorder {
 		request := httptest.NewRequest(method, path, nil)
 		if token != "" {
@@ -151,5 +169,43 @@ func TestSharingAPlaylistEndToEnd(t *testing.T) {
 	}
 	if response := call(http.MethodGet, link+"/tracks/t1/stream", bob); response.Code != http.StatusNotFound {
 		t.Fatalf("stream after revoking = %d", response.Code)
+	}
+}
+
+func TestSavingASharedPlaylistEndpoint(t *testing.T) {
+	tokens, _ := auth.NewTokens([]byte(strings.Repeat("k", auth.MinSecretBytes)), time.Hour)
+	alice, _, _ := tokens.Issue("alice")
+	bob, _, _ := tokens.Issue("bob")
+	token := strings.Repeat("A", 22)
+	data := &sharingStore{token: &token, tracks: []store.Track{{ID: "t1", Title: "in"}}}
+	serve := func(policy SavePolicy, user string) *httptest.ResponseRecorder {
+		handler := NewHandler(Config{Playlists: NewPlaylistHandlers(data, tokens).WithSharing(data, fixedPresigner{}, policy)})
+		request := httptest.NewRequest(http.MethodPost, "/api/v1/shared-playlists/"+token+"/save", nil)
+		if user != "" {
+			request.Header.Set("Authorization", "Bearer "+user)
+		}
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+	open := SavePolicy{Objects: noCopies{}, MaxOwnerBytes: 1000, Enabled: true}
+
+	if response := serve(open, ""); response.Code != http.StatusUnauthorized {
+		t.Fatalf("signed out = %d", response.Code)
+	}
+	response := serve(open, bob)
+	var saved playlistResponse
+	json.NewDecoder(response.Body).Decode(&saved)
+	if response.Code != http.StatusCreated || saved.ID != "copy" || len(saved.Tracks) != 1 {
+		t.Fatalf("save = %d %+v", response.Code, saved)
+	}
+	if response := serve(open, alice); response.Code != http.StatusConflict {
+		t.Fatalf("owner saving their own = %d", response.Code)
+	}
+	if response := serve(SavePolicy{Objects: noCopies{}, MaxOwnerBytes: 10, Enabled: true}, bob); response.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("over quota = %d", response.Code)
+	}
+	if response := serve(SavePolicy{Objects: noCopies{}, MaxOwnerBytes: 1000}, bob); response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("uploads disabled = %d", response.Code)
 	}
 }

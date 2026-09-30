@@ -91,3 +91,84 @@ func TestSharingAPlaylist(t *testing.T) {
 		t.Fatalf("resharing reused the old link: %q", *reshared.ShareToken)
 	}
 }
+
+type memoryObjects struct {
+	objects map[string]string
+	failAt  int
+	copies  int
+}
+
+func (m *memoryObjects) Copy(_ context.Context, src, dst string) error {
+	m.copies++
+	if m.copies == m.failAt {
+		return errors.New("minio down")
+	}
+	m.objects[dst] = m.objects[src]
+	return nil
+}
+
+func (m *memoryObjects) Remove(_ context.Context, key string) error {
+	delete(m.objects, key)
+	return nil
+}
+
+func TestSavingASharedPlaylistCopiesItIntoTheAccount(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	owner, _ := NewUsers(pool).Create(ctx, "owner@example.com", "hash")
+	friend, _ := NewUsers(pool).Create(ctx, "friend@example.com", "hash")
+	tracks := NewTracks(pool)
+	playlists := NewPlaylists(pool)
+	objects := &memoryObjects{objects: map[string]string{}}
+
+	artist := "خواننده"
+	a, _ := tracks.Create(ctx, owner.ID, NewTrack{Title: "a", Artist: &artist, FileName: "a.mp3", ContentType: "audio/mpeg", SizeBytes: 100})
+	b, _ := tracks.Create(ctx, owner.ID, NewTrack{Title: "b", FileName: "b.flac", ContentType: "audio/flac", SizeBytes: 200})
+	objects.objects[a.StorageKey], objects.objects[b.StorageKey] = "A", "B"
+	playlist, _ := playlists.Create(ctx, owner.ID, "mix")
+	playlists.ReplaceTracks(ctx, owner.ID, playlist.ID, []string{b.ID, a.ID})
+	playlists.Share(ctx, owner.ID, playlist.ID, "tok")
+
+	if _, err := playlists.SaveShared(ctx, owner.ID, "tok", 1000, objects); !errors.Is(err, ErrOwnPlaylist) {
+		t.Fatalf("owner saving their own: %v", err)
+	}
+	if _, err := playlists.SaveShared(ctx, friend.ID, "tok", 250, objects); !errors.Is(err, ErrQuotaExceeded) {
+		t.Fatalf("over quota: %v", err)
+	}
+	if _, err := playlists.SaveShared(ctx, friend.ID, "nope", 1000, objects); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("unknown link: %v", err)
+	}
+
+	objects.failAt = 2
+	if _, err := playlists.SaveShared(ctx, friend.ID, "tok", 1000, objects); err == nil {
+		t.Fatal("a failed copy was not reported")
+	}
+	if usage, _ := tracks.UsageForOwner(ctx, friend.ID); usage != 0 || len(objects.objects) != 2 {
+		t.Fatalf("failed save left usage %d, objects %v", usage, objects.objects)
+	}
+
+	objects.failAt = 0
+	saved, err := playlists.SaveShared(ctx, friend.ID, "tok", 1000, objects)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.OwnerID != friend.ID || saved.Name != "mix" || saved.ShareToken != nil || len(saved.Tracks) != 2 {
+		t.Fatalf("saved = %+v", saved)
+	}
+	first := saved.Tracks[0]
+	if first.OwnerID != friend.ID || first.Title != "b" || first.Source != "shared" || first.Status != TrackReady ||
+		first.ID == b.ID || objects.objects[first.StorageKey] != "B" || saved.Tracks[1].Artist == nil {
+		t.Fatalf("copied tracks = %+v", saved.Tracks)
+	}
+	if list, _ := tracks.ListForOwner(ctx, friend.ID); len(list) != 2 {
+		t.Fatalf("friend's library has %d tracks", len(list))
+	}
+
+	// The copies are the friend's own: revoking the link or deleting the
+	// originals does not touch them.
+	playlists.Unshare(ctx, owner.ID, playlist.ID)
+	tracks.Delete(ctx, owner.ID, a.ID)
+	if again, _ := playlists.ForOwner(ctx, friend.ID, saved.ID); len(again.Tracks) != 2 {
+		t.Fatalf("saved playlist changed with the original: %+v", again.Tracks)
+	}
+}

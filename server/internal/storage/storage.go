@@ -173,3 +173,12 @@ func (s *Storage) Put(ctx context.Context, key string, r io.Reader, size int64, 
 func (s *Storage) Open(ctx context.Context, key string) (io.ReadCloser, error) {
 	return s.internal.GetObject(ctx, s.bucket, key, minio.GetObjectOptions{})
 }
+
+// Copy duplicates an object inside the bucket without moving it through the
+// API, for example when someone saves a shared playlist to their account.
+func (s *Storage) Copy(ctx context.Context, srcKey, dstKey string) error {
+	_, err := s.internal.CopyObject(ctx,
+		minio.CopyDestOptions{Bucket: s.bucket, Object: dstKey},
+		minio.CopySrcOptions{Bucket: s.bucket, Object: srcKey})
+	return err
+}

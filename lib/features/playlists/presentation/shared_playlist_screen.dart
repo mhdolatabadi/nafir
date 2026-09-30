@@ -12,11 +12,16 @@ class SharedPlaylistScreen extends StatefulWidget {
     required this.shareToken,
     required this.controller,
     required this.player,
+    this.onSaved,
   });
 
   final String shareToken;
   final PlaylistsController controller;
   final PlayerController player;
+
+  /// Called after the playlist was saved to the account, for example to
+  /// reload the library the copied tracks now belong to.
+  final VoidCallback? onSaved;
 
   @override
   State<SharedPlaylistScreen> createState() => _SharedPlaylistScreenState();
@@ -27,6 +32,28 @@ enum _Load { loading, loaded, unavailable, failed }
 class _SharedPlaylistScreenState extends State<SharedPlaylistScreen> {
   _Load _state = _Load.loading;
   SharedPlaylist? _playlist;
+  bool _saving = false;
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    final result = await widget.controller.saveShared(widget.shareToken);
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (result == SaveSharedResult.saved) widget.onSaved?.call();
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(switch (result) {
+        SaveSharedResult.saved =>
+          'به Playlistها و کتابخانه‌ات اضافه شد. این نسخه مال خودت است.',
+        SaveSharedResult.alreadyYours => 'این Playlist خودت است.',
+        SaveSharedResult.noSpace =>
+          'فضای کافی در حسابت نیست. چند آهنگ را حذف کن و دوباره امتحان کن.',
+        SaveSharedResult.uploadsDisabled =>
+          'افزودن آهنگ فعلاً غیرفعال است. کمی بعد دوباره امتحان کن.',
+        SaveSharedResult.gone => 'این Playlist دیگر به اشتراک گذاشته نمی‌شود.',
+        SaveSharedResult.failed => 'افزودن ناموفق بود. دوباره تلاش کن.',
+      }),
+    ));
+  }
 
   @override
   void initState() {
@@ -70,17 +97,31 @@ class _SharedPlaylistScreenState extends State<SharedPlaylistScreen> {
               label: const Text('تلاش دوباره'),
             ),
           ),
-        _Load.loaded => _Contents(playlist: playlist!, player: widget.player),
+        _Load.loaded => _Contents(
+            playlist: playlist!,
+            player: widget.player,
+            saving: _saving,
+            onSave: playlist.isOwner ? null : _save,
+          ),
       },
     );
   }
 }
 
 class _Contents extends StatelessWidget {
-  const _Contents({required this.playlist, required this.player});
+  const _Contents({
+    required this.playlist,
+    required this.player,
+    required this.saving,
+    this.onSave,
+  });
 
   final SharedPlaylist playlist;
   final PlayerController player;
+  final bool saving;
+
+  /// Saves a copy to the account; null for the owner's own playlist.
+  final VoidCallback? onSave;
 
   @override
   Widget build(BuildContext context) {
@@ -108,10 +149,28 @@ class _Contents extends StatelessWidget {
             else ...[
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-                child: FilledButton.icon(
-                  onPressed: () => player.playFrom(tracks, 0),
-                  icon: const Icon(Icons.play_arrow),
-                  label: const Text('پخش همه'),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    FilledButton.icon(
+                      onPressed: () => player.playFrom(tracks, 0),
+                      icon: const Icon(Icons.play_arrow),
+                      label: const Text('پخش همه'),
+                    ),
+                    if (onSave != null)
+                      OutlinedButton.icon(
+                        onPressed: saving ? null : onSave,
+                        icon: saving
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.library_add),
+                        label: const Text('افزودن به حساب من'),
+                      ),
+                  ],
                 ),
               ),
               Expanded(

@@ -33,6 +33,7 @@ type PlaylistHandlers struct {
 	tokens    *auth.Tokens
 	shared    SharedPlaylistStore
 	streams   StreamPresigner
+	save      SavePolicy
 }
 
 func NewPlaylistHandlers(playlists PlaylistStore, tokens *auth.Tokens) *PlaylistHandlers {
