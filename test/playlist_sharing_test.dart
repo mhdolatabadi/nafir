@@ -230,4 +230,72 @@ void main() {
     expect(api.shareToken, isNull);
     expect(find.text('ساخت لینک اشتراک'), findsOneWidget);
   });
+
+  testWidgets('shared playlist and share sheet fit a narrow phone',
+      (tester) async {
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final longName =
+        'یک Playlist با اسمی بسیار طولانی که نباید از صفحه بیرون بزند ' * 2;
+    final playlists = FakePlaylistsApi()
+      ..shared[token] = SharedPlaylist.fromJson(token, {
+        'name': longName,
+        'owner': 'a-very-long-owner-name***@some-very-long-domain.example.com',
+        'isOwner': false,
+        'tracks': [
+          for (var i = 0; i < 30; i++)
+            {
+              'id': 's$i',
+              'title': 'A very long track title number $i that must truncate',
+              'artist': 'An artist with an equally long name',
+              'contentType': 'audio/mpeg',
+              'sizeBytes': 1,
+            },
+        ],
+      });
+    final controller = PlaylistsController(api: playlists, token: () => 'tok');
+    final player = PlayerController(
+        api: FakeTracksApi(), engine: FakeAudioEngine(), token: () => 'tok');
+    await tester.pumpWidget(MaterialApp(
+      home: SharedPlaylistScreen(
+          shareToken: token, controller: controller, player: player),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('افزودن به حساب من'), findsOneWidget);
+    await tester.tap(find.textContaining('number 0 '));
+    await tester.pumpAndSettle();
+    // The mini player is there to pause what was just started.
+    expect(find.byTooltip('توقف'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(MaterialApp(
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: TextButton(
+            onPressed: () => showShareSheet(context,
+                playlist: Playlist(
+                  id: 'p1',
+                  name: longName,
+                  trackCount: 0,
+                  tracks: const [],
+                  createdAt: DateTime.utc(2026),
+                  updatedAt: DateTime.utc(2026),
+                  shareToken: token,
+                ),
+                controller: controller),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('کپی لینک'), findsOneWidget);
+  });
 }

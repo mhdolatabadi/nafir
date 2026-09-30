@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
+import 'package:nafir/features/player/presentation/mini_player.dart';
 import 'package:nafir/features/playlists/application/playlists_controller.dart';
 import 'package:nafir/features/playlists/data/playlist.dart';
 
@@ -81,7 +82,14 @@ class _SharedPlaylistScreenState extends State<SharedPlaylistScreen> {
   Widget build(BuildContext context) {
     final playlist = _playlist;
     return Scaffold(
-      appBar: AppBar(title: Text(playlist?.name ?? 'Playlist اشتراکی')),
+      appBar: AppBar(
+        title: Text(
+          playlist?.name ?? 'Playlist اشتراکی',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      bottomNavigationBar: MiniPlayer(player: widget.player),
       body: switch (_state) {
         _Load.loading => const Center(child: CircularProgressIndicator()),
         _Load.unavailable => const _Message(
@@ -134,9 +142,13 @@ class _Contents extends StatelessWidget {
           children: [
             ListTile(
               leading: const Icon(Icons.queue_music),
-              title: Text(playlist.isOwner
-                  ? 'Playlist خودت، که با لینک به اشتراک گذاشته‌ای'
-                  : 'اشتراک‌گذاری‌شده توسط ${playlist.owner}'),
+              title: Text(
+                playlist.isOwner
+                    ? 'Playlist خودت، که با لینک به اشتراک گذاشته‌ای'
+                    : 'اشتراک‌گذاری‌شده توسط ${playlist.owner}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
               subtitle: Text('${tracks.length} آهنگ'),
             ),
             if (tracks.isEmpty)
@@ -235,6 +247,8 @@ Future<void> showShareSheet(
   return showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
+    // Lets the sheet grow with its content and scroll on short screens.
+    isScrollControlled: true,
     builder: (_) => _ShareSheet(playlist: playlist, controller: controller),
   );
 }
@@ -295,14 +309,18 @@ class _ShareSheetState extends State<_ShareSheet> {
             ? token
             : sharedPlaylistLink(origin, token).toString();
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('اشتراک‌گذاری «${widget.playlist.name}»',
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'اشتراک‌گذاری «${widget.playlist.name}»',
+              style: Theme.of(context).textTheme.titleMedium,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
             const SizedBox(height: 8),
             Text(
               link == null
