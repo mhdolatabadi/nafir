@@ -93,6 +93,43 @@ func TestPendingTracksAndOwnerScopedWrites(t *testing.T) {
 	}
 }
 
+func TestUpdateMetadataIsOwnerScopedAndReadyOnly(t *testing.T) {
+	ctx := context.Background()
+	pool := newTestPool(t)
+	users, tracks := NewUsers(pool), NewTracks(pool)
+	alice, _ := users.Create(ctx, "alice-update@example.com", "hash")
+	bob, _ := users.Create(ctx, "bob-update@example.com", "hash")
+
+	artist := "Artist"
+	ready, err := tracks.Create(ctx, alice.ID, NewTrack{
+		Title: "Old", Artist: &artist, FileName: "song.mp3", ContentType: "audio/mpeg", SizeBytes: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pending, err := tracks.ReservePending(ctx, alice.ID, NewTrack{
+		Title: "Pending", FileName: "pending.mp3", ContentType: "audio/mpeg", SizeBytes: 1,
+	}, 100, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tracks.UpdateMetadata(ctx, bob.ID, ready.ID, TrackMetadata{Title: "Stolen"}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("bob updated alice's track: %v", err)
+	}
+	if _, err := tracks.UpdateMetadata(ctx, alice.ID, pending.ID, TrackMetadata{Title: "Hidden"}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("pending track update error = %v", err)
+	}
+
+	album := "Album"
+	updated, err := tracks.UpdateMetadata(ctx, alice.ID, ready.ID, TrackMetadata{Title: "New", Album: &album})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Title != "New" || updated.Artist != nil || updated.Album == nil || *updated.Album != "Album" {
+		t.Fatalf("updated metadata = %+v", updated)
+	}
+}
+
 func TestReservePendingSerializesConcurrentQuotaChecks(t *testing.T) {
 	ctx := context.Background()
 	pool := newTestPool(t)
