@@ -31,6 +31,8 @@ type PlaylistStore interface {
 type PlaylistHandlers struct {
 	playlists PlaylistStore
 	tokens    *auth.Tokens
+	shared    SharedPlaylistStore
+	streams   StreamPresigner
 }
 
 func NewPlaylistHandlers(playlists PlaylistStore, tokens *auth.Tokens) *PlaylistHandlers {
@@ -44,12 +46,17 @@ func (h *PlaylistHandlers) register(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /api/v1/playlists/{id}", h.handleRename)
 	mux.HandleFunc("DELETE /api/v1/playlists/{id}", h.handleDelete)
 	mux.HandleFunc("PUT /api/v1/playlists/{id}/tracks", h.handleReplaceTracks)
+	if h.shared != nil {
+		h.registerSharing(mux)
+	}
 }
 
 type playlistResponse struct {
-	ID         string          `json:"id"`
-	Name       string          `json:"name"`
-	TrackCount int             `json:"trackCount"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	TrackCount int    `json:"trackCount"`
+	// ShareToken is set while the playlist is shared; only its owner sees it.
+	ShareToken *string         `json:"shareToken,omitempty"`
 	Tracks     []trackResponse `json:"tracks,omitempty"`
 	CreatedAt  time.Time       `json:"createdAt"`
 	UpdatedAt  time.Time       `json:"updatedAt"`
@@ -57,7 +64,7 @@ type playlistResponse struct {
 
 func toPlaylistResponse(playlist store.Playlist, includeTracks bool) playlistResponse {
 	response := playlistResponse{
-		ID: playlist.ID, Name: playlist.Name, TrackCount: len(playlist.Tracks),
+		ID: playlist.ID, Name: playlist.Name, TrackCount: len(playlist.Tracks), ShareToken: playlist.ShareToken,
 		CreatedAt: playlist.CreatedAt.UTC(), UpdatedAt: playlist.UpdatedAt.UTC(),
 	}
 	if includeTracks {

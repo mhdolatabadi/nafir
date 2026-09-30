@@ -59,6 +59,10 @@ abstract interface class TracksApi {
       String token, String fileName, int sizeBytes);
   Future<Track> completeUpload(String token, String trackId);
   Future<void> deleteTrack(String token, String trackId);
+
+  /// A playback link for a track in a playlist shared with [shareToken].
+  Future<StreamLink> sharedStreamLink(
+      String token, String shareToken, String trackId);
 }
 
 abstract interface class PlaylistsApi {
@@ -69,6 +73,14 @@ abstract interface class PlaylistsApi {
   Future<Playlist> replacePlaylistTracks(
       String token, String playlistId, List<String> trackIds);
   Future<void> deletePlaylist(String token, String playlistId);
+
+  /// Shares the playlist by link and returns its share token; sharing again
+  /// returns the same one.
+  Future<String> sharePlaylist(String token, String playlistId);
+
+  /// Stops sharing; the old link stops working.
+  Future<void> unsharePlaylist(String token, String playlistId);
+  Future<SharedPlaylist> getSharedPlaylist(String token, String shareToken);
 }
 
 abstract interface class BotsApi {
@@ -166,6 +178,42 @@ class ApiClient implements AuthApi, TracksApi, PlaylistsApi, BotsApi {
     return (body['playlists'] as List<dynamic>)
         .map((json) => Playlist.fromJson(json as Map<String, dynamic>))
         .toList();
+  }
+
+  @override
+  Future<String> sharePlaylist(String token, String playlistId) async {
+    final body = await _send(
+        'POST', '/api/v1/playlists/${Uri.encodeComponent(playlistId)}/share',
+        token: token);
+    return body['shareToken'] as String;
+  }
+
+  @override
+  Future<void> unsharePlaylist(String token, String playlistId) async {
+    await _send(
+        'DELETE', '/api/v1/playlists/${Uri.encodeComponent(playlistId)}/share',
+        token: token, expectBody: false);
+  }
+
+  @override
+  Future<SharedPlaylist> getSharedPlaylist(
+      String token, String shareToken) async {
+    final body = await _send(
+        'GET', '/api/v1/shared-playlists/${Uri.encodeComponent(shareToken)}',
+        token: token);
+    return SharedPlaylist.fromJson(shareToken, body);
+  }
+
+  @override
+  Future<StreamLink> sharedStreamLink(
+      String token, String shareToken, String trackId) async {
+    final body = await _send(
+        'GET',
+        '/api/v1/shared-playlists/${Uri.encodeComponent(shareToken)}'
+            '/tracks/${Uri.encodeComponent(trackId)}/stream',
+        token: token);
+    return StreamLink(Uri.parse(body['url'] as String),
+        DateTime.parse(body['expiresAt'] as String));
   }
 
   @override
