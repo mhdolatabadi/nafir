@@ -456,8 +456,7 @@ class _PlaylistDetailHeader extends StatelessWidget {
                   Text(
                     '${playlist.trackCount} قطعه موسیقی',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color:
-                              Theme.of(context).colorScheme.onSurfaceVariant,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                   ),
                   const SizedBox(height: 14),
