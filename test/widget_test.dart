@@ -8,6 +8,7 @@ import 'package:nafir/features/upload/data/audio_picker.dart';
 import 'package:nafir/features/upload/data/upload_models.dart';
 import 'package:nafir/features/library/application/library_controller.dart'
     show importPollDelays;
+import 'package:nafir/features/player/presentation/mini_player.dart';
 import 'package:nafir/main.dart';
 
 import 'bot_link_controller_test.dart' show FakeBotsApi, linkedBale;
@@ -650,6 +651,43 @@ void main() {
       findsWidgets,
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the mini player stays a bar and leaves the library usable',
+      (tester) async {
+    for (final size in const [Size(360, 740), Size(1280, 800)]) {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await _pumpApp(
+        tester,
+        tokenStore: MemoryTokenStore('valid-token'),
+        tracks: FakeTracksApi(const [
+          Track(
+              id: 's1',
+              title: 'First',
+              contentType: 'audio/mpeg',
+              sizeBytes: 1),
+          Track(
+              id: 's2',
+              title: 'Second',
+              contentType: 'audio/mpeg',
+              sizeBytes: 1),
+        ]),
+      );
+      await tester.tap(find.text('First'));
+      await tester.pumpAndSettle();
+
+      final bar = tester.getRect(find.byType(MiniPlayer));
+      expect(bar.height, lessThan(160), reason: '$size');
+      expect(bar.bottom, size.height, reason: '$size');
+      // The rest of the library can still be tapped.
+      await tester.tap(find.text('Second'));
+      await tester.pumpAndSettle();
+      expect(find.text('Second'), findsWidgets);
+      expect(tester.takeException(), isNull);
+    }
   });
 
   testWidgets('mini player controls are at least 48 px on a 360 px phone',
