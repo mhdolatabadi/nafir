@@ -89,6 +89,40 @@ class FakeTracksApi implements TracksApi {
   }
 
   @override
+  Future<Track> updateTrackMetadata(
+    String token,
+    String trackId, {
+    required String title,
+    String? artist,
+    String? album,
+  }) async {
+    calls.add('update:$trackId');
+    final index = tracks.indexWhere((track) => track.id == trackId);
+    if (index == -1) {
+      throw const ApiException(
+        'not found',
+        statusCode: 404,
+        code: 'not_found',
+      );
+    }
+    final current = tracks[index];
+    final updated = Track(
+      id: current.id,
+      title: title,
+      artist: artist,
+      album: album,
+      contentType: current.contentType,
+      sizeBytes: current.sizeBytes,
+      fileName: current.fileName,
+      sourceUri: current.sourceUri,
+      source: current.source,
+      sharedVia: current.sharedVia,
+    );
+    tracks[index] = updated;
+    return updated;
+  }
+
+  @override
   Future<void> deleteTrack(String token, String trackId) async {
     if (deleteError != null) throw deleteError!;
     deleted.add(trackId);
