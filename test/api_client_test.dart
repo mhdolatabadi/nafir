@@ -195,4 +195,39 @@ void main() {
     expect(library.tracks.single.importedFrom, 'تلگرام');
     expect(library.importsInProgress, 3);
   });
+
+  test('updateTrackMetadata patches editable fields', () async {
+    late http.Request sent;
+    final client = ApiClient(baseUri, httpClient: MockClient((request) async {
+      sent = request;
+      return http.Response(
+        jsonEncode({
+          'id': 't1',
+          'title': 'New title',
+          'artist': null,
+          'album': 'Album',
+          'contentType': 'audio/mpeg',
+          'sizeBytes': 1,
+        }),
+        200,
+      );
+    }));
+
+    final track = await client.updateTrackMetadata(
+      't0ken',
+      't1',
+      title: 'New title',
+      artist: null,
+      album: 'Album',
+    );
+
+    expect(sent.method, 'PATCH');
+    expect(sent.url.path, '/api/v1/tracks/t1');
+    expect(sent.headers['Authorization'], 'Bearer t0ken');
+    expect(jsonDecode(sent.body),
+        {'title': 'New title', 'artist': null, 'album': 'Album'});
+    expect(track.title, 'New title');
+    expect(track.artist, isNull);
+    expect(track.album, 'Album');
+  });
 }
