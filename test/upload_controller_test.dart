@@ -24,6 +24,7 @@ class FakeTracksApi implements TracksApi {
   Completer<void>? createGate;
   Object? createError;
   Object? completeError;
+  Object? updateError;
   Object? deleteError;
   final deleted = <String>[];
   final calls = <String>[];
@@ -97,6 +98,7 @@ class FakeTracksApi implements TracksApi {
     String? album,
   }) async {
     calls.add('update:$trackId');
+    if (updateError != null) throw updateError!;
     final index = tracks.indexWhere((track) => track.id == trackId);
     if (index == -1) {
       throw const ApiException(

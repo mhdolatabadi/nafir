@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/playlists/application/playlists_controller.dart';
 import 'package:nafir/features/playlists/data/playlist.dart';
+import 'package:nafir/features/playlists/presentation/popular_playlists_screen.dart';
 import 'package:nafir/features/playlists/presentation/shared_playlist_screen.dart';
 
 import 'player_controller_test.dart' show FakeAudioEngine;
@@ -14,7 +17,9 @@ const token = 'AAAAAAAAAAAAAAAAAAAAAA';
 /// One playlist `p1`, owned by the signed-in user, optionally shared.
 class FakePlaylistsApi implements PlaylistsApi {
   String? shareToken;
+  bool isPublic = false;
   bool shareFails = false;
+  final shareCalls = <bool?>[];
   final shared = <String, SharedPlaylist>{};
 
   Playlist get playlist => Playlist(
@@ -25,17 +30,52 @@ class FakePlaylistsApi implements PlaylistsApi {
         createdAt: DateTime.utc(2026),
         updatedAt: DateTime.utc(2026),
         shareToken: shareToken,
+        isPublic: isPublic,
       );
 
   @override
-  Future<String> sharePlaylist(String t, String playlistId) async {
+  Future<PlaylistShare> sharePlaylist(String t, String playlistId,
+      {bool? public}) async {
+    shareCalls.add(public);
     if (shareFails) throw const ApiException('500', statusCode: 500);
-    return shareToken ??= token;
+    isPublic = public ?? isPublic;
+    return (shareToken: shareToken ??= token, isPublic: isPublic);
   }
 
   @override
   Future<void> unsharePlaylist(String t, String playlistId) async {
     shareToken = null;
+    isPublic = false;
+  }
+
+  /// Who likes each shared playlist, by share token.
+  final likers = <String, Set<String>>{};
+  int? likeStatus;
+  final likeCalls = <bool>[];
+
+  /// Holds like requests until completed, to look at the optimistic state.
+  Completer<void>? likeGate;
+
+  @override
+  Future<PlaylistLikes> setPlaylistLike(
+      String t, String shareToken, bool liked) async {
+    likeCalls.add(liked);
+    await likeGate?.future;
+    if (likeStatus != null) {
+      throw ApiException('$likeStatus', statusCode: likeStatus);
+    }
+    final who = likers.putIfAbsent(shareToken, () => {});
+    liked ? who.add('me') : who.remove('me');
+    return PlaylistLikes(liked: liked, likeCount: who.length);
+  }
+
+  List<PublicPlaylist> public = [];
+  bool listFails = false;
+
+  @override
+  Future<List<PublicPlaylist>> listPublicPlaylists(String t) async {
+    if (listFails) throw const ApiException('500', statusCode: 500);
+    return public;
   }
 
   @override
@@ -131,7 +171,10 @@ void main() {
       final api = FakePlaylistsApi();
       final controller = PlaylistsController(api: api, token: () => 'tok');
 
-      expect(await controller.share('p1'), token);
+      expect(
+          await controller.share('p1'), (shareToken: token, isPublic: false));
+      expect(await controller.share('p1', public: true),
+          (shareToken: token, isPublic: true));
       expect(await controller.unshare('p1'), isTrue);
       expect(api.shareToken, isNull);
       expect(() => controller.openShared(token),
@@ -297,5 +340,209 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.text('کپی لینک'), findsOneWidget);
+  });
+
+  group('likes', () {
+    PublicPlaylist listed(String name,
+            {int likes = 0, bool liked = false, String shareToken = token}) =>
+        PublicPlaylist(
+          shareToken: shareToken,
+          name: name,
+          owner: 'f***@example.com',
+          isOwner: false,
+          trackCount: 3,
+          likes: PlaylistLikes(liked: liked, likeCount: likes),
+        );
+
+    test('a like shows at once and the server has the last word', () async {
+      final api = FakePlaylistsApi()
+        ..likers[token] = {'someone'}
+        ..public = [listed('mix', likes: 1)]
+        ..likeGate = Completer();
+      final controller = PlaylistsController(api: api, token: () => 'tok');
+      await controller.loadPopular();
+      final seen = <PlaylistLikes>[];
+
+      final pending = controller.setLike(token, controller.popular.single.likes,
+          onChange: seen.add);
+      expect(controller.popular.single.likes,
+          const PlaylistLikes(liked: true, likeCount: 2));
+      expect(controller.isLiking(token), isTrue);
+      // A second tap while the first is on its way is not sent.
+      expect(await controller.setLike(token, controller.popular.single.likes),
+          LikeResult.failed);
+
+      api.likeGate!.complete();
+      expect(await pending, LikeResult.done);
+      expect(api.likeCalls, [true]);
+      expect(controller.isLiking(token), isFalse);
+      expect(seen.last, const PlaylistLikes(liked: true, likeCount: 2));
+    });
+
+    test('a refused like goes back and says why', () async {
+      final api = FakePlaylistsApi()
+        ..public = [listed('mix', likes: 4, liked: true)];
+      final controller = PlaylistsController(api: api, token: () => 'tok');
+      await controller.loadPopular();
+
+      api.likeStatus = 500;
+      expect(await controller.setLike(token, controller.popular.single.likes),
+          LikeResult.failed);
+      expect(controller.popular.single.likes,
+          const PlaylistLikes(liked: true, likeCount: 4));
+      expect(api.likeCalls, [false]);
+
+      api.likeStatus = 404;
+      expect(await controller.setLike(token, controller.popular.single.likes),
+          LikeResult.gone);
+      expect(controller.popular.single.likes.likeCount, 4);
+    });
+
+    testWidgets('liking on the shared playlist screen', (tester) async {
+      final api = FakePlaylistsApi()..shared[token] = sharedMix();
+      await tester.pumpWidget(MaterialApp(
+        home: SharedPlaylistScreen(
+          shareToken: token,
+          controller: PlaylistsController(api: api, token: () => 'tok'),
+          player: PlayerController(
+              api: FakeTracksApi(),
+              engine: FakeAudioEngine(),
+              token: () => 'tok'),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('پسندیدن · 0'), findsOneWidget);
+      expect(find.byIcon(Icons.favorite_border), findsOneWidget);
+      await tester.tap(find.text('پسندیدن · 0'));
+      await tester.pumpAndSettle();
+      expect(find.text('پسندیدی · 1'), findsOneWidget);
+      expect(find.byIcon(Icons.favorite), findsOneWidget);
+      expect(find.bySemanticsLabel('پسندیده‌ای، 1 پسند'), findsOneWidget);
+
+      api.likeStatus = 503;
+      await tester.tap(find.text('پسندیدی · 1'));
+      await tester.pumpAndSettle();
+      expect(find.text('پسندیدی · 1'), findsOneWidget);
+      expect(find.text('پسندیدن ثبت نشد. دوباره تلاش کن.'), findsOneWidget);
+    });
+
+    testWidgets('the owner chooses link-only or public', (tester) async {
+      final api = FakePlaylistsApi();
+      final controller = PlaylistsController(api: api, token: () => 'tok');
+      await tester.pumpWidget(MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => showShareSheet(context,
+                  playlist: api.playlist, controller: controller),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ));
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      // Link-only unless the owner says otherwise.
+      expect(find.textContaining('فقط کسی که لینک را دارد'), findsOneWidget);
+      await tester.tap(find.text('عمومی'));
+      await tester.pumpAndSettle();
+      expect(api.shareCalls, isEmpty);
+      await tester.tap(find.text('ساخت لینک اشتراک'));
+      await tester.pumpAndSettle();
+      expect(api.shareCalls, [true]);
+      expect(api.isPublic, isTrue);
+      expect(find.textContaining('Playlistهای محبوب'), findsOneWidget);
+
+      await tester.tap(find.text('فقط با لینک'));
+      await tester.pumpAndSettle();
+      expect(api.shareCalls, [true, false]);
+      expect(api.isPublic, isFalse);
+      expect(api.shareToken, token);
+    });
+
+    group('popular playlists screen', () {
+      Future<FakePlaylistsApi> pump(
+          WidgetTester tester, FakePlaylistsApi api) async {
+        await tester.pumpWidget(MaterialApp(
+          home: PopularPlaylistsScreen(
+            controller: PlaylistsController(api: api, token: () => 'tok'),
+            player: PlayerController(
+                api: FakeTracksApi(),
+                engine: FakeAudioEngine(),
+                token: () => 'tok'),
+          ),
+        ));
+        await tester.pumpAndSettle();
+        return api;
+      }
+
+      testWidgets('lists public playlists and likes one', (tester) async {
+        final api = await pump(
+            tester,
+            FakePlaylistsApi()
+              ..public = [
+                listed('loved', likes: 5),
+                listed('quiet', shareToken: 'B' * 22),
+              ]);
+
+        expect(find.text('loved'), findsOneWidget);
+        expect(find.text('f***@example.com · 3 آهنگ'), findsNWidgets(2));
+        await tester.tap(find.text('5'));
+        await tester.pumpAndSettle();
+        expect(api.likeCalls, [true]);
+        expect(find.byIcon(Icons.favorite), findsOneWidget);
+      });
+
+      testWidgets('says when nothing is public yet', (tester) async {
+        await pump(tester, FakePlaylistsApi());
+        expect(
+            find.textContaining('هنوز Playlist عمومی‌ای نیست'), findsOneWidget);
+      });
+
+      testWidgets('offers a retry when the list fails', (tester) async {
+        final api = await pump(tester, FakePlaylistsApi()..listFails = true);
+        expect(
+            find.text('فهرست Playlistهای محبوب بارگذاری نشد.'), findsOneWidget);
+
+        api
+          ..listFails = false
+          ..public = [listed('back')];
+        await tester.tap(find.text('تلاش دوباره'));
+        await tester.pumpAndSettle();
+        expect(find.text('back'), findsOneWidget);
+      });
+
+      testWidgets('fits a narrow phone and keeps the last row reachable',
+          (tester) async {
+        tester.view.physicalSize = const Size(360, 740);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final long =
+            'یک Playlist عمومی با اسمی بسیار طولانی که نباید بیرون بزند ' * 2;
+        await pump(
+            tester,
+            FakePlaylistsApi()
+              ..public = [
+                for (var i = 0; i < 20; i++)
+                  listed('$long $i', likes: 1000 + i),
+              ]);
+
+        expect(tester.takeException(), isNull);
+        final like = tester.getSize(find.byType(TextButton).first);
+        expect(like.width, greaterThanOrEqualTo(48));
+        expect(like.height, greaterThanOrEqualTo(48));
+
+        await tester.scrollUntilVisible(find.textContaining(' 19'), 300,
+            scrollable: find.byType(Scrollable).last);
+        await tester.pumpAndSettle();
+        final lastRow = tester.getRect(find.byType(ListTile).last);
+        final screen = tester.getRect(find.byType(Scaffold));
+        expect(lastRow.bottom, lessThanOrEqualTo(screen.bottom));
+        expect(tester.takeException(), isNull);
+      });
+    });
   });
 }

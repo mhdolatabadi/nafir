@@ -17,8 +17,11 @@ import (
 // sharingStore holds one playlist owned by alice with one track in it.
 type sharingStore struct {
 	token   *string
+	public  bool
 	tracks  []store.Track
 	outside store.Track
+	likers  map[string]bool
+	limit   int
 }
 
 func (s *sharingStore) ListForOwner(context.Context, string) ([]store.Playlist, error) {
@@ -38,21 +41,24 @@ func (s *sharingStore) ReplaceTracks(context.Context, string, string, []string) 
 }
 func (s *sharingStore) Delete(context.Context, string, string) error { return errors.New("unused") }
 
-func (s *sharingStore) Share(_ context.Context, ownerID, playlistID, token string) (store.Playlist, error) {
+func (s *sharingStore) Share(_ context.Context, ownerID, playlistID, token string, public *bool) (store.Playlist, error) {
 	if ownerID != "alice" || playlistID != "p1" {
 		return store.Playlist{}, store.ErrNotFound
 	}
 	if s.token == nil {
 		s.token = &token
 	}
-	return store.Playlist{ID: "p1", OwnerID: "alice", ShareToken: s.token}, nil
+	if public != nil {
+		s.public = *public
+	}
+	return store.Playlist{ID: "p1", OwnerID: "alice", ShareToken: s.token, IsPublic: s.public}, nil
 }
 
 func (s *sharingStore) Unshare(_ context.Context, ownerID, playlistID string) error {
 	if ownerID != "alice" || playlistID != "p1" {
 		return store.ErrNotFound
 	}
-	s.token = nil
+	s.token, s.public = nil, false
 	return nil
 }
 
@@ -61,7 +67,7 @@ func (s *sharingStore) ForShareToken(_ context.Context, token string) (store.Sha
 		return store.SharedPlaylist{}, store.ErrNotFound
 	}
 	return store.SharedPlaylist{
-		Playlist:   store.Playlist{ID: "p1", OwnerID: "alice", Name: "mix", Tracks: s.tracks},
+		Playlist:   store.Playlist{ID: "p1", OwnerID: "alice", Name: "mix", Tracks: s.tracks, IsPublic: s.public},
 		OwnerEmail: "alice@example.com",
 	}, nil
 }
@@ -89,6 +95,36 @@ func (s *sharingStore) SaveShared(_ context.Context, userID, token string, maxOw
 		return store.Playlist{}, store.ErrQuotaExceeded
 	}
 	return store.Playlist{ID: "copy", OwnerID: userID, Name: "mix", Tracks: s.tracks}, nil
+}
+
+func (s *sharingStore) LikesFor(_ context.Context, playlistID, userID string) (store.Likes, error) {
+	return store.Likes{Count: len(s.likers), Liked: s.likers[userID]}, nil
+}
+
+func (s *sharingStore) SetLike(_ context.Context, userID, token string, liked bool) (store.Likes, error) {
+	if s.token == nil || *s.token != token {
+		return store.Likes{}, store.ErrNotFound
+	}
+	if s.likers == nil {
+		s.likers = map[string]bool{}
+	}
+	if liked {
+		s.likers[userID] = true
+	} else {
+		delete(s.likers, userID)
+	}
+	return store.Likes{Count: len(s.likers), Liked: liked}, nil
+}
+
+func (s *sharingStore) Popular(_ context.Context, userID string, limit int) ([]store.PublicPlaylist, error) {
+	s.limit = limit
+	if s.token == nil || !s.public {
+		return nil, nil
+	}
+	return []store.PublicPlaylist{{
+		ShareToken: *s.token, Name: "mix", OwnerID: "alice", OwnerEmail: "alice@example.com",
+		TrackCount: len(s.tracks), Likes: store.Likes{Count: len(s.likers), Liked: s.likers[userID]},
+	}}, nil
 }
 
 type noCopies struct{}
@@ -207,5 +243,92 @@ func TestSavingASharedPlaylistEndpoint(t *testing.T) {
 	}
 	if response := serve(SavePolicy{Objects: noCopies{}, MaxOwnerBytes: 1000}, bob); response.Code != http.StatusServiceUnavailable {
 		t.Fatalf("uploads disabled = %d", response.Code)
+	}
+}
+
+func TestLikingAndListingPublicPlaylists(t *testing.T) {
+	tokens, _ := auth.NewTokens([]byte(strings.Repeat("k", auth.MinSecretBytes)), time.Hour)
+	alice, _, _ := tokens.Issue("alice")
+	bob, _, _ := tokens.Issue("bob")
+	data := &sharingStore{tracks: []store.Track{{ID: "t1", Title: "in"}}}
+	handler := NewHandler(Config{Playlists: NewPlaylistHandlers(data, tokens).WithSharing(data, fixedPresigner{}, SavePolicy{})})
+	call := func(method, path, token, body string) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(method, path, strings.NewReader(body))
+		if token != "" {
+			request.Header.Set("Authorization", "Bearer "+token)
+		}
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	response := call(http.MethodPost, "/api/v1/playlists/p1/share", alice, `{"public":false}`)
+	var shared shareResponse
+	json.NewDecoder(response.Body).Decode(&shared)
+	if response.Code != http.StatusOK || shared.Public {
+		t.Fatalf("share link-only = %d %+v", response.Code, shared)
+	}
+	if response := call(http.MethodPost, "/api/v1/playlists/p1/share", alice, `{"public":`); response.Code != http.StatusBadRequest {
+		t.Fatalf("broken body = %d", response.Code)
+	}
+	like := "/api/v1/shared-playlists/" + shared.ShareToken + "/like"
+
+	if response := call(http.MethodPut, like, "", ""); response.Code != http.StatusUnauthorized {
+		t.Fatalf("liking signed out = %d", response.Code)
+	}
+	for range 2 {
+		response := call(http.MethodPut, like, bob, "")
+		if response.Code != http.StatusOK || strings.TrimSpace(response.Body.String()) != `{"liked":true,"likeCount":1}` {
+			t.Fatalf("like = %d %s", response.Code, response.Body)
+		}
+	}
+	var view sharedPlaylistResponse
+	json.NewDecoder(call(http.MethodGet, "/api/v1/shared-playlists/"+shared.ShareToken, bob, "").Body).Decode(&view)
+	if view.LikeCount != 1 || !view.Liked || view.Public {
+		t.Fatalf("bob's view = %+v", view)
+	}
+	var list struct {
+		Playlists []publicPlaylistResponse `json:"playlists"`
+	}
+	json.NewDecoder(call(http.MethodGet, "/api/v1/public-playlists", bob, "").Body).Decode(&list)
+	if len(list.Playlists) != 0 {
+		t.Fatalf("a link-only playlist was listed: %+v", list)
+	}
+
+	// Sharing again with no body keeps the choice; asking makes it public.
+	if response := call(http.MethodPost, "/api/v1/playlists/p1/share", alice, ""); strings.Contains(response.Body.String(), `"public":true`) {
+		t.Fatalf("resharing changed visibility: %s", response.Body)
+	}
+	call(http.MethodPost, "/api/v1/playlists/p1/share", alice, `{"public":true}`)
+	response = call(http.MethodGet, "/api/v1/public-playlists?limit=500", bob, "")
+	json.NewDecoder(response.Body).Decode(&list)
+	if response.Code != http.StatusOK || len(list.Playlists) != 1 || data.limit != maxPublicPlaylists {
+		t.Fatalf("public list = %d %+v (limit %d)", response.Code, list, data.limit)
+	}
+	if got := list.Playlists[0]; got.ShareToken != shared.ShareToken || got.Owner != "a***@example.com" ||
+		got.IsOwner || got.LikeCount != 1 || !got.Liked || got.TrackCount != 1 {
+		t.Fatalf("listed = %+v", got)
+	}
+	for _, bad := range []string{"0", "-1", "x"} {
+		if response := call(http.MethodGet, "/api/v1/public-playlists?limit="+bad, bob, ""); response.Code != http.StatusBadRequest {
+			t.Fatalf("limit %q = %d", bad, response.Code)
+		}
+	}
+	if response := call(http.MethodGet, "/api/v1/public-playlists", "", ""); response.Code != http.StatusUnauthorized {
+		t.Fatalf("listing signed out = %d", response.Code)
+	}
+
+	for range 2 {
+		response := call(http.MethodDelete, like, bob, "")
+		if response.Code != http.StatusOK || strings.TrimSpace(response.Body.String()) != `{"liked":false,"likeCount":0}` {
+			t.Fatalf("unlike = %d %s", response.Code, response.Body)
+		}
+	}
+	call(http.MethodDelete, "/api/v1/playlists/p1/share", alice, "")
+	if response := call(http.MethodPut, like, bob, ""); response.Code != http.StatusNotFound {
+		t.Fatalf("liking a revoked link = %d", response.Code)
+	}
+	if response := call(http.MethodPut, "/api/v1/shared-playlists/not-a-token/like", bob, ""); response.Code != http.StatusNotFound {
+		t.Fatalf("malformed link = %d", response.Code)
 	}
 }

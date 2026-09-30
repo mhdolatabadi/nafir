@@ -132,6 +132,25 @@ class _LibraryScreenState extends State<LibraryScreen> {
     }
   }
 
+  Future<void> _editTrackMetadata(Track track) async {
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => _TrackMetadataDialog(
+        track: track,
+        onSave: (title, artist, album) => widget.library.updateTrackMetadata(
+          track.id,
+          title: title,
+          artist: artist,
+          album: album,
+        ),
+      ),
+    );
+    if (!mounted || saved != true) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('اطلاعات «${track.title}» به‌روزرسانی شد.')),
+    );
+  }
+
   Future<void> _confirmDeleteTrack(Track track) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -196,8 +215,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
   void _openSettings() {
     Navigator.of(context)
         .push(MaterialPageRoute<void>(
-          builder: (_) =>
-              SettingsScreen(cache: widget.cache, botLinks: widget.botLinks),
+          builder: (_) => SettingsScreen(
+            cache: widget.cache,
+            botLinks: widget.botLinks,
+            library: widget.library,
+          ),
         ))
         // A chat may have been linked meanwhile; offer sending to it.
         .then((_) => widget.botLinks?.load());
@@ -360,10 +382,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
               listenable: widget.library,
               builder: (context, _) => Column(
                 children: [
-                  _StorageUsage(
-                    usedBytes: widget.library.usedBytes,
-                    limitBytes: widget.library.limitBytes,
-                  ),
                   if (widget.library.importsInProgress case final n when n > 0)
                     _ImportsInProgress(count: n),
                 ],
@@ -408,7 +426,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
                             player: widget.player,
                             playlists: widget.playlists,
                             onDelete: _confirmDeleteTrack,
-                            isDeleting: widget.library.isDeleting,
+                            onEditMetadata: _editTrackMetadata,
+                            isDeleting: (trackId) =>
+                                widget.library.isDeleting(trackId) ||
+                                widget.library.isUpdating(trackId),
                             linkedBots: widget.botLinks?.linkedBots ?? const [],
                             onSendToBot: _sendToBot,
                             onUploadToServer: _uploadLocalTrack,
@@ -433,6 +454,7 @@ enum _TrackAction {
   uploadToServer,
   downloadToDevice,
   removeFromDevice,
+  editMetadata,
   delete,
 }
 
@@ -583,6 +605,7 @@ class _TrackList extends StatefulWidget {
     required this.player,
     this.playlists,
     this.onDelete,
+    this.onEditMetadata,
     this.isDeleting,
     this.linkedBots = const [],
     this.onSendToBot,
@@ -596,6 +619,7 @@ class _TrackList extends StatefulWidget {
   final PlayerController player;
   final PlaylistsController? playlists;
   final Future<void> Function(Track track)? onDelete;
+  final Future<void> Function(Track track)? onEditMetadata;
   final bool Function(String trackId)? isDeleting;
 
   /// Bots with a linked chat, offered as «ارسال به …» for each track.
@@ -670,6 +694,8 @@ class _TrackListState extends State<_TrackList> {
                       widget.onSendToBot?.call(track, bot);
                     case (_TrackAction.delete, _):
                       widget.onDelete?.call(track);
+                    case (_TrackAction.editMetadata, _):
+                      widget.onEditMetadata?.call(track);
                     case (_TrackAction.uploadToServer, _):
                       widget.onUploadToServer?.call(track);
                     case (_TrackAction.downloadToDevice, _):
@@ -706,6 +732,15 @@ class _TrackListState extends State<_TrackList> {
                           Icons.download_for_offline_outlined,
                         ),
                         title: Text('دانلود روی دستگاه'),
+                      ),
+                    ),
+                  if (!track.isLocal)
+                    const PopupMenuItem(
+                      value: (_TrackAction.editMetadata, null),
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.edit_outlined),
+                        title: Text('ویرایش اطلاعات آهنگ'),
                       ),
                     ),
                   if (widget.playlists != null && !track.isLocal)
@@ -1098,6 +1133,136 @@ class _TrackArtwork extends StatelessWidget {
   }
 }
 
+class _TrackMetadataDialog extends StatefulWidget {
+  const _TrackMetadataDialog({
+    required this.track,
+    required this.onSave,
+  });
+
+  final Track track;
+  final Future<bool> Function(String title, String? artist, String? album)
+      onSave;
+
+  @override
+  State<_TrackMetadataDialog> createState() => _TrackMetadataDialogState();
+}
+
+class _TrackMetadataDialogState extends State<_TrackMetadataDialog> {
+  late final TextEditingController _title =
+      TextEditingController(text: widget.track.title);
+  late final TextEditingController _artist =
+      TextEditingController(text: widget.track.artist ?? '');
+  late final TextEditingController _album =
+      TextEditingController(text: widget.track.album ?? '');
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _artist.dispose();
+    _album.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final title = _title.text.trim();
+    if (title.isEmpty) {
+      setState(() => _error = 'عنوان آهنگ نباید خالی باشد.');
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    final ok = await widget.onSave(title, _artist.text, _album.text);
+    if (!mounted) return;
+    if (ok) {
+      Navigator.pop(context, true);
+      return;
+    }
+    setState(() {
+      _saving = false;
+      _error = 'ذخیرهٔ اطلاعات ناموفق بود. دوباره تلاش کن.';
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      icon: const Icon(Icons.edit_note_outlined),
+      title: const Text('ویرایش اطلاعات آهنگ'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _title,
+              enabled: !_saving,
+              autofocus: true,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                labelText: 'عنوان',
+                prefixIcon: Icon(Icons.music_note_outlined),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _artist,
+              enabled: !_saving,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                labelText: 'خواننده',
+                prefixIcon: Icon(Icons.person_outline),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _album,
+              enabled: !_saving,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) {
+                if (!_saving) _save();
+              },
+              decoration: const InputDecoration(
+                labelText: 'آلبوم',
+                prefixIcon: Icon(Icons.album_outlined),
+              ),
+            ),
+            if (_error case final error?) ...[
+              const SizedBox(height: 12),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(
+                  error,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.pop(context, false),
+          child: const Text('انصراف'),
+        ),
+        FilledButton.icon(
+          onPressed: _saving ? null : _save,
+          icon: _saving
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.check),
+          label: const Text('ذخیره'),
+        ),
+      ],
+    );
+  }
+}
+
 class _DeviceNotice {
   const _DeviceNotice({
     required this.icon,
@@ -1203,78 +1368,6 @@ class _ImportsInProgress extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _StorageUsage extends StatelessWidget {
-  const _StorageUsage({required this.usedBytes, required this.limitBytes});
-
-  final int usedBytes;
-  final int limitBytes;
-
-  @override
-  Widget build(BuildContext context) {
-    if (limitBytes <= 0) return const SizedBox.shrink();
-    final progress = (usedBytes / limitBytes).clamp(0.0, 1.0);
-    final percent = (progress * 100).round();
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 880),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(4, 12, 4, 0),
-          child: GlassSurface(
-            blur: 12,
-            radius: 16,
-            shadow: false,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Semantics(
-              label: 'فضای ابری مصرف‌شده',
-              value: '$percent درصد',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.cloud_outlined, size: 19),
-                      const SizedBox(width: 8),
-                      Text(
-                        'فضای ابری',
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          '${formatSize(usedBytes)} از ${formatSize(limitBytes)}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.end,
-                          style:
-                              Theme.of(context).textTheme.labelMedium?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                                  ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(99),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }

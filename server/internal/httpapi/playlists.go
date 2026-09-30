@@ -57,16 +57,18 @@ type playlistResponse struct {
 	Name       string `json:"name"`
 	TrackCount int    `json:"trackCount"`
 	// ShareToken is set while the playlist is shared; only its owner sees it.
-	ShareToken *string         `json:"shareToken,omitempty"`
-	Tracks     []trackResponse `json:"tracks,omitempty"`
-	CreatedAt  time.Time       `json:"createdAt"`
-	UpdatedAt  time.Time       `json:"updatedAt"`
+	ShareToken *string `json:"shareToken,omitempty"`
+	// Public is whether a shared playlist is listed for everyone.
+	Public    bool            `json:"public"`
+	Tracks    []trackResponse `json:"tracks,omitempty"`
+	CreatedAt time.Time       `json:"createdAt"`
+	UpdatedAt time.Time       `json:"updatedAt"`
 }
 
 func toPlaylistResponse(playlist store.Playlist, includeTracks bool) playlistResponse {
 	response := playlistResponse{
 		ID: playlist.ID, Name: playlist.Name, TrackCount: len(playlist.Tracks), ShareToken: playlist.ShareToken,
-		CreatedAt: playlist.CreatedAt.UTC(), UpdatedAt: playlist.UpdatedAt.UTC(),
+		Public: playlist.IsPublic, CreatedAt: playlist.CreatedAt.UTC(), UpdatedAt: playlist.UpdatedAt.UTC(),
 	}
 	if includeTracks {
 		response.Tracks = make([]trackResponse, 0, len(playlist.Tracks))

@@ -25,7 +25,7 @@ const (
 	defaultTokenTTL      = 30 * 24 * time.Hour
 	defaultStreamURLTTL  = time.Hour
 	defaultMaxUpload     = 200 << 20
-	defaultOwnerQuota    = 5 << 30
+	defaultOwnerQuota    = 1 << 30
 	defaultMaxPending    = 3
 	defaultPendingTTL    = 2 * time.Hour
 	defaultCleanupEvery  = 10 * time.Minute

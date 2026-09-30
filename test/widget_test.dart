@@ -301,8 +301,40 @@ void main() {
     expect(find.text('Uploaded earlier'), findsOneWidget);
     expect(find.text('Artist'), findsOneWidget);
     expect(find.textContaining('3.0 مگابایت'), findsWidgets);
-    expect(find.textContaining('از 5.0 گیگابایت'), findsOneWidget);
+    // Storage use lives in the account screen, not above the tracks.
+    expect(find.textContaining('از 5.0 گیگابایت'), findsNothing);
     expect(find.text('کتابخانهٔ شما خالی است'), findsNothing);
+  });
+
+  testWidgets('the account screen shows cloud storage use on a narrow phone',
+      (tester) async {
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await _pumpApp(
+      tester,
+      tokenStore: MemoryTokenStore('valid-token'),
+      tracks: FakeTracksApi(const [
+        Track(
+          id: 's1',
+          title: 'Uploaded earlier',
+          contentType: 'audio/mpeg',
+          sizeBytes: 3 * 1024 * 1024,
+        ),
+      ]),
+    );
+
+    // On a phone, settings is in the account menu.
+    await tester.tap(find.byTooltip('حساب و تنظیمات'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('تنظیمات').last);
+    await tester.pumpAndSettle();
+    expect(find.text('فضای ابری'), findsOneWidget);
+    expect(find.textContaining('از 5.0 گیگابایت'), findsOneWidget);
+    expect(
+        find.bySemanticsLabel(RegExp('^فضای ابری مصرف‌شده')), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('search reports result count and offers a clear action', (
@@ -617,6 +649,42 @@ void main() {
       find.text('A very long track title that must remain readable'),
       findsWidgets,
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('mini player controls are at least 48 px on a 360 px phone',
+      (tester) async {
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await _pumpApp(
+      tester,
+      tokenStore: MemoryTokenStore('valid-token'),
+      tracks: FakeTracksApi(const [
+        Track(
+          id: 's1',
+          title: 'A very long track title that must remain readable',
+          artist: 'A very long artist name',
+          contentType: 'audio/mpeg',
+          sizeBytes: 1,
+        ),
+      ]),
+    );
+    await tester.tap(
+      find.text('A very long track title that must remain readable'),
+    );
+    await tester.pumpAndSettle();
+
+    for (final tooltip in ['قبلی', 'توقف', 'بعدی']) {
+      final size = tester.getSize(find.descendant(
+        of: find.byTooltip(tooltip),
+        matching: find.byType(InkWell),
+      ));
+      expect(size.width, greaterThanOrEqualTo(48), reason: tooltip);
+      expect(size.height, greaterThanOrEqualTo(48), reason: tooltip);
+    }
     expect(tester.takeException(), isNull);
   });
 
