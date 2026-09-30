@@ -15,4 +15,15 @@ abstract final class AppConfiguration {
     if (uri == null || !uri.hasScheme || !uri.hasAuthority) return null;
     return uri;
   }
+
+  /// The share token of a playlist link the web app was opened with
+  /// (`/?shared=…`), taken only once.
+  static String? takeInitialShareToken() {
+    if (!kIsWeb || _shareTokenTaken) return null;
+    _shareTokenTaken = true;
+    final token = Uri.base.queryParameters['shared'];
+    return token == null || token.isEmpty ? null : token;
+  }
+
+  static bool _shareTokenTaken = false;
 }

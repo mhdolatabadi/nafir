@@ -56,6 +56,18 @@ class FakeTracksApi implements TracksApi {
   }
 
   @override
+  Future<StreamLink> sharedStreamLink(
+      String token, String shareToken, String trackId) async {
+    calls.add('shared:$shareToken:$trackId');
+    if (linkError != null) throw linkError!;
+    links++;
+    return StreamLink(
+      Uri.parse('https://music.example.com/nafir-music/$trackId?sig=$links'),
+      DateTime.now().add(const Duration(hours: 1)),
+    );
+  }
+
+  @override
   Future<UploadTicket> createUpload(
       String token, String fileName, int sizeBytes) async {
     calls.add('create:$token:$fileName:$sizeBytes');

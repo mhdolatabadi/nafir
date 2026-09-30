@@ -143,8 +143,7 @@ class PlayerController extends ChangeNotifier {
     _loading = true;
     _setStatus(PlayerStatus.loading);
     try {
-      final url =
-          track.sourceUri ?? (await _api.streamLink(token!, track.id)).url;
+      final url = track.sourceUri ?? (await _link(token!, track)).url;
       if (request != _request) return;
       await _engine.load(track, url);
       if (request != _request) return;
@@ -241,6 +240,15 @@ class PlayerController extends ChangeNotifier {
     _setStatus(PlayerStatus.idle);
   }
 
+  /// Someone else's track, opened from a shared playlist, is played through
+  /// that playlist's link; the user's own tracks directly.
+  Future<StreamLink> _link(String token, Track track) {
+    final shareToken = track.sharedVia;
+    return shareToken == null
+        ? _api.streamLink(token, track.id)
+        : _api.sharedStreamLink(token, shareToken, track.id);
+  }
+
   /// Stream URLs expire; when playback fails (typically on a seek after the
   /// URL expired), fetch a fresh one once and resume where it stopped.
   Future<void> _onEngineError(Object error) async {
@@ -254,7 +262,7 @@ class PlayerController extends ChangeNotifier {
     final request = _request;
     final resumeAt = _position;
     try {
-      final link = await _api.streamLink(token, track.id);
+      final link = await _link(token, track);
       if (request != _request) return;
       await _engine.load(track, link.url, start: resumeAt);
       _engine.play();

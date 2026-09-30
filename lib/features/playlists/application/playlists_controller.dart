@@ -6,6 +6,20 @@ enum PlaylistsStatus { loading, loaded, error }
 
 enum AddTrackResult { added, alreadyPresent, failure }
 
+enum SaveSharedResult {
+  saved,
+  alreadyYours,
+  noSpace,
+  uploadsDisabled,
+  gone,
+  failed
+}
+
+/// A shared playlist link that is malformed, unknown or no longer shared.
+class SharedPlaylistUnavailable implements Exception {
+  const SharedPlaylistUnavailable();
+}
+
 class PlaylistsController extends ChangeNotifier {
   PlaylistsController(
       {required PlaylistsApi api, required String? Function() token})
@@ -46,6 +60,65 @@ class PlaylistsController extends ChangeNotifier {
       return playlist;
     } catch (_) {
       return null;
+    }
+  }
+
+  /// Shares the playlist by link and returns its share token, or null.
+  Future<String?> share(String id) async {
+    final token = _token();
+    if (token == null) return null;
+    try {
+      return await _api.sharePlaylist(token, id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Stops sharing; the old link stops working. Returns whether it worked.
+  Future<bool> unshare(String id) async {
+    final token = _token();
+    if (token == null) return false;
+    try {
+      await _api.unsharePlaylist(token, id);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Opens a playlist someone shared. Throws [SharedPlaylistUnavailable]
+  /// when the link is wrong or no longer shared, other errors when offline.
+  Future<SharedPlaylist> openShared(String shareToken) async {
+    final token = _token();
+    if (token == null) throw const SharedPlaylistUnavailable();
+    try {
+      return await _api.getSharedPlaylist(token, shareToken);
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) throw const SharedPlaylistUnavailable();
+      rethrow;
+    }
+  }
+
+  /// Copies a shared playlist and its tracks into this account.
+  Future<SaveSharedResult> saveShared(String shareToken) async {
+    final token = _token();
+    if (token == null) return SaveSharedResult.failed;
+    try {
+      final saved = await _api.saveSharedPlaylist(token, shareToken);
+      playlists = [saved, ...playlists];
+      status = PlaylistsStatus.loaded;
+      notifyListeners();
+      return SaveSharedResult.saved;
+    } on ApiException catch (e) {
+      return switch (e.statusCode) {
+        409 => SaveSharedResult.alreadyYours,
+        413 => SaveSharedResult.noSpace,
+        503 => SaveSharedResult.uploadsDisabled,
+        404 => SaveSharedResult.gone,
+        _ => SaveSharedResult.failed,
+      };
+    } catch (_) {
+      return SaveSharedResult.failed;
     }
   }
 
