@@ -113,6 +113,20 @@ func (m *memoryTracks) MarkReady(_ context.Context, ownerID, trackID string) (st
 	return store.Track{}, store.ErrNotFound
 }
 
+func (m *memoryTracks) UpdateMetadata(_ context.Context, ownerID, trackID string, metadata store.TrackMetadata) (store.Track, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for i, track := range m.tracks {
+		if track.ID == trackID && track.OwnerID == ownerID && track.Status == store.TrackReady {
+			m.tracks[i].Title = metadata.Title
+			m.tracks[i].Artist = metadata.Artist
+			m.tracks[i].Album = metadata.Album
+			return m.tracks[i], nil
+		}
+	}
+	return store.Track{}, store.ErrNotFound
+}
+
 func (m *memoryTracks) Delete(_ context.Context, ownerID, trackID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -270,6 +284,49 @@ func TestOwnTrackAndStreamURL(t *testing.T) {
 	}
 }
 
+func TestUpdateTrackMetadata(t *testing.T) {
+	artist := "Old artist"
+	album := "Old album"
+	tracks := &memoryTracks{tracks: []store.Track{
+		{ID: "a1", OwnerID: "alice", Status: store.TrackReady, Title: "Old title", Artist: &artist, Album: &album, StorageKey: "users/alice/tracks/a1/song.mp3", ContentType: "audio/mpeg"},
+		{ID: "p1", OwnerID: "alice", Status: store.TrackPending, Title: "Pending", StorageKey: "users/alice/tracks/p1/song.mp3", ContentType: "audio/mpeg"},
+	}}
+	api := newTracksAPI(t, tracks)
+
+	response := api.do(t, http.MethodPatch, "/api/v1/tracks/a1",
+		`{"title":" New title ","artist":"","album":" Album "}`, api.alice)
+	if response.Code != http.StatusOK {
+		t.Fatalf("update: expected 200, got %d: %s", response.Code, response.Body.String())
+	}
+	updated := decode[trackResponse](t, response)
+	if updated.Title != "New title" || updated.Artist != nil || updated.Album == nil || *updated.Album != "Album" {
+		t.Fatalf("unexpected updated track %+v", updated)
+	}
+	listed := decode[trackListResponse](t, api.get(t, "/api/v1/tracks", api.alice))
+	if listed.Tracks[0].Title != "New title" {
+		t.Fatalf("list did not reflect update: %+v", listed.Tracks)
+	}
+
+	expectError(t, api.do(t, http.MethodPatch, "/api/v1/tracks/p1", `{"title":"Hidden"}`, api.alice), http.StatusNotFound, "not_found")
+}
+
+func TestUpdateTrackMetadataValidation(t *testing.T) {
+	api := newTracksAPI(t, sampleTracks())
+	cases := []struct {
+		name, body, code string
+	}{
+		{"unknown field", `{"title":"Song","owner":"bob"}`, "invalid_json"},
+		{"missing title", `{"artist":"Artist"}`, "invalid_metadata"},
+		{"empty title", `{"title":"   "}`, "invalid_metadata"},
+		{"long artist", `{"title":"Song","artist":"` + strings.Repeat("x", 201) + `"}`, "invalid_metadata"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			expectError(t, api.do(t, http.MethodPatch, "/api/v1/tracks/a1", tc.body, api.alice), http.StatusBadRequest, tc.code)
+		})
+	}
+}
+
 func TestOtherUsersTracksAreNotFound(t *testing.T) {
 	for name, tracks := range map[string]*memoryTracks{
 		"scoped store": sampleTracks(),
@@ -278,13 +335,14 @@ func TestOtherUsersTracksAreNotFound(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			api := newTracksAPI(t, tracks)
 			api.objects.objects["users/bob/tracks/b1/song.mp3"] = []byte("ID3")
-			for _, request := range []struct{ method, path string }{
-				{http.MethodGet, "/api/v1/tracks/b1"},
-				{http.MethodGet, "/api/v1/tracks/b1/stream"},
-				{http.MethodPost, "/api/v1/tracks/b1/complete"},
-				{http.MethodDelete, "/api/v1/tracks/b1"},
+			for _, request := range []struct{ method, path, body string }{
+				{http.MethodGet, "/api/v1/tracks/b1", ""},
+				{http.MethodGet, "/api/v1/tracks/b1/stream", ""},
+				{http.MethodPatch, "/api/v1/tracks/b1", `{"title":"Stolen"}`},
+				{http.MethodPost, "/api/v1/tracks/b1/complete", ""},
+				{http.MethodDelete, "/api/v1/tracks/b1", ""},
 			} {
-				expectError(t, api.do(t, request.method, request.path, "", api.alice), http.StatusNotFound, "not_found")
+				expectError(t, api.do(t, request.method, request.path, request.body, api.alice), http.StatusNotFound, "not_found")
 			}
 			// Same answer as a track that does not exist at all.
 			expectError(t, api.get(t, "/api/v1/tracks/missing", api.alice), http.StatusNotFound, "not_found")
@@ -304,6 +362,7 @@ func TestTracksRequireAuthentication(t *testing.T) {
 		{http.MethodGet, "/api/v1/tracks"},
 		{http.MethodGet, "/api/v1/tracks/a1"},
 		{http.MethodGet, "/api/v1/tracks/a1/stream"},
+		{http.MethodPatch, "/api/v1/tracks/a1"},
 		{http.MethodPost, "/api/v1/tracks/uploads"},
 		{http.MethodPost, "/api/v1/tracks/a1/complete"},
 		{http.MethodDelete, "/api/v1/tracks/a1"},
