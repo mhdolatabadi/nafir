@@ -60,6 +60,56 @@ void main() {
     expect(library.isDeleting('s1'), isFalse);
   });
 
+  test('editing metadata updates the visible track', () async {
+    final api = FakeTracksApi([_song]);
+    final library = LibraryController(api: api, token: () => 'tok');
+    await library.load();
+
+    expect(
+      await library.updateTrackMetadata(
+        's1',
+        title: '  New title  ',
+        artist: '  New artist ',
+        album: '   ',
+      ),
+      isTrue,
+    );
+
+    expect(api.calls, contains('update:s1'));
+    expect(library.tracks.single.title, 'New title');
+    expect(library.tracks.single.artist, 'New artist');
+    expect(library.tracks.single.album, isNull);
+    expect(library.isUpdating('s1'), isFalse);
+  });
+
+  test('a failed metadata edit keeps the track and clears busy state', () async {
+    final api = FakeTracksApi([_song])..updateError = Exception('offline');
+    final library = LibraryController(api: api, token: () => 'tok');
+    await library.load();
+
+    expect(
+      await library.updateTrackMetadata('s1', title: 'New title'),
+      isFalse,
+    );
+
+    expect(library.tracks, [_song]);
+    expect(library.isUpdating('s1'), isFalse);
+  });
+
+  test('empty metadata titles are rejected before the API call', () async {
+    final api = FakeTracksApi([_song]);
+    final library = LibraryController(api: api, token: () => 'tok');
+    await library.load();
+
+    expect(
+      await library.updateTrackMetadata('s1', title: '   '),
+      isFalse,
+    );
+
+    expect(api.calls.where((call) => call.startsWith('update:')), isEmpty);
+    expect(library.tracks, [_song]);
+  });
+
   test('a failed delete keeps the track and clears busy state', () async {
     final api = FakeTracksApi([_song])..deleteError = Exception('offline');
     final library = LibraryController(api: api, token: () => 'tok');
