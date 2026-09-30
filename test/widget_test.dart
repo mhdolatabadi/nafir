@@ -469,7 +469,8 @@ void main() {
 
     expect(find.byTooltip('توقف'), findsOneWidget);
     expect(find.text('3:00'), findsOneWidget);
-    expect(find.byIcon(Icons.graphic_eq), findsNWidgets(2));
+    expect(find.text('Song'), findsWidgets);
+    expect(find.byIcon(Icons.graphic_eq), findsOneWidget);
 
     await tester.tap(find.byTooltip('توقف'));
     await tester.pumpAndSettle();
@@ -536,7 +537,11 @@ void main() {
     expect(find.byTooltip('قبلی'), findsOneWidget);
     expect(find.byTooltip('توقف'), findsOneWidget);
     expect(find.byTooltip('بعدی'), findsOneWidget);
-    expect(find.byTooltip('پخش تصادفی'), findsOneWidget);
+    expect(find.byTooltip('پخش تصادفی'), findsNothing);
+    expect(
+      find.text('A very long track title that must remain readable'),
+      findsWidgets,
+    );
     final trackList = tester.widget<ListView>(find.byKey(
       const ValueKey('track-list'),
     ));
