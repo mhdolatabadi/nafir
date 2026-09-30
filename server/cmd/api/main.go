@@ -205,9 +205,9 @@ func run() error {
 			Playlists: httpapi.NewPlaylistHandlers(playlists, tokens).WithSharing(playlists, objects, httpapi.SavePolicy{
 				Objects: objects, MaxOwnerBytes: ownerQuotaBytes, Enabled: uploadsEnabled,
 			}),
-			Bots:      botHandlers,
-			Ops:       ops,
-			Webhooks:  webhooks,
+			Bots:     botHandlers,
+			Ops:      ops,
+			Webhooks: webhooks,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
