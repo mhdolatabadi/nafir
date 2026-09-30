@@ -11,6 +11,7 @@ import androidx.core.content.ContextCompat
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
 
 // Shares the Flutter engine with audio_service's background playback service,
 // so music keeps playing and responds to media controls with the app closed.
@@ -67,11 +68,7 @@ class MainActivity : AudioServiceActivity() {
         }
         try {
             val safeName = fileName.replace(Regex("[^A-Za-z0-9._-]"), "_")
-            val output = kotlin.io.path.createTempFile(
-                cacheDir.toPath(),
-                "nafir-upload-",
-                "-$safeName",
-            ).toFile()
+            val output = File.createTempFile("nafir-upload-", "-$safeName", cacheDir)
             contentResolver.openInputStream(Uri.parse(uri)).use { input ->
                 if (input == null) {
                     result.error("NOT_FOUND", "Audio file could not be opened.", null)
