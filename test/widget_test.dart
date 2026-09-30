@@ -332,7 +332,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('فضای ابری'), findsOneWidget);
     expect(find.textContaining('از 5.0 گیگابایت'), findsOneWidget);
-    expect(find.bySemanticsLabel(RegExp('^فضای ابری مصرف‌شده')), findsOneWidget);
+    expect(
+        find.bySemanticsLabel(RegExp('^فضای ابری مصرف‌شده')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
