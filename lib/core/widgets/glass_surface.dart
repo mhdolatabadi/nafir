@@ -57,8 +57,8 @@ class _AmbientLightState extends State<_AmbientLight>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(seconds: 9),
-  )..repeat(reverse: true);
+    duration: const Duration(milliseconds: 1400),
+  )..forward();
 
   late final Animation<double> _drift = CurvedAnimation(
     parent: _controller,
