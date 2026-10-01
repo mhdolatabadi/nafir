@@ -3,11 +3,16 @@ import 'package:nafir/features/library/data/track.dart';
 /// Tracks that share an album or an artist.
 class TrackGroup {
   const TrackGroup({
+    required this.key,
     required this.name,
     required this.tracks,
     this.artist,
     this.unknown = false,
   });
+
+  /// What identifies the group however it is spelled: the name in lower
+  /// case with single spaces, or "" for tracks without one.
+  final String key;
 
   /// The first spelling seen, or «نامشخص» for tracks without one.
   final String name;
@@ -59,11 +64,21 @@ List<TrackGroup> _group(
   return [
     for (final key in keys)
       TrackGroup(
+        key: key,
         name: names[key]!,
         artist: withArtist ? artistOf(members[key]!) : null,
         tracks: members[key]!,
       ),
     if (unknown.isNotEmpty)
-      TrackGroup(name: unknownGroupName, unknown: true, tracks: unknown),
+      TrackGroup(
+          key: '', name: unknownGroupName, unknown: true, tracks: unknown),
   ];
+}
+
+/// The group with [key] in [groups], or null when it has no tracks left.
+TrackGroup? groupWithKey(List<TrackGroup> groups, String key) {
+  for (final group in groups) {
+    if (group.key == key) return group;
+  }
+  return null;
 }
