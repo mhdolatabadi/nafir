@@ -39,6 +39,13 @@ Caddy splits the domain between three services:
 (`/?shared=…`) redirect to `/app/?shared=…`. Both the API and the public pages
 receive the visitor's IP in `X-Nafir-Client-IP` for rate limiting.
 
+The Compose project is named `nafir` (set in `compose.yaml`), so its
+containers and networks don't collide with other projects on the server. Its
+volumes keep the names they got under the old default project name
+(`deploy_postgres-data`, `deploy_minio-data`, `deploy_caddy-data`,
+`deploy_caddy-config`), and `deploy.sh` replaces this checkout's old
+`deploy-*` containers once on the first deploy after the rename.
+
 Audio objects under `/nafir-music/*` deliberately bypass Caddy response
 compression and are served with `Cache-Control: private, no-transform`. This
 keeps byte ranges and cached media identical to the object stored in MinIO.
