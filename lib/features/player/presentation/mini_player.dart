@@ -337,6 +337,9 @@ class _MiniTrackText extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Column(
+      // The mini player is the scaffold's bottom bar, which may be as tall
+      // as the screen; a Column that took all of it covered the library.
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(

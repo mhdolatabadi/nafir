@@ -3,6 +3,7 @@ import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/core/format_size.dart';
 import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
+import 'package:nafir/features/library/application/track_groups.dart';
 import 'package:nafir/features/library/application/track_sort.dart';
 import 'package:nafir/features/library/application/local_audio_controller.dart';
 import 'package:nafir/features/library/data/local_audio_upload.dart';
@@ -50,8 +51,21 @@ class LibraryScreen extends StatefulWidget {
   State<LibraryScreen> createState() => _LibraryScreenState();
 }
 
-class _LibraryScreenState extends State<LibraryScreen> {
+class _LibraryScreenState extends State<LibraryScreen>
+    with SingleTickerProviderStateMixin {
   UploadPhase _lastPhase = UploadPhase.idle;
+
+  /// «آهنگ‌ها», «Playlistها» when available, «آلبوم‌ها» and «هنرمندان».
+  late final TabController _tabs = TabController(
+    length: widget.playlists == null ? 3 : 4,
+    vsync: this,
+  )..addListener(_onTabChanged);
+
+  void _onTabChanged() {
+    // The add-music button belongs to the tracks tab.
+    if (!_tabs.indexIsChanging) setState(() {});
+  }
+
   late final AppLifecycleListener _lifecycle;
   late final LocalAudioUploadSource _localUpload;
 
@@ -88,6 +102,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   @override
   void dispose() {
+    _tabs.dispose();
     _lifecycle.dispose();
     widget.uploads.removeListener(_onUploadChanged);
     super.dispose();
@@ -195,23 +210,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  void _openPlaylists() {
-    final playlists = widget.playlists;
-    if (playlists == null) return;
-    Navigator.of(context)
-        .push(
-          MaterialPageRoute<void>(
-            builder: (_) => PlaylistsScreen(
-              controller: playlists,
-              libraryTracks: widget.library.tracks,
-              player: widget.player,
-            ),
-          ),
-        )
-        // A shared playlist may have been saved, bringing its tracks along.
-        .then((_) => widget.library.load());
-  }
-
   void _openSettings() {
     Navigator.of(context)
         .push(MaterialPageRoute<void>(
@@ -266,187 +264,247 @@ class _LibraryScreenState extends State<LibraryScreen> {
     return byKey.values.toList(growable: false);
   }
 
+  List<Widget> _accountActions(BuildContext context) {
+    if (MediaQuery.sizeOf(context).width >= 720) {
+      return [
+        _AccountChip(email: widget.email),
+        const SizedBox(width: 8),
+        Tooltip(
+          message: 'تنظیمات',
+          child: FilledButton.tonalIcon(
+            onPressed: _openSettings,
+            icon: const Icon(Icons.settings_outlined, size: 19),
+            label: const Text('تنظیمات'),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Tooltip(
+          message: 'خروج',
+          child: OutlinedButton.icon(
+            onPressed: widget.onLogout,
+            icon: const Icon(Icons.logout, size: 19),
+            label: const Text('خروج'),
+          ),
+        ),
+        const SizedBox(width: 32),
+      ];
+    }
+    return [
+      PopupMenuButton<_HeaderAction>(
+        tooltip: 'حساب و تنظیمات',
+        icon: const Icon(Icons.account_circle_outlined),
+        onSelected: (action) {
+          switch (action) {
+            case _HeaderAction.settings:
+              _openSettings();
+            case _HeaderAction.logout:
+              widget.onLogout();
+          }
+        },
+        itemBuilder: (context) => [
+          PopupMenuItem<_HeaderAction>(
+            enabled: false,
+            child: Text(
+              widget.email,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const PopupMenuDivider(),
+          const PopupMenuItem(
+            value: _HeaderAction.settings,
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.settings_outlined),
+              title: Text('تنظیمات'),
+            ),
+          ),
+          const PopupMenuItem(
+            value: _HeaderAction.logout,
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.logout),
+              title: Text('خروج از حساب'),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(width: 8),
+    ];
+  }
+
+  /// Height of the big title area above the toolbar when fully expanded.
+  static const double _largeTitleHeight = 88;
+
+  /// The large, collapsing title with the category tabs pinned under it.
+  Widget _header(BuildContext context) {
+    final wide = MediaQuery.sizeOf(context).width >= 720;
+    final tabs = TabBar(
+      controller: _tabs,
+      // On a phone the four short tabs share the width so all stay in view;
+      // on wide screens they sit together at the start.
+      isScrollable: wide,
+      tabAlignment: wide ? TabAlignment.start : TabAlignment.fill,
+      labelStyle: Theme.of(context)
+          .textTheme
+          .titleSmall
+          ?.copyWith(fontWeight: FontWeight.w800),
+      unselectedLabelStyle: Theme.of(context)
+          .textTheme
+          .titleSmall
+          ?.copyWith(fontWeight: FontWeight.w500),
+      tabs: [
+        const Tab(text: 'آهنگ‌ها'),
+        if (widget.playlists != null) const Tab(text: 'Playlistها'),
+        const Tab(text: 'آلبوم‌ها'),
+        const Tab(text: 'هنرمندان'),
+      ],
+    );
+    final bar = wide
+        ? SliverAppBar(
+            pinned: true,
+            toolbarHeight: 76,
+            titleSpacing: 32,
+            title: const _NafirBrand(compact: false),
+            actions: _accountActions(context),
+            bottom: tabs,
+          )
+        : SliverAppBar(
+            pinned: true,
+            expandedHeight: _largeTitleHeight + kToolbarHeight,
+            // Opaque, because the lists scroll underneath it.
+            backgroundColor: NafirGlass.background,
+            actions: _accountActions(context),
+            flexibleSpace: const _CollapsingTitle(),
+            bottom: tabs,
+          );
+    return SliverOverlapAbsorber(
+      handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+      sliver: bar,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-      appBar: AppBar(
-        toolbarHeight: MediaQuery.sizeOf(context).width >= 720 ? 76 : 64,
-        titleSpacing: MediaQuery.sizeOf(context).width >= 720 ? 32 : 16,
-        title: _NafirBrand(
-          compact: MediaQuery.sizeOf(context).width < 720,
-        ),
-        actions: MediaQuery.sizeOf(context).width >= 720
-            ? [
-                if (widget.playlists != null) ...[
-                  FilledButton.tonalIcon(
-                    onPressed: _openPlaylists,
-                    icon: const Icon(Icons.queue_music, size: 19),
-                    label: const Text('Playlistها'),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-                _AccountChip(email: widget.email),
-                const SizedBox(width: 8),
-                Tooltip(
-                  message: 'تنظیمات',
-                  child: FilledButton.tonalIcon(
-                    onPressed: _openSettings,
-                    icon: const Icon(Icons.settings_outlined, size: 19),
-                    label: const Text('تنظیمات'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Tooltip(
-                  message: 'خروج',
-                  child: OutlinedButton.icon(
-                    onPressed: widget.onLogout,
-                    icon: const Icon(Icons.logout, size: 19),
-                    label: const Text('خروج'),
-                  ),
-                ),
-                const SizedBox(width: 32),
-              ]
-            : [
-                PopupMenuButton<_HeaderAction>(
-                  tooltip: 'حساب و تنظیمات',
-                  icon: const Icon(Icons.account_circle_outlined),
-                  onSelected: (action) {
-                    switch (action) {
-                      case _HeaderAction.playlists:
-                        _openPlaylists();
-                      case _HeaderAction.settings:
-                        _openSettings();
-                      case _HeaderAction.logout:
-                        widget.onLogout();
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    if (widget.playlists != null)
-                      const PopupMenuItem(
-                        value: _HeaderAction.playlists,
-                        child: ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: Icon(Icons.queue_music),
-                          title: Text('Playlistها'),
-                        ),
-                      ),
-                    PopupMenuItem<_HeaderAction>(
-                      enabled: false,
-                      child: Text(
-                        widget.email,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const PopupMenuDivider(),
-                    const PopupMenuItem(
-                      value: _HeaderAction.settings,
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.settings_outlined),
-                        title: Text('تنظیمات'),
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: _HeaderAction.logout,
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.logout),
-                        title: Text('خروج از حساب'),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 8),
-              ],
-      ),
       bottomNavigationBar: MiniPlayer(player: widget.player),
-      floatingActionButton: ListenableBuilder(
-        listenable: widget.uploads,
-        builder: (context, _) => FloatingActionButton.extended(
-          onPressed: widget.uploads.isBusy ? null : _pickAndUpload,
-          icon: const Icon(Icons.add),
-          label: const Text('افزودن موسیقی'),
+      floatingActionButton: _tabs.index != 0
+          ? null
+          : ListenableBuilder(
+              listenable: widget.uploads,
+              builder: (context, _) => FloatingActionButton.extended(
+                onPressed: widget.uploads.isBusy ? null : _pickAndUpload,
+                icon: const Icon(Icons.add),
+                label: const Text('افزودن موسیقی'),
+              ),
+            ),
+      body: NafirBackdrop(
+        child: NestedScrollView(
+          headerSliverBuilder: (context, _) => [_header(context)],
+          body: TabBarView(
+            controller: _tabs,
+            children: [
+              _Tab(child: _unifiedLibrary()),
+              if (widget.playlists case final playlists?)
+                _Tab(
+                  child: PlaylistsView(
+                    controller: playlists,
+                    libraryTracks: widget.library.tracks,
+                    player: widget.player,
+                    onSharedSaved: widget.library.load,
+                    underHeader: true,
+                  ),
+                ),
+              _Tab(child: _groupsTab(albums: true)),
+              _Tab(child: _groupsTab(albums: false)),
+            ],
+          ),
         ),
       ),
-      body: NafirBackdrop(child: _unifiedLibrary()),
     );
   }
 
-  Widget _unifiedLibrary() => _ResponsiveLibraryContent(
-        child: Column(
-          children: [
-            UploadStatusCard(controller: widget.uploads),
-            ListenableBuilder(
-              listenable: widget.library,
-              builder: (context, _) => Column(
-                children: [
-                  if (widget.library.importsInProgress case final n when n > 0)
-                    _ImportsInProgress(count: n),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ListenableBuilder(
-                listenable: Listenable.merge([
-                  widget.library,
-                  widget.localAudio,
-                  if (widget.botLinks != null) widget.botLinks,
-                ]),
-                builder: (context, _) {
-                  final localStatus = widget.localAudio.status;
-                  final localLoading = widget.localAudio.supported &&
-                      (localStatus == LocalAudioViewStatus.idle ||
-                          localStatus == LocalAudioViewStatus.loading);
-                  final tracks = _unifiedTracks();
+  Widget _groupsTab({required bool albums}) => ListenableBuilder(
+        listenable: Listenable.merge([widget.library, widget.localAudio]),
+        builder: (context, _) {
+          final tracks = _unifiedTracks();
+          return _GroupList(
+            groups: albums ? groupByAlbum(tracks) : groupByArtist(tracks),
+            albums: albums,
+            player: widget.player,
+          );
+        },
+      );
 
-                  if (widget.library.status == LibraryStatus.loading &&
-                      tracks.isEmpty) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (widget.library.status == LibraryStatus.error &&
-                      tracks.isEmpty) {
-                    return _LoadError(onRetry: widget.library.load);
-                  }
-                  if (localLoading && tracks.isEmpty) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+  Widget _unifiedLibrary() => ListenableBuilder(
+        listenable: Listenable.merge([
+          widget.library,
+          widget.localAudio,
+          if (widget.botLinks != null) widget.botLinks,
+        ]),
+        builder: (context, _) {
+          final localStatus = widget.localAudio.status;
+          final localLoading = widget.localAudio.supported &&
+              (localStatus == LocalAudioViewStatus.idle ||
+                  localStatus == LocalAudioViewStatus.loading);
+          final tracks = _unifiedTracks();
+          final top = Column(
+            children: [
+              UploadStatusCard(controller: widget.uploads),
+              if (widget.library.importsInProgress case final n when n > 0)
+                _ImportsInProgress(count: n),
+            ],
+          );
+          Widget state(Widget child) => _TabScrollView(slivers: [
+                SliverToBoxAdapter(child: top),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 56),
+                    child: child,
+                  ),
+                ),
+              ]);
 
-                  final notice = _DeviceNotice.fromStatus(
-                    localStatus,
-                    widget.localAudio.supported,
-                  );
-                  return RefreshIndicator(
-                    onRefresh: _refreshLibrary,
-                    child: tracks.isEmpty
-                        ? _EmptyLibrary(deviceNotice: notice)
-                        : _TrackList(
-                            tracks: tracks,
-                            player: widget.player,
-                            playlists: widget.playlists,
-                            onDelete: _confirmDeleteTrack,
-                            onEditMetadata: _editTrackMetadata,
-                            isDeleting: (trackId) =>
-                                widget.library.isDeleting(trackId) ||
-                                widget.library.isUpdating(trackId),
-                            linkedBots: widget.botLinks?.linkedBots ?? const [],
-                            onSendToBot: _sendToBot,
-                            onUploadToServer: _uploadLocalTrack,
-                            uploadsBusy: widget.uploads.isBusy,
-                            deviceNotice: notice,
-                            showLocationBadges: true,
-                          ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+          if (tracks.isEmpty &&
+              (widget.library.status == LibraryStatus.loading ||
+                  localLoading)) {
+            return state(const Center(child: CircularProgressIndicator()));
+          }
+          if (widget.library.status == LibraryStatus.error && tracks.isEmpty) {
+            return state(_LoadError(onRetry: widget.library.load));
+          }
+          final notice = _DeviceNotice.fromStatus(
+            localStatus,
+            widget.localAudio.supported,
+          );
+          return RefreshIndicator(
+            onRefresh: _refreshLibrary,
+            child: tracks.isEmpty
+                ? state(_EmptyLibrary(deviceNotice: notice))
+                : _TrackList(
+                    top: top,
+                    tracks: tracks,
+                    player: widget.player,
+                    playlists: widget.playlists,
+                    onDelete: _confirmDeleteTrack,
+                    onEditMetadata: _editTrackMetadata,
+                    isDeleting: (trackId) =>
+                        widget.library.isDeleting(trackId) ||
+                        widget.library.isUpdating(trackId),
+                    linkedBots: widget.botLinks?.linkedBots ?? const [],
+                    onSendToBot: _sendToBot,
+                    onUploadToServer: _uploadLocalTrack,
+                    uploadsBusy: widget.uploads.isBusy,
+                    deviceNotice: notice,
+                    showLocationBadges: true,
+                  ),
+          );
+        },
       );
 }
 
-enum _HeaderAction { playlists, settings, logout }
+enum _HeaderAction { settings, logout }
 
 enum _TrackAction {
   addToPlaylist,
@@ -456,6 +514,119 @@ enum _TrackAction {
   removeFromDevice,
   editMetadata,
   delete,
+}
+
+/// The phone header's title: large above the tabs, shrinking into the
+/// toolbar as the library scrolls, as in Samsung Music.
+class _CollapsingTitle extends StatelessWidget {
+  const _CollapsingTitle();
+
+  @override
+  Widget build(BuildContext context) {
+    final settings =
+        context.dependOnInheritedWidgetOfExactType<FlexibleSpaceBarSettings>()!;
+    final range = settings.maxExtent - settings.minExtent;
+    // 1 when fully expanded, 0 when collapsed into the toolbar.
+    final open = range <= 0
+        ? 0.0
+        : ((settings.currentExtent - settings.minExtent) / range)
+            .clamp(0.0, 1.0);
+    final theme = Theme.of(context);
+    final top = MediaQuery.paddingOf(context).top;
+    final tabsHeight = settings.minExtent - top - kToolbarHeight;
+    return Stack(
+      children: [
+        // The small title, in the toolbar once the large one is gone.
+        PositionedDirectional(
+          top: top,
+          start: 16,
+          height: kToolbarHeight,
+          child: Opacity(
+            opacity: (1 - open * 2).clamp(0.0, 1.0),
+            child: ExcludeSemantics(
+              excluding: open > 0.5,
+              child: const Row(
+                children: [
+                  _NafirMark(size: 32),
+                  SizedBox(width: 10),
+                  Text(
+                    'نفیر',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        // The large title, just above the tabs.
+        PositionedDirectional(
+          start: 20,
+          end: 20,
+          bottom: tabsHeight + 12,
+          child: Opacity(
+            opacity: open,
+            child: ExcludeSemantics(
+              excluding: open <= 0.5,
+              child: Transform.scale(
+                scale: 0.8 + 0.2 * open,
+                alignment: AlignmentDirectional.bottomStart,
+                child: Row(
+                  children: [
+                    const _NafirMark(size: 44),
+                    const SizedBox(width: 14),
+                    Flexible(
+                      child: Text(
+                        'نفیر',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.headlineMedium
+                            ?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The Nafir logo mark: the horn's sound wave on the brand gradient.
+class _NafirMark extends StatelessWidget {
+  const _NafirMark({this.size = 44});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(size * 0.32),
+        gradient: const LinearGradient(
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+          colors: [NafirGlass.primary, Color(0xFFB72E50)],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: NafirGlass.primary.withValues(alpha: 0.24),
+            offset: const Offset(0, 8),
+            blurRadius: 22,
+          ),
+        ],
+      ),
+      child: Icon(
+        Icons.graphic_eq_rounded,
+        size: size * 0.55,
+        color: const Color(0xFFFFF5F5),
+      ),
+    );
+  }
 }
 
 class _NafirBrand extends StatelessWidget {
@@ -471,29 +642,7 @@ class _NafirBrand extends StatelessWidget {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                gradient: const LinearGradient(
-                  begin: Alignment.topRight,
-                  end: Alignment.bottomLeft,
-                  colors: [NafirGlass.primary, Color(0xFFB72E50)],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: NafirGlass.primary.withValues(alpha: 0.24),
-                    offset: const Offset(0, 8),
-                    blurRadius: 22,
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.graphic_eq_rounded,
-                color: Color(0xFFFFF5F5),
-              ),
-            ),
+            const _NafirMark(),
             const SizedBox(width: 12),
             Flexible(
               child: showSubtitle
@@ -573,34 +722,118 @@ class _AccountChip extends StatelessWidget {
   }
 }
 
-class _ResponsiveLibraryContent extends StatelessWidget {
-  const _ResponsiveLibraryContent({required this.child});
+/// One library tab, kept alive so its scroll position survives switching
+/// tabs.
+class _Tab extends StatefulWidget {
+  const _Tab({required this.child});
 
-  static const double _maxWidth = 880;
   final Widget child;
 
   @override
+  State<_Tab> createState() => _TabState();
+}
+
+class _TabState extends State<_Tab> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final horizontal = constraints.maxWidth >= 900 ? 40.0 : 16.0;
-        return Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: _maxWidth),
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(horizontal, 12, horizontal, 0),
-              child: child,
+    super.build(context);
+    return widget.child;
+  }
+}
+
+/// Albums or artists, each played from its first track when tapped.
+class _GroupList extends StatelessWidget {
+  const _GroupList({
+    required this.groups,
+    required this.albums,
+    required this.player,
+  });
+
+  final List<TrackGroup> groups;
+  final bool albums;
+  final PlayerController player;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    if (groups.isEmpty) {
+      return _TabScrollView(
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(8, 56, 8, 0),
+            sliver: SliverToBoxAdapter(
+              child: _LibraryState(
+                icon: albums ? Icons.album_outlined : Icons.person_outline,
+                title: albums ? 'هنوز آلبومی نیست' : 'هنوز خواننده‌ای نیست',
+                message: 'با افزودن موسیقی، آلبوم‌ها و خواننده‌ها اینجا '
+                    'دسته‌بندی می‌شوند.',
+              ),
             ),
           ),
-        );
-      },
+        ],
+      );
+    }
+    return _TabScrollView(
+      slivers: [
+        SliverList.builder(
+          itemCount: groups.length,
+          itemBuilder: (context, index) {
+            final group = groups[index];
+            final count = '${group.tracks.length} آهنگ';
+            return ListTile(
+              minTileHeight: 64,
+              minVerticalPadding: 14,
+              contentPadding:
+                  const EdgeInsetsDirectional.only(start: 8, end: 8),
+              leading: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: colors.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(albums ? 10 : 24),
+                ),
+                child: Icon(
+                  albums ? Icons.album_rounded : Icons.person_rounded,
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+              title: Text(
+                group.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: group.unknown ? colors.onSurfaceVariant : null,
+                ),
+              ),
+              subtitle: Text(
+                [if (group.artist case final artist?) artist, count]
+                    .join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: colors.onSurfaceVariant),
+              ),
+              trailing: Tooltip(
+                message: 'پخش',
+                child: Icon(Icons.play_arrow_rounded, color: colors.primary),
+              ),
+              onTap: () => player.playFrom(group.tracks, 0),
+            );
+          },
+        ),
+      ],
     );
   }
 }
 
 class _TrackList extends StatefulWidget {
   const _TrackList({
+    this.top,
     required this.tracks,
     required this.player,
     this.playlists,
@@ -615,6 +848,8 @@ class _TrackList extends StatefulWidget {
     this.showLocationBadges = false,
   });
 
+  /// Shown above the search, scrolling with the list.
+  final Widget? top;
   final List<Track> tracks;
   final PlayerController player;
   final PlaylistsController? playlists;
@@ -846,94 +1081,116 @@ class _TrackListState extends State<_TrackList> {
   @override
   Widget build(BuildContext context) {
     final tracks = _filteredTracks;
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
-          child: Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: Text(
-              'آهنگ‌ها',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ),
-        ),
-        if (widget.deviceNotice case final notice?)
-          _DeviceStatusBanner(notice: notice),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
-          child: SearchBar(
-            controller: _search,
-            hintText: 'جست‌وجوی آهنگ، خواننده یا آلبوم',
-            leading: const Icon(Icons.search),
-            trailing: [
-              if (_query.isNotEmpty)
-                IconButton(
-                  tooltip: 'پاک کردن جست‌وجو',
-                  onPressed: () {
-                    _search.clear();
-                    setState(() => _query = '');
-                  },
-                  icon: const Icon(Icons.close),
-                ),
-            ],
-            onChanged: (value) => setState(() => _query = value),
-          ),
-        ),
-        _TrackListHeader(
-          shown: tracks.length,
-          total: widget.tracks.length,
-          filtered: _query.trim().isNotEmpty,
-          sort: _sort,
-          onSort: _setSort,
-          onShuffle:
-              tracks.isEmpty ? null : () => widget.player.playShuffled(tracks),
-        ),
-        Expanded(
-          child: ListenableBuilder(
-            listenable: widget.player,
-            builder: (context, _) {
-              if (tracks.isEmpty) {
-                return ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(24, 72, 24, 96),
-                  children: [
-                    _LibraryState(
-                      icon: Icons.search_off_rounded,
-                      title: 'نتیجه‌ای پیدا نشد',
-                      message: 'عبارت دیگری را امتحان کن یا جست‌وجو را پاک کن.',
-                      action: OutlinedButton.icon(
+    return _TabScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Column(
+            children: [
+              if (widget.top case final top?) top,
+              if (widget.deviceNotice case final notice?)
+                _DeviceStatusBanner(notice: notice),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+                child: SearchBar(
+                  controller: _search,
+                  hintText: 'جست‌وجوی آهنگ، خواننده یا آلبوم',
+                  leading: const Icon(Icons.search),
+                  trailing: [
+                    if (_query.isNotEmpty)
+                      IconButton(
+                        tooltip: 'پاک کردن جست‌وجو',
                         onPressed: () {
                           _search.clear();
                           setState(() => _query = '');
                         },
                         icon: const Icon(Icons.close),
-                        label: const Text('پاک کردن جست‌وجو'),
                       ),
-                    ),
                   ],
-                );
-              }
-              return ListView.builder(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.only(bottom: 128),
-                itemCount: tracks.length,
-                itemBuilder: (context, index) {
-                  final track = tracks[index];
-                  return _TrackRow(
-                    track: track,
-                    current: widget.player.track?.id == track.id,
-                    onTap: () => widget.player.playFrom(tracks, index),
-                    actions: _actionsFor(context, track),
-                  );
-                },
-              );
-            },
+                  onChanged: (value) => setState(() => _query = value),
+                ),
+              ),
+              _TrackListHeader(
+                shown: tracks.length,
+                total: widget.tracks.length,
+                filtered: _query.trim().isNotEmpty,
+                sort: _sort,
+                onSort: _setSort,
+                onShuffle: tracks.isEmpty
+                    ? null
+                    : () => widget.player.playShuffled(tracks),
+              ),
+            ],
           ),
         ),
+        if (tracks.isEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 56, 24, 0),
+              child: _LibraryState(
+                icon: Icons.search_off_rounded,
+                title: 'نتیجه‌ای پیدا نشد',
+                message: 'عبارت دیگری را امتحان کن یا جست‌وجو را پاک کن.',
+                action: OutlinedButton.icon(
+                  onPressed: () {
+                    _search.clear();
+                    setState(() => _query = '');
+                  },
+                  icon: const Icon(Icons.close),
+                  label: const Text('پاک کردن جست‌وجو'),
+                ),
+              ),
+            ),
+          )
+        else
+          ListenableBuilder(
+            listenable: widget.player,
+            builder: (context, _) => SliverList.builder(
+              itemCount: tracks.length,
+              itemBuilder: (context, index) {
+                final track = tracks[index];
+                return _TrackRow(
+                  track: track,
+                  current: widget.player.track?.id == track.id,
+                  onTap: () => widget.player.playFrom(tracks, index),
+                  actions: _actionsFor(context, track),
+                );
+              },
+            ),
+          ),
       ],
+    );
+  }
+}
+
+/// The scrolling body of a library tab: below the pinned header's overlap,
+/// centered at most 880 px wide, with room at the end for the add button
+/// and the mini player so they never cover the last row.
+class _TabScrollView extends StatelessWidget {
+  const _TabScrollView({required this.slivers});
+
+  static const double _maxWidth = 880;
+  final List<Widget> slivers;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final side = constraints.maxWidth >= 900
+            ? ((constraints.maxWidth - _maxWidth) / 2).clamp(40.0, 10000.0)
+            : 16.0;
+        return CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverOverlapInjector(
+              handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+            ),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(side, 12, side, 128),
+              sliver: SliverMainAxisGroup(slivers: slivers),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -1439,9 +1696,7 @@ class _EmptyLibrary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(24, 72, 24, 140),
+    return Column(
       children: [
         if (deviceNotice case final notice?) ...[
           _DeviceStatusBanner(notice: notice),
