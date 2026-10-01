@@ -60,7 +60,7 @@ abstract final class NafirTheme {
         thickness: 1,
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: const Color(0xE60A0C14),
+        backgroundColor: NafirGlass.background.withValues(alpha: 0.58),
         foregroundColor: colors.onSurface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
@@ -68,7 +68,7 @@ abstract final class NafirTheme {
         centerTitle: false,
         shape: Border(
           bottom: BorderSide(
-            color: colors.outlineVariant.withValues(alpha: 0.55),
+            color: Colors.white.withValues(alpha: 0.08),
           ),
         ),
       ),
@@ -120,8 +120,12 @@ abstract final class NafirTheme {
       ),
       tabBarTheme: TabBarThemeData(
         dividerColor: Colors.transparent,
-        indicatorColor: colors.primary,
-        indicatorSize: TabBarIndicatorSize.label,
+        indicator: BoxDecoration(
+          borderRadius: BorderRadius.circular(999),
+          color: colors.primary.withValues(alpha: 0.18),
+          border: Border.all(color: colors.primary.withValues(alpha: 0.42)),
+        ),
+        indicatorSize: TabBarIndicatorSize.tab,
         labelColor: colors.onSurface,
         unselectedLabelColor: colors.onSurfaceVariant,
         labelStyle: base.textTheme.labelLarge?.copyWith(
@@ -130,8 +134,8 @@ abstract final class NafirTheme {
         unselectedLabelStyle: base.textTheme.labelLarge,
       ),
       chipTheme: base.chipTheme.copyWith(
-        backgroundColor: colors.surfaceContainerHigh,
-        selectedColor: colors.secondaryContainer,
+        backgroundColor: colors.surfaceContainerHigh.withValues(alpha: 0.7),
+        selectedColor: colors.secondary.withValues(alpha: 0.2),
         side: BorderSide(
           color: colors.outlineVariant.withValues(alpha: 0.7),
         ),
