@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nafir/app/app_configuration.dart';
+import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/presentation/mini_player.dart';
 import 'package:nafir/features/playlists/application/playlists_controller.dart';
@@ -100,6 +101,7 @@ class _SharedPlaylistScreenState extends State<SharedPlaylistScreen> {
   Widget build(BuildContext context) {
     final playlist = _playlist;
     return Scaffold(
+      extendBody: true,
       appBar: AppBar(
         title: Text(
           playlist?.name ?? 'Playlist اشتراکی',
@@ -108,33 +110,36 @@ class _SharedPlaylistScreenState extends State<SharedPlaylistScreen> {
         ),
       ),
       bottomNavigationBar: MiniPlayer(player: widget.player),
-      body: switch (_state) {
-        _Load.loading => const Center(child: CircularProgressIndicator()),
-        _Load.unavailable => const _Message(
-            icon: Icons.link_off,
-            text: 'این لینک اشتباه است یا صاحبش اشتراک‌گذاری را لغو کرده است.',
-          ),
-        _Load.failed => _Message(
-            icon: Icons.cloud_off,
-            text: 'بارگذاری Playlist ناموفق بود.',
-            action: FilledButton.icon(
-              onPressed: _load,
-              icon: const Icon(Icons.refresh),
-              label: const Text('تلاش دوباره'),
+      body: NafirBackdrop(
+        child: switch (_state) {
+          _Load.loading => const Center(child: CircularProgressIndicator()),
+          _Load.unavailable => const _Message(
+              icon: Icons.link_off,
+              text:
+                  'این لینک اشتباه است یا صاحبش اشتراک‌گذاری را لغو کرده است.',
             ),
-          ),
-        _Load.loaded => ListenableBuilder(
-            listenable: widget.controller,
-            builder: (context, _) => _Contents(
-              playlist: playlist!,
-              player: widget.player,
-              saving: _saving,
-              onSave: playlist.isOwner ? null : _save,
-              onLike:
-                  widget.controller.isLiking(widget.shareToken) ? null : _like,
+          _Load.failed => _Message(
+              icon: Icons.cloud_off,
+              text: 'بارگذاری Playlist ناموفق بود.',
+              action: FilledButton.icon(
+                onPressed: _load,
+                icon: const Icon(Icons.refresh),
+                label: const Text('تلاش دوباره'),
+              ),
             ),
-          ),
-      },
+          _Load.loaded => ListenableBuilder(
+              listenable: widget.controller,
+              builder: (context, _) => _Contents(
+                playlist: playlist!,
+                player: widget.player,
+                saving: _saving,
+                onSave: playlist.isOwner ? null : _save,
+                onLike:
+                    widget.controller.isLiking(widget.shareToken) ? null : _like,
+              ),
+            ),
+        },
+      ),
     );
   }
 }
@@ -167,23 +172,60 @@ class _Contents extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ListTile(
-              leading: const Icon(Icons.queue_music),
-              title: Text(
-                playlist.isOwner
-                    ? 'Playlist خودت، که با لینک به اشتراک گذاشته‌ای'
-                    : 'اشتراک‌گذاری‌شده توسط ${playlist.owner}',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+            GlassSurface(
+              margin: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+              padding: const EdgeInsets.all(16),
+              radius: 24,
+              tint: Theme.of(context).colorScheme.primary,
+              child: Row(
+                children: [
+                  Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(18),
+                      gradient: LinearGradient(
+                        begin: Alignment.topRight,
+                        end: Alignment.bottomLeft,
+                        colors: [
+                          Theme.of(context).colorScheme.primary,
+                          Theme.of(context).colorScheme.secondary,
+                        ],
+                      ),
+                    ),
+                    child: const Icon(Icons.queue_music_rounded),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          playlist.isOwner
+                              ? 'Playlist خودت، که با لینک به اشتراک گذاشته‌ای'
+                              : 'اشتراک‌گذاری‌شده توسط ${playlist.owner}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          [
+                            '${tracks.length} آهنگ',
+                            if (playlist.isOwner)
+                              playlist.isPublic ? 'عمومی' : 'فقط با لینک',
+                          ].join(' · '),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              subtitle: Text([
-                '${tracks.length} آهنگ',
-                if (playlist.isOwner)
-                  playlist.isPublic ? 'عمومی' : 'فقط با لینک',
-              ].join(' · ')),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
               child: Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -223,15 +265,25 @@ class _Contents extends StatelessWidget {
                   itemCount: tracks.length,
                   itemBuilder: (context, index) {
                     final track = tracks[index];
-                    return ListTile(
-                      leading: const Icon(Icons.music_note),
-                      title: Text(track.title,
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
-                      subtitle: track.artist == null
-                          ? null
-                          : Text(track.artist!,
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: GlassSurface(
+                        blur: 0,
+                        shadow: false,
+                        radius: 18,
+                        tint: Theme.of(context).colorScheme.secondary,
+                        child: ListTile(
+                          leading: const Icon(Icons.music_note_rounded),
+                          title: Text(track.title,
                               maxLines: 1, overflow: TextOverflow.ellipsis),
-                      onTap: () => player.playFrom(tracks, index),
+                          subtitle: track.artist == null
+                              ? null
+                              : Text(track.artist!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                          onTap: () => player.playFrom(tracks, index),
+                        ),
+                      ),
                     );
                   },
                 ),
