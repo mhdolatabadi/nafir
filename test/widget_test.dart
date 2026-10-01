@@ -503,7 +503,12 @@ void main() {
       await tester.tap(find.widgetWithText(Tab, 'هنرمندان'));
       await tester.pumpAndSettle();
       expect(find.text('فرهاد'), findsOneWidget);
+      // An artist opens their page, which plays all of their tracks.
       await tester.tap(find.text('فرهاد'));
+      await tester.pumpAndSettle();
+      expect(find.text('15 آهنگ'), findsOneWidget);
+      expect(find.text('Track number 1'), findsOneWidget);
+      await tester.tap(find.text('پخش همه'));
       await tester.pumpAndSettle();
       expect(find.byTooltip('توقف'), findsOneWidget);
       expect(tester.takeException(), isNull);

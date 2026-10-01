@@ -432,10 +432,22 @@ class _LibraryScreenState extends State<LibraryScreen>
           return _GroupList(
             groups: albums ? groupByAlbum(tracks) : groupByArtist(tracks),
             albums: albums,
-            player: widget.player,
+            onOpen: (group) => _openGroup(group, albums: albums),
           );
         },
       );
+
+  void _openGroup(TrackGroup group, {required bool albums}) {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => _TrackGroupScreen(
+        groupKey: group.key,
+        albums: albums,
+        library: Listenable.merge([widget.library, widget.localAudio]),
+        tracks: _unifiedTracks,
+        player: widget.player,
+      ),
+    ));
+  }
 
   Widget _unifiedLibrary() => ListenableBuilder(
         listenable: Listenable.merge([
@@ -745,16 +757,17 @@ class _TabState extends State<_Tab> with AutomaticKeepAliveClientMixin {
 }
 
 /// Albums or artists, each played from its first track when tapped.
+/// Albums as a grid of cards, or artists as a list; each opens its page.
 class _GroupList extends StatelessWidget {
   const _GroupList({
     required this.groups,
     required this.albums,
-    required this.player,
+    required this.onOpen,
   });
 
   final List<TrackGroup> groups;
   final bool albums;
-  final PlayerController player;
+  final void Function(TrackGroup group) onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -777,30 +790,41 @@ class _GroupList extends StatelessWidget {
         ],
       );
     }
+    if (albums) {
+      return _TabScrollView(
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.only(top: 8),
+            sliver: SliverGrid.builder(
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 200,
+                mainAxisSpacing: 16,
+                crossAxisSpacing: 14,
+                // The square cover plus two lines of text.
+                childAspectRatio: 0.74,
+              ),
+              itemCount: groups.length,
+              itemBuilder: (context, index) => _AlbumCard(
+                group: groups[index],
+                onTap: () => onOpen(groups[index]),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     return _TabScrollView(
       slivers: [
         SliverList.builder(
           itemCount: groups.length,
           itemBuilder: (context, index) {
             final group = groups[index];
-            final count = '${group.tracks.length} آهنگ';
             return ListTile(
               minTileHeight: 64,
               minVerticalPadding: 14,
               contentPadding:
                   const EdgeInsetsDirectional.only(start: 8, end: 8),
-              leading: Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: colors.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(albums ? 10 : 24),
-                ),
-                child: Icon(
-                  albums ? Icons.album_rounded : Icons.person_rounded,
-                  color: colors.onSurfaceVariant,
-                ),
-              ),
+              leading: _GroupArt(albums: false, size: 48),
               title: Text(
                 group.name,
                 maxLines: 1,
@@ -811,22 +835,228 @@ class _GroupList extends StatelessWidget {
                 ),
               ),
               subtitle: Text(
-                [if (group.artist case final artist?) artist, count]
-                    .join(' · '),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                '${group.tracks.length} آهنگ',
                 style: theme.textTheme.bodySmall
                     ?.copyWith(color: colors.onSurfaceVariant),
               ),
-              trailing: Tooltip(
-                message: 'پخش',
-                child: Icon(Icons.play_arrow_rounded, color: colors.primary),
-              ),
-              onTap: () => player.playFrom(group.tracks, 0),
+              trailing: const Icon(Icons.chevron_left),
+              onTap: () => onOpen(group),
             );
           },
         ),
       ],
+    );
+  }
+}
+
+/// A rounded square for an album, a circle for an artist.
+class _GroupArt extends StatelessWidget {
+  const _GroupArt({required this.albums, required this.size});
+
+  final bool albums;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(albums ? size * 0.16 : size / 2),
+        gradient: LinearGradient(
+          begin: AlignmentDirectional.topStart,
+          end: AlignmentDirectional.bottomEnd,
+          colors: [colors.surfaceContainerHighest, colors.primaryContainer],
+        ),
+      ),
+      child: Icon(
+        albums ? Icons.album_rounded : Icons.person_rounded,
+        size: size * 0.45,
+        color: colors.onSurfaceVariant,
+      ),
+    );
+  }
+}
+
+class _AlbumCard extends StatelessWidget {
+  const _AlbumCard({required this.group, required this.onTap});
+
+  final TrackGroup group;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AspectRatio(
+            aspectRatio: 1,
+            child: LayoutBuilder(
+              builder: (context, constraints) =>
+                  _GroupArt(albums: true, size: constraints.maxWidth),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            group.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: group.unknown ? colors.onSurfaceVariant : null,
+            ),
+          ),
+          Text(
+            [
+              if (group.artist case final artist?) artist,
+              '${group.tracks.length} آهنگ'
+            ].join(' · '),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: colors.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One album or artist: its tracks, with play-all and shuffle. It follows
+/// the library, so edits and deletions show up while it is open.
+class _TrackGroupScreen extends StatelessWidget {
+  const _TrackGroupScreen({
+    required this.groupKey,
+    required this.albums,
+    required this.library,
+    required this.tracks,
+    required this.player,
+  });
+
+  final String groupKey;
+  final bool albums;
+  final Listenable library;
+  final List<Track> Function() tracks;
+  final PlayerController player;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([library, player]),
+      builder: (context, _) {
+        final all = tracks();
+        final group = groupWithKey(
+            albums ? groupByAlbum(all) : groupByArtist(all), groupKey);
+        final theme = Theme.of(context);
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(
+              group?.name ?? (albums ? 'آلبوم' : 'خواننده'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          bottomNavigationBar: MiniPlayer(player: player),
+          body: NafirBackdrop(
+            child: group == null
+                ? const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: _LibraryState(
+                      icon: Icons.music_off,
+                      title: 'آهنگی نمانده است',
+                      message: 'آهنگ‌های این بخش حذف یا ویرایش شده‌اند.',
+                    ),
+                  )
+                : LayoutBuilder(
+                    builder: (context, constraints) {
+                      final side = constraints.maxWidth >= 900
+                          ? (constraints.maxWidth - 880) / 2
+                          : 16.0;
+                      final groupTracks = group.tracks;
+                      return CustomScrollView(
+                        slivers: [
+                          SliverPadding(
+                            padding: EdgeInsets.fromLTRB(side, 20, side, 8),
+                            sliver: SliverToBoxAdapter(
+                              child: Column(
+                                children: [
+                                  _GroupArt(albums: albums, size: 132),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    group.name,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                    style: theme.textTheme.headlineSmall
+                                        ?.copyWith(fontWeight: FontWeight.w800),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    [
+                                      if (group.artist case final artist?)
+                                        artist,
+                                      '${groupTracks.length} آهنگ',
+                                    ].join(' · '),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Wrap(
+                                    spacing: 12,
+                                    runSpacing: 8,
+                                    alignment: WrapAlignment.center,
+                                    children: [
+                                      FilledButton.icon(
+                                        onPressed: () =>
+                                            player.playFrom(groupTracks, 0),
+                                        icon: const Icon(Icons.play_arrow),
+                                        label: const Text('پخش همه'),
+                                      ),
+                                      OutlinedButton.icon(
+                                        onPressed: () =>
+                                            player.playShuffled(groupTracks),
+                                        icon: const Icon(Icons.shuffle_rounded),
+                                        label: const Text('پخش تصادفی'),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          SliverPadding(
+                            // Room for the mini player under the last row.
+                            padding: EdgeInsets.fromLTRB(side, 8, side, 128),
+                            sliver: SliverList.builder(
+                              itemCount: groupTracks.length,
+                              itemBuilder: (context, index) {
+                                final track = groupTracks[index];
+                                return _TrackRow(
+                                  track: track,
+                                  current: player.track?.id == track.id,
+                                  onTap: () =>
+                                      player.playFrom(groupTracks, index),
+                                  actions: null,
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+          ),
+        );
+      },
     );
   }
 }
