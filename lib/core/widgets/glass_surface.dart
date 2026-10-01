@@ -25,7 +25,7 @@ abstract final class NafirGlass {
   );
 }
 
-/// Atmospheric background shared by primary app surfaces.
+/// Atmospheric animated background shared by primary app surfaces.
 class NafirBackdrop extends StatelessWidget {
   const NafirBackdrop({super.key, required this.child});
 
@@ -46,30 +46,74 @@ class NafirBackdrop extends StatelessWidget {
   }
 }
 
-class _AmbientLight extends StatelessWidget {
+class _AmbientLight extends StatefulWidget {
   const _AmbientLight();
 
   @override
+  State<_AmbientLight> createState() => _AmbientLightState();
+}
+
+class _AmbientLightState extends State<_AmbientLight>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 9),
+  )..repeat(reverse: true);
+
+  late final Animation<double> _drift = CurvedAnimation(
+    parent: _controller,
+    curve: Curves.easeInOutCubic,
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        PositionedDirectional(
-          top: -170,
-          end: -110,
-          child: _Glow(
-            size: 390,
-            color: NafirGlass.primary.withValues(alpha: 0.13),
-          ),
-        ),
-        PositionedDirectional(
-          bottom: 40,
-          start: -150,
-          child: _Glow(
-            size: 420,
-            color: NafirGlass.secondary.withValues(alpha: 0.11),
-          ),
-        ),
-      ],
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _drift,
+        builder: (context, _) {
+          final value = _drift.value;
+          return Stack(
+            children: [
+              PositionedDirectional(
+                top: -170 + (value * 28),
+                end: -120 + (value * 22),
+                child: Transform.scale(
+                  scale: 1 + (value * 0.05),
+                  child: _Glow(
+                    size: 430,
+                    color: NafirGlass.primary.withValues(alpha: 0.16),
+                  ),
+                ),
+              ),
+              PositionedDirectional(
+                bottom: 20 + (value * 26),
+                start: -160 + (value * 18),
+                child: Transform.scale(
+                  scale: 1.04 - (value * 0.04),
+                  child: _Glow(
+                    size: 460,
+                    color: NafirGlass.secondary.withValues(alpha: 0.14),
+                  ),
+                ),
+              ),
+              PositionedDirectional(
+                top: 170 - (value * 22),
+                start: 30 + (value * 36),
+                child: _Glow(
+                  size: 260,
+                  color: Colors.white.withValues(alpha: 0.045),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
@@ -128,9 +172,11 @@ class GlassSurface extends StatelessWidget {
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
           colors: [
-            (tint ?? Colors.white).withValues(alpha: 0.12),
-            NafirGlass.surface.withValues(alpha: 0.78),
+            (tint ?? Colors.white).withValues(alpha: 0.16),
+            Colors.white.withValues(alpha: 0.055),
+            NafirGlass.surface.withValues(alpha: 0.72),
           ],
+          stops: const [0, 0.45, 1],
         ),
         border: Border.all(color: borderColor ?? NafirGlass.border),
         boxShadow: shadow
