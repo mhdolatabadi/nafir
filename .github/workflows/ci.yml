@@ -132,6 +132,12 @@ jobs:
           docker = Path("deploy/Dockerfile.web").read_text()
           assert "--base-href /app/" in docker
           assert "/usr/share/nginx/html/app" in docker
+          # A fixed project name, with the data volumes it inherited.
+          compose = Path("deploy/compose.yaml").read_text()
+          assert compose.startswith("#") and "\nname: nafir\n" in compose
+          for volume in ("postgres-data", "minio-data", "caddy-data", "caddy-config"):
+              assert f"name: deploy_{volume}" in compose, volume
+
           nginx = Path("deploy/nginx.conf").read_text()
           assert "location /app/" in nginx and "/app/index.html" in nginx
           PY
