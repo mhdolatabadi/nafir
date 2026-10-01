@@ -134,8 +134,9 @@ class _SharedPlaylistScreenState extends State<SharedPlaylistScreen> {
                 player: widget.player,
                 saving: _saving,
                 onSave: playlist.isOwner ? null : _save,
-                onLike:
-                    widget.controller.isLiking(widget.shareToken) ? null : _like,
+                onLike: widget.controller.isLiking(widget.shareToken)
+                    ? null
+                    : _like,
               ),
             ),
         },
@@ -206,7 +207,9 @@ class _Contents extends StatelessWidget {
                               : 'اشتراک‌گذاری‌شده توسط ${playlist.owner}',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleMedium
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 4),
@@ -279,8 +282,7 @@ class _Contents extends StatelessWidget {
                           subtitle: track.artist == null
                               ? null
                               : Text(track.artist!,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis),
+                                  maxLines: 1, overflow: TextOverflow.ellipsis),
                           onTap: () => player.playFrom(tracks, index),
                         ),
                       ),
