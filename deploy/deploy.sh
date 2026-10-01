@@ -22,6 +22,19 @@ git checkout --detach "$revision"
 # changing running containers, so a missing image leaves production untouched.
 export NAFIR_IMAGE_TAG="$(git rev-parse HEAD)"
 docker compose pull api web
+
+# One-time move from the old project name ("deploy", from this folder) to
+# "nafir": remove this checkout's old containers so the new ones can take
+# their ports. Only containers Compose started from this very folder match;
+# volumes are kept and the new containers reuse them.
+old_containers="$(docker ps -aq \
+  --filter label=com.docker.compose.project=deploy \
+  --filter "label=com.docker.compose.project.working_dir=$(pwd)")"
+if [[ -n "$old_containers" ]]; then
+  echo "Replacing the containers of the old \"deploy\" project."
+  docker rm -f $old_containers
+fi
+
 docker compose up -d --no-build --remove-orphans
 docker image prune -f
 
