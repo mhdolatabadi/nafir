@@ -58,7 +58,7 @@ class FakeTracksApi implements TracksApi {
 
   @override
   Future<StreamLink> sharedStreamLink(
-      String token, String shareToken, String trackId) async {
+      String? token, String shareToken, String trackId) async {
     calls.add('shared:$shareToken:$trackId');
     if (linkError != null) throw linkError!;
     links++;

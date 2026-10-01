@@ -61,6 +61,8 @@ class _SignInScreenState extends State<SignInScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // Opened from the guest home, it can go back to browsing.
+      appBar: Navigator.canPop(context) ? AppBar() : null,
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
