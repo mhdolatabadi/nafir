@@ -550,7 +550,10 @@ void main() {
         await tester.scrollUntilVisible(find.textContaining(' 19'), 300,
             scrollable: find.byType(Scrollable).last);
         await tester.pumpAndSettle();
-        final lastRow = tester.getRect(find.byType(ListTile).last);
+        final lastRow = tester.getRect(find
+            .ancestor(
+                of: find.textContaining(' 19'), matching: find.byType(InkWell))
+            .first);
         final screen = tester.getRect(find.byType(Scaffold));
         expect(lastRow.bottom, lessThanOrEqualTo(screen.bottom));
         expect(tester.takeException(), isNull);

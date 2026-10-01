@@ -55,10 +55,24 @@ class _AmbientLight extends StatefulWidget {
 
 class _AmbientLightState extends State<_AmbientLight>
     with SingleTickerProviderStateMixin {
+  // The light drifts once as the screen opens, then rests: a blur that
+  // moves forever costs battery on every frame and never lets the UI
+  // settle.
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: const Duration(seconds: 9),
-  )..repeat(reverse: true);
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      // Reduced motion: show the resting position straight away.
+      _controller.value = 1;
+    } else if (!_controller.isAnimating && _controller.value == 0) {
+      _controller.forward();
+    }
+  }
 
   late final Animation<double> _drift = CurvedAnimation(
     parent: _controller,
