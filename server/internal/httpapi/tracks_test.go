@@ -94,8 +94,9 @@ func (m *memoryTracks) ReservePending(
 	m.nextID++
 	id := "t" + string(rune('0'+m.nextID))
 	track := store.Track{
-		ID: id, OwnerID: ownerID, Status: store.TrackPending, Title: t.Title, Artist: t.Artist,
-		StorageKey: store.StorageKey(ownerID, id, t.FileName), ContentType: t.ContentType, SizeBytes: t.SizeBytes,
+		ID: id, OwnerID: ownerID, Status: store.TrackPending, Title: t.Title, Artist: t.Artist, Album: t.Album,
+		FileName: t.FileName, StorageKey: store.StorageKey(ownerID, id, t.FileName),
+		ContentType: t.ContentType, SizeBytes: t.SizeBytes,
 	}
 	m.tracks = append(m.tracks, track)
 	return track, nil
@@ -118,9 +119,17 @@ func (m *memoryTracks) UpdateMetadata(_ context.Context, ownerID, trackID string
 	defer m.mu.Unlock()
 	for i, track := range m.tracks {
 		if track.ID == trackID && track.OwnerID == ownerID && track.Status == store.TrackReady {
+			m.tracks[i].FileName = metadata.FileName
 			m.tracks[i].Title = metadata.Title
 			m.tracks[i].Artist = metadata.Artist
 			m.tracks[i].Album = metadata.Album
+			m.tracks[i].AlbumArtist = metadata.AlbumArtist
+			m.tracks[i].Composer = metadata.Composer
+			m.tracks[i].Genre = metadata.Genre
+			m.tracks[i].Year = metadata.Year
+			m.tracks[i].TrackNumber = metadata.TrackNumber
+			m.tracks[i].DiscNumber = metadata.DiscNumber
+			m.tracks[i].Comment = metadata.Comment
 			return m.tracks[i], nil
 		}
 	}
@@ -234,8 +243,8 @@ func (a tracksAPI) get(t *testing.T, path, token string) *httptest.ResponseRecor
 
 func sampleTracks() *memoryTracks {
 	return &memoryTracks{tracks: []store.Track{
-		{ID: "a1", OwnerID: "alice", Status: store.TrackReady, Title: "Alice song", StorageKey: "users/alice/tracks/a1/song.mp3", ContentType: "audio/mpeg"},
-		{ID: "b1", OwnerID: "bob", Status: store.TrackReady, Title: "Bob song", StorageKey: "users/bob/tracks/b1/song.mp3", ContentType: "audio/mpeg"},
+		{ID: "a1", OwnerID: "alice", Status: store.TrackReady, Title: "Alice song", FileName: "song.mp3", StorageKey: "users/alice/tracks/a1/song.mp3", ContentType: "audio/mpeg"},
+		{ID: "b1", OwnerID: "bob", Status: store.TrackReady, Title: "Bob song", FileName: "song.mp3", StorageKey: "users/bob/tracks/b1/song.mp3", ContentType: "audio/mpeg"},
 	}}
 }
 
@@ -288,18 +297,26 @@ func TestUpdateTrackMetadata(t *testing.T) {
 	artist := "Old artist"
 	album := "Old album"
 	tracks := &memoryTracks{tracks: []store.Track{
-		{ID: "a1", OwnerID: "alice", Status: store.TrackReady, Title: "Old title", Artist: &artist, Album: &album, StorageKey: "users/alice/tracks/a1/song.mp3", ContentType: "audio/mpeg"},
-		{ID: "p1", OwnerID: "alice", Status: store.TrackPending, Title: "Pending", StorageKey: "users/alice/tracks/p1/song.mp3", ContentType: "audio/mpeg"},
+		{ID: "a1", OwnerID: "alice", Status: store.TrackReady, Title: "Old title", Artist: &artist, Album: &album, FileName: "song.mp3", StorageKey: "users/alice/tracks/a1/song.mp3", ContentType: "audio/mpeg"},
+		{ID: "p1", OwnerID: "alice", Status: store.TrackPending, Title: "Pending", FileName: "song.mp3", StorageKey: "users/alice/tracks/p1/song.mp3", ContentType: "audio/mpeg"},
 	}}
 	api := newTracksAPI(t, tracks)
 
 	response := api.do(t, http.MethodPatch, "/api/v1/tracks/a1",
-		`{"title":" New title ","artist":"","album":" Album "}`, api.alice)
+		`{"fileName":" renamed.mp3 ","title":" New title ","artist":"","album":" Album ","albumArtist":" Various ","composer":" Composer ","genre":" Rock ","year":2026,"trackNumber":7,"discNumber":1,"comment":" Note "}`, api.alice)
 	if response.Code != http.StatusOK {
 		t.Fatalf("update: expected 200, got %d: %s", response.Code, response.Body.String())
 	}
 	updated := decode[trackResponse](t, response)
-	if updated.Title != "New title" || updated.Artist != nil || updated.Album == nil || *updated.Album != "Album" {
+	if updated.FileName != "renamed.mp3" || updated.Title != "New title" || updated.Artist != nil ||
+		updated.Album == nil || *updated.Album != "Album" ||
+		updated.AlbumArtist == nil || *updated.AlbumArtist != "Various" ||
+		updated.Composer == nil || *updated.Composer != "Composer" ||
+		updated.Genre == nil || *updated.Genre != "Rock" ||
+		updated.Year == nil || *updated.Year != 2026 ||
+		updated.TrackNumber == nil || *updated.TrackNumber != 7 ||
+		updated.DiscNumber == nil || *updated.DiscNumber != 1 ||
+		updated.Comment == nil || *updated.Comment != "Note" {
 		t.Fatalf("unexpected updated track %+v", updated)
 	}
 	listed := decode[trackListResponse](t, api.get(t, "/api/v1/tracks", api.alice))
@@ -319,6 +336,9 @@ func TestUpdateTrackMetadataValidation(t *testing.T) {
 		{"missing title", `{"artist":"Artist"}`, "invalid_metadata"},
 		{"empty title", `{"title":"   "}`, "invalid_metadata"},
 		{"long artist", `{"title":"Song","artist":"` + strings.Repeat("x", 201) + `"}`, "invalid_metadata"},
+		{"changed extension", `{"fileName":"song.flac","title":"Song"}`, "invalid_metadata"},
+		{"bad year", `{"title":"Song","year":10000}`, "invalid_metadata"},
+		{"bad track number", `{"title":"Song","trackNumber":0}`, "invalid_metadata"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
