@@ -30,7 +30,15 @@ type Track struct {
 	Title       string
 	Artist      *string
 	Album       *string
+	AlbumArtist *string
+	Composer    *string
+	Genre       *string
+	Year        *int32
+	TrackNumber *int32
+	DiscNumber  *int32
+	Comment     *string
 	DurationMS  *int32
+	FileName    string
 	StorageKey  string
 	ContentType string
 	SizeBytes   int64
@@ -45,6 +53,13 @@ type NewTrack struct {
 	Title       string
 	Artist      *string
 	Album       *string
+	AlbumArtist *string
+	Composer    *string
+	Genre       *string
+	Year        *int32
+	TrackNumber *int32
+	DiscNumber  *int32
+	Comment     *string
 	DurationMS  *int32
 	FileName    string
 	ContentType string
@@ -57,9 +72,17 @@ type NewTrack struct {
 // does not rewrite the stored audio object; embedded tag rewriting is a later
 // step in the metadata epic.
 type TrackMetadata struct {
-	Title  string
-	Artist *string
-	Album  *string
+	FileName    string
+	Title       string
+	Artist      *string
+	Album       *string
+	AlbumArtist *string
+	Composer    *string
+	Genre       *string
+	Year        *int32
+	TrackNumber *int32
+	DiscNumber  *int32
+	Comment     *string
 }
 
 // StorageKey is the owner-scoped object path for a track.
@@ -85,8 +108,9 @@ const (
 
 // trackColumnNames is the one list of columns scanTrack reads, in order.
 var trackColumnNames = []string{
-	"id::text", "owner_id::text", "status", "title", "artist", "album", "duration_ms",
-	"storage_key", "content_type", "size_bytes", "source", "created_at",
+	"id::text", "owner_id::text", "status", "title", "artist", "album", "album_artist",
+	"composer", "genre", "year", "track_number", "disc_number", "comment", "duration_ms",
+	"file_name", "storage_key", "content_type", "size_bytes", "source", "created_at",
 }
 
 var trackColumns = strings.Join(trackColumnNames, ", ")
@@ -107,8 +131,9 @@ func qualifyColumns(table string, names []string) string {
 
 func scanTrack(row pgx.Row) (Track, error) {
 	var t Track
-	err := row.Scan(&t.ID, &t.OwnerID, &t.Status, &t.Title, &t.Artist, &t.Album, &t.DurationMS,
-		&t.StorageKey, &t.ContentType, &t.SizeBytes, &t.Source, &t.CreatedAt)
+	err := row.Scan(&t.ID, &t.OwnerID, &t.Status, &t.Title, &t.Artist, &t.Album, &t.AlbumArtist,
+		&t.Composer, &t.Genre, &t.Year, &t.TrackNumber, &t.DiscNumber, &t.Comment, &t.DurationMS,
+		&t.FileName, &t.StorageKey, &t.ContentType, &t.SizeBytes, &t.Source, &t.CreatedAt)
 	return t, err
 }
 
@@ -168,12 +193,18 @@ func createTrack(ctx context.Context, query rowQuerier, ownerID string, track Ne
 	}
 	return scanTrack(query.QueryRow(ctx, `
 		WITH new_id AS (SELECT gen_random_uuid() AS id)
-		INSERT INTO tracks (id, owner_id, status, title, artist, album, duration_ms, storage_key, content_type, size_bytes, source)
-		SELECT new_id.id, $1::uuid, $9, $2, $3, $4, $5,
-		       'users/' || $1::text || '/tracks/' || new_id.id::text || '/' || $6::text, $7, $8, $10
+		INSERT INTO tracks (
+			id, owner_id, status, title, artist, album, album_artist, composer, genre,
+			year, track_number, disc_number, comment, duration_ms, file_name,
+			storage_key, content_type, size_bytes, source
+		)
+		SELECT new_id.id, $1::uuid, $16, $2, $3, $4, $5, $6, $7,
+		       $8, $9, $10, $11, $12, $13,
+		       'users/' || $1::text || '/tracks/' || new_id.id::text || '/' || $13::text, $14, $15, $17
 		FROM new_id
 		RETURNING `+trackColumns,
-		ownerID, track.Title, track.Artist, track.Album, track.DurationMS,
+		ownerID, track.Title, track.Artist, track.Album, track.AlbumArtist, track.Composer, track.Genre,
+		track.Year, track.TrackNumber, track.DiscNumber, track.Comment, track.DurationMS,
 		track.FileName, track.ContentType, track.SizeBytes, string(status), source,
 	))
 }
@@ -239,10 +270,15 @@ func (t *Tracks) MarkReady(ctx context.Context, ownerID, trackID string) (Track,
 // caller. Pending uploads cannot be edited because they are not visible yet.
 func (t *Tracks) UpdateMetadata(ctx context.Context, ownerID, trackID string, metadata TrackMetadata) (Track, error) {
 	track, err := scanTrack(t.pool.QueryRow(ctx,
-		`UPDATE tracks SET title = $3, artist = $4, album = $5
+		`UPDATE tracks SET
+			file_name = $3, title = $4, artist = $5, album = $6, album_artist = $7,
+			composer = $8, genre = $9, year = $10, track_number = $11,
+			disc_number = $12, comment = $13
 		 WHERE id::text = $1 AND owner_id::text = $2 AND status = 'ready'
 		 RETURNING `+trackColumns,
-		trackID, ownerID, metadata.Title, metadata.Artist, metadata.Album))
+		trackID, ownerID, metadata.FileName, metadata.Title, metadata.Artist, metadata.Album,
+		metadata.AlbumArtist, metadata.Composer, metadata.Genre, metadata.Year,
+		metadata.TrackNumber, metadata.DiscNumber, metadata.Comment))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Track{}, ErrNotFound
 	}
