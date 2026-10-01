@@ -256,20 +256,19 @@ void main() {
     expect(sent.method, 'PATCH');
     expect(sent.url.path, '/api/v1/tracks/t1');
     expect(sent.headers['Authorization'], 'Bearer t0ken');
-    expect(jsonDecode(sent.body),
-        {
-          'fileName': 'new-title.mp3',
-          'title': 'New title',
-          'artist': null,
-          'album': 'Album',
-          'albumArtist': 'Album Artist',
-          'composer': 'Composer',
-          'genre': 'Jazz',
-          'year': 2026,
-          'trackNumber': 2,
-          'discNumber': 1,
-          'comment': 'Note',
-        });
+    expect(jsonDecode(sent.body), {
+      'fileName': 'new-title.mp3',
+      'title': 'New title',
+      'artist': null,
+      'album': 'Album',
+      'albumArtist': 'Album Artist',
+      'composer': 'Composer',
+      'genre': 'Jazz',
+      'year': 2026,
+      'trackNumber': 2,
+      'discNumber': 1,
+      'comment': 'Note',
+    });
     expect(track.title, 'New title');
     expect(track.artist, isNull);
     expect(track.album, 'Album');
