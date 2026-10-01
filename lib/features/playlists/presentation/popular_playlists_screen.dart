@@ -140,72 +140,55 @@ class _PopularRow extends StatelessWidget {
       blur: 16,
       radius: 22,
       tint: scheme.secondary,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(22),
-        onTap: onOpen,
-        child: Padding(
-          padding: const EdgeInsetsDirectional.fromSTEB(14, 12, 8, 12),
-          child: Row(
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(17),
-                  gradient: LinearGradient(
-                    begin: Alignment.topRight,
-                    end: Alignment.bottomLeft,
-                    colors: [
-                      scheme.primary.withValues(alpha: 0.9),
-                      scheme.secondary.withValues(alpha: 0.72),
-                    ],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: scheme.primary.withValues(alpha: 0.22),
-                      offset: const Offset(0, 10),
-                      blurRadius: 22,
-                    ),
-                  ],
-                ),
-                child: const Icon(Icons.queue_music_rounded),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      playlist.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: text.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      [
-                        playlist.isOwner ? 'Playlist خودت' : playlist.owner,
-                        '${playlist.trackCount} آهنگ',
-                      ].join(' · '),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: text.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              PlaylistLikeButton(
-                likes: playlist.likes,
-                onPressed: onLike,
-                compact: true,
+      child: ListTile(
+        contentPadding: const EdgeInsetsDirectional.only(start: 14, end: 8),
+        minTileHeight: 76,
+        horizontalTitleGap: 14,
+        leading: Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(17),
+            gradient: LinearGradient(
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+              colors: [
+                scheme.primary.withValues(alpha: 0.9),
+                scheme.secondary.withValues(alpha: 0.72),
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: scheme.primary.withValues(alpha: 0.22),
+                offset: const Offset(0, 10),
+                blurRadius: 22,
               ),
             ],
           ),
+          child: const Icon(Icons.queue_music_rounded),
         ),
+        title: Text(
+          playlist.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        subtitle: Text(
+          [
+            playlist.isOwner ? 'Playlist خودت' : playlist.owner,
+            '${playlist.trackCount} آهنگ',
+          ].join(' · '),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+        trailing: PlaylistLikeButton(
+          likes: playlist.likes,
+          onPressed: onLike,
+          compact: true,
+        ),
+        onTap: onOpen,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
       ),
     );
   }
