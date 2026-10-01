@@ -16,6 +16,7 @@ import (
 
 // sharingStore holds one playlist owned by alice with one track in it.
 type sharingStore struct {
+	name    string
 	token   *string
 	public  bool
 	tracks  []store.Track
@@ -67,7 +68,9 @@ func (s *sharingStore) ForShareToken(_ context.Context, token string) (store.Sha
 		return store.SharedPlaylist{}, store.ErrNotFound
 	}
 	return store.SharedPlaylist{
-		Playlist:   store.Playlist{ID: "p1", OwnerID: "alice", Name: "mix", Tracks: s.tracks, IsPublic: s.public},
+		Playlist: store.Playlist{
+			ID: "p1", OwnerID: "alice", Name: s.displayName(), Tracks: s.tracks, IsPublic: s.public, ShareToken: s.token,
+		},
 		OwnerEmail: "alice@example.com",
 	}, nil
 }
@@ -122,9 +125,16 @@ func (s *sharingStore) Popular(_ context.Context, userID string, limit int) ([]s
 		return nil, nil
 	}
 	return []store.PublicPlaylist{{
-		ShareToken: *s.token, Name: "mix", OwnerID: "alice", OwnerEmail: "alice@example.com",
+		ShareToken: *s.token, Name: s.displayName(), OwnerID: "alice", OwnerEmail: "alice@example.com",
 		TrackCount: len(s.tracks), Likes: store.Likes{Count: len(s.likers), Liked: s.likers[userID]},
 	}}, nil
+}
+
+func (s *sharingStore) displayName() string {
+	if s.name == "" {
+		return "mix"
+	}
+	return s.name
 }
 
 type noCopies struct{}
