@@ -4,6 +4,13 @@ class Track {
     required this.title,
     this.artist,
     this.album,
+    this.albumArtist,
+    this.composer,
+    this.genre,
+    this.year,
+    this.trackNumber,
+    this.discNumber,
+    this.comment,
     required this.contentType,
     required this.sizeBytes,
     this.fileName,
@@ -18,6 +25,13 @@ class Track {
         title: json['title'] as String,
         artist: json['artist'] as String?,
         album: json['album'] as String?,
+        albumArtist: json['albumArtist'] as String?,
+        composer: json['composer'] as String?,
+        genre: json['genre'] as String?,
+        year: (json['year'] as num?)?.toInt(),
+        trackNumber: (json['trackNumber'] as num?)?.toInt(),
+        discNumber: (json['discNumber'] as num?)?.toInt(),
+        comment: json['comment'] as String?,
         contentType: json['contentType'] as String,
         sizeBytes: (json['sizeBytes'] as num).toInt(),
         fileName: json['fileName'] as String?,
@@ -29,6 +43,13 @@ class Track {
   final String title;
   final String? artist;
   final String? album;
+  final String? albumArtist;
+  final String? composer;
+  final String? genre;
+  final int? year;
+  final int? trackNumber;
+  final int? discNumber;
+  final String? comment;
   final String contentType;
   final int sizeBytes;
 
