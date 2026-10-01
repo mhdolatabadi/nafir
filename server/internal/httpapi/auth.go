@@ -206,6 +206,16 @@ func authenticate(tokens *auth.Tokens, w http.ResponseWriter, r *http.Request) (
 	return "", false
 }
 
+// optionalUser is authenticate for endpoints visitors may also use without
+// an account: no Authorization header means an anonymous caller (""), while
+// a token that doesn't verify is still 401, so an expired session notices.
+func optionalUser(tokens *auth.Tokens, w http.ResponseWriter, r *http.Request) (string, bool) {
+	if r.Header.Get("Authorization") == "" {
+		return "", true
+	}
+	return authenticate(tokens, w, r)
+}
+
 // internalError logs the cause without request data, so passwords never reach the logs.
 func internalError(w http.ResponseWriter, action string, err error) {
 	slog.Error("request failed", "action", action, "error", err)

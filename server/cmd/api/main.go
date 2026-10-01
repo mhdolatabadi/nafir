@@ -154,6 +154,15 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	// Visitors without an account, per IP: browsing and playing public playlists.
+	publicViewRate, err := rateLimiterEnv("PUBLIC_VIEW_RATE", 300, 10*time.Minute)
+	if err != nil {
+		return err
+	}
+	publicStreamRate, err := rateLimiterEnv("PUBLIC_STREAM_RATE", 300, 10*time.Minute)
+	if err != nil {
+		return err
+	}
 	authHandlers, err := httpapi.NewAuthHandlers(
 		store.NewUsers(pool), auth.Passwords{Cost: 12}, tokens,
 		httpapi.AuthRateLimiters{Register: registerRate, Login: loginRate},
@@ -204,7 +213,7 @@ func run() error {
 			}).WithImports(bots),
 			Playlists: httpapi.NewPlaylistHandlers(playlists, tokens).WithSharing(playlists, objects, httpapi.SavePolicy{
 				Objects: objects, MaxOwnerBytes: ownerQuotaBytes, Enabled: uploadsEnabled,
-			}),
+			}).WithAnonymous(httpapi.AnonymousLimits{View: publicViewRate, Stream: publicStreamRate}),
 			Bots:     botHandlers,
 			Ops:      ops,
 			Webhooks: webhooks,

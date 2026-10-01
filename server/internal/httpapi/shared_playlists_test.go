@@ -72,8 +72,8 @@ func (s *sharingStore) ForShareToken(_ context.Context, token string) (store.Sha
 	}, nil
 }
 
-func (s *sharingStore) SharedTrack(_ context.Context, token, trackID string) (store.Track, error) {
-	if s.token == nil || *s.token != token {
+func (s *sharingStore) SharedTrack(_ context.Context, token, trackID string, publicOnly bool) (store.Track, error) {
+	if s.token == nil || *s.token != token || (publicOnly && !s.public) {
 		return store.Track{}, store.ErrNotFound
 	}
 	for _, t := range s.tracks {
@@ -330,5 +330,103 @@ func TestLikingAndListingPublicPlaylists(t *testing.T) {
 	}
 	if response := call(http.MethodPut, "/api/v1/shared-playlists/not-a-token/like", bob, ""); response.Code != http.StatusNotFound {
 		t.Fatalf("malformed link = %d", response.Code)
+	}
+}
+
+func TestVisitorsWithoutAnAccountSeeOnlyPublicPlaylists(t *testing.T) {
+	tokens, _ := auth.NewTokens([]byte(strings.Repeat("k", auth.MinSecretBytes)), time.Hour)
+	bob, _, _ := tokens.Issue("bob")
+	token := strings.Repeat("A", 22)
+	data := &sharingStore{token: &token, tracks: []store.Track{{ID: "t1", Title: "in", StorageKey: "users/alice/tracks/t1/a.mp3"}}}
+	limits := AnonymousLimits{
+		View:   NewRateLimiter(RateLimit{Requests: 5, Window: time.Hour}, 100),
+		Stream: NewRateLimiter(RateLimit{Requests: 2, Window: time.Hour}, 100),
+	}
+	handler := NewHandler(Config{Playlists: NewPlaylistHandlers(data, tokens).
+		WithSharing(data, fixedPresigner{}, SavePolicy{}).WithAnonymous(limits)})
+	call := func(path, bearer, ip string) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(http.MethodGet, path, nil)
+		if bearer != "" {
+			request.Header.Set("Authorization", "Bearer "+bearer)
+		}
+		request.RemoteAddr = ip + ":1234"
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+	view := "/api/v1/shared-playlists/" + token
+	stream := view + "/tracks/t1/stream"
+
+	// Link-only: still needs an account.
+	for _, path := range []string{view, stream} {
+		if response := call(path, "", "198.51.100.1"); response.Code != http.StatusNotFound {
+			t.Fatalf("anonymous %s of a link-only playlist = %d", path, response.Code)
+		}
+	}
+	if response := call(view, bob, "198.51.100.1"); response.Code != http.StatusOK {
+		t.Fatalf("signed-in view of a link-only playlist = %d", response.Code)
+	}
+
+	data.public = true
+	response := call(view, "", "198.51.100.2")
+	var shown sharedPlaylistResponse
+	json.NewDecoder(response.Body).Decode(&shown)
+	if response.Code != http.StatusOK || shown.IsOwner || shown.Liked || shown.TrackCount != 1 ||
+		strings.Contains(response.Body.String(), "alice@") {
+		t.Fatalf("anonymous view of a public playlist = %d %s", response.Code, response.Body)
+	}
+	if response := call(stream, "", "198.51.100.2"); response.Code != http.StatusOK {
+		t.Fatalf("anonymous stream of a public playlist = %d", response.Code)
+	}
+	if response := call("/api/v1/public-playlists", "", "198.51.100.2"); response.Code != http.StatusOK ||
+		!strings.Contains(response.Body.String(), `"liked":false`) {
+		t.Fatalf("anonymous popular list = %d %s", response.Code, response.Body)
+	}
+	// A token that doesn't verify is not treated as anonymous.
+	if response := call(view, "expired", "198.51.100.2"); response.Code != http.StatusUnauthorized {
+		t.Fatalf("bad token = %d", response.Code)
+	}
+	// Liking and saving still need an account.
+	request := httptest.NewRequest(http.MethodPut, view+"/like", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("anonymous like = %d", recorder.Code)
+	}
+
+	// Each IP gets its own allowance; signed-in people are not limited.
+	call(stream, "", "198.51.100.3")
+	call(stream, "", "198.51.100.3")
+	limited := call(stream, "", "198.51.100.3")
+	if limited.Code != http.StatusTooManyRequests || limited.Header().Get("Retry-After") == "" {
+		t.Fatalf("third anonymous stream = %d", limited.Code)
+	}
+	if response := call(stream, "", "198.51.100.4"); response.Code != http.StatusOK {
+		t.Fatalf("another visitor = %d", response.Code)
+	}
+	for range 3 {
+		if response := call(stream, bob, "198.51.100.3"); response.Code != http.StatusOK {
+			t.Fatalf("signed-in stream from a limited IP = %d", response.Code)
+		}
+	}
+
+	// Unshared: gone for everyone.
+	data.token, data.public = nil, false
+	if response := call(view, "", "198.51.100.5"); response.Code != http.StatusNotFound {
+		t.Fatalf("anonymous view after unsharing = %d", response.Code)
+	}
+}
+
+func TestWithoutAnonymousAccessEverythingNeedsAnAccount(t *testing.T) {
+	tokens, _ := auth.NewTokens([]byte(strings.Repeat("k", auth.MinSecretBytes)), time.Hour)
+	token := strings.Repeat("A", 22)
+	data := &sharingStore{token: &token, public: true}
+	handler := NewHandler(Config{Playlists: NewPlaylistHandlers(data, tokens).WithSharing(data, fixedPresigner{}, SavePolicy{})})
+	for _, path := range []string{"/api/v1/public-playlists", "/api/v1/shared-playlists/" + token} {
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
+		if response.Code != http.StatusUnauthorized {
+			t.Fatalf("%s = %d", path, response.Code)
+		}
 	}
 }
