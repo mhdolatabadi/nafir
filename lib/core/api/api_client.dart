@@ -213,7 +213,8 @@ class ApiClient implements AuthApi, TracksApi, PlaylistsApi, BotsApi {
     int? discNumber,
     String? comment,
   }) async {
-    final body = await _send('PATCH', '/api/v1/tracks/$trackId', token: token, body: {
+    final body =
+        await _send('PATCH', '/api/v1/tracks/$trackId', token: token, body: {
       if (fileName != null) 'fileName': fileName,
       'title': title,
       'artist': artist,
