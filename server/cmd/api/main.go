@@ -214,6 +214,8 @@ func run() error {
 			Playlists: httpapi.NewPlaylistHandlers(playlists, tokens).WithSharing(playlists, objects, httpapi.SavePolicy{
 				Objects: objects, MaxOwnerBytes: ownerQuotaBytes, Enabled: uploadsEnabled,
 			}).WithAnonymous(httpapi.AnonymousLimits{View: publicViewRate, Stream: publicStreamRate}),
+			Public: httpapi.NewPublicPages(playlists, objects,
+				httpapi.AnonymousLimits{View: publicViewRate, Stream: publicStreamRate}),
 			Bots:     botHandlers,
 			Ops:      ops,
 			Webhooks: webhooks,

@@ -1,0 +1,18 @@
+{{define "content"}}
+<section class="hero">
+<h1>{{.Playlist.Name}}</h1>
+<p class="meta"><bdi>{{.Playlist.Owner}}</bdi> · {{.Playlist.TrackCount}} آهنگ · ♥ {{.Playlist.LikeCount}} پسند</p>
+<p style="margin-top:16px"><a class="button" href="/app/?shared={{.Playlist.ShareToken}}">باز کردن در اپ نفیر</a></p>
+</section>
+{{if .Playlist.Tracks}}
+<ol class="list">
+{{range .Playlist.Tracks}}<li><div class="row track">
+<span class="art" aria-hidden="true">♪</span>
+<span class="grow"><span class="title">{{.Title}}</span><span class="sub"><bdi>{{.Artist}}</bdi></span></span>
+<audio controls preload="none" src="{{.Stream}}" aria-label="پخش {{.Title}}"></audio>
+</div></li>
+{{end}}</ol>
+{{else}}
+<p class="empty">این Playlist فعلاً آهنگی ندارد.</p>
+{{end}}
+{{end}}
