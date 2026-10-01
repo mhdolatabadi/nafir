@@ -34,6 +34,9 @@ type PlaylistHandlers struct {
 	shared    SharedPlaylistStore
 	streams   StreamPresigner
 	save      SavePolicy
+	// anonymous is set when visitors without an account may browse public
+	// playlists.
+	anonymous *AnonymousLimits
 }
 
 func NewPlaylistHandlers(playlists PlaylistStore, tokens *auth.Tokens) *PlaylistHandlers {

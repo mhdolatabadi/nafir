@@ -67,10 +67,10 @@ func TestSharingAPlaylist(t *testing.T) {
 		len(view.Tracks) != 1 || view.Tracks[0].ID != inList.ID {
 		t.Fatalf("shared view = %+v, %v", view, err)
 	}
-	if got, err := playlists.SharedTrack(ctx, "token-1", inList.ID); err != nil || got.ID != inList.ID {
+	if got, err := playlists.SharedTrack(ctx, "token-1", inList.ID, false); err != nil || got.ID != inList.ID {
 		t.Fatalf("track in the playlist = %+v, %v", got, err)
 	}
-	if _, err := playlists.SharedTrack(ctx, "token-1", notInList.ID); !errors.Is(err, ErrNotFound) {
+	if _, err := playlists.SharedTrack(ctx, "token-1", notInList.ID, false); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("track outside the playlist: %v", err)
 	}
 
@@ -85,7 +85,7 @@ func TestSharingAPlaylist(t *testing.T) {
 	if _, err := playlists.ForShareToken(ctx, "token-1"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("after unsharing: %v", err)
 	}
-	if _, err := playlists.SharedTrack(ctx, "token-1", inList.ID); !errors.Is(err, ErrNotFound) {
+	if _, err := playlists.SharedTrack(ctx, "token-1", inList.ID, false); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("track after unsharing: %v", err)
 	}
 	reshared, _ := playlists.Share(ctx, owner.ID, playlist.ID, "token-3", nil)
@@ -305,6 +305,19 @@ func TestOnlyPublicPlaylistsAreListedMostLikedFirst(t *testing.T) {
 	}
 	if limited, _ := playlists.Popular(ctx, fan.ID, 1); len(limited) != 1 {
 		t.Fatalf("limit ignored: %d", len(limited))
+	}
+
+	// Visitors without an account reach only public playlists' tracks.
+	if _, err := playlists.SharedTrack(ctx, "loved", song.ID, true); err != nil {
+		t.Fatalf("public track for a visitor: %v", err)
+	}
+	linkSong, _ := tracks.Create(ctx, owner.ID, NewTrack{Title: "l", FileName: "l.mp3", ContentType: "audio/mpeg", SizeBytes: 1})
+	playlists.ReplaceTracks(ctx, owner.ID, linkOnly.ID, []string{linkSong.ID})
+	if _, err := playlists.SharedTrack(ctx, "link", linkSong.ID, true); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("link-only track for a visitor: %v", err)
+	}
+	if _, err := playlists.SharedTrack(ctx, "link", linkSong.ID, false); err != nil {
+		t.Fatalf("link-only track for someone with the link: %v", err)
 	}
 
 	// Sharing again without saying keeps it public; unsharing resets it.

@@ -246,7 +246,9 @@ func (p *Playlists) ForShareToken(ctx context.Context, token string) (SharedPlay
 
 // SharedTrack returns a ready track that is in the playlist shared with the
 // token, or ErrNotFound. It is what lets someone with the link play it.
-func (p *Playlists) SharedTrack(ctx context.Context, token, trackID string) (Track, error) {
+// With publicOnly, only a public playlist's tracks are found, for visitors
+// without an account.
+func (p *Playlists) SharedTrack(ctx context.Context, token, trackID string, publicOnly bool) (Track, error) {
 	track, err := scanTrack(p.pool.QueryRow(ctx, `
 		SELECT `+qualifiedTrackColumns("tracks")+`
 		FROM playlists
@@ -254,7 +256,8 @@ func (p *Playlists) SharedTrack(ctx context.Context, token, trackID string) (Tra
 		JOIN tracks ON tracks.id = pt.track_id
 		WHERE playlists.share_token = $1 AND tracks.id::text = $2
 		  AND tracks.owner_id = playlists.owner_id AND tracks.status = 'ready'
-	`, token, trackID))
+		  AND (playlists.is_public OR NOT $3)
+	`, token, trackID, publicOnly))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Track{}, ErrNotFound
 	}

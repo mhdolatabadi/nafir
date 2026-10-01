@@ -23,7 +23,7 @@ type SharedPlaylistStore interface {
 	Share(ctx context.Context, ownerID, playlistID, token string, public *bool) (store.Playlist, error)
 	Unshare(ctx context.Context, ownerID, playlistID string) error
 	ForShareToken(ctx context.Context, token string) (store.SharedPlaylist, error)
-	SharedTrack(ctx context.Context, token, trackID string) (store.Track, error)
+	SharedTrack(ctx context.Context, token, trackID string, publicOnly bool) (store.Track, error)
 	SaveShared(ctx context.Context, userID, token string, maxOwnerBytes int64, objects store.ObjectCopier) (store.Playlist, error)
 	LikesFor(ctx context.Context, playlistID, userID string) (store.Likes, error)
 	SetLike(ctx context.Context, userID, token string, liked bool) (store.Likes, error)
@@ -41,6 +41,34 @@ type SavePolicy struct {
 	Objects       store.ObjectCopier
 	MaxOwnerBytes int64
 	Enabled       bool
+}
+
+// AnonymousLimits caps what one IP address may do without an account:
+// browsing public playlists and streaming their tracks.
+type AnonymousLimits struct {
+	View   *RateLimiter
+	Stream *RateLimiter
+}
+
+// WithAnonymous lets visitors without an account browse and play public
+// playlists, within limits. Link-only and private playlists still need an
+// account.
+func (h *PlaylistHandlers) WithAnonymous(limits AnonymousLimits) *PlaylistHandlers {
+	h.anonymous = &limits
+	return h
+}
+
+// viewer is the signed-in user, or "" for an allowed anonymous visitor
+// within the given limit. It writes the error itself when it says no.
+func (h *PlaylistHandlers) viewer(w http.ResponseWriter, r *http.Request, limit func(AnonymousLimits) *RateLimiter) (string, bool) {
+	if h.anonymous == nil {
+		return authenticate(h.tokens, w, r)
+	}
+	userID, ok := optionalUser(h.tokens, w, r)
+	if !ok || userID != "" {
+		return userID, ok
+	}
+	return "", enforceRateLimit(w, limit(*h.anonymous), clientIP(r))
 }
 
 // StreamPresigner hands out short-lived playback URLs.
@@ -191,12 +219,17 @@ func (h *PlaylistHandlers) sharedPlaylist(w http.ResponseWriter, r *http.Request
 }
 
 func (h *PlaylistHandlers) handleShared(w http.ResponseWriter, r *http.Request) {
-	userID, ok := authenticate(h.tokens, w, r)
+	userID, ok := h.viewer(w, r, func(l AnonymousLimits) *RateLimiter { return l.View })
 	if !ok {
 		return
 	}
 	shared, ok := h.sharedPlaylist(w, r)
 	if !ok {
+		return
+	}
+	if userID == "" && !shared.IsPublic {
+		// Only public playlists are open to visitors without an account.
+		writeError(w, http.StatusNotFound, "not_found")
 		return
 	}
 	likes, err := h.shared.LikesFor(r.Context(), shared.ID, userID)
@@ -217,7 +250,8 @@ func (h *PlaylistHandlers) handleShared(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *PlaylistHandlers) handleSharedStream(w http.ResponseWriter, r *http.Request) {
-	if _, ok := authenticate(h.tokens, w, r); !ok {
+	userID, ok := h.viewer(w, r, func(l AnonymousLimits) *RateLimiter { return l.Stream })
+	if !ok {
 		return
 	}
 	token := r.PathValue("token")
@@ -225,7 +259,7 @@ func (h *PlaylistHandlers) handleSharedStream(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusNotFound, "not_found")
 		return
 	}
-	track, err := h.shared.SharedTrack(r.Context(), token, r.PathValue("trackId"))
+	track, err := h.shared.SharedTrack(r.Context(), token, r.PathValue("trackId"), userID == "")
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "not_found")
 		return
@@ -287,7 +321,7 @@ type publicPlaylistResponse struct {
 // handlePublic lists public playlists, most liked first. ?limit= caps how
 // many (default 50, at most 100).
 func (h *PlaylistHandlers) handlePublic(w http.ResponseWriter, r *http.Request) {
-	userID, ok := authenticate(h.tokens, w, r)
+	userID, ok := h.viewer(w, r, func(l AnonymousLimits) *RateLimiter { return l.View })
 	if !ok {
 		return
 	}
