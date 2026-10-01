@@ -93,9 +93,17 @@ class FakeTracksApi implements TracksApi {
   Future<Track> updateTrackMetadata(
     String token,
     String trackId, {
+    String? fileName,
     required String title,
     String? artist,
     String? album,
+    String? albumArtist,
+    String? composer,
+    String? genre,
+    int? year,
+    int? trackNumber,
+    int? discNumber,
+    String? comment,
   }) async {
     calls.add('update:$trackId');
     if (updateError != null) throw updateError!;
@@ -113,9 +121,16 @@ class FakeTracksApi implements TracksApi {
       title: title,
       artist: artist,
       album: album,
+      albumArtist: albumArtist,
+      composer: composer,
+      genre: genre,
+      year: year,
+      trackNumber: trackNumber,
+      discNumber: discNumber,
+      comment: comment,
       contentType: current.contentType,
       sizeBytes: current.sizeBytes,
-      fileName: current.fileName,
+      fileName: fileName ?? current.fileName,
       sourceUri: current.sourceUri,
       source: current.source,
       sharedVia: current.sharedVia,
