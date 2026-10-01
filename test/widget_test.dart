@@ -8,11 +8,13 @@ import 'package:nafir/features/upload/data/audio_picker.dart';
 import 'package:nafir/features/upload/data/upload_models.dart';
 import 'package:nafir/features/library/application/library_controller.dart'
     show importPollDelays;
+import 'package:nafir/features/player/presentation/mini_player.dart';
 import 'package:nafir/main.dart';
 
 import 'bot_link_controller_test.dart' show FakeBotsApi, linkedBale;
 import 'cache_controller_test.dart' show FakeAudioCache;
 import 'player_controller_test.dart' show FakeAudioEngine;
+import 'playlist_sharing_test.dart' show FakePlaylistsApi;
 import 'upload_controller_test.dart' show FakeTracksApi, FakeUploader;
 
 const _user = AuthUser(id: 'u1', email: 'listener@example.com');
@@ -73,6 +75,7 @@ Future<void> _pumpApp(
   FakeTracksApi? tracks,
   FakeAudioCache? cache,
   FakeBotsApi? bots,
+  PlaylistsApi? playlists,
   bool settle = true,
 }) async {
   await tester.pumpWidget(NafirApp(
@@ -83,6 +86,7 @@ Future<void> _pumpApp(
     audioEngine: FakeAudioEngine(),
     audioCache: cache ?? FakeAudioCache(),
     botsApi: bots,
+    playlistsApi: playlists,
     uploader: uploader ?? FakeUploader(),
     picker: picker ?? FakePicker(null),
   ));
@@ -407,6 +411,12 @@ void main() {
     await tester.tap(find.text('خواننده'));
     await tester.pumpAndSettle();
     expect(top('Zebra'), lessThan(top('Apple')));
+
+    // The choice lasts the session; put it back for the tests that follow.
+    await tester.tap(find.byTooltip('مرتب‌سازی: خواننده'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('تازه‌ترین'));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('compact rows fit many tracks on a 360 px phone', (tester) async {
@@ -441,6 +451,111 @@ void main() {
         find.text('Artist with a really long name number 0'), findsOneWidget);
     expect(find.text(' · 3.0 مگابایت'), findsWidgets);
     expect(find.byTooltip('روی سرور'), findsWidgets);
+  });
+
+  group('library tabs', () {
+    List<Track> manyTracks() => [
+          for (var i = 0; i < 30; i++)
+            Track(
+              id: 's$i',
+              title: 'Track number $i',
+              artist: i.isEven ? 'Queen' : 'فرهاد',
+              album: i.isEven ? 'Opera' : null,
+              contentType: 'audio/mpeg',
+              sizeBytes: 1,
+            ),
+        ];
+
+    Future<void> pumpPhone(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(360, 740);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await _pumpApp(
+        tester,
+        tokenStore: MemoryTokenStore('valid-token'),
+        tracks: FakeTracksApi(manyTracks()),
+        playlists: FakePlaylistsApi(),
+      );
+    }
+
+    testWidgets('switch between tracks, playlists, albums and artists',
+        (tester) async {
+      await pumpPhone(tester);
+      for (final tab in ['آهنگ‌ها', 'Playlistها', 'آلبوم‌ها', 'هنرمندان']) {
+        expect(find.widgetWithText(Tab, tab), findsOneWidget);
+      }
+      expect(find.text('افزودن موسیقی'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(Tab, 'Playlistها'));
+      await tester.pumpAndSettle();
+      expect(find.text('Playlist جدید'), findsOneWidget);
+      expect(find.text('mix'), findsWidgets);
+      // Adding music belongs to the tracks tab only.
+      expect(find.text('افزودن موسیقی'), findsNothing);
+
+      await tester.tap(find.widgetWithText(Tab, 'آلبوم‌ها'));
+      await tester.pumpAndSettle();
+      expect(find.text('Opera'), findsOneWidget);
+      expect(find.text('Queen · 15 آهنگ'), findsOneWidget);
+      expect(find.text('نامشخص'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(Tab, 'هنرمندان'));
+      await tester.pumpAndSettle();
+      expect(find.text('فرهاد'), findsOneWidget);
+      await tester.tap(find.text('فرهاد'));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('توقف'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the large title collapses and scroll is kept per tab',
+        (tester) async {
+      await pumpPhone(tester);
+      final expandedTabsTop =
+          tester.getTopLeft(find.widgetWithText(Tab, 'آهنگ‌ها')).dy;
+
+      await tester.drag(find.byType(TabBarView), const Offset(0, -500));
+      await tester.pumpAndSettle();
+      final collapsedTabsTop =
+          tester.getTopLeft(find.widgetWithText(Tab, 'آهنگ‌ها')).dy;
+      expect(collapsedTabsTop, lessThan(expandedTabsTop));
+      // The tabs stay pinned and nothing slides under them.
+      expect(find.widgetWithText(Tab, 'هنرمندان'), findsOneWidget);
+      final tabsBottom = tester.getBottomLeft(find.byType(TabBar)).dy;
+      final firstVisibleRow = find.byType(ListTile).evaluate().map((e) {
+        final box = e.renderObject! as RenderBox;
+        return box.localToGlobal(Offset.zero).dy + box.size.height;
+      }).where((bottom) => bottom > tabsBottom);
+      expect(firstVisibleRow, isNotEmpty);
+      expect(find.text('Track number 0'), findsNothing);
+
+      await tester.tap(find.widgetWithText(Tab, 'آلبوم‌ها'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(Tab, 'آهنگ‌ها'));
+      await tester.pumpAndSettle();
+      // Coming back, the tracks list is where it was left.
+      expect(find.text('Track number 0'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the last track can scroll clear of the mini player',
+        (tester) async {
+      await pumpPhone(tester);
+      await tester.tap(find.text('Track number 0'));
+      await tester.pumpAndSettle();
+      // Swipe up through the list, then as far past the end as it goes.
+      for (var i = 0; i < 12; i++) {
+        await tester.drag(find.byType(TabBarView), const Offset(0, -300));
+        await tester.pumpAndSettle();
+      }
+      await tester.pumpAndSettle();
+      final lastRow = tester.getRect(find.ancestor(
+          of: find.text('Track number 29'), matching: find.byType(ListTile)));
+      final miniPlayerTop = tester.getTopLeft(find.byTooltip('توقف')).dy - 16;
+      expect(lastRow.bottom, lessThan(miniPlayerTop));
+      expect(tester.takeException(), isNull);
+    });
   });
 
   testWidgets('a finished upload appears in the list', (tester) async {
@@ -650,6 +765,43 @@ void main() {
       findsWidgets,
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the mini player stays a bar and leaves the library usable',
+      (tester) async {
+    for (final size in const [Size(360, 740), Size(1280, 800)]) {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await _pumpApp(
+        tester,
+        tokenStore: MemoryTokenStore('valid-token'),
+        tracks: FakeTracksApi(const [
+          Track(
+              id: 's1',
+              title: 'First',
+              contentType: 'audio/mpeg',
+              sizeBytes: 1),
+          Track(
+              id: 's2',
+              title: 'Second',
+              contentType: 'audio/mpeg',
+              sizeBytes: 1),
+        ]),
+      );
+      await tester.tap(find.text('First'));
+      await tester.pumpAndSettle();
+
+      final bar = tester.getRect(find.byType(MiniPlayer));
+      expect(bar.height, lessThan(160), reason: '$size');
+      expect(bar.bottom, size.height, reason: '$size');
+      // The rest of the library can still be tapped.
+      await tester.tap(find.text('Second'));
+      await tester.pumpAndSettle();
+      expect(find.text('Second'), findsWidgets);
+      expect(tester.takeException(), isNull);
+    }
   });
 
   testWidgets('mini player controls are at least 48 px on a 360 px phone',

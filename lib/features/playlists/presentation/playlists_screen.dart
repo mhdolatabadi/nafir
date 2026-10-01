@@ -7,7 +7,8 @@ import 'package:nafir/features/playlists/data/playlist.dart';
 import 'package:nafir/features/playlists/presentation/popular_playlists_screen.dart';
 import 'package:nafir/features/playlists/presentation/shared_playlist_screen.dart';
 
-class PlaylistsScreen extends StatefulWidget {
+/// The playlists overview on its own screen.
+class PlaylistsScreen extends StatelessWidget {
   const PlaylistsScreen({
     super.key,
     required this.controller,
@@ -20,10 +21,46 @@ class PlaylistsScreen extends StatefulWidget {
   final PlayerController player;
 
   @override
-  State<PlaylistsScreen> createState() => _PlaylistsScreenState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Playlistها')),
+      body: PlaylistsView(
+        controller: controller,
+        libraryTracks: libraryTracks,
+        player: player,
+      ),
+    );
+  }
 }
 
-class _PlaylistsScreenState extends State<PlaylistsScreen> {
+/// The user's playlists with actions to make one, discover popular ones and
+/// open a share link. It is the «Playlistها» tab of the library.
+class PlaylistsView extends StatefulWidget {
+  const PlaylistsView({
+    super.key,
+    required this.controller,
+    required this.libraryTracks,
+    required this.player,
+    this.onSharedSaved,
+    this.underHeader = false,
+  });
+
+  final PlaylistsController controller;
+  final List<Track> libraryTracks;
+  final PlayerController player;
+
+  /// Called after a shared playlist was saved, bringing its tracks along.
+  final VoidCallback? onSharedSaved;
+
+  /// Whether this is a tab under a pinned NestedScrollView header, whose
+  /// overlap the list has to make room for.
+  final bool underHeader;
+
+  @override
+  State<PlaylistsView> createState() => _PlaylistsViewState();
+}
+
+class _PlaylistsViewState extends State<PlaylistsView> {
   @override
   void initState() {
     super.initState();
@@ -97,6 +134,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
         shareToken: token,
         controller: widget.controller,
         player: widget.player,
+        onSaved: widget.onSharedSaved,
       ),
     ));
   }
@@ -106,6 +144,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
       builder: (_) => PopularPlaylistsScreen(
         controller: widget.controller,
         player: widget.player,
+        onSaved: widget.onSharedSaved,
       ),
     ));
     if (mounted) widget.controller.load();
@@ -113,14 +152,22 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Playlistها'),
-        actions: [
-          IconButton(
-            tooltip: 'Playlistهای محبوب',
+    final actions = Padding(
+      padding: const EdgeInsets.fromLTRB(4, 12, 4, 4),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          FilledButton.tonalIcon(
+            onPressed: _create,
+            icon: const Icon(Icons.playlist_add),
+            label: const Text('Playlist جدید'),
+          ),
+          OutlinedButton.icon(
             onPressed: _openPopular,
             icon: const Icon(Icons.local_fire_department_outlined),
+            label: const Text('Playlistهای محبوب'),
           ),
           IconButton(
             tooltip: 'باز کردن لینک اشتراک',
@@ -129,39 +176,62 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _create,
-        icon: const Icon(Icons.playlist_add),
-        label: const Text('Playlist جدید'),
-      ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 900),
-          child: ListenableBuilder(
-            listenable: widget.controller,
-            builder: (context, _) => switch (widget.controller.status) {
-              PlaylistsStatus.loading =>
-                const Center(child: CircularProgressIndicator()),
-              PlaylistsStatus.error => _Retry(
-                  onRetry: () async {
-                    await widget.controller.load();
-                  },
+    );
+    return ListenableBuilder(
+      listenable: widget.controller,
+      builder: (context, _) {
+        final content = switch (widget.controller.status) {
+          PlaylistsStatus.loading => const SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          PlaylistsStatus.error => SliverFillRemaining(
+              hasScrollBody: false,
+              child: _Retry(
+                onRetry: () async {
+                  await widget.controller.load();
+                },
+              ),
+            ),
+          PlaylistsStatus.loaded => widget.controller.playlists.isEmpty
+              ? const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(child: Text('هنوز Playlistی نساخته‌ای.')),
+                )
+              : _PlaylistsOverview(
+                  playlists: widget.controller.playlists,
+                  onOpen: _open,
                 ),
-              PlaylistsStatus.loaded => widget.controller.playlists.isEmpty
-                  ? const Center(child: Text('هنوز Playlistی نساخته‌ای.'))
-                  : RefreshIndicator(
-                      onRefresh: () async {
-                        await widget.controller.load();
-                      },
-                      child: _PlaylistsOverview(
-                        playlists: widget.controller.playlists,
-                        onOpen: _open,
-                      ),
+        };
+        return RefreshIndicator(
+          onRefresh: () async {
+            await widget.controller.load();
+          },
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // Centered at most 900 px wide on large screens.
+              final side = ((constraints.maxWidth - 900) / 2)
+                  .clamp(0.0, double.infinity);
+              return CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  if (widget.underHeader)
+                    SliverOverlapInjector(
+                      handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
+                          context),
                     ),
+                  SliverPadding(
+                    padding: EdgeInsets.symmetric(horizontal: side),
+                    sliver: SliverMainAxisGroup(
+                      slivers: [SliverToBoxAdapter(child: actions), content],
+                    ),
+                  ),
+                ],
+              );
             },
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -178,65 +248,69 @@ class _PlaylistsOverview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final featured = playlists.take(3).toList(growable: false);
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
+    return SliverPadding(
+      // Room at the bottom for the mini player.
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 112),
-      children: [
-        if (featured.isNotEmpty) ...[
-          SizedBox(
-            height: 184,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: featured.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 14),
-              itemBuilder: (context, index) {
-                final playlist = featured[index];
-                return _PlaylistFeatureCard(
-                  playlist: playlist,
-                  onTap: () => onOpen(playlist),
-                );
-              },
+      sliver: SliverList.list(
+        children: [
+          if (featured.isNotEmpty) ...[
+            SizedBox(
+              // The 148 px cover plus a title and a count line.
+              height: 208,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: featured.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 14),
+                itemBuilder: (context, index) {
+                  final playlist = featured[index];
+                  return _PlaylistFeatureCard(
+                    playlist: playlist,
+                    onTap: () => onOpen(playlist),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: 4, bottom: 8),
+            child: Text(
+              'همهٔ Playlistها',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
             ),
           ),
-          const SizedBox(height: 20),
-        ],
-        Padding(
-          padding: const EdgeInsetsDirectional.only(start: 4, bottom: 8),
-          child: Text(
-            'همهٔ Playlistها',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-        ),
-        for (final playlist in playlists)
-          ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-            leading: _PlaylistCover(trackCount: playlist.trackCount, size: 56),
-            title: Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    playlist.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (playlist.shareToken != null)
-                  const Padding(
-                    padding: EdgeInsetsDirectional.only(start: 6),
-                    child: Tooltip(
-                      message: 'با لینک به اشتراک گذاشته شده',
-                      child: Icon(Icons.link, size: 16),
+          for (final playlist in playlists)
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+              leading:
+                  _PlaylistCover(trackCount: playlist.trackCount, size: 56),
+              title: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      playlist.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-              ],
+                  if (playlist.shareToken != null)
+                    const Padding(
+                      padding: EdgeInsetsDirectional.only(start: 6),
+                      child: Tooltip(
+                        message: 'با لینک به اشتراک گذاشته شده',
+                        child: Icon(Icons.link, size: 16),
+                      ),
+                    ),
+                ],
+              ),
+              subtitle: Text('${playlist.trackCount} قطعه موسیقی'),
+              trailing: const Icon(Icons.chevron_left),
+              onTap: () => onOpen(playlist),
             ),
-            subtitle: Text('${playlist.trackCount} قطعه موسیقی'),
-            trailing: const Icon(Icons.chevron_left),
-            onTap: () => onOpen(playlist),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }
