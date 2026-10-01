@@ -134,11 +134,21 @@ SharedPlaylist sharedMix() => SharedPlaylist.fromJson(token, {
 void main() {
   group('share links', () {
     test('a link carries the token and can be read back', () {
-      final link =
-          sharedPlaylistLink(Uri.parse('https://nafir.example.com'), token);
-      expect(link.toString(), 'https://nafir.example.com/?shared=$token');
-      expect(shareTokenFrom(link.toString()), token);
-      expect(shareTokenFrom('  $token '), token);
+      final origin = Uri.parse('https://nafir.example.com');
+      final appLink = sharedPlaylistLink(origin, token);
+      expect(
+          appLink.toString(), 'https://nafir.example.com/app/?shared=$token');
+      final publicLink = sharedPlaylistLink(origin, token, public: true);
+      expect(publicLink.toString(), 'https://nafir.example.com/p/$token');
+      for (final link in [
+        appLink.toString(),
+        publicLink.toString(),
+        // Links shared before the app moved to /app.
+        'https://nafir.example.com/?shared=$token',
+        '  $token ',
+      ]) {
+        expect(shareTokenFrom(link), token, reason: link);
+      }
     });
 
     test('anything else is not a share link', () {
@@ -147,6 +157,8 @@ void main() {
         'hello',
         'https://nafir.example.com/?shared=short',
         'https://example.com/',
+        'https://nafir.example.com/p/short',
+        'https://nafir.example.com/x/$token',
       ]) {
         expect(shareTokenFrom(input), isNull, reason: input);
       }

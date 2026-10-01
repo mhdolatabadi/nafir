@@ -17,7 +17,7 @@ abstract final class AppConfiguration {
   }
 
   /// The share token of a playlist link the web app was opened with
-  /// (`/?shared=…`), taken only once.
+  /// (`/app/?shared=…`), taken only once.
   static String? takeInitialShareToken() {
     if (!kIsWeb || _shareTokenTaken) return null;
     _shareTokenTaken = true;

@@ -164,14 +164,22 @@ class SharedPlaylist {
       );
 }
 
-/// The web link that opens a shared playlist in Nafir.
-Uri sharedPlaylistLink(Uri appOrigin, String shareToken) =>
-    appOrigin.replace(path: '/', queryParameters: {'shared': shareToken});
+/// The web link to a shared playlist. A public one has its own page that
+/// anyone, and search engines, can open; a link-only one opens in the app.
+Uri sharedPlaylistLink(Uri origin, String shareToken, {bool public = false}) =>
+    public
+        ? origin.replace(path: '/p/$shareToken', queryParameters: null)
+        : origin
+            .replace(path: '/app/', queryParameters: {'shared': shareToken});
 
-/// Finds the share token in a pasted link or code, or returns null.
+/// Finds the share token in a pasted link or code, or returns null. It
+/// reads app links (`/app/?shared=…`, and the older `/?shared=…`), public
+/// pages (`/p/…`) and a bare token.
 String? shareTokenFrom(String input) {
   final text = input.trim();
   final uri = Uri.tryParse(text);
-  final token = uri?.queryParameters['shared'] ?? text;
+  final segments = uri?.pathSegments ?? const <String>[];
+  final token = uri?.queryParameters['shared'] ??
+      (segments.length == 2 && segments.first == 'p' ? segments.last : text);
   return RegExp(r'^[A-Za-z0-9_-]{22}$').hasMatch(token) ? token : null;
 }
