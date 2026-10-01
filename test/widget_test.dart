@@ -514,6 +514,30 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('an album page fits a narrow phone and clears the player',
+        (tester) async {
+      await pumpPhone(tester);
+      await tester.tap(find.widgetWithText(Tab, 'آلبوم‌ها'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Opera'));
+      await tester.pumpAndSettle();
+      expect(find.text('پخش همه'), findsOneWidget);
+      expect(find.text('پخش تصادفی'), findsOneWidget);
+
+      await tester.tap(find.text('پخش تصادفی'));
+      await tester.pumpAndSettle();
+      for (var i = 0; i < 8; i++) {
+        await tester.drag(find.byType(Scrollable).last, const Offset(0, -400));
+        await tester.pumpAndSettle();
+      }
+      final lastRow = tester.getRect(find.ancestor(
+          of: find.text('Track number 28'), matching: find.byType(ListTile)));
+      final miniPlayerTop = tester.getTopLeft(find.byTooltip('توقف')).dy - 16;
+      expect(lastRow.bottom, lessThanOrEqualTo(miniPlayerTop));
+      expect(lastRow.right, lessThanOrEqualTo(360));
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('the large title collapses and scroll is kept per tab',
         (tester) async {
       await pumpPhone(tester);
