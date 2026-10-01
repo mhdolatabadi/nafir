@@ -200,7 +200,7 @@ func createTrack(ctx context.Context, query rowQuerier, ownerID string, track Ne
 		)
 		SELECT new_id.id, $1::uuid, $17, $2, $3, $4, $5, $6, $7,
 		       $8, $9, $10, $11, $12, $13,
-		       $14, 'users/' || $1::text || '/tracks/' || new_id.id::text || '/' || $14::text, $15, $16, $17
+		       $14, 'users/' || $1::text || '/tracks/' || new_id.id::text || '/' || $14::text, $15, $16, $18
 		FROM new_id
 		RETURNING `+trackColumns,
 		ownerID, track.Title, track.Artist, track.Album, track.AlbumArtist, track.Composer, track.Genre,
