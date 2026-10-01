@@ -198,9 +198,9 @@ func createTrack(ctx context.Context, query rowQuerier, ownerID string, track Ne
 			year, track_number, disc_number, comment, duration_ms, file_name,
 			storage_key, content_type, size_bytes, source
 		)
-		SELECT new_id.id, $1::uuid, $16, $2, $3, $4, $5, $6, $7,
+		SELECT new_id.id, $1::uuid, $17, $2, $3, $4, $5, $6, $7,
 		       $8, $9, $10, $11, $12, $13,
-		       'users/' || $1::text || '/tracks/' || new_id.id::text || '/' || $13::text, $14, $15, $17
+		       $14, 'users/' || $1::text || '/tracks/' || new_id.id::text || '/' || $14::text, $15, $16, $17
 		FROM new_id
 		RETURNING `+trackColumns,
 		ownerID, track.Title, track.Artist, track.Album, track.AlbumArtist, track.Composer, track.Genre,
