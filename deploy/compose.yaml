@@ -1,3 +1,8 @@
+# A fixed project name, so this stack's containers, networks and volumes
+# don't collide with other Compose projects on the same server (by default
+# the project would be named after this folder, "deploy").
+name: nafir
+
 services:
   api:
     image: ${NAFIR_IMAGE_REPO:-ghcr.io/mhdolatabadi/nafir}/api:${NAFIR_IMAGE_TAG:-latest}
@@ -115,8 +120,14 @@ networks:
     internal: true
   edge:
 
+# These volumes were created while the project was still called "deploy";
+# the names are pinned so the database, music and certificates carry over.
 volumes:
   postgres-data:
+    name: deploy_postgres-data
   minio-data:
+    name: deploy_minio-data
   caddy-data:
+    name: deploy_caddy-data
   caddy-config:
+    name: deploy_caddy-config
