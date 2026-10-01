@@ -16,8 +16,31 @@
     reverse_proxy minio:9000
   }
 
-  handle {
+  # Share links from before the app moved to /app keep working.
+  @legacyShare {
+    path /
+    query shared=*
+  }
+  handle @legacyShare {
+    redir * /app/?{query} 302
+  }
+
+  # The Flutter web app.
+  handle /app {
+    redir * /app/ 308
+  }
+  handle /app/* {
     encode zstd gzip
     reverse_proxy web:80
+  }
+
+  # Everything else is the public site the API renders: the front page,
+  # /p/{token} playlist pages, sitemap.xml and robots.txt. The client IP
+  # header feeds the per-visitor rate limits.
+  handle {
+    encode zstd gzip
+    reverse_proxy api:8080 {
+      header_up X-Nafir-Client-IP {remote_host}
+    }
   }
 }

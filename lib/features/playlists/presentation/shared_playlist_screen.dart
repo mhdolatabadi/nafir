@@ -463,7 +463,7 @@ class _ShareSheetState extends State<_ShareSheet> {
         ? null
         : origin == null
             ? token
-            : sharedPlaylistLink(origin, token).toString();
+            : sharedPlaylistLink(origin, token, public: _public).toString();
     final theme = Theme.of(context);
     return SafeArea(
       child: SingleChildScrollView(

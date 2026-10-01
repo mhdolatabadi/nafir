@@ -27,9 +27,17 @@ curl https://music.example.com/api/v1/health
 
 Expected response: `{"status":"ok"}`.
 
-Open `https://music.example.com` to use the Flutter web app. The web app calls
-the API on its own origin, and Caddy serves the app while proxying `/api/*`
-requests to Go. The browser can also install it as a PWA.
+Caddy splits the domain between three services:
+
+| Path | Served by |
+|---|---|
+| `/`, `/p/{token}`, `/sitemap.xml`, `/robots.txt` | the API's public pages: popular public playlists, readable by anyone and by search engines |
+| `/app/` | the Flutter web app (also installable as a PWA); it calls the API on its own origin |
+| `/api/*` | the Go API |
+
+`/app` redirects to `/app/`, and share links from before the move
+(`/?shared=…`) redirect to `/app/?shared=…`. Both the API and the public pages
+receive the visitor's IP in `X-Nafir-Client-IP` for rate limiting.
 
 Audio objects under `/nafir-music/*` deliberately bypass Caddy response
 compression and are served with `Cache-Control: private, no-transform`. This

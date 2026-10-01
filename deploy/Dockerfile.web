@@ -11,8 +11,10 @@ COPY assets ./assets
 # which is slow or blocked for many users.
 ARG API_BASE_URL=
 RUN flutter pub get && \
-    flutter build web --release --no-web-resources-cdn --dart-define=API_BASE_URL=${API_BASE_URL}
+    flutter build web --release --no-web-resources-cdn --base-href /app/ \
+      --dart-define=API_BASE_URL=${API_BASE_URL}
 
 FROM nginx:1.27-alpine
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/build/web /usr/share/nginx/html
+# The app is served under /app/; / belongs to the public pages (#129).
+COPY --from=build /app/build/web /usr/share/nginx/html/app

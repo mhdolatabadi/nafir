@@ -24,7 +24,7 @@ jobs:
           fi
       - run: flutter analyze
       - run: flutter test
-      - run: flutter build web --release --no-web-resources-cdn --dart-define=API_BASE_URL=https://music.example.com
+      - run: flutter build web --release --no-web-resources-cdn --base-href /app/ --dart-define=API_BASE_URL=https://music.example.com
       - name: Build Android debug APK
         # The APK is meant to be installed, so it talks to the real server.
         run: flutter build apk --debug --dart-define=API_BASE_URL=${{ vars.NAFIR_API_BASE_URL || 'https://nafir.mhdolatabadi.ir' }}
@@ -120,4 +120,18 @@ jobs:
           assert "no-transform" in media
           assert "encode " not in media
           assert "reverse_proxy minio:9000" in media
+
+          # The app lives under /app/; old share links redirect there.
+          assert "handle /app/* {" in config
+          assert "redir * /app/?{query} 302" in config
+          # The public pages (and their rate limits) need the client IP.
+          fallback = config.rsplit("handle {", 1)[1]
+          assert "reverse_proxy api:8080" in fallback
+          assert "X-Nafir-Client-IP" in fallback
+
+          docker = Path("deploy/Dockerfile.web").read_text()
+          assert "--base-href /app/" in docker
+          assert "/usr/share/nginx/html/app" in docker
+          nginx = Path("deploy/nginx.conf").read_text()
+          assert "location /app/" in nginx and "/app/index.html" in nginx
           PY
