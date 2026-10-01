@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/core/widgets/glass_surface.dart';
@@ -114,16 +115,16 @@ class _SharedPlaylistScreenState extends State<SharedPlaylistScreen> {
         child: switch (_state) {
           _Load.loading => const Center(child: CircularProgressIndicator()),
           _Load.unavailable => const _Message(
-              icon: Icons.link_off,
+              icon: NafirIcons.linkBreak,
               text:
                   'این لینک اشتباه است یا صاحبش اشتراک‌گذاری را لغو کرده است.',
             ),
           _Load.failed => _Message(
-              icon: Icons.cloud_off,
+              icon: NafirIcons.cloudSlash,
               text: 'بارگذاری Playlist ناموفق بود.',
               action: FilledButton.icon(
                 onPressed: _load,
-                icon: const Icon(Icons.refresh),
+                icon: const Icon(NafirIcons.arrowsClockwise),
                 label: const Text('تلاش دوباره'),
               ),
             ),
@@ -194,7 +195,7 @@ class _Contents extends StatelessWidget {
                         ],
                       ),
                     ),
-                    child: const Icon(Icons.queue_music_rounded),
+                    child: const Icon(NafirIcons.playlist),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -236,7 +237,7 @@ class _Contents extends StatelessWidget {
                   if (tracks.isNotEmpty)
                     FilledButton.icon(
                       onPressed: () => player.playFrom(tracks, 0),
-                      icon: const Icon(Icons.play_arrow),
+                      icon: const Icon(NafirIcons.playFill),
                       label: const Text('پخش همه'),
                     ),
                   PlaylistLikeButton(likes: playlist.likes, onPressed: onLike),
@@ -248,7 +249,7 @@ class _Contents extends StatelessWidget {
                               dimension: 18,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Icon(Icons.library_add),
+                          : const Icon(NafirIcons.plusCircle),
                       label: const Text('افزودن به حساب من'),
                     ),
                 ],
@@ -257,7 +258,7 @@ class _Contents extends StatelessWidget {
             if (tracks.isEmpty)
               const Expanded(
                 child: _Message(
-                  icon: Icons.music_off,
+                  icon: NafirIcons.musicNotesMinus,
                   text: 'این Playlist فعلاً آهنگی ندارد.',
                 ),
               )
@@ -276,7 +277,7 @@ class _Contents extends StatelessWidget {
                         radius: 18,
                         tint: Theme.of(context).colorScheme.secondary,
                         child: ListTile(
-                          leading: const Icon(Icons.music_note_rounded),
+                          leading: const Icon(NafirIcons.musicNote),
                           title: Text(track.title,
                               maxLines: 1, overflow: TextOverflow.ellipsis),
                           subtitle: track.artist == null
@@ -321,7 +322,7 @@ class PlaylistLikeButton extends StatelessWidget {
     final count = likes.likeCount;
     final color = liked ? Theme.of(context).colorScheme.primary : null;
     final icon =
-        Icon(liked ? Icons.favorite : Icons.favorite_border, color: color);
+        Icon(liked ? NafirIcons.heartFill : NafirIcons.heart, color: color);
     final tooltip = liked ? 'برداشتن پسند' : 'پسندیدن این Playlist';
     return Tooltip(
       message: tooltip,
@@ -489,12 +490,12 @@ class _ShareSheetState extends State<_ShareSheet> {
               segments: const [
                 ButtonSegment(
                   value: false,
-                  icon: Icon(Icons.link),
+                  icon: Icon(NafirIcons.linkSimple),
                   label: Text('فقط با لینک'),
                 ),
                 ButtonSegment(
                   value: true,
-                  icon: Icon(Icons.public),
+                  icon: Icon(NafirIcons.globe),
                   label: Text('عمومی'),
                 ),
               ],
@@ -527,13 +528,13 @@ class _ShareSheetState extends State<_ShareSheet> {
                   ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('لینک کپی شد.')));
                 },
-                icon: const Icon(Icons.copy),
+                icon: const Icon(NafirIcons.copy),
                 label: const Text('کپی لینک'),
               ),
               const SizedBox(height: 8),
               TextButton.icon(
                 onPressed: _busy ? null : _unshare,
-                icon: const Icon(Icons.link_off),
+                icon: const Icon(NafirIcons.linkBreak),
                 label: const Text('لغو اشتراک (لینک فعلی باطل می‌شود)'),
               ),
             ] else
@@ -543,7 +544,7 @@ class _ShareSheetState extends State<_ShareSheet> {
                     : () => _share(
                         public: _public,
                         failure: 'ساخت لینک ناموفق بود. دوباره تلاش کن.'),
-                icon: const Icon(Icons.link),
+                icon: const Icon(NafirIcons.linkSimple),
                 label: const Text('ساخت لینک اشتراک'),
               ),
             if (_error case final error?)

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/features/upload/application/upload_controller.dart';
 
@@ -80,10 +81,10 @@ class UploadStatusCard extends StatelessWidget {
                 children: [
                   Icon(
                     failed
-                        ? Icons.error_outline
+                        ? NafirIcons.warningCircle
                         : controller.phase == UploadPhase.done
-                            ? Icons.check_circle_outline
-                            : Icons.upload_file,
+                            ? NafirIcons.checkCircle
+                            : NafirIcons.uploadSimple,
                     color: failed ? Theme.of(context).colorScheme.error : null,
                   ),
                   const SizedBox(width: 12),
@@ -92,7 +93,7 @@ class UploadStatusCard extends StatelessWidget {
                     IconButton(
                       tooltip: 'بستن',
                       onPressed: controller.dismiss,
-                      icon: const Icon(Icons.close),
+                      icon: const Icon(NafirIcons.x),
                     ),
                   if (controller.canCancel)
                     TextButton(

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
@@ -425,11 +426,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('پسندیدن · 0'), findsOneWidget);
-      expect(find.byIcon(Icons.favorite_border), findsOneWidget);
+      expect(find.byIcon(NafirIcons.heart), findsOneWidget);
       await tester.tap(find.text('پسندیدن · 0'));
       await tester.pumpAndSettle();
       expect(find.text('پسندیدی · 1'), findsOneWidget);
-      expect(find.byIcon(Icons.favorite), findsOneWidget);
+      expect(find.byIcon(NafirIcons.heartFill), findsOneWidget);
       expect(find.bySemanticsLabel('پسندیده‌ای، 1 پسند'), findsOneWidget);
 
       api.likeStatus = 503;
@@ -504,7 +505,7 @@ void main() {
         await tester.tap(find.text('5'));
         await tester.pumpAndSettle();
         expect(api.likeCalls, [true]);
-        expect(find.byIcon(Icons.favorite), findsOneWidget);
+        expect(find.byIcon(NafirIcons.heartFill), findsOneWidget);
       });
 
       testWidgets('says when nothing is public yet', (tester) async {

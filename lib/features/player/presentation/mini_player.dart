@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/player/application/play_queue.dart';
@@ -203,7 +204,7 @@ class _CompactMiniPlayer extends StatelessWidget {
                     IconButton(
                       tooltip: 'قبلی',
                       onPressed: player.previous,
-                      icon: const Icon(Icons.skip_previous),
+                      icon: const Icon(NafirIcons.skipBackFill),
                     ),
                     if (busy)
                       const SizedBox.square(
@@ -223,16 +224,16 @@ class _CompactMiniPlayer extends StatelessWidget {
                         onPressed: player.toggle,
                         icon: Icon(
                           status == PlayerStatus.error
-                              ? Icons.refresh
+                              ? NafirIcons.arrowsClockwise
                               : playing
-                                  ? Icons.pause
-                                  : Icons.play_arrow,
+                                  ? NafirIcons.pauseFill
+                                  : NafirIcons.playFill,
                         ),
                       ),
                     IconButton(
                       tooltip: 'بعدی',
                       onPressed: player.next,
-                      icon: const Icon(Icons.skip_next),
+                      icon: const Icon(NafirIcons.skipForwardFill),
                     ),
                   ],
                 ),
@@ -300,10 +301,10 @@ class _MiniArtwork extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final icon = status == PlayerStatus.error
-        ? Icons.error_outline
+        ? NafirIcons.warningCircle
         : track.isLocal
-            ? Icons.phone_android
-            : Icons.music_note;
+            ? NafirIcons.deviceMobile
+            : NafirIcons.musicNote;
     return Container(
       width: size,
       height: size,
@@ -394,14 +395,14 @@ class _PlaybackControls extends StatelessWidget {
         children: [
           _Toggle(
             tooltip: player.shuffle ? 'پخش تصادفی: روشن' : 'پخش تصادفی',
-            icon: Icons.shuffle,
+            icon: player.shuffle ? NafirIcons.shuffleFill : NafirIcons.shuffle,
             active: player.shuffle,
             onPressed: player.toggleShuffle,
           ),
           IconButton(
             tooltip: 'قبلی',
             onPressed: player.previous,
-            icon: const Icon(Icons.skip_previous),
+            icon: const Icon(NafirIcons.skipBackFill),
           ),
           const SizedBox(width: 4),
           if (busy)
@@ -426,17 +427,17 @@ class _PlaybackControls extends StatelessWidget {
               onPressed: player.toggle,
               icon: Icon(
                 status == PlayerStatus.error
-                    ? Icons.refresh
+                    ? NafirIcons.arrowsClockwise
                     : playing
-                        ? Icons.pause
-                        : Icons.play_arrow,
+                        ? NafirIcons.pauseFill
+                        : NafirIcons.playFill,
               ),
             ),
           const SizedBox(width: 4),
           IconButton(
             tooltip: 'بعدی',
             onPressed: player.next,
-            icon: const Icon(Icons.skip_next),
+            icon: const Icon(NafirIcons.skipForwardFill),
           ),
           _Toggle(
             tooltip: switch (player.repeat) {
@@ -444,9 +445,11 @@ class _PlaybackControls extends StatelessWidget {
               QueueRepeat.all => 'تکرار: همه',
               QueueRepeat.one => 'تکرار: همین آهنگ',
             },
-            icon: player.repeat == QueueRepeat.one
-                ? Icons.repeat_one
-                : Icons.repeat,
+            icon: switch (player.repeat) {
+              QueueRepeat.off => NafirIcons.repeat,
+              QueueRepeat.all => NafirIcons.repeatFill,
+              QueueRepeat.one => NafirIcons.repeatOnceFill,
+            },
             active: player.repeat != QueueRepeat.off,
             onPressed: player.cycleRepeat,
           ),
@@ -500,7 +503,7 @@ class _NowPlayingScreenState extends State<_NowPlayingScreen> {
             leading: IconButton(
               tooltip: 'بستن',
               onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.keyboard_arrow_down),
+              icon: const Icon(NafirIcons.caretDown),
             ),
             title: const Text('در حال پخش'),
             centerTitle: true,
@@ -508,7 +511,7 @@ class _NowPlayingScreenState extends State<_NowPlayingScreen> {
               IconButton(
                 tooltip: 'صف پخش',
                 onPressed: () {},
-                icon: const Icon(Icons.queue_music),
+                icon: const Icon(NafirIcons.playlist),
               ),
             ],
           ),
@@ -591,7 +594,9 @@ class _NowPlayingScreenState extends State<_NowPlayingScreen> {
                             tooltip: player.shuffle
                                 ? 'پخش تصادفی: روشن'
                                 : 'پخش تصادفی',
-                            icon: Icons.shuffle,
+                            icon: player.shuffle
+                                ? NafirIcons.shuffleFill
+                                : NafirIcons.shuffle,
                             active: player.shuffle,
                             onPressed: player.toggleShuffle,
                           ),
@@ -599,7 +604,7 @@ class _NowPlayingScreenState extends State<_NowPlayingScreen> {
                             tooltip: 'قبلی',
                             iconSize: 34,
                             onPressed: player.previous,
-                            icon: const Icon(Icons.skip_previous),
+                            icon: const Icon(NafirIcons.skipBackFill),
                           ),
                           if (busy)
                             const SizedBox.square(
@@ -622,17 +627,17 @@ class _NowPlayingScreenState extends State<_NowPlayingScreen> {
                               onPressed: player.toggle,
                               icon: Icon(
                                 status == PlayerStatus.error
-                                    ? Icons.refresh
+                                    ? NafirIcons.arrowsClockwise
                                     : playing
-                                        ? Icons.pause
-                                        : Icons.play_arrow,
+                                        ? NafirIcons.pauseFill
+                                        : NafirIcons.playFill,
                               ),
                             ),
                           IconButton(
                             tooltip: 'بعدی',
                             iconSize: 34,
                             onPressed: player.next,
-                            icon: const Icon(Icons.skip_next),
+                            icon: const Icon(NafirIcons.skipForwardFill),
                           ),
                           _Toggle(
                             tooltip: switch (player.repeat) {
@@ -640,9 +645,11 @@ class _NowPlayingScreenState extends State<_NowPlayingScreen> {
                               QueueRepeat.all => 'تکرار: همه',
                               QueueRepeat.one => 'تکرار: همین آهنگ',
                             },
-                            icon: player.repeat == QueueRepeat.one
-                                ? Icons.repeat_one
-                                : Icons.repeat,
+                            icon: switch (player.repeat) {
+                              QueueRepeat.off => NafirIcons.repeat,
+                              QueueRepeat.all => NafirIcons.repeatFill,
+                              QueueRepeat.one => NafirIcons.repeatOnceFill,
+                            },
                             active: player.repeat != QueueRepeat.off,
                             onPressed: player.cycleRepeat,
                           ),

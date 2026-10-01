@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/core/widgets/app_loading_screen.dart';
 import 'package:nafir/features/auth/application/auth_controller.dart';
 import 'package:nafir/features/auth/presentation/sign_in_screen.dart';
@@ -104,7 +105,7 @@ class _RestoreFailedScreen extends StatelessWidget {
               const SizedBox(height: 20),
               FilledButton.icon(
                 onPressed: onRetry,
-                icon: const Icon(Icons.refresh),
+                icon: const Icon(NafirIcons.arrowsClockwise),
                 label: const Text('تلاش دوباره'),
               ),
             ],
