@@ -79,7 +79,15 @@ type trackResponse struct {
 	Title       string    `json:"title"`
 	Artist      *string   `json:"artist"`
 	Album       *string   `json:"album"`
+	AlbumArtist *string   `json:"albumArtist"`
+	Composer    *string   `json:"composer"`
+	Genre       *string   `json:"genre"`
+	Year        *int32    `json:"year"`
+	TrackNumber *int32    `json:"trackNumber"`
+	DiscNumber  *int32    `json:"discNumber"`
+	Comment     *string   `json:"comment"`
 	DurationMS  *int32    `json:"durationMs"`
+	FileName    string    `json:"fileName"`
 	ContentType string    `json:"contentType"`
 	SizeBytes   int64     `json:"sizeBytes"`
 	Source      string    `json:"source"`
@@ -88,8 +96,11 @@ type trackResponse struct {
 
 func toTrackResponse(t store.Track) trackResponse {
 	return trackResponse{
-		ID: t.ID, Title: t.Title, Artist: t.Artist, Album: t.Album, DurationMS: t.DurationMS,
-		ContentType: t.ContentType, SizeBytes: t.SizeBytes, Source: t.Source, CreatedAt: t.CreatedAt.UTC(),
+		ID: t.ID, Title: t.Title, Artist: t.Artist, Album: t.Album, AlbumArtist: t.AlbumArtist,
+		Composer: t.Composer, Genre: t.Genre, Year: t.Year, TrackNumber: t.TrackNumber,
+		DiscNumber: t.DiscNumber, Comment: t.Comment, DurationMS: t.DurationMS,
+		FileName: t.FileName, ContentType: t.ContentType, SizeBytes: t.SizeBytes,
+		Source: t.Source, CreatedAt: t.CreatedAt.UTC(),
 	}
 }
 
@@ -123,9 +134,17 @@ type streamResponse struct {
 }
 
 type updateTrackRequest struct {
-	Title  *string `json:"title"`
-	Artist *string `json:"artist"`
-	Album  *string `json:"album"`
+	FileName    *string `json:"fileName"`
+	Title       *string `json:"title"`
+	Artist      *string `json:"artist"`
+	Album       *string `json:"album"`
+	AlbumArtist *string `json:"albumArtist"`
+	Composer    *string `json:"composer"`
+	Genre       *string `json:"genre"`
+	Year        *int32  `json:"year"`
+	TrackNumber *int32  `json:"trackNumber"`
+	DiscNumber  *int32  `json:"discNumber"`
+	Comment     *string `json:"comment"`
 }
 
 func (h *TrackHandlers) handleList(w http.ResponseWriter, r *http.Request) {
@@ -200,14 +219,36 @@ func (h *TrackHandlers) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_metadata")
 		return
 	}
+	fileName := track.FileName
+	if input.FileName != nil {
+		candidate := optionalText(input.FileName)
+		if candidate == nil {
+			writeError(w, http.StatusBadRequest, "invalid_metadata")
+			return
+		}
+		fileName = audio.SafeFileName(*candidate)
+		contentType, ok := audio.ContentType(fileName)
+		if !ok || contentType != track.ContentType {
+			writeError(w, http.StatusBadRequest, "invalid_metadata")
+			return
+		}
+	}
 	artist := optionalText(input.Artist)
 	album := optionalText(input.Album)
-	if tooLong(title) || tooLong(artist) || tooLong(album) {
+	albumArtist := optionalText(input.AlbumArtist)
+	composer := optionalText(input.Composer)
+	genre := optionalText(input.Genre)
+	comment := optionalText(input.Comment)
+	if tooLong(title) || tooLong(&fileName) || tooLong(artist) || tooLong(album) ||
+		tooLong(albumArtist) || tooLong(composer) || tooLong(genre) || tooLong(comment) ||
+		!validYear(input.Year) || !positive(input.TrackNumber) || !positive(input.DiscNumber) {
 		writeError(w, http.StatusBadRequest, "invalid_metadata")
 		return
 	}
 	updated, err := h.tracks.UpdateMetadata(r.Context(), track.OwnerID, track.ID, store.TrackMetadata{
-		Title: *title, Artist: artist, Album: album,
+		FileName: fileName, Title: *title, Artist: artist, Album: album,
+		AlbumArtist: albumArtist, Composer: composer, Genre: genre, Year: input.Year,
+		TrackNumber: input.TrackNumber, DiscNumber: input.DiscNumber, Comment: comment,
 	})
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "not_found")
@@ -429,4 +470,12 @@ func optionalText(value *string) *string {
 
 func tooLong(value *string) bool {
 	return value != nil && utf8.RuneCountInString(strings.TrimSpace(*value)) > maxTextLength
+}
+
+func validYear(value *int32) bool {
+	return value == nil || (*value >= 0 && *value <= 9999)
+}
+
+func positive(value *int32) bool {
+	return value == nil || *value > 0
 }

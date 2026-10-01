@@ -61,9 +61,17 @@ abstract interface class TracksApi {
   Future<Track> updateTrackMetadata(
     String token,
     String trackId, {
+    String? fileName,
     required String title,
     String? artist,
     String? album,
+    String? albumArtist,
+    String? composer,
+    String? genre,
+    int? year,
+    int? trackNumber,
+    int? discNumber,
+    String? comment,
   });
   Future<void> deleteTrack(String token, String trackId);
 
@@ -193,12 +201,31 @@ class ApiClient implements AuthApi, TracksApi, PlaylistsApi, BotsApi {
   Future<Track> updateTrackMetadata(
     String token,
     String trackId, {
+    String? fileName,
     required String title,
     String? artist,
     String? album,
+    String? albumArtist,
+    String? composer,
+    String? genre,
+    int? year,
+    int? trackNumber,
+    int? discNumber,
+    String? comment,
   }) async {
-    final body = await _send('PATCH', '/api/v1/tracks/$trackId',
-        token: token, body: {'title': title, 'artist': artist, 'album': album});
+    final body = await _send('PATCH', '/api/v1/tracks/$trackId', token: token, body: {
+      if (fileName != null) 'fileName': fileName,
+      'title': title,
+      'artist': artist,
+      'album': album,
+      'albumArtist': albumArtist,
+      'composer': composer,
+      'genre': genre,
+      'year': year,
+      'trackNumber': trackNumber,
+      'discNumber': discNumber,
+      'comment': comment,
+    });
     return Track.fromJson(body);
   }
 

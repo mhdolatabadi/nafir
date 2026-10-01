@@ -82,7 +82,15 @@ void main() {
               'title': 'آهنگ',
               'artist': null,
               'album': null,
+              'albumArtist': 'همخوان',
+              'composer': 'Composer',
+              'genre': 'Rock',
+              'year': 2026,
+              'trackNumber': 7,
+              'discNumber': 1,
+              'comment': 'Demo',
               'durationMs': null,
+              'fileName': 'song.mp3',
               'contentType': 'audio/mpeg',
               'sizeBytes': 10,
               'createdAt': '2026-09-24T00:00:00Z',
@@ -99,6 +107,14 @@ void main() {
 
     expect(library.tracks.single.title, 'آهنگ');
     expect(library.tracks.single.artist, isNull);
+    expect(library.tracks.single.albumArtist, 'همخوان');
+    expect(library.tracks.single.composer, 'Composer');
+    expect(library.tracks.single.genre, 'Rock');
+    expect(library.tracks.single.year, 2026);
+    expect(library.tracks.single.trackNumber, 7);
+    expect(library.tracks.single.discNumber, 1);
+    expect(library.tracks.single.comment, 'Demo');
+    expect(library.tracks.single.fileName, 'song.mp3');
     expect(library.usedBytes, 10);
     expect(library.limitBytes, 5368709120);
   });
@@ -206,6 +222,14 @@ void main() {
           'title': 'New title',
           'artist': null,
           'album': 'Album',
+          'albumArtist': 'Album Artist',
+          'composer': 'Composer',
+          'genre': 'Jazz',
+          'year': 2026,
+          'trackNumber': 2,
+          'discNumber': 1,
+          'comment': 'Note',
+          'fileName': 'new-title.mp3',
           'contentType': 'audio/mpeg',
           'sizeBytes': 1,
         }),
@@ -216,18 +240,46 @@ void main() {
     final track = await client.updateTrackMetadata(
       't0ken',
       't1',
+      fileName: 'new-title.mp3',
       title: 'New title',
       artist: null,
       album: 'Album',
+      albumArtist: 'Album Artist',
+      composer: 'Composer',
+      genre: 'Jazz',
+      year: 2026,
+      trackNumber: 2,
+      discNumber: 1,
+      comment: 'Note',
     );
 
     expect(sent.method, 'PATCH');
     expect(sent.url.path, '/api/v1/tracks/t1');
     expect(sent.headers['Authorization'], 'Bearer t0ken');
     expect(jsonDecode(sent.body),
-        {'title': 'New title', 'artist': null, 'album': 'Album'});
+        {
+          'fileName': 'new-title.mp3',
+          'title': 'New title',
+          'artist': null,
+          'album': 'Album',
+          'albumArtist': 'Album Artist',
+          'composer': 'Composer',
+          'genre': 'Jazz',
+          'year': 2026,
+          'trackNumber': 2,
+          'discNumber': 1,
+          'comment': 'Note',
+        });
     expect(track.title, 'New title');
     expect(track.artist, isNull);
     expect(track.album, 'Album');
+    expect(track.albumArtist, 'Album Artist');
+    expect(track.composer, 'Composer');
+    expect(track.genre, 'Jazz');
+    expect(track.year, 2026);
+    expect(track.trackNumber, 2);
+    expect(track.discNumber, 1);
+    expect(track.comment, 'Note');
+    expect(track.fileName, 'new-title.mp3');
   });
 }

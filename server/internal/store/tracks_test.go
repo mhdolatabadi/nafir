@@ -25,6 +25,9 @@ func TestTracksAreScopedToTheirOwner(t *testing.T) {
 	if want := StorageKey(alice.ID, aliceTrack.ID, "song.mp3"); aliceTrack.StorageKey != want {
 		t.Fatalf("storage key %q, want %q", aliceTrack.StorageKey, want)
 	}
+	if aliceTrack.FileName != "song.mp3" {
+		t.Fatalf("file name %q", aliceTrack.FileName)
+	}
 	if _, err := tracks.Create(ctx, bob.ID, NewTrack{
 		Title: "Other", FileName: "other.mp3", ContentType: "audio/mpeg", SizeBytes: 1,
 	}); err != nil {
@@ -121,11 +124,30 @@ func TestUpdateMetadataIsOwnerScopedAndReadyOnly(t *testing.T) {
 	}
 
 	album := "Album"
-	updated, err := tracks.UpdateMetadata(ctx, alice.ID, ready.ID, TrackMetadata{Title: "New", Album: &album})
+	albumArtist := "Album Artist"
+	composer := "Composer"
+	genre := "Rock"
+	comment := "Note"
+	year := int32(2026)
+	trackNumber := int32(7)
+	discNumber := int32(1)
+	updated, err := tracks.UpdateMetadata(ctx, alice.ID, ready.ID, TrackMetadata{
+		FileName: "renamed.mp3", Title: "New", Album: &album, AlbumArtist: &albumArtist,
+		Composer: &composer, Genre: &genre, Year: &year, TrackNumber: &trackNumber,
+		DiscNumber: &discNumber, Comment: &comment,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated.Title != "New" || updated.Artist != nil || updated.Album == nil || *updated.Album != "Album" {
+	if updated.FileName != "renamed.mp3" || updated.Title != "New" || updated.Artist != nil ||
+		updated.Album == nil || *updated.Album != "Album" ||
+		updated.AlbumArtist == nil || *updated.AlbumArtist != "Album Artist" ||
+		updated.Composer == nil || *updated.Composer != "Composer" ||
+		updated.Genre == nil || *updated.Genre != "Rock" ||
+		updated.Year == nil || *updated.Year != 2026 ||
+		updated.TrackNumber == nil || *updated.TrackNumber != 7 ||
+		updated.DiscNumber == nil || *updated.DiscNumber != 1 ||
+		updated.Comment == nil || *updated.Comment != "Note" {
 		t.Fatalf("updated metadata = %+v", updated)
 	}
 }
