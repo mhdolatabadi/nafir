@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/core/widgets/glass_surface.dart';
+import 'package:nafir/features/auth/presentation/sign_in_prompt.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/presentation/mini_player.dart';
 import 'package:nafir/features/playlists/application/playlists_controller.dart';
@@ -15,6 +16,8 @@ class PopularPlaylistsScreen extends StatefulWidget {
     required this.controller,
     required this.player,
     this.onSaved,
+    this.onSignIn,
+    this.openShareToken,
   });
 
   final PlaylistsController controller;
@@ -22,6 +25,13 @@ class PopularPlaylistsScreen extends StatefulWidget {
 
   /// Passed on to a playlist opened from here, for when it is saved.
   final VoidCallback? onSaved;
+
+  /// Set when this is a guest's home: the app bar offers sign-in, and a
+  /// guest who tries to like is asked to sign in.
+  final VoidCallback? onSignIn;
+
+  /// A shared playlist link the app was opened with, shown on top at once.
+  final String? openShareToken;
 
   @override
   State<PopularPlaylistsScreen> createState() => _PopularPlaylistsScreenState();
@@ -32,21 +42,35 @@ class _PopularPlaylistsScreenState extends State<PopularPlaylistsScreen> {
   void initState() {
     super.initState();
     widget.controller.loadPopular();
+    final shareToken = widget.openShareToken;
+    if (shareToken != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _openToken(shareToken);
+      });
+    }
   }
 
-  Future<void> _open(PublicPlaylist playlist) async {
+  Future<void> _open(PublicPlaylist playlist) =>
+      _openToken(playlist.shareToken);
+
+  Future<void> _openToken(String shareToken) async {
     await Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => SharedPlaylistScreen(
-        shareToken: playlist.shareToken,
+        shareToken: shareToken,
         controller: widget.controller,
         player: widget.player,
         onSaved: widget.onSaved,
+        onSignIn: widget.onSignIn,
       ),
     ));
     if (mounted) await widget.controller.loadPopular();
   }
 
   Future<void> _like(PublicPlaylist playlist) async {
+    if (!widget.controller.signedIn) {
+      askToSignIn(context, action: 'پسندیدن', onSignIn: widget.onSignIn);
+      return;
+    }
     final result =
         await widget.controller.setLike(playlist.shareToken, playlist.likes);
     if (!mounted || result == LikeResult.done) return;
@@ -63,7 +87,20 @@ class _PopularPlaylistsScreenState extends State<PopularPlaylistsScreen> {
     final controller = widget.controller;
     return Scaffold(
       extendBody: true,
-      appBar: AppBar(title: const Text('Playlistهای محبوب')),
+      appBar: AppBar(
+        title: const Text('Playlistهای محبوب'),
+        actions: [
+          if (widget.onSignIn != null && !controller.signedIn)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: 12),
+              child: FilledButton(
+                onPressed: widget.onSignIn,
+                style: FilledButton.styleFrom(minimumSize: const Size(48, 48)),
+                child: const Text('ورود / ثبت‌نام'),
+              ),
+            ),
+        ],
+      ),
       bottomNavigationBar: MiniPlayer(player: widget.player),
       body: NafirBackdrop(
         child: Center(

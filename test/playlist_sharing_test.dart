@@ -74,13 +74,13 @@ class FakePlaylistsApi implements PlaylistsApi {
   bool listFails = false;
 
   @override
-  Future<List<PublicPlaylist>> listPublicPlaylists(String t) async {
+  Future<List<PublicPlaylist>> listPublicPlaylists(String? t) async {
     if (listFails) throw const ApiException('500', statusCode: 500);
     return public;
   }
 
   @override
-  Future<SharedPlaylist> getSharedPlaylist(String t, String shareToken) async {
+  Future<SharedPlaylist> getSharedPlaylist(String? t, String shareToken) async {
     final playlist = shared[shareToken];
     if (playlist == null) {
       throw const ApiException('404', statusCode: 404, code: 'not_found');
@@ -131,6 +131,17 @@ SharedPlaylist sharedMix() => SharedPlaylist.fromJson(token, {
         },
       ],
     });
+
+PublicPlaylist listed(String name,
+        {int likes = 0, bool liked = false, String shareToken = token}) =>
+    PublicPlaylist(
+      shareToken: shareToken,
+      name: name,
+      owner: 'f***@example.com',
+      isOwner: false,
+      trackCount: 3,
+      likes: PlaylistLikes(liked: liked, likeCount: likes),
+    );
 
 void main() {
   group('share links', () {
@@ -356,17 +367,6 @@ void main() {
   });
 
   group('likes', () {
-    PublicPlaylist listed(String name,
-            {int likes = 0, bool liked = false, String shareToken = token}) =>
-        PublicPlaylist(
-          shareToken: shareToken,
-          name: name,
-          owner: 'f***@example.com',
-          isOwner: false,
-          trackCount: 3,
-          likes: PlaylistLikes(liked: liked, likeCount: likes),
-        );
-
     test('a like shows at once and the server has the last word', () async {
       final api = FakePlaylistsApi()
         ..likers[token] = {'someone'}
@@ -506,6 +506,32 @@ void main() {
         await tester.pumpAndSettle();
         expect(api.likeCalls, [true]);
         expect(find.byIcon(NafirIcons.heartFill), findsOneWidget);
+      });
+
+      testWidgets('a guest opens a shared link and plays it', (tester) async {
+        final tracks = FakeTracksApi();
+        await tester.pumpWidget(MaterialApp(
+          home: PopularPlaylistsScreen(
+            controller: PlaylistsController(
+                api: FakePlaylistsApi()..shared[token] = sharedMix(),
+                token: () => null),
+            player: PlayerController(
+                api: tracks, engine: FakeAudioEngine(), token: () => null),
+            onSignIn: () {},
+            openShareToken: token,
+          ),
+        ));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Friend mix'), findsOneWidget);
+        await tester.tap(find.text('Their song'));
+        await tester.pumpAndSettle();
+        expect(tracks.calls, contains('shared:$token:s1'));
+
+        // Back on the guest home, sign-in stays on offer.
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        expect(find.text('ورود / ثبت‌نام'), findsOneWidget);
       });
 
       testWidgets('says when nothing is public yet', (tester) async {

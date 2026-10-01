@@ -133,7 +133,7 @@ class PlayerController extends ChangeNotifier {
 
   Future<void> _start(Track track) async {
     final token = _token();
-    if (!track.isLocal && token == null) return;
+    if (!track.isLocal && token == null && track.sharedVia == null) return;
     final request = ++_request;
     _track = track;
     _position = Duration.zero;
@@ -143,7 +143,7 @@ class PlayerController extends ChangeNotifier {
     _loading = true;
     _setStatus(PlayerStatus.loading);
     try {
-      final url = track.sourceUri ?? (await _link(token!, track)).url;
+      final url = track.sourceUri ?? (await _link(token, track)).url;
       if (request != _request) return;
       await _engine.load(track, url);
       if (request != _request) return;
@@ -242,10 +242,10 @@ class PlayerController extends ChangeNotifier {
 
   /// Someone else's track, opened from a shared playlist, is played through
   /// that playlist's link; the user's own tracks directly.
-  Future<StreamLink> _link(String token, Track track) {
+  Future<StreamLink> _link(String? token, Track track) {
     final shareToken = track.sharedVia;
     return shareToken == null
-        ? _api.streamLink(token, track.id)
+        ? _api.streamLink(token!, track.id)
         : _api.sharedStreamLink(token, shareToken, track.id);
   }
 
@@ -254,7 +254,10 @@ class PlayerController extends ChangeNotifier {
   Future<void> _onEngineError(Object error) async {
     final track = _track;
     final token = _token();
-    if (track == null || track.isLocal || token == null || _retriedLink) {
+    if (track == null ||
+        track.isLocal ||
+        (token == null && track.sharedVia == null) ||
+        _retriedLink) {
       _setStatus(PlayerStatus.error);
       return;
     }

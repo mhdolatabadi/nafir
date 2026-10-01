@@ -42,9 +42,12 @@ class PlaylistsController extends ChangeNotifier {
   final Set<String> _liking = {};
   bool isLiking(String shareToken) => _liking.contains(shareToken);
 
+  /// Whether there is an account to like or save with. Without one,
+  /// public and shared playlists can still be browsed and played.
+  bool get signedIn => _token() != null;
+
   Future<void> loadPopular() async {
     final token = _token();
-    if (token == null) return;
     popularStatus = PlaylistsStatus.loading;
     notifyListeners();
     try {
@@ -152,7 +155,6 @@ class PlaylistsController extends ChangeNotifier {
   /// when the link is wrong or no longer shared, other errors when offline.
   Future<SharedPlaylist> openShared(String shareToken) async {
     final token = _token();
-    if (token == null) throw const SharedPlaylistUnavailable();
     try {
       return await _api.getSharedPlaylist(token, shareToken);
     } on ApiException catch (e) {

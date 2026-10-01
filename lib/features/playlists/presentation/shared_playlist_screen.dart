@@ -3,6 +3,7 @@ import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/core/widgets/glass_surface.dart';
+import 'package:nafir/features/auth/presentation/sign_in_prompt.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/presentation/mini_player.dart';
 import 'package:nafir/features/playlists/application/playlists_controller.dart';
@@ -16,6 +17,7 @@ class SharedPlaylistScreen extends StatefulWidget {
     required this.controller,
     required this.player,
     this.onSaved,
+    this.onSignIn,
   });
 
   final String shareToken;
@@ -25,6 +27,9 @@ class SharedPlaylistScreen extends StatefulWidget {
   /// Called after the playlist was saved to the account, for example to
   /// reload the library the copied tracks now belong to.
   final VoidCallback? onSaved;
+
+  /// Opens sign-in, for a guest who tries to like or save.
+  final VoidCallback? onSignIn;
 
   @override
   State<SharedPlaylistScreen> createState() => _SharedPlaylistScreenState();
@@ -38,6 +43,11 @@ class _SharedPlaylistScreenState extends State<SharedPlaylistScreen> {
   bool _saving = false;
 
   Future<void> _save() async {
+    if (!widget.controller.signedIn) {
+      askToSignIn(context,
+          action: 'افزودن به کتابخانه', onSignIn: widget.onSignIn);
+      return;
+    }
     setState(() => _saving = true);
     final result = await widget.controller.saveShared(widget.shareToken);
     if (!mounted) return;
@@ -59,6 +69,10 @@ class _SharedPlaylistScreenState extends State<SharedPlaylistScreen> {
   }
 
   Future<void> _like() async {
+    if (!widget.controller.signedIn) {
+      askToSignIn(context, action: 'پسندیدن', onSignIn: widget.onSignIn);
+      return;
+    }
     final playlist = _playlist;
     if (playlist == null) return;
     final result = await widget.controller.setLike(
