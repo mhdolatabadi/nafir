@@ -14,7 +14,8 @@ import 'package:nafir/main.dart';
 import 'bot_link_controller_test.dart' show FakeBotsApi, linkedBale;
 import 'cache_controller_test.dart' show FakeAudioCache;
 import 'player_controller_test.dart' show FakeAudioEngine;
-import 'playlist_sharing_test.dart' show FakePlaylistsApi;
+import 'playlist_sharing_test.dart'
+    show FakePlaylistsApi, listed, sharedMix, token;
 import 'upload_controller_test.dart' show FakeTracksApi, FakeUploader;
 
 const _user = AuthUser(id: 'u1', email: 'listener@example.com');
@@ -126,6 +127,79 @@ void main() {
     await _pumpApp(tester, tokenStore: MemoryTokenStore());
 
     expect(find.text('ورود به نفیر'), findsOneWidget);
+  });
+
+  group('guest', () {
+    FakePlaylistsApi guestPlaylists() => FakePlaylistsApi()
+      ..public = [listed('loved', likes: 5)]
+      ..shared[token] = sharedMix();
+
+    testWidgets('signed out, popular playlists play without an account',
+        (tester) async {
+      final tracks = FakeTracksApi();
+      await _pumpApp(tester,
+          tokenStore: MemoryTokenStore(),
+          tracks: tracks,
+          playlists: guestPlaylists());
+
+      expect(find.text('Playlistهای محبوب'), findsOneWidget);
+      expect(find.text('loved'), findsOneWidget);
+      expect(find.text('ورود / ثبت‌نام'), findsOneWidget);
+
+      // Liking needs an account; the guest is offered sign-in instead.
+      await tester.tap(find.text('5'));
+      await tester.pumpAndSettle();
+      expect(find.text('برای پسندیدن وارد حسابت شو.'), findsOneWidget);
+
+      await tester.tap(find.text('loved'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Their song'));
+      await tester.pumpAndSettle();
+      expect(tracks.calls, contains('shared:$token:s1'));
+      expect(find.byTooltip('توقف'), findsOneWidget);
+
+      await tester.tap(find.text('افزودن به حساب من'));
+      await tester.pumpAndSettle();
+      expect(
+          find.text('برای افزودن به کتابخانه وارد حسابت شو.'), findsOneWidget);
+    });
+
+    testWidgets('signing in from the guest home lands in the library',
+        (tester) async {
+      final tokens = MemoryTokenStore();
+      await _pumpApp(tester, tokenStore: tokens, playlists: guestPlaylists());
+      await tester.tap(find.text('loved'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('افزودن به حساب من'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(SnackBarAction, 'ورود'));
+      await tester.pumpAndSettle();
+      expect(find.text('ورود به نفیر'), findsOneWidget);
+
+      await _submit(tester, 'listener@example.com', 'correct horse');
+      expect(find.text('ورود به نفیر'), findsNothing);
+      expect(find.text('Friend mix'), findsNothing);
+      expect(find.widgetWithText(Tab, 'آهنگ‌ها'), findsOneWidget);
+      expect(await tokens.read(), 'valid-token');
+    });
+
+    testWidgets('the guest home fits a narrow phone', (tester) async {
+      tester.view.physicalSize = const Size(360, 740);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await _pumpApp(tester,
+          tokenStore: MemoryTokenStore(), playlists: guestPlaylists());
+
+      expect(tester.takeException(), isNull);
+      final signIn = tester.getRect(find.text('ورود / ثبت‌نام'));
+      expect(signIn.right, lessThanOrEqualTo(360));
+      expect(signIn.left, greaterThanOrEqualTo(0));
+      final button = tester.getSize(find.ancestor(
+          of: find.text('ورود / ثبت‌نام'),
+          matching: find.byType(FilledButton)));
+      expect(button.height, greaterThanOrEqualTo(48));
+    });
   });
 
   testWidgets('signing in opens the library and saves the token', (

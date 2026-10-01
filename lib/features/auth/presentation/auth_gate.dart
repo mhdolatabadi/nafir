@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/core/widgets/app_loading_screen.dart';
 import 'package:nafir/features/auth/application/auth_controller.dart';
 import 'package:nafir/features/auth/presentation/sign_in_screen.dart';
@@ -7,12 +8,14 @@ import 'package:nafir/features/library/application/local_audio_controller.dart';
 import 'package:nafir/features/library/presentation/library_screen.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/playlists/application/playlists_controller.dart';
+import 'package:nafir/features/playlists/presentation/popular_playlists_screen.dart';
 import 'package:nafir/features/bots/application/bot_link_controller.dart';
 import 'package:nafir/features/settings/application/cache_controller.dart';
 import 'package:nafir/features/upload/application/upload_controller.dart';
 import 'package:nafir/features/upload/data/audio_picker.dart';
 
-/// Restores the saved session once, then shows sign-in or the library.
+/// Restores the saved session once, then shows the library, or for a guest
+/// the popular playlists, which they can play without an account.
 class AuthGate extends StatefulWidget {
   const AuthGate({
     super.key,
@@ -42,10 +45,52 @@ class AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<AuthGate> {
+  AuthStatus? _status;
+
+  /// The shared link the app was opened with, for a guest; taken once.
+  String? _guestShareToken;
+  bool _guestShown = false;
+
   @override
   void initState() {
     super.initState();
+    widget.controller.addListener(_onAuthChanged);
     widget.controller.restore();
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onAuthChanged);
+    super.dispose();
+  }
+
+  /// Signing in from a guest screen lands in the library, not back on the
+  /// sign-in or playlist page it was opened from.
+  void _onAuthChanged() {
+    final status = widget.controller.status;
+    if (status == AuthStatus.signedIn && _status != AuthStatus.signedIn) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
+    _status = status;
+  }
+
+  void _openSignIn() {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => SignInScreen(controller: widget.controller),
+    ));
+  }
+
+  Widget _guestHome(PlaylistsController playlists) {
+    if (!_guestShown) {
+      _guestShown = true;
+      _guestShareToken = AppConfiguration.takeInitialShareToken();
+    }
+    return PopularPlaylistsScreen(
+      controller: playlists,
+      player: widget.player,
+      onSignIn: _openSignIn,
+      openShareToken: _guestShareToken,
+    );
   }
 
   @override
@@ -59,7 +104,9 @@ class _AuthGateState extends State<AuthGate> {
           AuthStatus.restoreFailed => _RestoreFailedScreen(
               onRetry: controller.restore,
             ),
-          AuthStatus.signedOut => SignInScreen(controller: controller),
+          AuthStatus.signedOut => widget.playlists == null
+              ? SignInScreen(controller: controller)
+              : _guestHome(widget.playlists!),
           AuthStatus.signedIn => LibraryScreen(
               email: controller.user!.email,
               onLogout: () {

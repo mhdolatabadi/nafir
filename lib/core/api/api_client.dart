@@ -77,7 +77,7 @@ abstract interface class TracksApi {
 
   /// A playback link for a track in a playlist shared with [shareToken].
   Future<StreamLink> sharedStreamLink(
-      String token, String shareToken, String trackId);
+      String? token, String shareToken, String trackId);
 }
 
 abstract interface class PlaylistsApi {
@@ -98,7 +98,7 @@ abstract interface class PlaylistsApi {
 
   /// Stops sharing; the old link stops working.
   Future<void> unsharePlaylist(String token, String playlistId);
-  Future<SharedPlaylist> getSharedPlaylist(String token, String shareToken);
+  Future<SharedPlaylist> getSharedPlaylist(String? token, String shareToken);
 
   /// Copies a shared playlist and its tracks into the caller's account.
   Future<Playlist> saveSharedPlaylist(String token, String shareToken);
@@ -108,7 +108,7 @@ abstract interface class PlaylistsApi {
       String token, String shareToken, bool liked);
 
   /// Public playlists, most liked first.
-  Future<List<PublicPlaylist>> listPublicPlaylists(String token);
+  Future<List<PublicPlaylist>> listPublicPlaylists(String? token);
 }
 
 /// A playlist's share link as its owner set it.
@@ -266,7 +266,7 @@ class ApiClient implements AuthApi, TracksApi, PlaylistsApi, BotsApi {
   }
 
   @override
-  Future<List<PublicPlaylist>> listPublicPlaylists(String token) async {
+  Future<List<PublicPlaylist>> listPublicPlaylists(String? token) async {
     final body = await _send('GET', '/api/v1/public-playlists', token: token);
     return [
       for (final json in body['playlists'] as List<dynamic>)
@@ -283,7 +283,7 @@ class ApiClient implements AuthApi, TracksApi, PlaylistsApi, BotsApi {
 
   @override
   Future<SharedPlaylist> getSharedPlaylist(
-      String token, String shareToken) async {
+      String? token, String shareToken) async {
     final body = await _send(
         'GET', '/api/v1/shared-playlists/${Uri.encodeComponent(shareToken)}',
         token: token);
@@ -300,7 +300,7 @@ class ApiClient implements AuthApi, TracksApi, PlaylistsApi, BotsApi {
 
   @override
   Future<StreamLink> sharedStreamLink(
-      String token, String shareToken, String trackId) async {
+      String? token, String shareToken, String trackId) async {
     final body = await _send(
         'GET',
         '/api/v1/shared-playlists/${Uri.encodeComponent(shareToken)}'
