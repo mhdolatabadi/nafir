@@ -29,11 +29,40 @@ type AuthRateLimiters struct {
 	Login    *RateLimiter
 }
 
+// AccountDeleter removes an account and everything it owns from the
+// database; *store.Users implements it.
+type AccountDeleter interface {
+	Delete(ctx context.Context, userID string, grace time.Duration) (store.AccountDeletion, error)
+}
+
+// PrefixRemover deletes every stored object under a prefix;
+// *storage.Storage implements it.
+type PrefixRemover interface {
+	RemovePrefix(ctx context.Context, prefix string) (int, error)
+}
+
+// AccountDeletion configures DELETE /api/v1/me.
+type AccountDeletion struct {
+	Accounts AccountDeleter
+	Objects  PrefixRemover
+	// Rate is applied per account and per IP, since each attempt checks a
+	// password.
+	Rate *RateLimiter
+	// Grace is how long uploads handed out before the deletion may still
+	// land in storage; the purge job keeps sweeping until then.
+	Grace time.Duration
+}
+
+// accountObjectsTimeout bounds removing a deleted account's objects during
+// the request; whatever is left is removed by the purge job.
+const accountObjectsTimeout = 20 * time.Second
+
 type AuthHandlers struct {
 	users     UserStore
 	passwords auth.Passwords
 	tokens    *auth.Tokens
 	limiters  AuthRateLimiters
+	deletion  AccountDeletion
 	// dummyHash is compared against when an email is unknown, so a login for a
 	// missing account takes as long as one with a wrong password.
 	dummyHash string
@@ -51,6 +80,15 @@ func (h *AuthHandlers) register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/auth/register", h.handleRegister)
 	mux.HandleFunc("POST /api/v1/auth/login", h.handleLogin)
 	mux.HandleFunc("GET /api/v1/me", h.handleMe)
+	if h.deletion.Accounts != nil && h.deletion.Objects != nil {
+		mux.HandleFunc("DELETE /api/v1/me", h.handleDeleteAccount)
+	}
+}
+
+// WithAccountDeletion lets signed-in users delete their own account.
+func (h *AuthHandlers) WithAccountDeletion(deletion AccountDeletion) *AuthHandlers {
+	h.deletion = deletion
+	return h
 }
 
 type credentials struct {
@@ -154,6 +192,85 @@ func (h *AuthHandlers) handleMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, userResponse{ID: user.ID, Email: user.Email})
+}
+
+// handleDeleteAccount deletes the caller's account after checking their
+// password again. The database rows go first, in one statement that also
+// queues the account's storage prefix, so a crash can never leave an account
+// that signs in to find its audio gone; the objects are removed next, and
+// anything left behind is removed by the purge job.
+func (h *AuthHandlers) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
+	userID, ok := authenticate(h.tokens, w, r)
+	if !ok {
+		return
+	}
+	if !enforceRateLimit(w, h.deletion.Rate, "user:"+userID) ||
+		!enforceRateLimit(w, h.deletion.Rate, "ip:"+clientIP(r)) {
+		return
+	}
+	var input struct {
+		Password string `json:"password"`
+	}
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxAuthBodyBytes))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&input); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+
+	user, err := h.users.ByID(r.Context(), userID)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if err != nil {
+		internalError(w, "find user", err)
+		return
+	}
+	_, hash, err := h.users.ByEmail(r.Context(), user.Email)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if err != nil {
+		internalError(w, "find user", err)
+		return
+	}
+	// 403, not 401: the session is still valid, only the password is wrong.
+	if len(input.Password) > auth.MaxPasswordBytes {
+		writeError(w, http.StatusForbidden, "invalid_password")
+		return
+	}
+	if err := h.passwords.Verify(hash, input.Password); err != nil {
+		if !errors.Is(err, auth.ErrPasswordMismatch) {
+			internalError(w, "verify password", err)
+			return
+		}
+		writeError(w, http.StatusForbidden, "invalid_password")
+		return
+	}
+
+	deletion, err := h.deletion.Accounts.Delete(r.Context(), user.ID, h.deletion.Grace)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if err != nil {
+		internalError(w, "delete account", err)
+		return
+	}
+	slog.Info("account deleted", "account", deletion.UserID)
+
+	// The account is gone whatever happens next, so a client hanging up
+	// must not stop the cleanup.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), accountObjectsTimeout)
+	defer cancel()
+	if removed, err := h.deletion.Objects.RemovePrefix(ctx, deletion.ObjectPrefix); err != nil {
+		slog.Warn("deleted account objects left for the purge job", "account", deletion.UserID, "error", err)
+	} else {
+		slog.Info("deleted account objects removed", "account", deletion.UserID, "objects", removed)
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *AuthHandlers) writeSession(w http.ResponseWriter, status int, user store.User) {

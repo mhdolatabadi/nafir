@@ -28,6 +28,7 @@ class FakeAuthApi implements AuthApi {
   final String validToken;
   final Object? meError;
   final registered = <String>{};
+  final deleted = <String>[];
 
   @override
   Future<AuthSession> login(String email, String password) async {
@@ -54,6 +55,18 @@ class FakeAuthApi implements AuthApi {
       throw const ApiException('401', statusCode: 401, code: 'unauthorized');
     }
     return _user;
+  }
+
+  @override
+  Future<void> deleteAccount(String token, String password) async {
+    if (token != validToken) {
+      throw const ApiException('401', statusCode: 401, code: 'unauthorized');
+    }
+    if (password != 'correct horse') {
+      throw const ApiException('403',
+          statusCode: 403, code: 'invalid_password');
+    }
+    deleted.add(token);
   }
 }
 
@@ -320,6 +333,63 @@ void main() {
 
     expect(find.text('ورود به نفیر'), findsOneWidget);
     expect(await tokens.read(), isNull);
+  });
+
+  testWidgets(
+      'deleting the account from Settings on a narrow phone signs out to '
+      'the guest home', (tester) async {
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final tokens = MemoryTokenStore('valid-token');
+    final api = FakeAuthApi();
+    await _pumpApp(tester,
+        tokenStore: tokens,
+        api: api,
+        playlists: FakePlaylistsApi()..public = [listed('loved', likes: 5)]);
+
+    await tester.tap(find.byTooltip('حساب و تنظیمات'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('تنظیمات').last);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('حذف حساب کاربری'), 200,
+        scrollable: find.byType(Scrollable).first);
+    expect(find.text('حریم خصوصی'), findsOneWidget);
+    await tester.tap(find.text('حذف حساب کاربری'));
+    await tester.pumpAndSettle();
+
+    // The screen says what goes before asking for the password.
+    expect(find.text('این کار قابل بازگشت نیست'), findsOneWidget);
+    expect(find.textContaining('موسیقی‌هایی که در فضای ابری'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    final password = find.widgetWithText(TextFormField, 'رمز عبور');
+    final delete = find.ancestor(
+        of: find.text('حذف حساب برای همیشه'),
+        matching: find.bySubtype<ButtonStyleButton>());
+    await tester.enterText(password, 'wrong horse');
+    await tester.scrollUntilVisible(delete, 200,
+        scrollable: find.byType(Scrollable).first);
+    await tester.tap(delete);
+    await tester.pumpAndSettle();
+    expect(find.text('رمز عبور درست نیست.'), findsOneWidget);
+    expect(api.deleted, isEmpty);
+    expect(await tokens.read(), 'valid-token');
+
+    await tester.enterText(password, 'correct horse');
+    await tester.scrollUntilVisible(delete, 200,
+        scrollable: find.byType(Scrollable).first);
+    await tester.tap(delete);
+    await tester.pumpAndSettle();
+
+    expect(api.deleted, ['valid-token']);
+    expect(await tokens.read(), isNull);
+    expect(
+        find.text('حساب کاربری‌ات و همه‌ی اطلاعاتش حذف شد.'), findsOneWidget);
+    expect(find.text('Playlistهای محبوب'), findsOneWidget);
+    expect(find.text('حذف حساب کاربری'), findsNothing);
+    expect(find.widgetWithText(Tab, 'آهنگ‌ها'), findsNothing);
   });
 
   testWidgets('picking a file uploads it and shows the result', (

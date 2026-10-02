@@ -23,6 +23,7 @@ var publicTemplates = map[string]*template.Template{
 	"playlist": template.Must(template.ParseFS(publicFiles, "public/layout.html", "public/playlist.html")),
 	"missing":  template.Must(template.ParseFS(publicFiles, "public/layout.html", "public/missing.html")),
 	"privacy":  template.Must(template.ParseFS(publicFiles, "public/layout.html", "public/privacy.html")),
+	"delete":   template.Must(template.ParseFS(publicFiles, "public/layout.html", "public/delete_account.html")),
 }
 
 const (
@@ -59,6 +60,7 @@ func (p *PublicPages) register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /robots.txt", p.handleRobots)
 	mux.HandleFunc("GET /nafir.png", p.handleIcon)
 	mux.HandleFunc("GET /privacy", p.handlePrivacy)
+	mux.HandleFunc("GET /delete-account", p.handleDeleteAccount)
 }
 
 type pageMeta struct {
@@ -340,6 +342,29 @@ func (p *PublicPages) handlePrivacy(w http.ResponseWriter, r *http.Request) {
 			Canonical:   site + "/privacy", Image: site + "/nafir.png", OGType: "website",
 		},
 		Updated: privacyUpdated,
+		Contact: p.contact,
+	})
+}
+
+// deleteAccountUpdated is when the account deletion page last changed.
+const deleteAccountUpdated = "۱۰ مهر ۱۴۰۵"
+
+// handleDeleteAccount serves the account deletion page app stores link to,
+// for people who no longer have the app.
+func (p *PublicPages) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
+	site := origin(r)
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	p.render(w, http.StatusOK, "delete", struct {
+		pageMeta
+		Updated string
+		Contact string
+	}{
+		pageMeta: pageMeta{
+			Title:       "حذف حساب کاربری — نفیر",
+			Description: "چطور حساب نفیر و همه‌ی موسیقی‌ها و Playlistهایت را برای همیشه حذف کنی.",
+			Canonical:   site + "/delete-account", Image: site + "/nafir.png", OGType: "website",
+		},
+		Updated: deleteAccountUpdated,
 		Contact: p.contact,
 	})
 }
