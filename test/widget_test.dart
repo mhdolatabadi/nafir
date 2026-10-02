@@ -5,6 +5,7 @@ import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/features/auth/data/auth_models.dart';
 import 'package:nafir/features/auth/data/token_store.dart';
 import 'package:nafir/features/library/data/track.dart';
+import 'package:nafir/features/link_import/data/link_import.dart';
 import 'package:nafir/features/upload/data/audio_picker.dart';
 import 'package:nafir/features/upload/data/upload_models.dart';
 import 'package:nafir/features/library/application/library_controller.dart'
@@ -78,6 +79,7 @@ Future<void> _pumpApp(
   FakeAudioCache? cache,
   FakeBotsApi? bots,
   PlaylistsApi? playlists,
+  LinkImportsApi? linkImports,
   bool settle = true,
 }) async {
   await tester.pumpWidget(NafirApp(
@@ -89,6 +91,7 @@ Future<void> _pumpApp(
     audioCache: cache ?? FakeAudioCache(),
     botsApi: bots,
     playlistsApi: playlists,
+    linkImportsApi: linkImports,
     uploader: uploader ?? FakeUploader(),
     picker: picker ?? FakePicker(null),
   ));
@@ -101,6 +104,28 @@ Future<void> _submit(WidgetTester tester, String email, String password) async {
       find.widgetWithText(TextFormField, 'رمز عبور'), password);
   await tester.tap(find.byType(FilledButton));
   await tester.pumpAndSettle();
+}
+
+class FakeLinkImportsApi implements LinkImportsApi {
+  final submitted = <String>[];
+  String? refuseWith;
+  List<LinkImport> recent = [];
+
+  @override
+  Future<LinkImport> importFromLink(String token, String url) async {
+    submitted.add(url);
+    if (refuseWith case final code?) {
+      throw ApiException(code, statusCode: 422, code: code);
+    }
+    return LinkImport(
+        id: 'l${submitted.length}',
+        fileName: 'Artist - Song.mp3',
+        site: 'music.example.ir',
+        state: LinkImportState.queued);
+  }
+
+  @override
+  Future<List<LinkImport>> listLinkImports(String token) async => recent;
 }
 
 void main() {
@@ -526,6 +551,98 @@ void main() {
         find.text('Artist with a really long name number 0'), findsOneWidget);
     expect(find.text(' · 3.0 مگابایت'), findsWidgets);
     expect(find.byTooltip('روی سرور'), findsWidgets);
+  });
+
+  group('import from a link', () {
+    Future<FakeLinkImportsApi> pumpWithLinks(WidgetTester tester,
+        {Size size = const Size(800, 900)}) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final api = FakeLinkImportsApi();
+      await _pumpApp(tester,
+          tokenStore: MemoryTokenStore('valid-token'), linkImports: api);
+      return api;
+    }
+
+    testWidgets('a song page link is queued and refusals are explained',
+        (tester) async {
+      final api = await pumpWithLinks(tester);
+      await tester.tap(find.byTooltip('افزودن از لینک'));
+      await tester.pumpAndSettle();
+      expect(find.text('افزودن از لینک'), findsWidgets);
+
+      // An empty link is caught before asking the server.
+      await tester.tap(find.widgetWithText(FilledButton, 'افزودن'));
+      await tester.pumpAndSettle();
+      expect(find.text('لینک صفحه‌ی آهنگ یا فایل را بچسبان.'), findsOneWidget);
+      expect(api.submitted, isEmpty);
+
+      api.refuseWith = 'no_audio';
+      await tester.enterText(
+          find.byType(TextField), ' https://music.example.ir/song/1 ');
+      await tester.tap(find.widgetWithText(FilledButton, 'افزودن'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('در این صفحه فایل صوتی پیدا نشد'),
+          findsOneWidget);
+
+      api.refuseWith = null;
+      await tester.tap(find.widgetWithText(FilledButton, 'افزودن'));
+      await tester.pumpAndSettle();
+      expect(api.submitted.last, 'https://music.example.ir/song/1');
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.textContaining('در حال اضافه کردن «Artist - Song.mp3»'),
+          findsOneWidget);
+    });
+
+    testWidgets('a failed import says why until dismissed', (tester) async {
+      final api = await pumpWithLinks(tester);
+      await tester.tap(find.byTooltip('افزودن از لینک'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'https://x.ir/a.mp3');
+      await tester.tap(find.widgetWithText(FilledButton, 'افزودن'));
+      await tester.pumpAndSettle();
+
+      api.recent = const [
+        LinkImport(
+            id: 'l1',
+            fileName: 'Artist - Song.mp3',
+            site: 'music.example.ir',
+            state: LinkImportState.failed,
+            error: 'quota_exceeded'),
+      ];
+      // The library reloads with nothing in progress any more.
+      await tester.drag(find.byType(TabBarView), const Offset(0, 400));
+      await tester.pumpAndSettle();
+      expect(find.text('افزودن از لینک ناموفق بود'), findsOneWidget);
+      expect(find.textContaining('فضای کافی در حسابت نیست'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('بستن'));
+      await tester.pumpAndSettle();
+      expect(find.text('افزودن از لینک ناموفق بود'), findsNothing);
+    });
+
+    testWidgets('the link action and dialog fit a narrow phone',
+        (tester) async {
+      await pumpWithLinks(tester, size: const Size(360, 740));
+      final link = tester.getRect(find.byTooltip('افزودن از لینک'));
+      expect(link.width, greaterThanOrEqualTo(40));
+      expect(link.left, greaterThanOrEqualTo(0));
+      // It sits above the upload button, not on top of it.
+      final upload = tester.getRect(find.text('افزودن موسیقی'));
+      expect(link.bottom, lessThanOrEqualTo(upload.top));
+
+      await tester.tap(find.byTooltip('افزودن از لینک'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      final dialog = tester.getRect(find.byType(AlertDialog));
+      expect(dialog.left, greaterThanOrEqualTo(0));
+      expect(dialog.right, lessThanOrEqualTo(360));
+      final paste = tester.getSize(find.ancestor(
+          of: find.byTooltip('چسباندن'), matching: find.byType(IconButton)));
+      expect(paste.height, greaterThanOrEqualTo(48));
+    });
   });
 
   group('library tabs', () {
@@ -1186,12 +1303,12 @@ void main() {
     }
 
     expect(find.byTooltip('از بله'), findsOneWidget);
-    expect(find.text('یک فایل از بات در حال اضافه شدن است…'), findsOneWidget);
+    expect(find.text('یک فایل در حال اضافه شدن است…'), findsOneWidget);
 
     // The import finishes; the next scheduled check picks it up.
     tracks.importsInProgress = 0;
     await tester.pump(importPollDelays.first);
     await tester.pump();
-    expect(find.text('یک فایل از بات در حال اضافه شدن است…'), findsNothing);
+    expect(find.text('یک فایل در حال اضافه شدن است…'), findsNothing);
   });
 }
