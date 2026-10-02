@@ -56,6 +56,12 @@ audio{width:100%;max-width:260px;height:40px}
 @media (min-width:600px){.track{flex-wrap:nowrap}.track audio{flex-basis:auto;max-width:260px}}
 .empty{padding:48px 0;color:var(--muted);text-align:center}
 footer{padding:24px 0 40px;color:var(--muted);font-size:14px;text-align:center}
+footer a{display:inline-block;padding:12px 4px}
+.prose{padding:32px 0 64px;max-width:720px}
+.prose h1{font-size:clamp(24px,5vw,34px);line-height:1.3;margin:0 0 4px}
+.prose h2{font-size:20px;margin:28px 0 8px}
+.prose li{margin:6px 0}
+.prose a{color:var(--primary)}
 </style>
 </head>
 <body>
@@ -65,7 +71,7 @@ footer{padding:24px 0 40px;color:var(--muted);font-size:14px;text-align:center}
 <a class="button primary" href="/app/">ورود / ثبت‌نام</a>
 </div></header>
 <main class="wrap">{{template "content" .}}</main>
-<footer class="wrap">نفیر — پخش‌کننده‌ی موسیقی ابری</footer>
+<footer class="wrap">نفیر — پخش‌کننده‌ی موسیقی ابری · <a href="/privacy">حریم خصوصی</a></footer>
 </body>
 </html>{{end}}
 
