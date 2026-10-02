@@ -42,6 +42,14 @@ class PlayQueue {
   List<Track> get upcoming =>
       [for (final i in _order.skip(_position + 1)) _tracks[i]];
 
+  /// Jumps to the upcoming track at [index] (0 is the next one), skipping
+  /// those before it, and returns it.
+  Track skipTo(int index) {
+    RangeError.checkValidIndex(index, upcoming, 'index');
+    _position += index + 1;
+    return current;
+  }
+
   /// Shuffles everything except the current track, which keeps playing
   /// and becomes the first of the new order. Turning shuffle off returns to
   /// library order at the current track.
