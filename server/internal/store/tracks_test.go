@@ -116,10 +116,18 @@ func TestUpdateMetadataIsOwnerScopedAndReadyOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := tracks.UpdateMetadata(ctx, bob.ID, ready.ID, TrackMetadata{Title: "Stolen"}); !errors.Is(err, ErrNotFound) {
+	if ready.MetadataVersion != 1 {
+		t.Fatalf("new track version = %d, want 1", ready.MetadataVersion)
+	}
+	if _, err := tracks.UpdateMetadata(ctx, bob.ID, ready.ID, 1, TrackMetadata{Title: "Stolen"}); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("bob updated alice's track: %v", err)
 	}
-	if _, err := tracks.UpdateMetadata(ctx, alice.ID, pending.ID, TrackMetadata{Title: "Hidden"}); !errors.Is(err, ErrNotFound) {
+	// Even with a wrong version, someone else's track is not found rather
+	// than a conflict, so its existence does not leak.
+	if _, err := tracks.UpdateMetadata(ctx, bob.ID, ready.ID, 7, TrackMetadata{Title: "Stolen"}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("bob probing alice's track: %v", err)
+	}
+	if _, err := tracks.UpdateMetadata(ctx, alice.ID, pending.ID, 1, TrackMetadata{Title: "Hidden"}); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("pending track update error = %v", err)
 	}
 
@@ -131,15 +139,15 @@ func TestUpdateMetadataIsOwnerScopedAndReadyOnly(t *testing.T) {
 	year := int32(2026)
 	trackNumber := int32(7)
 	discNumber := int32(1)
-	updated, err := tracks.UpdateMetadata(ctx, alice.ID, ready.ID, TrackMetadata{
-		FileName: "renamed.mp3", Title: "New", Album: &album, AlbumArtist: &albumArtist,
+	updated, err := tracks.UpdateMetadata(ctx, alice.ID, ready.ID, 1, TrackMetadata{
+		FileName: "آهنگ تازه.mp3", Title: "New", Album: &album, AlbumArtist: &albumArtist,
 		Composer: &composer, Genre: &genre, Year: &year, TrackNumber: &trackNumber,
 		DiscNumber: &discNumber, Comment: &comment,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated.FileName != "renamed.mp3" || updated.Title != "New" || updated.Artist != nil ||
+	if updated.FileName != "آهنگ تازه.mp3" || updated.Title != "New" || updated.Artist != nil || updated.MetadataVersion != 2 ||
 		updated.Album == nil || *updated.Album != "Album" ||
 		updated.AlbumArtist == nil || *updated.AlbumArtist != "Album Artist" ||
 		updated.Composer == nil || *updated.Composer != "Composer" ||
@@ -149,6 +157,68 @@ func TestUpdateMetadataIsOwnerScopedAndReadyOnly(t *testing.T) {
 		updated.DiscNumber == nil || *updated.DiscNumber != 1 ||
 		updated.Comment == nil || *updated.Comment != "Note" {
 		t.Fatalf("updated metadata = %+v", updated)
+	}
+	// The display name changes; the stored object does not move.
+	if updated.StorageKey != ready.StorageKey {
+		t.Fatalf("storage key changed to %q", updated.StorageKey)
+	}
+
+	// An edit based on the old version is a conflict and changes nothing.
+	if _, err := tracks.UpdateMetadata(ctx, alice.ID, ready.ID, 1, TrackMetadata{FileName: "x.mp3", Title: "Stale"}); !errors.Is(err, ErrVersionConflict) {
+		t.Fatalf("stale update error = %v, want conflict", err)
+	}
+	reloaded, err := tracks.ForOwner(ctx, alice.ID, ready.ID)
+	if err != nil || reloaded.Title != "New" || reloaded.MetadataVersion != 2 {
+		t.Fatalf("after stale update: %+v, %v", reloaded, err)
+	}
+}
+
+func TestConcurrentMetadataEditsCannotBothWin(t *testing.T) {
+	ctx := context.Background()
+	pool := newTestPool(t)
+	users, tracks := NewUsers(pool), NewTracks(pool)
+	alice, _ := users.Create(ctx, "alice-race@example.com", "hash")
+	track, err := tracks.Create(ctx, alice.ID, NewTrack{Title: "Old", FileName: "song.mp3", ContentType: "audio/mpeg", SizeBytes: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	results := make(chan error, 2)
+	for _, title := range []string{"One", "Two"} {
+		go func() {
+			_, err := tracks.UpdateMetadata(ctx, alice.ID, track.ID, 1, TrackMetadata{FileName: "song.mp3", Title: title})
+			results <- err
+		}()
+	}
+	var conflicts, wins int
+	for range 2 {
+		switch err := <-results; {
+		case err == nil:
+			wins++
+		case errors.Is(err, ErrVersionConflict):
+			conflicts++
+		default:
+			t.Fatal(err)
+		}
+	}
+	if wins != 1 || conflicts != 1 {
+		t.Fatalf("wins=%d conflicts=%d, want exactly one of each", wins, conflicts)
+	}
+}
+
+func TestStorageKeyStaysASCIIForUnicodeFileNames(t *testing.T) {
+	ctx := context.Background()
+	pool := newTestPool(t)
+	users, tracks := NewUsers(pool), NewTracks(pool)
+	alice, _ := users.Create(ctx, "alice-unicode@example.com", "hash")
+	track, err := tracks.Create(ctx, alice.ID, NewTrack{Title: "آهنگ", FileName: "آهنگ من.mp3", ContentType: "audio/mpeg", SizeBytes: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if track.FileName != "آهنگ من.mp3" {
+		t.Fatalf("file name = %q", track.FileName)
+	}
+	if want := "users/" + alice.ID + "/tracks/" + track.ID + "/track.mp3"; track.StorageKey != want || StorageKey(alice.ID, track.ID, track.FileName) != want {
+		t.Fatalf("storage key = %q, want %q", track.StorageKey, want)
 	}
 }
 
@@ -364,5 +434,36 @@ func TestTrackSourceDefaultsToUpload(t *testing.T) {
 	}
 	if ready, _ := tracks.MarkReady(ctx, user.ID, imported.ID); ready.Source != "bale" {
 		t.Fatalf("source lost when ready: %q", ready.Source)
+	}
+}
+
+// TestMetadataVersionMigrationKeepsExistingTracks rolls the version columns
+// back to the pre-012 schema and migrates again, as on a deployed database.
+func TestMetadataVersionMigrationKeepsExistingTracks(t *testing.T) {
+	ctx := context.Background()
+	pool := newTestPool(t)
+	users, tracks := NewUsers(pool), NewTracks(pool)
+	alice, _ := users.Create(ctx, "alice-migrate@example.com", "hash")
+	artist := "Artist"
+	before, err := tracks.Create(ctx, alice.ID, NewTrack{Title: "Old", Artist: &artist, FileName: "song.mp3", ContentType: "audio/mpeg", SizeBytes: 5})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		ALTER TABLE tracks DROP COLUMN metadata_version, DROP COLUMN metadata_updated_at;
+		DELETE FROM schema_migrations WHERE version = 'migrations/012_add_track_metadata_version.sql';
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if err := Migrate(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	after, err := tracks.ForOwner(ctx, alice.ID, before.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.MetadataVersion != 1 || after.Title != "Old" || after.Artist == nil || *after.Artist != "Artist" ||
+		after.FileName != "song.mp3" || after.StorageKey != before.StorageKey || after.SizeBytes != 5 {
+		t.Fatalf("migrated track = %+v", after)
 	}
 }

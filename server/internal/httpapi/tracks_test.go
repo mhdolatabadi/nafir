@@ -96,7 +96,7 @@ func (m *memoryTracks) ReservePending(
 	track := store.Track{
 		ID: id, OwnerID: ownerID, Status: store.TrackPending, Title: t.Title, Artist: t.Artist, Album: t.Album,
 		FileName: t.FileName, StorageKey: store.StorageKey(ownerID, id, t.FileName),
-		ContentType: t.ContentType, SizeBytes: t.SizeBytes,
+		ContentType: t.ContentType, SizeBytes: t.SizeBytes, MetadataVersion: 1,
 	}
 	m.tracks = append(m.tracks, track)
 	return track, nil
@@ -114,11 +114,15 @@ func (m *memoryTracks) MarkReady(_ context.Context, ownerID, trackID string) (st
 	return store.Track{}, store.ErrNotFound
 }
 
-func (m *memoryTracks) UpdateMetadata(_ context.Context, ownerID, trackID string, metadata store.TrackMetadata) (store.Track, error) {
+func (m *memoryTracks) UpdateMetadata(_ context.Context, ownerID, trackID string, version int64, metadata store.TrackMetadata) (store.Track, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for i, track := range m.tracks {
 		if track.ID == trackID && track.OwnerID == ownerID && track.Status == store.TrackReady {
+			if track.MetadataVersion != version {
+				return store.Track{}, store.ErrVersionConflict
+			}
+			m.tracks[i].MetadataVersion++
 			m.tracks[i].FileName = metadata.FileName
 			m.tracks[i].Title = metadata.Title
 			m.tracks[i].Artist = metadata.Artist
@@ -243,8 +247,8 @@ func (a tracksAPI) get(t *testing.T, path, token string) *httptest.ResponseRecor
 
 func sampleTracks() *memoryTracks {
 	return &memoryTracks{tracks: []store.Track{
-		{ID: "a1", OwnerID: "alice", Status: store.TrackReady, Title: "Alice song", FileName: "song.mp3", StorageKey: "users/alice/tracks/a1/song.mp3", ContentType: "audio/mpeg"},
-		{ID: "b1", OwnerID: "bob", Status: store.TrackReady, Title: "Bob song", FileName: "song.mp3", StorageKey: "users/bob/tracks/b1/song.mp3", ContentType: "audio/mpeg"},
+		{ID: "a1", OwnerID: "alice", Status: store.TrackReady, Title: "Alice song", FileName: "song.mp3", StorageKey: "users/alice/tracks/a1/song.mp3", ContentType: "audio/mpeg", MetadataVersion: 1},
+		{ID: "b1", OwnerID: "bob", Status: store.TrackReady, Title: "Bob song", FileName: "song.mp3", StorageKey: "users/bob/tracks/b1/song.mp3", ContentType: "audio/mpeg", MetadataVersion: 1},
 	}}
 }
 
@@ -297,18 +301,18 @@ func TestUpdateTrackMetadata(t *testing.T) {
 	artist := "Old artist"
 	album := "Old album"
 	tracks := &memoryTracks{tracks: []store.Track{
-		{ID: "a1", OwnerID: "alice", Status: store.TrackReady, Title: "Old title", Artist: &artist, Album: &album, FileName: "song.mp3", StorageKey: "users/alice/tracks/a1/song.mp3", ContentType: "audio/mpeg"},
-		{ID: "p1", OwnerID: "alice", Status: store.TrackPending, Title: "Pending", FileName: "song.mp3", StorageKey: "users/alice/tracks/p1/song.mp3", ContentType: "audio/mpeg"},
+		{ID: "a1", OwnerID: "alice", Status: store.TrackReady, Title: "Old title", Artist: &artist, Album: &album, FileName: "song.mp3", StorageKey: "users/alice/tracks/a1/song.mp3", ContentType: "audio/mpeg", MetadataVersion: 1},
+		{ID: "p1", OwnerID: "alice", Status: store.TrackPending, Title: "Pending", FileName: "song.mp3", StorageKey: "users/alice/tracks/p1/song.mp3", ContentType: "audio/mpeg", MetadataVersion: 1},
 	}}
 	api := newTracksAPI(t, tracks)
 
 	response := api.do(t, http.MethodPatch, "/api/v1/tracks/a1",
-		`{"fileName":" renamed.mp3 ","title":" New title ","artist":"","album":" Album ","albumArtist":" Various ","composer":" Composer ","genre":" Rock ","year":2026,"trackNumber":7,"discNumber":1,"comment":" Note "}`, api.alice)
+		`{"version":1,"fileName":" آهنگ تازه.MP3 ","title":" New title ","artist":"","album":" Album ","albumArtist":" Various ","composer":" Composer ","genre":" Rock ","year":2026,"trackNumber":7,"discNumber":1,"comment":" Line one\nLine two "}`, api.alice)
 	if response.Code != http.StatusOK {
 		t.Fatalf("update: expected 200, got %d: %s", response.Code, response.Body.String())
 	}
 	updated := decode[trackResponse](t, response)
-	if updated.FileName != "renamed.mp3" || updated.Title != "New title" || updated.Artist != nil ||
+	if updated.FileName != "آهنگ تازه.mp3" || updated.Title != "New title" || updated.Artist != nil ||
 		updated.Album == nil || *updated.Album != "Album" ||
 		updated.AlbumArtist == nil || *updated.AlbumArtist != "Various" ||
 		updated.Composer == nil || *updated.Composer != "Composer" ||
@@ -316,34 +320,111 @@ func TestUpdateTrackMetadata(t *testing.T) {
 		updated.Year == nil || *updated.Year != 2026 ||
 		updated.TrackNumber == nil || *updated.TrackNumber != 7 ||
 		updated.DiscNumber == nil || *updated.DiscNumber != 1 ||
-		updated.Comment == nil || *updated.Comment != "Note" {
+		updated.Comment == nil || *updated.Comment != "Line one\nLine two" ||
+		updated.Version != 2 {
 		t.Fatalf("unexpected updated track %+v", updated)
 	}
 	listed := decode[trackListResponse](t, api.get(t, "/api/v1/tracks", api.alice))
-	if listed.Tracks[0].Title != "New title" {
+	if listed.Tracks[0].Title != "New title" || listed.Tracks[0].Version != 2 {
 		t.Fatalf("list did not reflect update: %+v", listed.Tracks)
 	}
 
-	expectError(t, api.do(t, http.MethodPatch, "/api/v1/tracks/p1", `{"title":"Hidden"}`, api.alice), http.StatusNotFound, "not_found")
+	// Clearing optional fields and keeping the file name.
+	response = api.do(t, http.MethodPatch, "/api/v1/tracks/a1", `{"version":2,"title":"New title"}`, api.alice)
+	cleared := decode[trackResponse](t, response)
+	if response.Code != http.StatusOK || cleared.FileName != "آهنگ تازه.mp3" || cleared.Album != nil ||
+		cleared.Year != nil || cleared.Comment != nil || cleared.Version != 3 {
+		t.Fatalf("clear: %d %+v", response.Code, cleared)
+	}
+
+	expectError(t, api.do(t, http.MethodPatch, "/api/v1/tracks/p1", `{"version":1,"title":"Hidden"}`, api.alice), http.StatusNotFound, "not_found")
+}
+
+func TestUpdateTrackMetadataVersioning(t *testing.T) {
+	api := newTracksAPI(t, sampleTracks())
+
+	// The version may come from If-Match instead of the body.
+	request := httptest.NewRequest(http.MethodPatch, "/api/v1/tracks/a1", strings.NewReader(`{"title":"First"}`))
+	request.Header.Set("Authorization", "Bearer "+api.alice)
+	request.Header.Set("If-Match", `"1"`)
+	response := httptest.NewRecorder()
+	api.handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || decode[trackResponse](t, response).Version != 2 {
+		t.Fatalf("If-Match update: %d %s", response.Code, response.Body.String())
+	}
+
+	// A second editor still on version 1 must not overwrite "First".
+	response = api.do(t, http.MethodPatch, "/api/v1/tracks/a1", `{"version":1,"title":"Stale"}`, api.alice)
+	if response.Code != http.StatusConflict {
+		t.Fatalf("stale update: expected 409, got %d: %s", response.Code, response.Body.String())
+	}
+	conflict := decode[conflictResponse](t, response)
+	if conflict.Error != "version_conflict" || conflict.Track.Title != "First" || conflict.Track.Version != 2 {
+		t.Fatalf("conflict body = %+v", conflict)
+	}
+	if got := decode[trackResponse](t, api.get(t, "/api/v1/tracks/a1", api.alice)); got.Title != "First" {
+		t.Fatalf("stale edit overwrote the track: %+v", got)
+	}
+
+	for _, body := range []string{`{"title":"No version"}`, `{"version":0,"title":"Zero"}`, `{"version":-1,"title":"Negative"}`} {
+		expectError(t, api.do(t, http.MethodPatch, "/api/v1/tracks/a1", body, api.alice), http.StatusPreconditionRequired, "version_required")
+	}
+	// Another user's track is still not found, never a conflict.
+	expectError(t, api.do(t, http.MethodPatch, "/api/v1/tracks/b1", `{"version":9,"title":"Stolen"}`, api.alice), http.StatusNotFound, "not_found")
 }
 
 func TestUpdateTrackMetadataValidation(t *testing.T) {
 	api := newTracksAPI(t, sampleTracks())
+	long := strings.Repeat("x", 201)
 	cases := []struct {
-		name, body, code string
+		name, body, field string
 	}{
-		{"unknown field", `{"title":"Song","owner":"bob"}`, "invalid_json"},
-		{"missing title", `{"artist":"Artist"}`, "invalid_metadata"},
-		{"empty title", `{"title":"   "}`, "invalid_metadata"},
-		{"long artist", `{"title":"Song","artist":"` + strings.Repeat("x", 201) + `"}`, "invalid_metadata"},
-		{"changed extension", `{"fileName":"song.flac","title":"Song"}`, "invalid_metadata"},
-		{"bad year", `{"title":"Song","year":10000}`, "invalid_metadata"},
-		{"bad track number", `{"title":"Song","trackNumber":0}`, "invalid_metadata"},
+		{"missing title", `{"version":1,"artist":"Artist"}`, "title"},
+		{"empty title", `{"version":1,"title":"   "}`, "title"},
+		{"multi-line title", `{"version":1,"title":"a\nb"}`, "title"},
+		{"long title", `{"version":1,"title":"` + long + `"}`, "title"},
+		{"long artist", `{"version":1,"title":"Song","artist":"` + long + `"}`, "artist"},
+		{"long album", `{"version":1,"title":"Song","album":"` + long + `"}`, "album"},
+		{"long album artist", `{"version":1,"title":"Song","albumArtist":"` + long + `"}`, "albumArtist"},
+		{"long composer", `{"version":1,"title":"Song","composer":"` + long + `"}`, "composer"},
+		{"control genre", `{"version":1,"title":"Song","genre":"Rock\u0000"}`, "genre"},
+		{"long comment", `{"version":1,"title":"Song","comment":"` + strings.Repeat("ک", 1001) + `"}`, "comment"},
+		{"changed extension", `{"version":1,"fileName":"song.flac","title":"Song"}`, "fileName"},
+		{"dropped extension", `{"version":1,"fileName":"song","title":"Song"}`, "fileName"},
+		{"empty file name", `{"version":1,"fileName":" ","title":"Song"}`, "fileName"},
+		{"path traversal", `{"version":1,"fileName":"../../other/song.mp3","title":"Song"}`, "fileName"},
+		{"windows traversal", `{"version":1,"fileName":"..\\song.mp3","title":"Song"}`, "fileName"},
+		{"bidi spoofed extension", `{"version":1,"fileName":"song\u202e3pm.mp3","title":"Song"}`, "fileName"},
+		{"long file name", `{"version":1,"fileName":"` + long + `.mp3","title":"Song"}`, "fileName"},
+		{"bad year", `{"version":1,"title":"Song","year":10000}`, "year"},
+		{"negative year", `{"version":1,"title":"Song","year":-1}`, "year"},
+		{"zero track number", `{"version":1,"title":"Song","trackNumber":0}`, "trackNumber"},
+		{"huge track number", `{"version":1,"title":"Song","trackNumber":1000}`, "trackNumber"},
+		{"zero disc number", `{"version":1,"title":"Song","discNumber":0}`, "discNumber"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			expectError(t, api.do(t, http.MethodPatch, "/api/v1/tracks/a1", tc.body, api.alice), http.StatusBadRequest, tc.code)
+			response := api.do(t, http.MethodPatch, "/api/v1/tracks/a1", tc.body, api.alice)
+			if response.Code != http.StatusBadRequest {
+				t.Fatalf("expected 400, got %d: %s", response.Code, response.Body.String())
+			}
+			if got := decode[metadataErrorResponse](t, response); got.Error != "invalid_metadata" || got.Field != tc.field {
+				t.Fatalf("error = %+v, want field %q", got, tc.field)
+			}
 		})
+	}
+	for name, body := range map[string]string{
+		"unknown field":  `{"version":1,"title":"Song","owner":"bob"}`,
+		"trailing data":  `{"version":1,"title":"Song"} {}`,
+		"wrong type":     `{"version":1,"title":"Song","year":"2020"}`,
+		"oversized body": `{"version":1,"title":"Song","comment":"` + strings.Repeat("x", 30<<10) + `"}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			expectError(t, api.do(t, http.MethodPatch, "/api/v1/tracks/a1", body, api.alice), http.StatusBadRequest, "invalid_json")
+		})
+	}
+	if got := decode[trackResponse](t, api.get(t, "/api/v1/tracks/a1", api.alice)); got.Title != "Alice song" || got.Version != 1 {
+		t.Fatalf("rejected edits changed the track: %+v", got)
 	}
 }
 
@@ -358,7 +439,7 @@ func TestOtherUsersTracksAreNotFound(t *testing.T) {
 			for _, request := range []struct{ method, path, body string }{
 				{http.MethodGet, "/api/v1/tracks/b1", ""},
 				{http.MethodGet, "/api/v1/tracks/b1/stream", ""},
-				{http.MethodPatch, "/api/v1/tracks/b1", `{"title":"Stolen"}`},
+				{http.MethodPatch, "/api/v1/tracks/b1", `{"version":1,"title":"Stolen"}`},
 				{http.MethodPost, "/api/v1/tracks/b1/complete", ""},
 				{http.MethodDelete, "/api/v1/tracks/b1", ""},
 			} {
@@ -405,7 +486,8 @@ func TestUploadLifecycle(t *testing.T) {
 	api := newTracksAPI(t, &memoryTracks{})
 
 	created := api.createUpload(t, `{"fileName":"آهنگ من.mp3","sizeBytes":6,"artist":" Artist "}`)
-	if created.Track.Title != "آهنگ من" || *created.Track.Artist != "Artist" || created.Track.ContentType != "audio/mpeg" {
+	if created.Track.Title != "آهنگ من" || *created.Track.Artist != "Artist" || created.Track.ContentType != "audio/mpeg" ||
+		created.Track.FileName != "آهنگ من.mp3" || created.Track.Version != 1 {
 		t.Fatalf("unexpected track %+v", created.Track)
 	}
 	key := created.Upload.Fields["key"]

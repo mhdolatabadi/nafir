@@ -61,6 +61,7 @@ abstract interface class TracksApi {
   Future<Track> updateTrackMetadata(
     String token,
     String trackId, {
+    required int version,
     String? fileName,
     required String title,
     String? artist,
@@ -223,6 +224,7 @@ class ApiClient implements AuthApi, TracksApi, PlaylistsApi, BotsApi {
   Future<Track> updateTrackMetadata(
     String token,
     String trackId, {
+    required int version,
     String? fileName,
     required String title,
     String? artist,
@@ -237,6 +239,7 @@ class ApiClient implements AuthApi, TracksApi, PlaylistsApi, BotsApi {
   }) async {
     final body =
         await _send('PATCH', '/api/v1/tracks/$trackId', token: token, body: {
+      'version': version,
       if (fileName != null) 'fileName': fileName,
       'title': title,
       'artist': artist,
