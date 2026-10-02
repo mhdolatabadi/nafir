@@ -4,6 +4,8 @@ import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/core/format_size.dart';
 import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
+import 'package:nafir/features/link_import/application/link_import_controller.dart';
+import 'package:nafir/features/link_import/presentation/link_import_dialog.dart';
 import 'package:nafir/features/library/application/track_groups.dart';
 import 'package:nafir/features/library/application/track_sort.dart';
 import 'package:nafir/features/library/application/local_audio_controller.dart';
@@ -33,6 +35,7 @@ class LibraryScreen extends StatefulWidget {
     required this.uploads,
     required this.cache,
     this.botLinks,
+    this.linkImports,
     required this.picker,
     required this.player,
   });
@@ -46,6 +49,9 @@ class LibraryScreen extends StatefulWidget {
   final UploadController uploads;
   final CacheController cache;
   final BotLinkController? botLinks;
+
+  /// Adds music from song pages and audio links; null hides the action.
+  final LinkImportController? linkImports;
   final AudioPicker picker;
 
   @override
@@ -61,6 +67,28 @@ class _LibraryScreenState extends State<LibraryScreen>
     length: widget.playlists == null ? 3 : 4,
     vsync: this,
   )..addListener(_onTabChanged);
+
+  /// Once nothing is being imported any more, finds out how this
+  /// session's link imports ended.
+  void _onLibraryChanged() {
+    final links = widget.linkImports;
+    if (links != null &&
+        links.hasPending &&
+        widget.library.importsInProgress == 0) {
+      links.refresh();
+    }
+  }
+
+  Future<void> _importFromLink() async {
+    final links = widget.linkImports;
+    if (links == null) return;
+    final message = await showLinkImportDialog(context, controller: links);
+    if (message == null || !mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+    // Shows the import in progress and follows it until it is done.
+    await widget.library.load();
+  }
 
   void _onTabChanged() {
     // The add-music button belongs to the tracks tab.
@@ -81,6 +109,7 @@ class _LibraryScreenState extends State<LibraryScreen>
     });
     widget.library.load();
     widget.botLinks?.load();
+    widget.library.addListener(_onLibraryChanged);
     if (widget.localAudio.supported) widget.localAudio.load();
     // Opened from a shared playlist link: show it once signed in.
     final shareToken = AppConfiguration.takeInitialShareToken();
@@ -118,6 +147,7 @@ class _LibraryScreenState extends State<LibraryScreen>
     _tabs.dispose();
     _lifecycle.dispose();
     widget.uploads.removeListener(_onUploadChanged);
+    widget.library.removeListener(_onLibraryChanged);
     super.dispose();
   }
 
@@ -406,10 +436,26 @@ class _LibraryScreenState extends State<LibraryScreen>
           ? null
           : ListenableBuilder(
               listenable: widget.uploads,
-              builder: (context, _) => FloatingActionButton.extended(
-                onPressed: widget.uploads.isBusy ? null : _pickAndUpload,
-                icon: const Icon(NafirIcons.plus),
-                label: const Text('افزودن موسیقی'),
+              builder: (context, _) => Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (widget.linkImports != null) ...[
+                    FloatingActionButton.small(
+                      heroTag: 'link-import',
+                      tooltip: 'افزودن از لینک',
+                      onPressed: _importFromLink,
+                      child: const Icon(NafirIcons.link),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  FloatingActionButton.extended(
+                    heroTag: 'upload',
+                    onPressed: widget.uploads.isBusy ? null : _pickAndUpload,
+                    icon: const Icon(NafirIcons.plus),
+                    label: const Text('افزودن موسیقی'),
+                  ),
+                ],
               ),
             ),
       body: NafirBackdrop(
@@ -477,6 +523,8 @@ class _LibraryScreenState extends State<LibraryScreen>
           final top = Column(
             children: [
               UploadStatusCard(controller: widget.uploads),
+              if (widget.linkImports case final links?)
+                LinkImportFailures(controller: links),
               if (widget.library.importsInProgress case final n when n > 0)
                 _ImportsInProgress(count: n),
             ],
@@ -1859,8 +1907,8 @@ class _ImportsInProgress extends StatelessWidget {
           Expanded(
             child: Text(
               count == 1
-                  ? 'یک فایل از بات در حال اضافه شدن است…'
-                  : '$count فایل از بات در حال اضافه شدن است…',
+                  ? 'یک فایل در حال اضافه شدن است…'
+                  : '$count فایل در حال اضافه شدن است…',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
