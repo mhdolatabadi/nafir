@@ -38,6 +38,13 @@ flutter:
 
   # Bundled so Persian text never waits on a runtime font download from Google.
   fonts:
+    # Phosphor icons (MIT), used through lib/core/widgets/nafir_icons.dart.
+    - family: Phosphor
+      fonts:
+        - asset: assets/fonts/Phosphor.ttf
+    - family: PhosphorFill
+      fonts:
+        - asset: assets/fonts/Phosphor-Fill.ttf
     - family: Vazirmatn
       fonts:
         - asset: assets/fonts/Vazirmatn-Regular.ttf

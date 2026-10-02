@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/core/widgets/app_loading_screen.dart';
 
 class BackendGate extends StatefulWidget {
@@ -81,7 +82,7 @@ class _BackendUnavailableScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.cloud_off_outlined,
+                NafirIcons.cloudSlash,
                 size: 64,
                 color: Theme.of(context).colorScheme.error,
               ),
@@ -95,7 +96,7 @@ class _BackendUnavailableScreen extends StatelessWidget {
               const SizedBox(height: 20),
               FilledButton.icon(
                 onPressed: onRetry,
-                icon: const Icon(Icons.refresh),
+                icon: const Icon(NafirIcons.arrowsClockwise),
                 label: const Text('تلاش دوباره'),
               ),
             ],

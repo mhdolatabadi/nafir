@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:nafir/features/bots/application/bot_link_controller.dart';
 import 'package:nafir/features/bots/data/messenger_bot.dart';
@@ -58,7 +59,7 @@ class _BotLinkSectionState extends State<BotLinkSection> {
                 child: FilledButton.tonalIcon(
                   onPressed:
                       controller.requesting ? null : controller.requestCode,
-                  icon: const Icon(Icons.link),
+                  icon: const Icon(NafirIcons.linkSimple),
                   label: Text(code == null ? 'دریافت کد اتصال' : 'کد تازه'),
                 ),
               ),
@@ -146,14 +147,14 @@ class _CodeCard extends StatelessWidget {
               children: [
                 OutlinedButton.icon(
                   onPressed: () => onCopy(code, 'کد کپی شد.'),
-                  icon: const Icon(Icons.copy),
+                  icon: const Icon(NafirIcons.copy),
                   label: const Text('کپی کد'),
                 ),
                 for (final bot in bots)
                   if (bot.linkUrl case final url?)
                     OutlinedButton.icon(
                       onPressed: () => onCopy(url, 'لینک کپی شد.'),
-                      icon: const Icon(Icons.open_in_new),
+                      icon: const Icon(NafirIcons.arrowSquareOut),
                       label: Text('کپی لینک بات ${bot.name}'),
                     ),
               ],

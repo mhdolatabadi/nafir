@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/core/format_size.dart';
 import 'package:nafir/core/widgets/glass_surface.dart';
@@ -182,7 +183,7 @@ class _LibraryScreenState extends State<LibraryScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        icon: const Icon(Icons.delete_forever_outlined),
+        icon: const Icon(NafirIcons.trash),
         title: Text('حذف «${track.title}»؟'),
         content: const Text(
           'این آهنگ برای همیشه از فضای ابری و Playlistها حذف می‌شود. '
@@ -285,7 +286,7 @@ class _LibraryScreenState extends State<LibraryScreen>
           message: 'تنظیمات',
           child: FilledButton.tonalIcon(
             onPressed: _openSettings,
-            icon: const Icon(Icons.settings_outlined, size: 19),
+            icon: const Icon(NafirIcons.gear, size: 19),
             label: const Text('تنظیمات'),
           ),
         ),
@@ -294,7 +295,7 @@ class _LibraryScreenState extends State<LibraryScreen>
           message: 'خروج',
           child: OutlinedButton.icon(
             onPressed: widget.onLogout,
-            icon: const Icon(Icons.logout, size: 19),
+            icon: const Icon(NafirIcons.signOut, size: 19),
             label: const Text('خروج'),
           ),
         ),
@@ -304,7 +305,7 @@ class _LibraryScreenState extends State<LibraryScreen>
     return [
       PopupMenuButton<_HeaderAction>(
         tooltip: 'حساب و تنظیمات',
-        icon: const Icon(Icons.account_circle_outlined),
+        icon: const Icon(NafirIcons.userCircle),
         onSelected: (action) {
           switch (action) {
             case _HeaderAction.settings:
@@ -327,7 +328,7 @@ class _LibraryScreenState extends State<LibraryScreen>
             value: _HeaderAction.settings,
             child: ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.settings_outlined),
+              leading: Icon(NafirIcons.gear),
               title: Text('تنظیمات'),
             ),
           ),
@@ -335,7 +336,7 @@ class _LibraryScreenState extends State<LibraryScreen>
             value: _HeaderAction.logout,
             child: ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.logout),
+              leading: Icon(NafirIcons.signOut),
               title: Text('خروج از حساب'),
             ),
           ),
@@ -407,7 +408,7 @@ class _LibraryScreenState extends State<LibraryScreen>
               listenable: widget.uploads,
               builder: (context, _) => FloatingActionButton.extended(
                 onPressed: widget.uploads.isBusy ? null : _pickAndUpload,
-                icon: const Icon(Icons.add),
+                icon: const Icon(NafirIcons.plus),
                 label: const Text('افزودن موسیقی'),
               ),
             ),
@@ -645,7 +646,7 @@ class _NafirMark extends StatelessWidget {
         ],
       ),
       child: Icon(
-        Icons.graphic_eq_rounded,
+        NafirIcons.waveform,
         size: size * 0.55,
         color: const Color(0xFFFFF5F5),
       ),
@@ -728,7 +729,7 @@ class _AccountChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.account_circle_outlined, size: 19),
+              const Icon(NafirIcons.userCircle, size: 19),
               const SizedBox(width: 7),
               Flexible(
                 child: Text(
@@ -792,7 +793,7 @@ class _GroupList extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(8, 56, 8, 0),
             sliver: SliverToBoxAdapter(
               child: _LibraryState(
-                icon: albums ? Icons.album_outlined : Icons.person_outline,
+                icon: albums ? NafirIcons.vinylRecord : NafirIcons.user,
                 title: albums ? 'هنوز آلبومی نیست' : 'هنوز خواننده‌ای نیست',
                 message: 'با افزودن موسیقی، آلبوم‌ها و خواننده‌ها اینجا '
                     'دسته‌بندی می‌شوند.',
@@ -851,7 +852,7 @@ class _GroupList extends StatelessWidget {
                 style: theme.textTheme.bodySmall
                     ?.copyWith(color: colors.onSurfaceVariant),
               ),
-              trailing: const Icon(Icons.chevron_left),
+              trailing: const Icon(NafirIcons.caretLeft),
               onTap: () => onOpen(group),
             );
           },
@@ -883,7 +884,7 @@ class _GroupArt extends StatelessWidget {
         ),
       ),
       child: Icon(
-        albums ? Icons.album_rounded : Icons.person_rounded,
+        albums ? NafirIcons.vinylRecord : NafirIcons.user,
         size: size * 0.45,
         color: colors.onSurfaceVariant,
       ),
@@ -980,7 +981,7 @@ class _TrackGroupScreen extends StatelessWidget {
                 ? const Padding(
                     padding: EdgeInsets.all(24),
                     child: _LibraryState(
-                      icon: Icons.music_off,
+                      icon: NafirIcons.musicNotesMinus,
                       title: 'آهنگی نمانده است',
                       message: 'آهنگ‌های این بخش حذف یا ویرایش شده‌اند.',
                     ),
@@ -1030,13 +1031,13 @@ class _TrackGroupScreen extends StatelessWidget {
                                       FilledButton.icon(
                                         onPressed: () =>
                                             player.playFrom(groupTracks, 0),
-                                        icon: const Icon(Icons.play_arrow),
+                                        icon: const Icon(NafirIcons.playFill),
                                         label: const Text('پخش همه'),
                                       ),
                                       OutlinedButton.icon(
                                         onPressed: () =>
                                             player.playShuffled(groupTracks),
-                                        icon: const Icon(Icons.shuffle_rounded),
+                                        icon: const Icon(NafirIcons.shuffle),
                                         label: const Text('پخش تصادفی'),
                                       ),
                                     ],
@@ -1196,7 +1197,7 @@ class _TrackListState extends State<_TrackList> {
                       enabled: !widget.uploadsBusy,
                       child: const ListTile(
                         contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.cloud_upload_outlined),
+                        leading: Icon(NafirIcons.cloudArrowUp),
                         title: Text('آپلود به سرور'),
                       ),
                     ),
@@ -1206,7 +1207,7 @@ class _TrackListState extends State<_TrackList> {
                       child: ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: Icon(
-                          Icons.download_for_offline_outlined,
+                          NafirIcons.cloudArrowDown,
                         ),
                         title: Text('دانلود روی دستگاه'),
                       ),
@@ -1216,7 +1217,7 @@ class _TrackListState extends State<_TrackList> {
                       value: (_TrackAction.editMetadata, null),
                       child: ListTile(
                         contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.edit_outlined),
+                        leading: Icon(NafirIcons.pencilSimple),
                         title: Text('ویرایش اطلاعات آهنگ'),
                       ),
                     ),
@@ -1225,7 +1226,7 @@ class _TrackListState extends State<_TrackList> {
                       value: (_TrackAction.addToPlaylist, null),
                       child: ListTile(
                         contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.playlist_add),
+                        leading: Icon(NafirIcons.listPlus),
                         title: Text('افزودن به Playlist'),
                       ),
                     ),
@@ -1235,7 +1236,7 @@ class _TrackListState extends State<_TrackList> {
                         value: (_TrackAction.sendToBot, bot),
                         child: ListTile(
                           contentPadding: EdgeInsets.zero,
-                          leading: const Icon(Icons.send),
+                          leading: const Icon(NafirIcons.paperPlaneTilt),
                           title: Text('ارسال به ${bot.name}'),
                         ),
                       ),
@@ -1245,7 +1246,7 @@ class _TrackListState extends State<_TrackList> {
                       child: ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: Icon(
-                          Icons.delete_outline,
+                          NafirIcons.trash,
                           color: Theme.of(context).colorScheme.error,
                         ),
                         title: Text(
@@ -1295,7 +1296,7 @@ class _TrackListState extends State<_TrackList> {
               onPressed: () => Navigator.pop(context, playlist.id),
               child: ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.queue_music),
+                leading: const Icon(NafirIcons.playlist),
                 title: Text(playlist.name),
                 subtitle: Text('${playlist.trackCount} قطعه موسیقی'),
               ),
@@ -1336,7 +1337,7 @@ class _TrackListState extends State<_TrackList> {
                 child: SearchBar(
                   controller: _search,
                   hintText: 'جست‌وجوی آهنگ، خواننده یا آلبوم',
-                  leading: const Icon(Icons.search),
+                  leading: const Icon(NafirIcons.magnifyingGlass),
                   trailing: [
                     if (_query.isNotEmpty)
                       IconButton(
@@ -1345,7 +1346,7 @@ class _TrackListState extends State<_TrackList> {
                           _search.clear();
                           setState(() => _query = '');
                         },
-                        icon: const Icon(Icons.close),
+                        icon: const Icon(NafirIcons.x),
                       ),
                   ],
                   onChanged: (value) => setState(() => _query = value),
@@ -1369,7 +1370,7 @@ class _TrackListState extends State<_TrackList> {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(24, 56, 24, 0),
               child: _LibraryState(
-                icon: Icons.search_off_rounded,
+                icon: NafirIcons.magnifyingGlassMinus,
                 title: 'نتیجه‌ای پیدا نشد',
                 message: 'عبارت دیگری را امتحان کن یا جست‌وجو را پاک کن.',
                 action: OutlinedButton.icon(
@@ -1377,7 +1378,7 @@ class _TrackListState extends State<_TrackList> {
                     _search.clear();
                     setState(() => _query = '');
                   },
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(NafirIcons.x),
                   label: const Text('پاک کردن جست‌وجو'),
                 ),
               ),
@@ -1474,7 +1475,7 @@ class _TrackListHeader extends StatelessWidget {
           PopupMenuButton<TrackSort>(
             tooltip: 'مرتب‌سازی: ${sort.label}',
             onSelected: onSort,
-            icon: const Icon(Icons.sort_rounded),
+            icon: const Icon(NafirIcons.sortAscending),
             itemBuilder: (context) => [
               for (final option in TrackSort.values)
                 CheckedPopupMenuItem(
@@ -1486,7 +1487,7 @@ class _TrackListHeader extends StatelessWidget {
           ),
           TextButton.icon(
             onPressed: onShuffle,
-            icon: const Icon(Icons.shuffle_rounded, size: 20),
+            icon: const Icon(NafirIcons.shuffle, size: 20),
             label: Text(filtered ? 'پخش تصادفی نتایج' : 'پخش تصادفی'),
           ),
         ],
@@ -1533,7 +1534,7 @@ class _TrackRow extends StatelessWidget {
           if (current) ...[
             Semantics(
               label: 'در حال پخش',
-              child: Icon(Icons.graphic_eq_rounded,
+              child: Icon(NafirIcons.waveformFill,
                   size: 18, color: colors.primary),
             ),
             const SizedBox(width: 4),
@@ -1581,12 +1582,9 @@ class _TrackArtwork extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final (badge, where) = switch (track) {
-      Track(isLocal: true) => (Icons.phone_android_rounded, 'روی دستگاه'),
-      Track(importedFrom: final String from) => (
-          Icons.smart_toy_outlined,
-          'از $from'
-        ),
-      _ => (Icons.cloud_done_outlined, 'روی سرور'),
+      Track(isLocal: true) => (NafirIcons.deviceMobile, 'روی دستگاه'),
+      Track(importedFrom: final String from) => (NafirIcons.robot, 'از $from'),
+      _ => (NafirIcons.cloudCheck, 'روی سرور'),
     };
     return SizedBox.square(
       dimension: 48,
@@ -1603,7 +1601,7 @@ class _TrackArtwork extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
-              Icons.music_note_rounded,
+              NafirIcons.musicNote,
               color:
                   current ? colors.onPrimaryContainer : colors.onSurfaceVariant,
             ),
@@ -1689,7 +1687,7 @@ class _TrackMetadataDialogState extends State<_TrackMetadataDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      icon: const Icon(Icons.edit_note_outlined),
+      icon: const Icon(NafirIcons.notePencil),
       title: const Text('ویرایش اطلاعات آهنگ'),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
@@ -1703,7 +1701,7 @@ class _TrackMetadataDialogState extends State<_TrackMetadataDialog> {
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
                 labelText: 'عنوان',
-                prefixIcon: Icon(Icons.music_note_outlined),
+                prefixIcon: Icon(NafirIcons.musicNote),
               ),
             ),
             const SizedBox(height: 12),
@@ -1713,7 +1711,7 @@ class _TrackMetadataDialogState extends State<_TrackMetadataDialog> {
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
                 labelText: 'خواننده',
-                prefixIcon: Icon(Icons.person_outline),
+                prefixIcon: Icon(NafirIcons.user),
               ),
             ),
             const SizedBox(height: 12),
@@ -1726,7 +1724,7 @@ class _TrackMetadataDialogState extends State<_TrackMetadataDialog> {
               },
               decoration: const InputDecoration(
                 labelText: 'آلبوم',
-                prefixIcon: Icon(Icons.album_outlined),
+                prefixIcon: Icon(NafirIcons.vinylRecord),
               ),
             ),
             if (_error case final error?) ...[
@@ -1754,7 +1752,7 @@ class _TrackMetadataDialogState extends State<_TrackMetadataDialog> {
                   dimension: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Icon(Icons.check),
+              : const Icon(NafirIcons.check),
           label: const Text('ذخیره'),
         ),
       ],
@@ -1780,12 +1778,12 @@ class _DeviceNotice {
     if (!supported || status == LocalAudioViewStatus.loaded) return null;
     return switch (status) {
       LocalAudioViewStatus.permissionDenied => const _DeviceNotice(
-          icon: Icons.folder_off_outlined,
+          icon: NafirIcons.folderSimpleDashed,
           message: 'برای نمایش آهنگ‌های دستگاه، اجازهٔ دسترسی صوتی لازم است.',
           actionLabel: 'از تنظیمات دستگاه اجازه بده',
         ),
       LocalAudioViewStatus.error => const _DeviceNotice(
-          icon: Icons.error_outline,
+          icon: NafirIcons.warningCircle,
           message:
               'خواندن آهنگ‌های دستگاه ناموفق بود؛ آهنگ‌های سرور همچنان دیده می‌شوند.',
           actionLabel: 'صفحه را پایین بکش',
@@ -1794,7 +1792,7 @@ class _DeviceNotice {
       LocalAudioViewStatus.idle ||
       LocalAudioViewStatus.loading =>
         const _DeviceNotice(
-          icon: Icons.sync,
+          icon: NafirIcons.arrowsClockwise,
           message: 'در حال بررسی آهنگ‌های روی دستگاه…',
           actionLabel: 'Library یکپارچه می‌ماند',
         ),
@@ -1945,7 +1943,7 @@ class _EmptyLibrary extends StatelessWidget {
           const SizedBox(height: 16),
         ],
         const _LibraryState(
-          icon: Icons.library_music_outlined,
+          icon: NafirIcons.musicNotes,
           title: 'کتابخانهٔ شما خالی است',
           message:
               'با «افزودن موسیقی» آهنگ آپلود کن یا اجازه بده نفیر آهنگ‌های دستگاه را هم همین‌جا نشان بدهد.',
@@ -1965,12 +1963,12 @@ class _LoadError extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(24),
       child: _LibraryState(
-        icon: Icons.cloud_off_outlined,
+        icon: NafirIcons.cloudSlash,
         title: 'کتابخانه دریافت نشد',
         message: 'اتصال اینترنت را بررسی کن و دوباره تلاش کن.',
         action: FilledButton.icon(
           onPressed: onRetry,
-          icon: const Icon(Icons.refresh),
+          icon: const Icon(NafirIcons.arrowsClockwise),
           label: const Text('تلاش دوباره'),
         ),
       ),

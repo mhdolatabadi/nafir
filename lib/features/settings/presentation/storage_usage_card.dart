@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/core/format_size.dart';
 import 'package:nafir/core/widgets/glass_surface.dart';
 
@@ -45,7 +46,7 @@ class StorageUsageCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.cloud_outlined, size: 20),
+                const Icon(NafirIcons.cloud, size: 20),
                 const SizedBox(width: 8),
                 Text(
                   'فضای ابری',
@@ -83,8 +84,7 @@ class StorageUsageCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.warning_amber_rounded,
-                      size: 18, color: colors.error),
+                  Icon(NafirIcons.warning, size: 18, color: colors.error),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
