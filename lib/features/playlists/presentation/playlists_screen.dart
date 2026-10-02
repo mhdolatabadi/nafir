@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
@@ -205,18 +206,18 @@ class _PlaylistsViewState extends State<PlaylistsView> {
         children: [
           FilledButton.tonalIcon(
             onPressed: _create,
-            icon: const Icon(Icons.playlist_add),
+            icon: const Icon(NafirIcons.listPlus),
             label: const Text('Playlist جدید'),
           ),
           OutlinedButton.icon(
             onPressed: _openPopular,
-            icon: const Icon(Icons.local_fire_department_outlined),
+            icon: const Icon(NafirIcons.fire),
             label: const Text('Playlistهای محبوب'),
           ),
           IconButton(
             tooltip: 'باز کردن لینک اشتراک',
             onPressed: _openLink,
-            icon: const Icon(Icons.add_link),
+            icon: const Icon(NafirIcons.link),
           ),
         ],
       ),
@@ -344,13 +345,13 @@ class _PlaylistsOverview extends StatelessWidget {
                       padding: EdgeInsetsDirectional.only(start: 6),
                       child: Tooltip(
                         message: 'با لینک به اشتراک گذاشته شده',
-                        child: Icon(Icons.link, size: 16),
+                        child: Icon(NafirIcons.linkSimple, size: 16),
                       ),
                     ),
                 ],
               ),
               subtitle: Text('${playlist.trackCount} قطعه موسیقی'),
-              trailing: const Icon(Icons.chevron_left),
+              trailing: const Icon(NafirIcons.caretLeft),
               onTap: () => onOpen(playlist),
             ),
         ],
@@ -634,7 +635,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: current == null || busy ? null : _selectTracks,
-        icon: const Icon(Icons.library_add_outlined),
+        icon: const Icon(NafirIcons.plusCircle),
         label: const Text('انتخاب آهنگ‌ها'),
       ),
       body: busy
@@ -777,14 +778,14 @@ class _PlaylistDetailHeader extends StatelessWidget {
                     children: [
                       FilledButton.icon(
                         onPressed: playlist.tracks.isEmpty ? null : onPlay,
-                        icon: const Icon(Icons.play_arrow),
+                        icon: const Icon(NafirIcons.playFill),
                         label: const Text('پخش'),
                       ),
                       const SizedBox(width: 8),
                       IconButton.filledTonal(
                         tooltip: 'پخش تصادفی',
                         onPressed: playlist.tracks.isEmpty ? null : onShuffle,
-                        icon: const Icon(Icons.shuffle_rounded),
+                        icon: const Icon(NafirIcons.shuffle),
                       ),
                     ],
                   ),
@@ -829,7 +830,7 @@ class _PlaylistCover extends StatelessWidget {
         alignment: Alignment.center,
         children: [
           Icon(
-            trackCount == 0 ? Icons.queue_music : Icons.library_music,
+            trackCount == 0 ? NafirIcons.playlist : NafirIcons.musicNotes,
             size: size * 0.36,
             color: const Color(0xFFFFF5F5),
           ),
@@ -867,7 +868,7 @@ class _PlaylistTrackHandle extends StatelessWidget {
     return const SizedBox(
       width: 40,
       height: 40,
-      child: Icon(Icons.drag_handle),
+      child: Icon(NafirIcons.dotsSixVertical),
     );
   }
 }
@@ -973,7 +974,7 @@ class _Retry extends StatelessWidget {
   Widget build(BuildContext context) => Center(
         child: FilledButton.icon(
           onPressed: onRetry,
-          icon: const Icon(Icons.refresh),
+          icon: const Icon(NafirIcons.arrowsClockwise),
           label: const Text('تلاش دوباره'),
         ),
       );

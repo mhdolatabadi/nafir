@@ -46,13 +46,22 @@ header.site .wrap{display:flex;align-items:center;gap:12px;min-height:64px}
 .grow{flex:1;min-width:0}
 .title{display:block;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sub{display:block;color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.likes{flex:none;color:var(--muted);font-size:14px}
+.likes{flex:none;display:inline-flex;align-items:center;gap:4px;color:var(--muted);font-size:14px}
+.icon{width:24px;height:24px}
+.icon.small{width:16px;height:16px;color:var(--primary)}
+.meta .icon.small{vertical-align:-2px}
 audio{width:100%;max-width:260px;height:40px}
 .track{flex-wrap:wrap}
 .track audio{flex-basis:100%;max-width:none}
 @media (min-width:600px){.track{flex-wrap:nowrap}.track audio{flex-basis:auto;max-width:260px}}
 .empty{padding:48px 0;color:var(--muted);text-align:center}
 footer{padding:24px 0 40px;color:var(--muted);font-size:14px;text-align:center}
+footer a{display:inline-block;padding:12px 4px}
+.prose{padding:32px 0 64px;max-width:720px}
+.prose h1{font-size:clamp(24px,5vw,34px);line-height:1.3;margin:0 0 4px}
+.prose h2{font-size:20px;margin:28px 0 8px}
+.prose li{margin:6px 0}
+.prose a{color:var(--primary)}
 </style>
 </head>
 <body>
@@ -62,8 +71,12 @@ footer{padding:24px 0 40px;color:var(--muted);font-size:14px;text-align:center}
 <a class="button primary" href="/app/">ورود / ثبت‌نام</a>
 </div></header>
 <main class="wrap">{{template "content" .}}</main>
-<footer class="wrap">نفیر — پخش‌کننده‌ی موسیقی ابری</footer>
+<footer class="wrap">نفیر — پخش‌کننده‌ی موسیقی ابری · <a href="/privacy">حریم خصوصی</a></footer>
 </body>
 </html>{{end}}
+
+{{define "notes"}}<svg class="icon" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M212.92,17.69a8,8,0,0,0-6.86-1.45l-128,32A8,8,0,0,0,72,56V166.08A36,36,0,1,0,88,196V110.25l112-28v51.83A36,36,0,1,0,216,164V24A8,8,0,0,0,212.92,17.69ZM52,216a20,20,0,1,1,20-20A20,20,0,0,1,52,216ZM88,93.75V62.25l112-28v31.5ZM180,184a20,20,0,1,1,20-20A20,20,0,0,1,180,184Z"/></svg>{{end}}
+{{define "note"}}<svg class="icon" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M210.3,56.34l-80-24A8,8,0,0,0,120,40V148.26A48,48,0,1,0,136,184V98.75l69.7,20.91A8,8,0,0,0,216,112V64A8,8,0,0,0,210.3,56.34ZM88,216a32,32,0,1,1,32-32A32,32,0,0,1,88,216ZM200,101.25l-64-19.2V50.75L200,70Z"/></svg>{{end}}
+{{define "heart"}}<svg class="icon small" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M240,102c0,70-103.79,126.66-108.21,129a8,8,0,0,1-7.58,0C119.79,228.66,16,172,16,102A62.07,62.07,0,0,1,78,40c20.65,0,38.73,8.88,50,23.89C139.27,48.88,157.35,40,178,40A62.07,62.07,0,0,1,240,102Z"/></svg>{{end}}
 
 {{define "icon"}}<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" fill="#000000"/><g transform="rotate(-35 256 256) translate(256 256) scale(0.9) translate(-256 -256)"><path fill="#E53935" d="M52 238C64 240 72 247 78 249L330 244C382 242 424 222 452 186L452 326C424 290 382 270 330 268L78 263C72 265 64 272 52 274Z"/><rect x="150" y="245" width="9" height="22" fill="#000000"/><rect x="238" y="244" width="9" height="24" fill="#000000"/><ellipse cx="452" cy="256" rx="9" ry="70" fill="#9E1C1A"/></g></svg>{{end}}

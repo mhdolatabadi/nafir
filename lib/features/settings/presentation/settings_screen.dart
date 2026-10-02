@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/core/format_size.dart';
 import 'package:nafir/features/bots/application/bot_link_controller.dart';
 import 'package:nafir/features/bots/presentation/bot_link_section.dart';
@@ -93,7 +94,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 final cache = widget.cache;
                 final size = cache.sizeBytes;
                 return ListTile(
-                  leading: const Icon(Icons.storage),
+                  leading: const Icon(NafirIcons.database),
                   title: Text(switch ((size, cache.failed)) {
                     (_, true) => 'حجم کش معلوم نشد',
                     (null, _) => 'در حال محاسبه…',
@@ -108,7 +109,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             )
           else
             const ListTile(
-              leading: Icon(Icons.public),
+              leading: Icon(NafirIcons.globe),
               title: Text('در نسخه‌ی وب، کش را خود مرورگر مدیریت می‌کند.'),
             ),
           if (widget.botLinks case final botLinks?)

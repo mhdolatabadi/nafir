@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/features/auth/data/auth_models.dart';
@@ -289,7 +290,7 @@ void main() {
     final tokens = MemoryTokenStore('valid-token');
     await _pumpApp(tester, tokenStore: tokens);
 
-    await tester.tap(find.byIcon(Icons.logout));
+    await tester.tap(find.byIcon(NafirIcons.signOut));
     await tester.pumpAndSettle();
 
     expect(find.text('ورود به نفیر'), findsOneWidget);
@@ -745,7 +746,7 @@ void main() {
     );
     expect(find.text('Private'), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.logout));
+    await tester.tap(find.byIcon(NafirIcons.signOut));
     await tester.pumpAndSettle();
     tracks.tracks.clear();
     await _submit(tester, 'listener@example.com', 'correct horse');
@@ -765,7 +766,8 @@ void main() {
     final width = tester.getSize(find.byType(Scaffold).first).width;
     expect(tester.getCenter(find.byType(FloatingActionButton)).dx,
         lessThan(width / 2));
-    expect(tester.getCenter(find.byIcon(Icons.logout)).dx, lessThan(width / 2));
+    expect(tester.getCenter(find.byIcon(NafirIcons.signOut)).dx,
+        lessThan(width / 2));
   });
 
   testWidgets('tapping a track plays it in the mini player', (tester) async {
@@ -793,7 +795,7 @@ void main() {
     expect(
         find.descendant(
             of: find.widgetWithText(ListTile, 'Song'),
-            matching: find.byIcon(Icons.graphic_eq_rounded)),
+            matching: find.byIcon(NafirIcons.waveformFill)),
         findsOneWidget);
     expect(find.bySemanticsLabel(RegExp('در حال پخش')), findsWidgets);
 
@@ -974,12 +976,13 @@ void main() {
     expect(find.byTooltip('تکرار: همه'), findsOneWidget);
     await tester.tap(find.byTooltip('تکرار: همه'));
     await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.repeat_one), findsOneWidget);
+    expect(find.byIcon(NafirIcons.repeatOnceFill), findsOneWidget);
 
     await tester.tap(find.byTooltip('پخش تصادفی'));
     await tester.pumpAndSettle();
     final shuffle = tester.widget<IconButton>(find.ancestor(
-        of: find.byIcon(Icons.shuffle), matching: find.byType(IconButton)));
+        of: find.byIcon(NafirIcons.shuffleFill),
+        matching: find.byType(IconButton)));
     expect(shuffle.isSelected, isTrue);
   });
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/features/auth/presentation/sign_in_prompt.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
@@ -113,16 +114,16 @@ class _PopularPlaylistsScreenState extends State<PopularPlaylistsScreen> {
                   PlaylistsStatus.loading when popular.isEmpty =>
                     const Center(child: CircularProgressIndicator()),
                   PlaylistsStatus.error when popular.isEmpty => _Notice(
-                      icon: Icons.cloud_off,
+                      icon: NafirIcons.cloudSlash,
                       text: 'فهرست Playlistهای محبوب بارگذاری نشد.',
                       action: FilledButton.icon(
                         onPressed: controller.loadPopular,
-                        icon: const Icon(Icons.refresh),
+                        icon: const Icon(NafirIcons.arrowsClockwise),
                         label: const Text('تلاش دوباره'),
                       ),
                     ),
                   _ when popular.isEmpty => const _Notice(
-                      icon: Icons.public,
+                      icon: NafirIcons.globe,
                       text: 'هنوز Playlist عمومی‌ای نیست. وقتی Playlistی را '
                           'به اشتراک می‌گذاری، «عمومی» را انتخاب کن تا اینجا '
                           'نشان داده شود.',
@@ -202,7 +203,7 @@ class _PopularRow extends StatelessWidget {
               ),
             ],
           ),
-          child: const Icon(Icons.queue_music_rounded),
+          child: const Icon(NafirIcons.playlist),
         ),
         title: Text(
           playlist.name,

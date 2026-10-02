@@ -140,4 +140,24 @@ jobs:
 
           nginx = Path("deploy/nginx.conf").read_text()
           assert "location /app/" in nginx and "/app/index.html" in nginx
+          # Nothing outside /app/ may fall through to nginx's stock page (#153).
+          assert "return 302 /app/$is_args$args;" in nginx
+          assert "rm -f /usr/share/nginx/html/index.html" in docker
+
+          # The shared front nginx routes like the Caddyfile (#153).
+          front = Path("deploy/front-proxy.nginx.conf").read_text()
+          for route in ("location /api/", "location /nafir-music", "location /app/", "location / {"):
+              assert route in front, route
+          assert "nafir-web:80" in front.split("location /app/", 1)[1].split("}", 1)[0]
+          assert "nafir-api:8080" in front.rsplit("location / {", 1)[1]
+          assert "X-Nafir-Client-IP" in front.rsplit("location / {", 1)[1]
+          assert "gzip off" in front.split("location /nafir-music", 1)[1].split("}", 1)[0]
           PY
+      - name: Validate nginx configurations
+        run: |
+          docker run --rm -v "$PWD/deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro" nginx:1.27-alpine nginx -t
+          printf 'server {\n listen 80;\n include /etc/nginx/nafir.conf;\n}\n' > front-test.conf
+          docker run --rm \
+            -v "$PWD/front-test.conf:/etc/nginx/conf.d/default.conf:ro" \
+            -v "$PWD/deploy/front-proxy.nginx.conf:/etc/nginx/nafir.conf:ro" \
+            nginx:1.27-alpine nginx -t

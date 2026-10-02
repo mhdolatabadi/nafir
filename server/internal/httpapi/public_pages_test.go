@@ -179,3 +179,30 @@ func TestSitemapAndRobots(t *testing.T) {
 		t.Fatal("unknown paths should not render the front page")
 	}
 }
+
+func TestPrivacyPage(t *testing.T) {
+	data := &sharingStore{}
+	page := func(pages *PublicPages) string {
+		t.Helper()
+		response := get(NewHandler(Config{Public: pages}), "/privacy")
+		if response.Code != http.StatusOK || !strings.HasPrefix(response.Header().Get("Content-Type"), "text/html") {
+			t.Fatalf("privacy = %d %q", response.Code, response.Header().Get("Content-Type"))
+		}
+		return response.Body.String()
+	}
+
+	body := page(NewPublicPages(data, fixedPresigner{}, AnonymousLimits{}).WithContact("privacy@example.com"))
+	for _, want := range []string{"حریم خصوصی نفیر", "bcrypt", `href="mailto:privacy@example.com"`, `<link rel="canonical" href="https://nafir.example.com/privacy">`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("privacy page lacks %q", want)
+		}
+	}
+	// Every public page links to it from the footer.
+	if !strings.Contains(body, `<a href="/privacy">حریم خصوصی</a>`) {
+		t.Fatal("footer has no privacy link")
+	}
+	// Without a contact the page still works and links nowhere.
+	if body := page(NewPublicPages(data, fixedPresigner{}, AnonymousLimits{})); strings.Contains(body, "mailto:") {
+		t.Fatal("privacy page links an empty contact")
+	}
+}
