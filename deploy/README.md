@@ -110,6 +110,36 @@ The project was renamed from SOT to Nafir. On a server deployed before the renam
        -c 'ALTER DATABASE nafir OWNER TO nafir;'
      ```
 
+## Behind a shared nginx (proxynet)
+
+On a server where a shared nginx already owns ports 80 and 443, Nafir runs
+without its Caddy container and that nginx reaches the stack over the
+external `proxynet` network. It must route exactly like `deploy/Caddyfile`:
+
+| Path | Goes to |
+| --- | --- |
+| `/api/` | `nafir-api:8080` |
+| `/nafir-music` | `nafir-minio:9000`, byte-for-byte: no gzip, no buffering, `Host` unchanged |
+| `/app/` | `nafir-web:80` (the Flutter app) |
+| `/?shared=…` | redirect to `/app/?shared=…` |
+| everything else: `/`, `/p/…`, `/privacy`, `sitemap.xml`, `robots.txt` | `nafir-api:8080`, with `X-Nafir-Client-IP` |
+
+`deploy/front-proxy.nginx.conf` has these routes ready. Copy it next to the
+nginx config and include it inside the Nafir `server { }` block:
+
+```sh
+sudo cp deploy/front-proxy.nginx.conf /etc/nginx/snippets/nafir.conf   # or the nginx container's config folder
+# in the Nafir server block:  include /etc/nginx/snippets/nafir.conf;
+sudo nginx -t && sudo nginx -s reload                                  # or: docker exec <nginx> nginx -t / nginx -s reload
+curl -sI https://$NAFIR_DOMAIN/ | head -3                              # 200 from the API, not nginx's page
+```
+
+If `/` shows «Welcome to nginx», the front nginx still sends `/` to the web
+container from before the app moved to `/app/` (#137); since #153 the web
+container answers such requests with a redirect to `/app/`, but the public
+pages only appear once `/` goes to the API. Roll back by restoring the
+previous nginx file and reloading.
+
 ## Bale and Telegram bots
 
 People can send audio to Nafir's Bale or Telegram bot and it lands in their
