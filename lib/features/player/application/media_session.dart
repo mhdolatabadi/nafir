@@ -3,15 +3,21 @@ import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
+import 'package:nafir/features/player/data/notification_artwork.dart';
 
-const _fallbackArtwork = 'asset:///assets/icon/nafir.png';
+/// Shown when a track has neither a title nor a filename.
+const untitledTrack = 'آهنگ بی‌نام';
 
 /// Connects the system's media controls (notification, lock screen, headset
 /// buttons and, on the web, the browser's MediaSession) to [PlayerController].
 class NafirAudioHandler extends BaseAudioHandler with SeekHandler {
+  /// [artwork] is the Nafir logo the system shows for every track, since
+  /// tracks carry no cover art yet; see [resolveNotificationArtwork].
+  NafirAudioHandler({this.artwork});
+
+  final Uri? artwork;
   PlayerController? _player;
-  String? _mediaId;
-  Duration? _mediaDuration;
+  Object? _mediaKey;
   PlaybackState? _last;
 
   /// Drives [player] from the system controls and mirrors its state back.
@@ -48,9 +54,20 @@ class NafirAudioHandler extends BaseAudioHandler with SeekHandler {
     if (player == null) return;
     final track = player.track;
 
-    if (track?.id != _mediaId || player.duration != _mediaDuration) {
-      _mediaId = track?.id;
-      _mediaDuration = player.duration;
+    // Republish when anything shown changes, including an edited title, but
+    // not on every tick: MediaItem equality only compares ids.
+    final key = track == null
+        ? null
+        : (
+            track.id,
+            track.title,
+            track.artist,
+            track.album,
+            track.fileName,
+            player.duration,
+          );
+    if (key != _mediaKey) {
+      _mediaKey = key;
       mediaItem.add(
         track == null ? null : _mediaItemFor(track, player.duration),
       );
@@ -78,6 +95,8 @@ class NafirAudioHandler extends BaseAudioHandler with SeekHandler {
       },
       playing: playing,
       updatePosition: player.position,
+      errorMessage:
+          player.status == PlayerStatus.error ? 'پخش ناموفق بود' : null,
     );
     // Position ticks many times a second; the system extrapolates it from
     // updatePosition, so only publish real changes and seeks.
@@ -87,18 +106,18 @@ class NafirAudioHandler extends BaseAudioHandler with SeekHandler {
   }
 
   MediaItem _mediaItemFor(Track track, Duration? duration) {
-    final artist = track.artist?.trim();
-    final album = track.album?.trim();
+    final title = notificationTitle(track);
+    final album = _clean(track.album);
     final sourceLabel = track.isLocal ? 'روی دستگاه' : 'روی سرور';
-    final subtitle = artist == null || artist.isEmpty ? sourceLabel : artist;
+    final subtitle = _clean(track.artist) ?? sourceLabel;
     return MediaItem(
       id: track.id,
-      title: track.title,
+      title: title,
       artist: subtitle,
-      album: album == null || album.isEmpty ? 'Nafir' : album,
+      album: album ?? 'نفیر',
       duration: duration,
-      artUri: Uri.parse(_fallbackArtwork),
-      displayTitle: track.title,
+      artUri: artwork,
+      displayTitle: title,
       displaySubtitle: subtitle,
       displayDescription: track.isLocal
           ? 'پخش از فایل‌های دستگاه'
@@ -113,9 +132,26 @@ class NafirAudioHandler extends BaseAudioHandler with SeekHandler {
     );
   }
 
+  /// The track's title on one line; tags often carry stray whitespace or
+  /// line breaks. Falls back to the filename without its extension.
+  static String notificationTitle(Track track) {
+    final title = _clean(track.title);
+    if (title != null) return title;
+    final name = _clean(track.fileName);
+    if (name == null) return untitledTrack;
+    final dot = name.lastIndexOf('.');
+    return dot > 0 ? name.substring(0, dot) : name;
+  }
+
+  static String? _clean(String? value) {
+    final cleaned = value?.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return cleaned == null || cleaned.isEmpty ? null : cleaned;
+  }
+
   static bool _changed(PlaybackState before, PlaybackState after) {
     if (before.playing != after.playing ||
-        before.processingState != after.processingState) {
+        before.processingState != after.processingState ||
+        before.errorMessage != after.errorMessage) {
       return true;
     }
     final drift = (after.updatePosition - before.position).inMilliseconds.abs();
@@ -133,8 +169,9 @@ Future<NafirAudioHandler?> startMediaSession() async {
     final session = await AudioSession.instance;
     // Music: pause for calls and other apps' audio, duck for notifications.
     await session.configure(const AudioSessionConfiguration.music());
+    final artwork = await resolveNotificationArtwork();
     return activeMediaSession = await AudioService.init(
-      builder: NafirAudioHandler.new,
+      builder: () => NafirAudioHandler(artwork: artwork),
       config: const AudioServiceConfig(
         androidNotificationChannelId: 'ir.mhdolatabadi.nafir.playback',
         androidNotificationChannelName: 'پخش موسیقی',

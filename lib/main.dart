@@ -16,6 +16,7 @@ import 'package:nafir/features/library/application/library_sync_controller.dart'
 import 'package:nafir/features/library/application/local_audio_controller.dart';
 import 'package:nafir/features/library/data/local_audio_library.dart';
 import 'package:nafir/features/library/data/local_audio_upload.dart';
+import 'package:nafir/features/player/application/favorite_tracks.dart';
 import 'package:nafir/features/player/application/media_session.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/data/audio_cache.dart';
@@ -48,6 +49,7 @@ class NafirApp extends StatefulWidget {
     this.audioCache,
     this.localAudioLibrary,
     this.localAudioUpload,
+    this.favoritesStore,
     this.mediaSession,
   });
 
@@ -66,6 +68,7 @@ class NafirApp extends StatefulWidget {
   final AudioCache? audioCache;
   final LocalAudioLibrary? localAudioLibrary;
   final LocalAudioUploadSource? localAudioUpload;
+  final FavoritesStore? favoritesStore;
 
   /// System media controls; null in tests and where they are unavailable.
   final NafirAudioHandler? mediaSession;
@@ -126,6 +129,9 @@ class _NafirAppState extends State<NafirApp> {
           api: _tracksApi,
           engine: widget.audioEngine ?? JustAudioEngine(cache: _audioCache),
           token: () => _auth?.token,
+          favorites: FavoriteTracks(
+            store: widget.favoritesStore ?? SecureFavoritesStore(),
+          )..load(),
         );
 
   late final LocalAudioController _localAudio = LocalAudioController(

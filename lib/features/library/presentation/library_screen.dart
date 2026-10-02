@@ -32,6 +32,7 @@ class LibraryScreen extends StatefulWidget {
     super.key,
     required this.email,
     required this.onLogout,
+    this.onDeleteAccount,
     required this.library,
     this.playlists,
     required this.localAudio,
@@ -46,6 +47,9 @@ class LibraryScreen extends StatefulWidget {
 
   final String email;
   final VoidCallback onLogout;
+
+  /// Deletes the account after checking [password]; null hides the option.
+  final Future<void> Function(String password)? onDeleteAccount;
   final LibraryController library;
   final PlaylistsController? playlists;
   final LocalAudioController localAudio;
@@ -299,6 +303,8 @@ class _LibraryScreenState extends State<LibraryScreen>
     Navigator.of(context)
         .push(MaterialPageRoute<void>(
           builder: (_) => SettingsScreen(
+            email: widget.email,
+            onDeleteAccount: widget.onDeleteAccount,
             cache: widget.cache,
             botLinks: widget.botLinks,
             library: widget.library,

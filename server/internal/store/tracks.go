@@ -9,6 +9,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/mhdolatabadi/nafir/server/internal/audio"
 )
 
 type TrackStatus string
@@ -21,6 +23,9 @@ const (
 var (
 	ErrQuotaExceeded  = errors.New("storage quota exceeded")
 	ErrTooManyPending = errors.New("too many pending uploads")
+	// ErrVersionConflict means the track's metadata changed since the version
+	// the caller edited.
+	ErrVersionConflict = errors.New("track metadata version conflict")
 )
 
 type Track struct {
@@ -45,6 +50,8 @@ type Track struct {
 	// Source is "upload" for the app, or the bot provider that imported it.
 	Source    string
 	CreatedAt time.Time
+	// MetadataVersion increases with every metadata edit.
+	MetadataVersion int64
 }
 
 // NewTrack is what a caller supplies; the ID is chosen by the store so the
@@ -68,9 +75,8 @@ type NewTrack struct {
 	Source string
 }
 
-// TrackMetadata is the editable identity shown in the app. It intentionally
-// does not rewrite the stored audio object; embedded tag rewriting is a later
-// step in the metadata epic.
+// TrackMetadata is the editable identity shown in the app. FileName is the
+// display and download name; the storage key keeps its own ASCII-safe name.
 type TrackMetadata struct {
 	FileName    string
 	Title       string
@@ -85,9 +91,10 @@ type TrackMetadata struct {
 	Comment     *string
 }
 
-// StorageKey is the owner-scoped object path for a track.
+// StorageKey is the owner-scoped object path for a track. The object name is
+// always reduced to safe ASCII, whatever the display file name is.
 func StorageKey(ownerID, trackID, fileName string) string {
-	return fmt.Sprintf("users/%s/tracks/%s/%s", ownerID, trackID, fileName)
+	return fmt.Sprintf("users/%s/tracks/%s/%s", ownerID, trackID, audio.SafeFileName(fileName))
 }
 
 // Tracks always filters by owner: there is deliberately no method that reads
@@ -111,6 +118,7 @@ var trackColumnNames = []string{
 	"id::text", "owner_id::text", "status", "title", "artist", "album", "album_artist",
 	"composer", "genre", "year", "track_number", "disc_number", "comment", "duration_ms",
 	"file_name", "storage_key", "content_type", "size_bytes", "source", "created_at",
+	"metadata_version",
 }
 
 var trackColumns = strings.Join(trackColumnNames, ", ")
@@ -133,7 +141,8 @@ func scanTrack(row pgx.Row) (Track, error) {
 	var t Track
 	err := row.Scan(&t.ID, &t.OwnerID, &t.Status, &t.Title, &t.Artist, &t.Album, &t.AlbumArtist,
 		&t.Composer, &t.Genre, &t.Year, &t.TrackNumber, &t.DiscNumber, &t.Comment, &t.DurationMS,
-		&t.FileName, &t.StorageKey, &t.ContentType, &t.SizeBytes, &t.Source, &t.CreatedAt)
+		&t.FileName, &t.StorageKey, &t.ContentType, &t.SizeBytes, &t.Source, &t.CreatedAt,
+		&t.MetadataVersion)
 	return t, err
 }
 
@@ -200,12 +209,13 @@ func createTrack(ctx context.Context, query rowQuerier, ownerID string, track Ne
 		)
 		SELECT new_id.id, $1::uuid, $16, $2, $3, $4, $5, $6, $7,
 		       $8, $9, $10, $11, $12, $13,
-		       'users/' || $1::text || '/tracks/' || new_id.id::text || '/' || $13::text, $14, $15, $17
+		       'users/' || $1::text || '/tracks/' || new_id.id::text || '/' || $18::text, $14, $15, $17
 		FROM new_id
 		RETURNING `+trackColumns,
 		ownerID, track.Title, track.Artist, track.Album, track.AlbumArtist, track.Composer, track.Genre,
 		track.Year, track.TrackNumber, track.DiscNumber, track.Comment, track.DurationMS,
 		track.FileName, track.ContentType, track.SizeBytes, string(status), source,
+		audio.SafeFileName(track.FileName),
 	))
 }
 
@@ -267,22 +277,46 @@ func (t *Tracks) MarkReady(ctx context.Context, ownerID, trackID string) (Track,
 }
 
 // UpdateMetadata changes the display metadata for one ready track owned by the
-// caller. Pending uploads cannot be edited because they are not visible yet.
-func (t *Tracks) UpdateMetadata(ctx context.Context, ownerID, trackID string, metadata TrackMetadata) (Track, error) {
-	track, err := scanTrack(t.pool.QueryRow(ctx,
-		`UPDATE tracks SET
-			file_name = $3, title = $4, artist = $5, album = $6, album_artist = $7,
-			composer = $8, genre = $9, year = $10, track_number = $11,
-			disc_number = $12, comment = $13
-		 WHERE id::text = $1 AND owner_id::text = $2 AND status = 'ready'
-		 RETURNING `+trackColumns,
-		trackID, ownerID, metadata.FileName, metadata.Title, metadata.Artist, metadata.Album,
-		metadata.AlbumArtist, metadata.Composer, metadata.Genre, metadata.Year,
-		metadata.TrackNumber, metadata.DiscNumber, metadata.Comment))
-	if errors.Is(err, pgx.ErrNoRows) {
-		return Track{}, ErrNotFound
-	}
-	return track, err
+// caller, if its metadata is still at expectedVersion, and bumps the version.
+// Pending uploads cannot be edited because they are not visible yet; they and
+// other users' tracks are ErrNotFound. A newer version is ErrVersionConflict.
+func (t *Tracks) UpdateMetadata(
+	ctx context.Context,
+	ownerID, trackID string,
+	expectedVersion int64,
+	metadata TrackMetadata,
+) (Track, error) {
+	var updated Track
+	err := pgx.BeginFunc(ctx, t.pool, func(tx pgx.Tx) error {
+		var current int64
+		err := tx.QueryRow(ctx, `
+			SELECT metadata_version FROM tracks
+			WHERE id::text = $1 AND owner_id::text = $2 AND status = 'ready'
+			FOR UPDATE
+		`, trackID, ownerID).Scan(&current)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if current != expectedVersion {
+			return ErrVersionConflict
+		}
+		updated, err = scanTrack(tx.QueryRow(ctx,
+			`UPDATE tracks SET
+				file_name = $3, title = $4, artist = $5, album = $6, album_artist = $7,
+				composer = $8, genre = $9, year = $10, track_number = $11,
+				disc_number = $12, comment = $13,
+				metadata_version = metadata_version + 1, metadata_updated_at = now()
+			 WHERE id::text = $1 AND owner_id::text = $2
+			 RETURNING `+trackColumns,
+			trackID, ownerID, metadata.FileName, metadata.Title, metadata.Artist, metadata.Album,
+			metadata.AlbumArtist, metadata.Composer, metadata.Genre, metadata.Year,
+			metadata.TrackNumber, metadata.DiscNumber, metadata.Comment))
+		return err
+	})
+	return updated, err
 }
 
 // Delete removes the owner's track row.

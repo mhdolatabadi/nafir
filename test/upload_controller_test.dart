@@ -104,6 +104,7 @@ class FakeTracksApi implements TracksApi {
   Future<Track> updateTrackMetadata(
     String token,
     String trackId, {
+    required int version,
     String? fileName,
     required String title,
     String? artist,
@@ -127,6 +128,13 @@ class FakeTracksApi implements TracksApi {
       );
     }
     final current = tracks[index];
+    if (current.version != version) {
+      throw const ApiException(
+        'conflict',
+        statusCode: 409,
+        code: 'version_conflict',
+      );
+    }
     final updated = Track(
       id: current.id,
       title: title,
@@ -145,6 +153,7 @@ class FakeTracksApi implements TracksApi {
       sourceUri: current.sourceUri,
       source: current.source,
       sharedVia: current.sharedVia,
+      version: current.version + 1,
     );
     tracks[index] = updated;
     return updated;

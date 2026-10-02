@@ -27,6 +27,10 @@ abstract interface class AuthApi {
   Future<AuthSession> register(String email, String password);
   Future<AuthSession> login(String email, String password);
   Future<AuthUser> me(String token);
+
+  /// Deletes the signed-in account and everything in it for good. The
+  /// password is checked again; a wrong one fails with `invalid_password`.
+  Future<void> deleteAccount(String token, String password);
 }
 
 /// A short-lived URL for playing one track.
@@ -62,6 +66,7 @@ abstract interface class TracksApi {
   Future<Track> updateTrackMetadata(
     String token,
     String trackId, {
+    required int version,
     String? fileName,
     required String title,
     String? artist,
@@ -183,6 +188,12 @@ class ApiClient
   }
 
   @override
+  Future<void> deleteAccount(String token, String password) async {
+    await _send('DELETE', '/api/v1/me',
+        token: token, body: {'password': password}, expectBody: false);
+  }
+
+  @override
   Future<TrackLibrary> listTracks(String token) async {
     final body = await _send('GET', '/api/v1/tracks', token: token);
     final storage = body['storage'] as Map<String, dynamic>;
@@ -225,6 +236,7 @@ class ApiClient
   Future<Track> updateTrackMetadata(
     String token,
     String trackId, {
+    required int version,
     String? fileName,
     required String title,
     String? artist,
@@ -239,6 +251,7 @@ class ApiClient
   }) async {
     final body =
         await _send('PATCH', '/api/v1/tracks/$trackId', token: token, body: {
+      'version': version,
       if (fileName != null) 'fileName': fileName,
       'title': title,
       'artist': artist,

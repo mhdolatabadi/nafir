@@ -1,0 +1,844 @@
+import 'dart:math';
+
+import 'package:flutter/material.dart';
+import 'package:nafir/core/format_size.dart';
+import 'package:nafir/core/widgets/glass_surface.dart';
+import 'package:nafir/core/widgets/nafir_icons.dart';
+import 'package:nafir/features/library/data/track.dart';
+import 'package:nafir/features/player/application/play_queue.dart';
+import 'package:nafir/features/player/application/player_controller.dart';
+
+/// The widest the now-playing column grows on desktop.
+const nowPlayingMaxWidth = 520.0;
+
+/// Opens the full-screen player over the current page. It slides up, and
+/// swiping it down (or the close button, or back) slides it away; with
+/// reduced motion it appears and disappears without sliding.
+Future<void> openNowPlaying(BuildContext context, PlayerController player) {
+  final reduceMotion = MediaQuery.disableAnimationsOf(context);
+  return Navigator.of(context).push(
+    PageRouteBuilder<void>(
+      // The page underneath shows while the screen is dragged down.
+      opaque: false,
+      barrierColor: Colors.black54,
+      transitionDuration:
+          reduceMotion ? Duration.zero : const Duration(milliseconds: 360),
+      reverseTransitionDuration:
+          reduceMotion ? Duration.zero : const Duration(milliseconds: 240),
+      pageBuilder: (_, __, ___) => NowPlayingScreen(player: player),
+      transitionsBuilder: (_, animation, __, child) => SlideTransition(
+        position: Tween(begin: const Offset(0, 1), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutQuart,
+            reverseCurve: Curves.easeInCubic,
+          ),
+        ),
+        child: child,
+      ),
+    ),
+  );
+}
+
+/// The artist, or where the track plays from when it has none.
+String trackSubtitle(Track track) {
+  final artist = track.artist?.trim();
+  if (artist != null && artist.isNotEmpty) return artist;
+  return track.isLocal ? 'روی دستگاه' : 'روی سرور';
+}
+
+/// `m:ss`, as players show positions.
+String formatPlaybackTime(Duration value) {
+  final minutes = value.inMinutes;
+  final seconds = value.inSeconds.remainder(60).toString().padLeft(2, '0');
+  return '$minutes:$seconds';
+}
+
+/// A dark, saturated color picked from the track's id, standing in for
+/// cover art until tracks have it. Every hue stays dark enough for light
+/// text on top of it.
+Color trackTint(Track track) {
+  // FNV-1a, so a track keeps its color across launches.
+  var hash = 0x811c9dc5;
+  for (final unit in track.id.codeUnits) {
+    hash = ((hash ^ unit) * 0x01000193) & 0xffffffff;
+  }
+  return HSLColor.fromAHSL(1, (hash % 360).toDouble(), 0.42, 0.2).toColor();
+}
+
+/// WCAG contrast ratio between two opaque colors.
+double contrastRatio(Color a, Color b) {
+  final la = a.computeLuminance();
+  final lb = b.computeLuminance();
+  return (max(la, lb) + 0.05) / (min(la, lb) + 0.05);
+}
+
+/// Full-screen player: artwork, title and like, seek bar, transport
+/// controls and the queue.
+class NowPlayingScreen extends StatefulWidget {
+  const NowPlayingScreen({super.key, required this.player});
+
+  final PlayerController player;
+
+  @override
+  State<NowPlayingScreen> createState() => _NowPlayingScreenState();
+}
+
+class _NowPlayingScreenState extends State<NowPlayingScreen>
+    with SingleTickerProviderStateMixin {
+  double? _seekMs;
+
+  /// How far the screen has been dragged down to close it.
+  double _drag = 0;
+  late final AnimationController _settle = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 220),
+  )..addListener(() => setState(() => _drag = _settleFrom * _settle.value));
+  double _settleFrom = 0;
+  bool _closing = false;
+
+  PlayerController get _player => widget.player;
+
+  @override
+  void dispose() {
+    _settle.dispose();
+    super.dispose();
+  }
+
+  void _close() {
+    if (_closing) return;
+    _closing = true;
+    Navigator.of(context).maybePop();
+  }
+
+  void _onDragUpdate(DragUpdateDetails details) {
+    _settle.stop();
+    setState(() => _drag = max(0, _drag + details.delta.dy));
+  }
+
+  void _onDragEnd(DragEndDetails details) {
+    final height = MediaQuery.sizeOf(context).height;
+    if (_drag > height * 0.2 || details.velocity.pixelsPerSecond.dy > 900) {
+      _close();
+      return;
+    }
+    if (MediaQuery.disableAnimationsOf(context)) {
+      setState(() => _drag = 0);
+      return;
+    }
+    _settleFrom = _drag;
+    _settle.value = 1;
+    _settle.animateTo(0, curve: Curves.easeOutCubic);
+  }
+
+  void _openQueue() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => QueueSheet(player: _player),
+    );
+  }
+
+  void _openDetails(Track track) {
+    showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      builder: (_) => _TrackDetailsSheet(track: track),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([_player, _player.favorites]),
+      builder: (context, _) {
+        final track = _player.track;
+        if (track == null) {
+          // Playback stopped (for example on logout); nothing to show.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _close();
+          });
+          return const SizedBox.shrink();
+        }
+        final tint = trackTint(track);
+        return Transform.translate(
+          offset: Offset(0, _drag),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onVerticalDragUpdate: _onDragUpdate,
+            onVerticalDragEnd: _onDragEnd,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [tint, NafirGlass.background],
+                  stops: const [0, 0.78],
+                ),
+              ),
+              child: Material(
+                type: MaterialType.transparency,
+                child: SafeArea(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints:
+                          const BoxConstraints(maxWidth: nowPlayingMaxWidth),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) =>
+                              _layout(context, constraints, track, tint),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _layout(
+    BuildContext context,
+    BoxConstraints constraints,
+    Track track,
+    Color tint,
+  ) {
+    final header = _Header(onClose: _close);
+    final details = <Widget>[
+      _TitleRow(
+        track: track,
+        liked: _player.favorites.contains(track.id),
+        onLike: () => _player.favorites.toggle(track.id),
+      ),
+      const SizedBox(height: 12),
+      _SeekBar(
+        player: _player,
+        dragMs: _seekMs,
+        onDrag: (value) => setState(() => _seekMs = value),
+        onDragEnd: (value) {
+          setState(() => _seekMs = null);
+          _player.seek(Duration(milliseconds: value.round()));
+        },
+      ),
+      const SizedBox(height: 8),
+      _Transport(player: _player),
+      const SizedBox(height: 12),
+      _BottomRow(
+        upcoming: _player.upcoming.length,
+        onQueue: _openQueue,
+        onMore: () => _openDetails(track),
+      ),
+    ];
+
+    // Short landscape windows: drop the artwork and scroll; the close
+    // button still dismisses.
+    if (constraints.maxHeight < 460) {
+      return SingleChildScrollView(
+        child: Column(children: [header, ...details]),
+      );
+    }
+    return Column(
+      children: [
+        header,
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: LayoutBuilder(
+              builder: (context, box) => Center(
+                child: NowPlayingArtwork(
+                  track: track,
+                  status: _player.status,
+                  tint: tint,
+                  size: min(box.maxWidth, box.maxHeight),
+                ),
+              ),
+            ),
+          ),
+        ),
+        ...details,
+      ],
+    );
+  }
+}
+
+class _Header extends StatelessWidget {
+  const _Header({required this.onClose});
+
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: 'بستن',
+            onPressed: onClose,
+            icon: const Icon(NafirIcons.caretDown),
+          ),
+          Expanded(
+            child: Text(
+              'در حال پخش',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ),
+          // Balances the close button so the heading stays centered.
+          const SizedBox(width: 48),
+        ],
+      ),
+    );
+  }
+}
+
+/// The large square artwork. It eases back a little while paused, the
+/// screen's one motion; with reduced motion it simply changes size.
+class NowPlayingArtwork extends StatelessWidget {
+  const NowPlayingArtwork({
+    super.key,
+    required this.track,
+    required this.status,
+    required this.tint,
+    required this.size,
+  });
+
+  final Track track;
+  final PlayerStatus status;
+  final Color tint;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final active = status == PlayerStatus.playing ||
+        status == PlayerStatus.buffering ||
+        status == PlayerStatus.loading;
+    final icon = status == PlayerStatus.error
+        ? NafirIcons.warningCircle
+        : track.isLocal
+            ? NafirIcons.deviceMobile
+            : NafirIcons.musicNote;
+    return AnimatedScale(
+      scale: active ? 1 : 0.9,
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 420),
+      curve: Curves.easeOutQuart,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(size * 0.08),
+          gradient: LinearGradient(
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
+            colors: [
+              Color.lerp(tint, Colors.white, 0.14)!,
+              Color.lerp(tint, NafirGlass.background, 0.35)!,
+            ],
+          ),
+          border: Border.all(color: NafirGlass.softBorder),
+          boxShadow: const [
+            BoxShadow(
+              color: NafirGlass.shadow,
+              offset: Offset(0, 18),
+              blurRadius: 42,
+            ),
+          ],
+        ),
+        child: Icon(
+          icon,
+          size: size * 0.32,
+          color: colors.onSurface.withValues(alpha: 0.72),
+        ),
+      ),
+    );
+  }
+}
+
+class _TitleRow extends StatelessWidget {
+  const _TitleRow({
+    required this.track,
+    required this.liked,
+    required this.onLike,
+  });
+
+  final Track track;
+  final bool liked;
+  final VoidCallback onLike;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                track.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                trackSubtitle(track),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        Semantics(
+          toggled: liked,
+          child: IconButton(
+            tooltip: liked ? 'برداشتن از پسندیده‌ها' : 'پسندیدن',
+            isSelected: liked,
+            onPressed: onLike,
+            iconSize: 28,
+            color: liked ? theme.colorScheme.primary : null,
+            icon: Icon(liked ? NafirIcons.heartFill : NafirIcons.heart),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SeekBar extends StatelessWidget {
+  const _SeekBar({
+    required this.player,
+    required this.dragMs,
+    required this.onDrag,
+    required this.onDragEnd,
+  });
+
+  final PlayerController player;
+  final double? dragMs;
+  final ValueChanged<double> onDrag;
+  final ValueChanged<double> onDragEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    final durationMs = player.duration?.inMilliseconds ?? 0;
+    final positionMs =
+        player.position.inMilliseconds.clamp(0, durationMs).toDouble();
+    final shown = dragMs ?? positionMs;
+    return Directionality(
+      // Time runs left to right, as on every player, even in Persian.
+      textDirection: TextDirection.ltr,
+      child: Column(
+        children: [
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
+            ),
+            child: Slider(
+              value: shown,
+              max: durationMs > 0 ? durationMs.toDouble() : 1,
+              semanticFormatterCallback: (value) => formatPlaybackTime(
+                Duration(milliseconds: value.round()),
+              ),
+              onChanged: durationMs > 0 ? onDrag : null,
+              onChangeEnd: durationMs > 0 ? onDragEnd : null,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _Time(Duration(milliseconds: shown.round())),
+                _Time(player.duration ?? Duration.zero),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Time extends StatelessWidget {
+  const _Time(this.value);
+
+  final Duration value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      formatPlaybackTime(value),
+      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
+    );
+  }
+}
+
+class _Transport extends StatelessWidget {
+  const _Transport({required this.player});
+
+  final PlayerController player;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = player.status;
+    final busy =
+        status == PlayerStatus.loading || status == PlayerStatus.buffering;
+    final playing =
+        status == PlayerStatus.playing || status == PlayerStatus.buffering;
+    final colors = Theme.of(context).colorScheme;
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          ShuffleToggle(player: player),
+          IconButton(
+            tooltip: 'قبلی',
+            iconSize: 34,
+            constraints: const BoxConstraints.tightFor(width: 56, height: 56),
+            onPressed: player.previous,
+            icon: const Icon(NafirIcons.skipBackFill),
+          ),
+          SizedBox.square(
+            dimension: 76,
+            child: busy
+                ? Semantics(
+                    label: 'در حال آماده‌سازی پخش',
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 3,
+                        color: colors.primary,
+                      ),
+                    ),
+                  )
+                : IconButton.filled(
+                    tooltip: status == PlayerStatus.error
+                        ? 'تلاش دوباره'
+                        : playing
+                            ? 'توقف'
+                            : 'پخش',
+                    iconSize: 38,
+                    style: IconButton.styleFrom(
+                      shape: const CircleBorder(),
+                      fixedSize: const Size.square(76),
+                    ),
+                    onPressed: player.toggle,
+                    icon: Icon(
+                      status == PlayerStatus.error
+                          ? NafirIcons.arrowsClockwise
+                          : playing
+                              ? NafirIcons.pauseFill
+                              : NafirIcons.playFill,
+                    ),
+                  ),
+          ),
+          IconButton(
+            tooltip: 'بعدی',
+            iconSize: 34,
+            constraints: const BoxConstraints.tightFor(width: 56, height: 56),
+            onPressed: player.next,
+            icon: const Icon(NafirIcons.skipForwardFill),
+          ),
+          RepeatToggle(player: player),
+        ],
+      ),
+    );
+  }
+}
+
+class _BottomRow extends StatelessWidget {
+  const _BottomRow({
+    required this.upcoming,
+    required this.onQueue,
+    required this.onMore,
+  });
+
+  final int upcoming;
+  final VoidCallback onQueue;
+  final VoidCallback onMore;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        TextButton.icon(
+          style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+          onPressed: onQueue,
+          icon: const Icon(NafirIcons.playlist),
+          label: Text(upcoming == 0 ? 'صف پخش' : 'صف پخش · $upcoming'),
+        ),
+        const Spacer(),
+        IconButton(
+          tooltip: 'جزئیات آهنگ',
+          onPressed: onMore,
+          icon: const Icon(NafirIcons.dotsThreeVertical),
+        ),
+      ],
+    );
+  }
+}
+
+/// Shuffle on or off, shown with both color and a filled background.
+class ShuffleToggle extends StatelessWidget {
+  const ShuffleToggle({super.key, required this.player});
+
+  final PlayerController player;
+
+  @override
+  Widget build(BuildContext context) => _ModeToggle(
+        tooltip: player.shuffle ? 'پخش تصادفی: روشن' : 'پخش تصادفی',
+        icon: player.shuffle ? NafirIcons.shuffleFill : NafirIcons.shuffle,
+        active: player.shuffle,
+        onPressed: player.toggleShuffle,
+      );
+}
+
+/// Cycles repeat off → all → one.
+class RepeatToggle extends StatelessWidget {
+  const RepeatToggle({super.key, required this.player});
+
+  final PlayerController player;
+
+  @override
+  Widget build(BuildContext context) => _ModeToggle(
+        tooltip: switch (player.repeat) {
+          QueueRepeat.off => 'تکرار: خاموش',
+          QueueRepeat.all => 'تکرار: همه',
+          QueueRepeat.one => 'تکرار: همین آهنگ',
+        },
+        icon: switch (player.repeat) {
+          QueueRepeat.off => NafirIcons.repeat,
+          QueueRepeat.all => NafirIcons.repeatFill,
+          QueueRepeat.one => NafirIcons.repeatOnceFill,
+        },
+        active: player.repeat != QueueRepeat.off,
+        onPressed: player.cycleRepeat,
+      );
+}
+
+class _ModeToggle extends StatelessWidget {
+  const _ModeToggle({
+    required this.tooltip,
+    required this.icon,
+    required this.active,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final bool active;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return IconButton(
+      tooltip: tooltip,
+      isSelected: active,
+      onPressed: onPressed,
+      style: ButtonStyle(
+        foregroundColor: WidgetStatePropertyAll(
+          active ? colors.onSecondaryContainer : colors.onSurfaceVariant,
+        ),
+        backgroundColor: WidgetStatePropertyAll(
+          active ? colors.secondaryContainer : Colors.transparent,
+        ),
+      ),
+      icon: Icon(icon),
+    );
+  }
+}
+
+/// The «صف پخش» sheet: the current track and what plays after it. Tapping
+/// an upcoming track plays it; the sheet stays open and follows along.
+class QueueSheet extends StatelessWidget {
+  const QueueSheet({super.key, required this.player});
+
+  final PlayerController player;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bottom = MediaQuery.viewPaddingOf(context).bottom;
+    return FractionallySizedBox(
+      heightFactor: 0.75,
+      child: ListenableBuilder(
+        listenable: player,
+        builder: (context, _) {
+          final current = player.track;
+          final upcoming = player.upcoming;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(24, 0, 24, 8),
+                child: Text(
+                  'صف پخش',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              if (current != null)
+                _QueueTile(
+                  track: current,
+                  label: 'در حال پخش',
+                  current: true,
+                ),
+              Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(24, 12, 24, 4),
+                child: Text(
+                  upcoming.isEmpty ? 'بعدی' : 'بعدی · ${upcoming.length} آهنگ',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: upcoming.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            'آهنگ دیگری در صف نیست.',
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: EdgeInsets.only(bottom: bottom + 16),
+                        itemCount: upcoming.length,
+                        itemBuilder: (context, index) => _QueueTile(
+                          track: upcoming[index],
+                          onTap: () => player.skipTo(index),
+                        ),
+                      ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _QueueTile extends StatelessWidget {
+  const _QueueTile({
+    required this.track,
+    this.label,
+    this.current = false,
+    this.onTap,
+  });
+
+  final Track track;
+  final String? label;
+  final bool current;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return ListTile(
+      minTileHeight: 64,
+      contentPadding: const EdgeInsetsDirectional.symmetric(horizontal: 24),
+      onTap: onTap,
+      selected: current,
+      leading: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: current ? colors.primaryContainer : trackTint(track),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          current ? NafirIcons.waveformFill : NafirIcons.musicNote,
+          size: 20,
+          color: current ? colors.onPrimaryContainer : colors.onSurfaceVariant,
+        ),
+      ),
+      title: Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text(
+        label == null
+            ? trackSubtitle(track)
+            : '$label · ${trackSubtitle(track)}',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+}
+
+class _TrackDetailsSheet extends StatelessWidget {
+  const _TrackDetailsSheet({required this.track});
+
+  final Track track;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <(String, String?)>[
+      ('عنوان', track.title),
+      ('هنرمند', track.artist),
+      ('آلبوم', track.album),
+      ('نام فایل', track.fileName),
+      ('حجم', formatSize(track.sizeBytes)),
+      (
+        'منبع',
+        track.isLocal
+            ? 'روی دستگاه'
+            : track.importedFrom == null
+                ? 'روی سرور'
+                : 'واردشده از ${track.importedFrom}'
+      ),
+    ];
+    return SingleChildScrollView(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewPaddingOf(context).bottom + 16,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(24, 0, 24, 8),
+            child: Text(
+              'جزئیات آهنگ',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+          ),
+          for (final (label, value) in rows)
+            if (value?.trim().isNotEmpty == true)
+              ListTile(
+                contentPadding:
+                    const EdgeInsetsDirectional.symmetric(horizontal: 24),
+                title: Text(label),
+                subtitle:
+                    Text(value!, maxLines: 2, overflow: TextOverflow.ellipsis),
+              ),
+        ],
+      ),
+    );
+  }
+}

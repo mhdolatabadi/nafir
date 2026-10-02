@@ -28,6 +28,8 @@ abstract final class NafirIcons {
   static const IconData deviceMobile = IconData(0xe1e0, fontFamily: 'Phosphor');
   static const IconData dotsSixVertical =
       IconData(0xeae2, fontFamily: 'Phosphor');
+  static const IconData eye = IconData(0xe220, fontFamily: 'Phosphor');
+  static const IconData eyeSlash = IconData(0xe224, fontFamily: 'Phosphor');
   static const IconData fire = IconData(0xe242, fontFamily: 'Phosphor');
   static const IconData folderSimpleDashed =
       IconData(0xec2a, fontFamily: 'Phosphor');
@@ -56,6 +58,7 @@ abstract final class NafirIcons {
   static const IconData repeat = IconData(0xe3f6, fontFamily: 'Phosphor');
   static const IconData robot = IconData(0xe762, fontFamily: 'Phosphor');
   static const IconData shareNetwork = IconData(0xe408, fontFamily: 'Phosphor');
+  static const IconData shieldCheck = IconData(0xe40c, fontFamily: 'Phosphor');
   static const IconData shuffle = IconData(0xe422, fontFamily: 'Phosphor');
   static const IconData signOut = IconData(0xe42a, fontFamily: 'Phosphor');
   static const IconData sortAscending =
@@ -64,6 +67,8 @@ abstract final class NafirIcons {
   static const IconData uploadSimple = IconData(0xe4c0, fontFamily: 'Phosphor');
   static const IconData user = IconData(0xe4c2, fontFamily: 'Phosphor');
   static const IconData userCircle = IconData(0xe4c4, fontFamily: 'Phosphor');
+  static const IconData userCircleMinus =
+      IconData(0xe4c8, fontFamily: 'Phosphor');
   static const IconData vinylRecord = IconData(0xecac, fontFamily: 'Phosphor');
   static const IconData warning = IconData(0xe4e0, fontFamily: 'Phosphor');
   static const IconData warningCircle =

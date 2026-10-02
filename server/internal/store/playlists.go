@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path"
 	"strings"
 	"time"
 
@@ -416,7 +415,7 @@ func (p *Playlists) SaveShared(
 		for _, t := range shared.Tracks {
 			copied, err := createTrack(ctx, tx, userID, NewTrack{
 				Title: t.Title, Artist: t.Artist, Album: t.Album, DurationMS: t.DurationMS,
-				FileName: path.Base(t.StorageKey), ContentType: t.ContentType, SizeBytes: t.SizeBytes,
+				FileName: t.FileName, ContentType: t.ContentType, SizeBytes: t.SizeBytes,
 				Source: "shared",
 			}, TrackPending)
 			if err != nil {

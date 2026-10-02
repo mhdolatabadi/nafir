@@ -73,13 +73,29 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   /// Signing in from a guest screen lands in the library, not back on the
-  /// sign-in or playlist page it was opened from.
+  /// sign-in or playlist page it was opened from. Signing out, or deleting
+  /// the account from Settings, lands on the guest home with nothing of the
+  /// account left behind.
   void _onAuthChanged() {
     final status = widget.controller.status;
     if (status == AuthStatus.signedIn && _status != AuthStatus.signedIn) {
       Navigator.of(context).popUntil((route) => route.isFirst);
     }
+    if (status == AuthStatus.signedOut && _status == AuthStatus.signedIn) {
+      _forgetAccount();
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
     _status = status;
+  }
+
+  /// Never show one account's tracks to the next one.
+  void _forgetAccount() {
+    widget.player.stop();
+    widget.library.clear();
+    widget.playlists?.clear();
+    widget.botLinks?.clear();
+    widget.linkImports?.clear();
+    widget.uploads.dismiss();
   }
 
   void _openSignIn() {
@@ -136,6 +152,7 @@ class _AuthGateState extends State<AuthGate> {
                 widget.uploads.dismiss();
                 controller.logout();
               },
+              onDeleteAccount: controller.deleteAccount,
               library: widget.library,
               playlists: widget.playlists,
               localAudio: widget.localAudio,

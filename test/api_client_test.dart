@@ -232,6 +232,7 @@ void main() {
           'fileName': 'new-title.mp3',
           'contentType': 'audio/mpeg',
           'sizeBytes': 1,
+          'version': 4,
         }),
         200,
       );
@@ -240,6 +241,7 @@ void main() {
     final track = await client.updateTrackMetadata(
       't0ken',
       't1',
+      version: 3,
       fileName: 'new-title.mp3',
       title: 'New title',
       artist: null,
@@ -257,6 +259,7 @@ void main() {
     expect(sent.url.path, '/api/v1/tracks/t1');
     expect(sent.headers['Authorization'], 'Bearer t0ken');
     expect(jsonDecode(sent.body), {
+      'version': 3,
       'fileName': 'new-title.mp3',
       'title': 'New title',
       'artist': null,
@@ -270,6 +273,7 @@ void main() {
       'comment': 'Note',
     });
     expect(track.title, 'New title');
+    expect(track.version, 4);
     expect(track.artist, isNull);
     expect(track.album, 'Album');
     expect(track.albumArtist, 'Album Artist');

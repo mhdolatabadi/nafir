@@ -206,3 +206,40 @@ func TestPrivacyPage(t *testing.T) {
 		t.Fatal("privacy page links an empty contact")
 	}
 }
+
+func TestDeleteAccountPage(t *testing.T) {
+	data := &sharingStore{}
+	page := func(pages *PublicPages) string {
+		t.Helper()
+		response := get(NewHandler(Config{Public: pages}), "/delete-account")
+		if response.Code != http.StatusOK || !strings.HasPrefix(response.Header().Get("Content-Type"), "text/html") {
+			t.Fatalf("delete-account = %d %q", response.Code, response.Header().Get("Content-Type"))
+		}
+		return response.Body.String()
+	}
+
+	body := page(NewPublicPages(data, fixedPresigner{}, AnonymousLimits{}).WithContact("privacy@example.com"))
+	for _, want := range []string{
+		"حذف حساب کاربری نفیر",
+		"تنظیمات",
+		`href="mailto:privacy@example.com?subject=%D8%AD%D8%B0%D9%81%20%D8%AD%D8%B3%D8%A7%D8%A8%20%D9%86%D9%81%DB%8C%D8%B1"`,
+		`<link rel="canonical" href="https://nafir.example.com/delete-account">`,
+		`<a href="/privacy">`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("delete-account page lacks %q", want)
+		}
+	}
+	if body := page(NewPublicPages(data, fixedPresigner{}, AnonymousLimits{})); strings.Contains(body, "mailto:") {
+		t.Fatal("delete-account page links an empty contact")
+	}
+
+	// The privacy policy explains in-app deletion and links here, and every
+	// page's footer does too.
+	privacy := get(NewHandler(Config{Public: NewPublicPages(data, fixedPresigner{}, AnonymousLimits{})}), "/privacy").Body.String()
+	for _, want := range []string{"حذف حساب کاربری</strong>", `<a href="/delete-account">صفحه‌ی حذف حساب کاربری</a>`, `<a href="/delete-account">حذف حساب</a>`} {
+		if !strings.Contains(privacy, want) {
+			t.Fatalf("privacy page lacks %q", want)
+		}
+	}
+}

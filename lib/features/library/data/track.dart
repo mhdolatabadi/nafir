@@ -19,6 +19,7 @@ class Track {
     this.sharedVia,
     this.addedBy,
     this.viaPlaylist,
+    this.version = 1,
   });
 
   /// [viaPlaylist] is the collaborative playlist a track someone else added
@@ -44,6 +45,7 @@ class Track {
         sharedVia: sharedVia,
         addedBy: json['addedBy'] as String?,
         viaPlaylist: json['addedBy'] == null ? null : viaPlaylist,
+        version: (json['version'] as num?)?.toInt() ?? 1,
       );
 
   final String id;
@@ -59,6 +61,10 @@ class Track {
   final String? comment;
   final String contentType;
   final int sizeBytes;
+
+  /// The server's metadata version; an edit must be based on the latest one
+  /// or the server rejects it as a conflict.
+  final int version;
 
   /// Original filename when the platform exposes it. Local uploads use this
   /// to preserve the extension for format detection.
