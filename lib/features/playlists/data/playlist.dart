@@ -10,22 +10,38 @@ class Playlist {
     required this.updatedAt,
     this.shareToken,
     this.isPublic = false,
+    this.isOwner = true,
+    this.collabToken,
+    this.owner,
+    this.members = const [],
   });
 
   factory Playlist.fromJson(Map<String, dynamic> json) {
+    final id = json['id'] as String;
     final rawTracks = json['tracks'] as List<dynamic>?;
+    final rawMembers = json['members'] as List<dynamic>?;
     return Playlist(
-      id: json['id'] as String,
+      id: id,
       name: json['name'] as String,
       trackCount: json['trackCount'] as int,
       tracks: rawTracks
-              ?.map((value) => Track.fromJson(value as Map<String, dynamic>))
+              ?.map((value) => Track.fromJson(value as Map<String, dynamic>,
+                  viaPlaylist: id))
               .toList() ??
           const [],
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
       shareToken: json['shareToken'] as String?,
       isPublic: json['public'] == true,
+      // Older servers don't say; every playlist was its owner's then.
+      isOwner: json['isOwner'] as bool? ?? true,
+      collabToken: json['collabToken'] as String?,
+      owner: json['owner'] as String?,
+      members: rawMembers
+              ?.map((value) =>
+                  PlaylistMember.fromJson(value as Map<String, dynamic>))
+              .toList() ??
+          const [],
     );
   }
 
@@ -42,6 +58,57 @@ class Playlist {
   /// Whether the shared playlist is listed among the popular ones for
   /// everyone; otherwise only people with its link find it.
   final bool isPublic;
+
+  /// False for a collaborative playlist the user joined as a member: they
+  /// can add their own tracks and remove those, nothing else.
+  final bool isOwner;
+
+  /// Set while people can join by the collaboration link; owner only.
+  final String? collabToken;
+
+  /// The owner's email, masked; loaded with the tracks.
+  final String? owner;
+
+  /// People besides the owner who joined; loaded with the tracks.
+  final List<PlaylistMember> members;
+
+  /// The same playlist with [tracks] in this order.
+  Playlist withTracks(List<Track> tracks) => Playlist(
+        id: id,
+        name: name,
+        trackCount: tracks.length,
+        tracks: tracks,
+        createdAt: createdAt,
+        updatedAt: updatedAt,
+        shareToken: shareToken,
+        isPublic: isPublic,
+        isOwner: isOwner,
+        collabToken: collabToken,
+        owner: owner,
+        members: members,
+      );
+
+  /// Whether more than one person adds tracks to it.
+  bool get isCollaborative => !isOwner || members.isNotEmpty;
+
+  /// Whether the user may take [track] out: the owner any track, a member
+  /// only their own.
+  bool canRemove(Track track) => isOwner || track.addedBy == null;
+}
+
+/// Someone who joined a collaborative playlist.
+class PlaylistMember {
+  const PlaylistMember({required this.id, required this.name});
+
+  factory PlaylistMember.fromJson(Map<String, dynamic> json) => PlaylistMember(
+        id: json['id'] as String,
+        name: json['name'] as String,
+      );
+
+  final String id;
+
+  /// Their email, masked.
+  final String name;
 }
 
 /// How many people like a shared playlist, and whether the viewer does.
@@ -171,6 +238,18 @@ Uri sharedPlaylistLink(Uri origin, String shareToken, {bool public = false}) =>
         ? origin.replace(path: '/p/$shareToken', queryParameters: null)
         : origin
             .replace(path: '/app/', queryParameters: {'shared': shareToken});
+
+/// The link that lets someone join a collaborative playlist.
+Uri collabPlaylistLink(Uri origin, String collabToken) =>
+    origin.replace(path: '/app/', queryParameters: {'collab': collabToken});
+
+/// Finds the token in a pasted collaboration link, or returns null.
+String? collabTokenFrom(String input) {
+  final token = Uri.tryParse(input.trim())?.queryParameters['collab'];
+  return token != null && RegExp(r'^[A-Za-z0-9_-]{22}$').hasMatch(token)
+      ? token
+      : null;
+}
 
 /// Finds the share token in a pasted link or code, or returns null. It
 /// reads app links (`/app/?shared=…`, and the older `/?shared=…`), public

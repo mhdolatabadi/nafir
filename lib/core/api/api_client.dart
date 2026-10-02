@@ -78,6 +78,11 @@ abstract interface class TracksApi {
   /// A playback link for a track in a playlist shared with [shareToken].
   Future<StreamLink> sharedStreamLink(
       String? token, String shareToken, String trackId);
+
+  /// A playback link for a track another member added to a collaborative
+  /// playlist the user belongs to.
+  Future<StreamLink> playlistStreamLink(
+      String token, String playlistId, String trackId);
 }
 
 abstract interface class PlaylistsApi {
@@ -109,6 +114,23 @@ abstract interface class PlaylistsApi {
 
   /// Public playlists, most liked first.
   Future<List<PublicPlaylist>> listPublicPlaylists(String? token);
+
+  /// Makes a new collaboration link and returns its token; the old link
+  /// stops working.
+  Future<String> createCollabLink(String token, String playlistId);
+
+  /// Turns the collaboration link off; members stay.
+  Future<void> revokeCollabLink(String token, String playlistId);
+
+  /// Joins the playlist with this collaboration link.
+  Future<Playlist> joinPlaylist(String token, String collabToken);
+
+  /// The owner takes a member out, with the tracks they added.
+  Future<void> removePlaylistMember(
+      String token, String playlistId, String memberId);
+
+  /// Leaves a collaborative playlist, taking one's tracks out of it.
+  Future<void> leavePlaylist(String token, String playlistId);
 }
 
 /// A playlist's share link as its owner set it.
@@ -308,6 +330,59 @@ class ApiClient implements AuthApi, TracksApi, PlaylistsApi, BotsApi {
         token: token);
     return StreamLink(Uri.parse(body['url'] as String),
         DateTime.parse(body['expiresAt'] as String));
+  }
+
+  @override
+  Future<StreamLink> playlistStreamLink(
+      String token, String playlistId, String trackId) async {
+    final body = await _send(
+        'GET',
+        '/api/v1/playlists/${Uri.encodeComponent(playlistId)}'
+            '/tracks/${Uri.encodeComponent(trackId)}/stream',
+        token: token);
+    return StreamLink(Uri.parse(body['url'] as String),
+        DateTime.parse(body['expiresAt'] as String));
+  }
+
+  @override
+  Future<String> createCollabLink(String token, String playlistId) async {
+    final body = await _send(
+        'POST', '/api/v1/playlists/${Uri.encodeComponent(playlistId)}/collab',
+        token: token);
+    return body['collabToken'] as String;
+  }
+
+  @override
+  Future<void> revokeCollabLink(String token, String playlistId) async {
+    await _send(
+        'DELETE', '/api/v1/playlists/${Uri.encodeComponent(playlistId)}/collab',
+        token: token, expectBody: false);
+  }
+
+  @override
+  Future<Playlist> joinPlaylist(String token, String collabToken) async {
+    final body = await _send(
+        'POST', '/api/v1/collab/${Uri.encodeComponent(collabToken)}/join',
+        token: token);
+    return Playlist.fromJson(body);
+  }
+
+  @override
+  Future<void> removePlaylistMember(
+      String token, String playlistId, String memberId) async {
+    await _send(
+        'DELETE',
+        '/api/v1/playlists/${Uri.encodeComponent(playlistId)}'
+            '/members/${Uri.encodeComponent(memberId)}',
+        token: token,
+        expectBody: false);
+  }
+
+  @override
+  Future<void> leavePlaylist(String token, String playlistId) async {
+    await _send('DELETE',
+        '/api/v1/playlists/${Uri.encodeComponent(playlistId)}/membership',
+        token: token, expectBody: false);
   }
 
   @override

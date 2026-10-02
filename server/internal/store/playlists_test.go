@@ -25,7 +25,7 @@ func TestPlaylistListsItsReadyTracksInOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := playlists.ForOwner(ctx, user.ID, playlist.ID)
+	got, err := playlists.ForUser(ctx, user.ID, playlist.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +170,7 @@ func TestSavingASharedPlaylistCopiesItIntoTheAccount(t *testing.T) {
 	// originals does not touch them.
 	playlists.Unshare(ctx, owner.ID, playlist.ID)
 	tracks.Delete(ctx, owner.ID, a.ID)
-	if again, _ := playlists.ForOwner(ctx, friend.ID, saved.ID); len(again.Tracks) != 2 {
+	if again, _ := playlists.ForUser(ctx, friend.ID, saved.ID); len(again.Tracks) != 2 {
 		t.Fatalf("saved playlist changed with the original: %+v", again.Tracks)
 	}
 }

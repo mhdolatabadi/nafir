@@ -5,8 +5,43 @@ import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/playlists/application/playlists_controller.dart';
 import 'package:nafir/features/playlists/data/playlist.dart';
+import 'package:nafir/features/playlists/presentation/collab_sheet.dart';
 import 'package:nafir/features/playlists/presentation/popular_playlists_screen.dart';
 import 'package:nafir/features/playlists/presentation/shared_playlist_screen.dart';
+
+/// Joins the collaborative playlist with [collabToken] and opens it, or
+/// says why it couldn't.
+Future<void> joinCollabPlaylist(
+  BuildContext context, {
+  required String collabToken,
+  required PlaylistsController controller,
+  required List<Track> libraryTracks,
+  required PlayerController player,
+}) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final navigator = Navigator.of(context);
+  try {
+    final playlist = await controller.join(collabToken);
+    messenger.showSnackBar(SnackBar(
+        content: Text(playlist.isOwner
+            ? 'این Playlist خودت است.'
+            : 'به «${playlist.name}» پیوستی؛ حالا می‌توانی آهنگ‌هایت را اضافه کنی.')));
+    await navigator.push(MaterialPageRoute<void>(
+      builder: (_) => PlaylistDetailScreen(
+        playlistId: playlist.id,
+        controller: controller,
+        libraryTracks: libraryTracks,
+        player: player,
+      ),
+    ));
+  } on SharedPlaylistUnavailable {
+    messenger.showSnackBar(
+        const SnackBar(content: Text('این لینک دعوت اشتباه است یا باطل شده.')));
+  } catch (_) {
+    messenger.showSnackBar(
+        const SnackBar(content: Text('پیوستن ناموفق بود. دوباره تلاش کن.')));
+  }
+}
 
 /// The playlists overview on its own screen.
 class PlaylistsScreen extends StatelessWidget {
@@ -107,8 +142,8 @@ class _PlaylistsViewState extends State<PlaylistsView> {
           controller: field,
           autofocus: true,
           textDirection: TextDirection.ltr,
-          decoration:
-              const InputDecoration(hintText: 'لینک Playlist را اینجا بچسبان'),
+          decoration: const InputDecoration(
+              hintText: 'لینک Playlist یا دعوت را اینجا بچسبان'),
           onSubmitted: (value) => Navigator.pop(context, value),
         ),
         actions: [
@@ -125,6 +160,15 @@ class _PlaylistsViewState extends State<PlaylistsView> {
     );
     field.dispose();
     if (input == null || !mounted) return;
+    final collabToken = collabTokenFrom(input);
+    if (collabToken != null) {
+      await joinCollabPlaylist(context,
+          collabToken: collabToken,
+          controller: widget.controller,
+          libraryTracks: widget.libraryTracks,
+          player: widget.player);
+      return;
+    }
     final token = shareTokenFrom(input);
     if (token == null) {
       _message('این لینک Playlist نفیر نیست.');
@@ -397,18 +441,81 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     });
   }
 
+  /// Picks which of the user's own tracks are in the playlist. Tracks
+  /// other members added aren't in the user's library, so they stay as they
+  /// are; picked tracks keep their place, and new ones go at the end.
   Future<void> _selectTracks() async {
     final current = playlist;
     if (current == null) return;
+    final own = widget.libraryTracks.map((track) => track.id).toSet();
     final selected = await showDialog<Set<String>>(
       context: context,
       builder: (_) => _TrackPicker(
         tracks: widget.libraryTracks,
-        selected: current.tracks.map((track) => track.id).toSet(),
+        selected: {
+          for (final track in current.tracks)
+            if (own.contains(track.id)) track.id
+        },
       ),
     );
     if (selected == null) return;
-    await _save(selected.toList());
+    final kept = [
+      for (final track in current.tracks)
+        if (!own.contains(track.id) || selected.contains(track.id)) track.id
+    ];
+    await _save([
+      ...kept,
+      for (final id in selected)
+        if (!kept.contains(id)) id
+    ]);
+  }
+
+  Future<void> _removeTrack(Track track) async {
+    final current = playlist;
+    if (current == null) return;
+    await _save([
+      for (final item in current.tracks)
+        if (item.id != track.id) item.id
+    ]);
+  }
+
+  Future<void> _collab() async {
+    final current = playlist;
+    if (current == null) return;
+    await showCollabSheet(context,
+        playlist: current, controller: widget.controller);
+    if (mounted) await _load();
+  }
+
+  Future<void> _leave() async {
+    final current = playlist;
+    if (current == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('ترک Playlist؟'),
+        content: const Text(
+            'آهنگ‌هایی که به این Playlist اضافه کرده‌ای از آن بیرون می‌روند؛ در کتابخانه‌ات می‌مانند.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('ترک'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final left = await widget.controller.leave(current.id);
+    if (!mounted) return;
+    if (left) {
+      Navigator.pop(context);
+    } else {
+      _message('ترک Playlist ناموفق بود.');
+    }
   }
 
   Future<void> _save(List<String> ids) async {
@@ -419,7 +526,11 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       playlist = saved;
       busy = false;
     });
-    if (saved == null) _message('ذخیرهٔ Playlist ناموفق بود.');
+    if (saved == null) {
+      _message('ذخیرهٔ Playlist ناموفق بود.');
+      // Show what the server has, not the change it refused.
+      await _load();
+    }
   }
 
   Future<void> _share() async {
@@ -487,23 +598,39 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       appBar: AppBar(
         title: Text(current?.name ?? 'Playlist'),
         actions: [
-          IconButton(
-            tooltip: 'اشتراک‌گذاری',
-            onPressed: current == null ? null : _share,
-            icon: Icon(current?.shareToken == null
-                ? NafirIcons.shareNetwork
-                : NafirIcons.linkSimple),
-          ),
-          IconButton(
-            tooltip: 'تغییر نام',
-            onPressed: current == null ? null : _rename,
-            icon: const Icon(NafirIcons.pencilSimple),
-          ),
-          IconButton(
-            tooltip: 'حذف',
-            onPressed: current == null ? null : _delete,
-            icon: const Icon(NafirIcons.trash),
-          ),
+          // A member adds and removes their own tracks; the rest is the
+          // owner's.
+          if (current != null && !current.isOwner)
+            IconButton(
+              tooltip: 'ترک Playlist',
+              onPressed: _leave,
+              icon: const Icon(Icons.logout),
+            )
+          else ...[
+            IconButton(
+              tooltip: 'همکاری',
+              onPressed: current == null ? null : _collab,
+              icon: Icon(current?.collabToken == null
+                  ? Icons.group_add_outlined
+                  : Icons.group),
+            ),
+            IconButton(
+              tooltip: 'اشتراک‌گذاری',
+              onPressed: current == null ? null : _share,
+              icon:
+                  Icon(current?.shareToken == null ? Icons.share : Icons.link),
+            ),
+            IconButton(
+              tooltip: 'تغییر نام',
+              onPressed: current == null ? null : _rename,
+              icon: const Icon(Icons.edit_outlined),
+            ),
+            IconButton(
+              tooltip: 'حذف',
+              onPressed: current == null ? null : _delete,
+              icon: const Icon(Icons.delete_outline),
+            ),
+          ],
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -544,15 +671,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                       tracks.removeAt(oldIndex),
                                     );
                                     setState(() {
-                                      playlist = Playlist(
-                                        id: current.id,
-                                        name: current.name,
-                                        trackCount: tracks.length,
-                                        tracks: tracks,
-                                        createdAt: current.createdAt,
-                                        updatedAt: current.updatedAt,
-                                        shareToken: current.shareToken,
-                                      );
+                                      playlist = current.withTracks(tracks);
                                     });
                                     _save(tracks
                                         .map((track) => track.id)
@@ -569,14 +688,26 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                       subtitle: Text(
-                                        track.artist?.trim().isNotEmpty == true
-                                            ? track.artist!
-                                            : 'خواننده نامشخص',
+                                        [
+                                          track.artist?.trim().isNotEmpty ==
+                                                  true
+                                              ? track.artist!
+                                              : 'خواننده نامشخص',
+                                          if (track.addedBy case final who?)
+                                            'افزوده‌ی $who',
+                                        ].join(' · '),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
-                                      trailing: const Icon(
-                                          NafirIcons.dotsThreeVertical),
+                                      trailing: current.canRemove(track)
+                                          ? IconButton(
+                                              tooltip: 'حذف از Playlist',
+                                              onPressed: () =>
+                                                  _removeTrack(track),
+                                              icon: const Icon(
+                                                  Icons.remove_circle_outline),
+                                            )
+                                          : null,
                                       onTap: () => widget.player
                                           .playFrom(current.tracks, index),
                                     );
@@ -629,7 +760,15 @@ class _PlaylistDetailHeader extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${playlist.trackCount} قطعه موسیقی',
+                    [
+                      '${playlist.trackCount} قطعه موسیقی',
+                      if (!playlist.isOwner && playlist.owner != null)
+                        'از ${playlist.owner}'
+                      else if (playlist.members.isNotEmpty)
+                        'مشترک با ${playlist.members.length} نفر',
+                    ].join(' · '),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),

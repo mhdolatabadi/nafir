@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nafir/core/api/api_client.dart';
+import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/playlists/application/playlists_controller.dart';
 import 'package:nafir/features/playlists/data/playlist.dart';
@@ -17,6 +18,16 @@ const token = 'AAAAAAAAAAAAAAAAAAAAAA';
 
 /// One playlist `p1`, owned by the signed-in user, optionally shared.
 class FakePlaylistsApi implements PlaylistsApi {
+  // Collaboration: the playlist's link, members and whether the user owns it.
+  String? collabToken;
+  List<PlaylistMember> members = [];
+  bool isOwner = true;
+  List<Track> tracks = [];
+  final joined = <String>[];
+  final removedMembers = <String>[];
+  bool left = false;
+  List<String>? replacedWith;
+
   String? shareToken;
   bool isPublic = false;
   bool shareFails = false;
@@ -26,12 +37,16 @@ class FakePlaylistsApi implements PlaylistsApi {
   Playlist get playlist => Playlist(
         id: 'p1',
         name: 'mix',
-        trackCount: 0,
-        tracks: const [],
+        trackCount: tracks.length,
+        tracks: tracks,
         createdAt: DateTime.utc(2026),
         updatedAt: DateTime.utc(2026),
         shareToken: shareToken,
         isPublic: isPublic,
+        isOwner: isOwner,
+        collabToken: isOwner ? collabToken : null,
+        owner: 'o***@example.com',
+        members: members,
       );
 
   @override
@@ -111,10 +126,51 @@ class FakePlaylistsApi implements PlaylistsApi {
       playlist;
   @override
   Future<Playlist> replacePlaylistTracks(
-          String t, String id, List<String> trackIds) async =>
-      playlist;
+      String t, String id, List<String> trackIds) async {
+    replacedWith = trackIds;
+    return playlist;
+  }
+
   @override
   Future<void> deletePlaylist(String t, String id) async {}
+
+  int collabLinks = 0;
+
+  @override
+  Future<String> createCollabLink(String t, String playlistId) async {
+    collabLinks++;
+    return collabToken = '${'C' * 21}$collabLinks';
+  }
+
+  @override
+  Future<void> revokeCollabLink(String t, String playlistId) async {
+    collabToken = null;
+  }
+
+  @override
+  Future<Playlist> joinPlaylist(String t, String collab) async {
+    if (collab != collabToken) {
+      throw const ApiException('404', statusCode: 404, code: 'not_found');
+    }
+    joined.add(collab);
+    isOwner = false;
+    return playlist;
+  }
+
+  @override
+  Future<void> removePlaylistMember(
+      String t, String playlistId, String memberId) async {
+    removedMembers.add(memberId);
+    members = [
+      for (final m in members)
+        if (m.id != memberId) m
+    ];
+  }
+
+  @override
+  Future<void> leavePlaylist(String t, String playlistId) async {
+    left = true;
+  }
 }
 
 SharedPlaylist sharedMix() => SharedPlaylist.fromJson(token, {
