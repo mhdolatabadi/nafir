@@ -16,6 +16,10 @@ abstract final class AppConfiguration {
     return uri;
   }
 
+  /// A public page of the Nafir site, such as `/privacy`, which is served
+  /// from the same origin as the API.
+  static Uri? sitePage(String path) => apiBaseUri?.resolve(path);
+
   /// The share token of a playlist link the web app was opened with
   /// (`/app/?shared=…`), taken only once.
   static String? takeInitialShareToken() {

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -181,4 +182,62 @@ func (s *Storage) Copy(ctx context.Context, srcKey, dstKey string) error {
 		minio.CopyDestOptions{Bucket: s.bucket, Object: dstKey},
 		minio.CopySrcOptions{Bucket: s.bucket, Object: srcKey})
 	return err
+}
+
+// RemovePrefix deletes every object whose key starts with prefix and returns
+// how many it removed; an empty prefix is not an error. The prefix must be a
+// non-empty folder such as "users/<id>/", so a bad caller can never empty the
+// whole bucket.
+func (s *Storage) RemovePrefix(ctx context.Context, prefix string) (int, error) {
+	if !validPrefix(prefix) {
+		return 0, fmt.Errorf("refusing to remove objects under %q", prefix)
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	listed := s.internal.ListObjects(ctx, s.bucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
+	keys := make(chan minio.ObjectInfo)
+	type listing struct {
+		count int
+		err   error
+	}
+	// Buffered, so the lister never blocks on it; it is sent before keys closes.
+	done := make(chan listing, 1)
+	go func() {
+		defer close(keys)
+		count := 0
+		for object := range listed {
+			if object.Err != nil {
+				done <- listing{count, object.Err}
+				return
+			}
+			select {
+			case keys <- object:
+				count++
+			case <-ctx.Done():
+				done <- listing{count, ctx.Err()}
+				return
+			}
+		}
+		done <- listing{count, nil}
+	}()
+	var removeErr error
+	for result := range s.internal.RemoveObjects(ctx, s.bucket, keys, minio.RemoveObjectsOptions{}) {
+		if result.Err != nil && removeErr == nil {
+			removeErr = fmt.Errorf("remove %s: %w", result.ObjectName, result.Err)
+		}
+	}
+	listedKeys := <-done
+	if listedKeys.err != nil {
+		return 0, fmt.Errorf("list %s: %w", prefix, listedKeys.err)
+	}
+	if removeErr != nil {
+		return 0, removeErr
+	}
+	return listedKeys.count, nil
+}
+
+func validPrefix(prefix string) bool {
+	trimmed := strings.Trim(prefix, "/")
+	return trimmed != "" && strings.HasSuffix(prefix, "/") && !strings.HasPrefix(prefix, "/") &&
+		!strings.Contains(prefix, "//") && !strings.Contains(prefix, "..")
 }
