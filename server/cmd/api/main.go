@@ -17,6 +17,7 @@ import (
 	"github.com/mhdolatabadi/nafir/server/internal/auth"
 	"github.com/mhdolatabadi/nafir/server/internal/bot"
 	"github.com/mhdolatabadi/nafir/server/internal/httpapi"
+	"github.com/mhdolatabadi/nafir/server/internal/linkimport"
 	"github.com/mhdolatabadi/nafir/server/internal/storage"
 	"github.com/mhdolatabadi/nafir/server/internal/store"
 )
@@ -189,6 +190,20 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("bots: %w", err)
 	}
+	// Imports from song pages and audio links run through the same pipeline,
+	// quota and limits as the bots' imports.
+	linkImportRate, err := rateLimiterEnv("LINK_IMPORT_USER_RATE", 20, 10*time.Minute)
+	if err != nil {
+		return err
+	}
+	linkFetcher := linkimport.NewFetcher()
+	linkImports := linkimport.NewService(linkFetcher, linkimport.NewProvider(linkFetcher, maxUploadBytes),
+		bot.NewImporter(bots, tracks, objects, bot.UploadPolicy{
+			Enabled: uploadsEnabled, MaxFileBytes: maxUploadBytes,
+			MaxOwnerBytes: ownerQuotaBytes, MaxPending: maxPending,
+		}), bots, maxPending)
+	go linkImports.Resume(ctx)
+
 	var ops *httpapi.OpsHandlers
 	if opsToken := os.Getenv("OPS_TOKEN"); opsToken != "" {
 		if len(opsToken) < 32 {
@@ -217,9 +232,10 @@ func run() error {
 			Public: httpapi.NewPublicPages(playlists, objects,
 				httpapi.AnonymousLimits{View: publicViewRate, Stream: publicStreamRate}).
 				WithContact(os.Getenv("PRIVACY_CONTACT_EMAIL")),
-			Bots:     botHandlers,
-			Ops:      ops,
-			Webhooks: webhooks,
+			Bots:        botHandlers,
+			LinkImports: httpapi.NewLinkImportHandlers(linkImports, tokens, linkImportRate),
+			Ops:         ops,
+			Webhooks:    webhooks,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,

@@ -16,6 +16,8 @@ type Config struct {
 	Tracks        *TrackHandlers
 	Playlists     *PlaylistHandlers
 	Bots          *BotHandlers
+	// LinkImports adds music from song pages and audio links.
+	LinkImports *LinkImportHandlers
 	// Public serves the public HTML pages at /, /p/{token}, sitemap.xml and
 	// robots.txt.
 	Public *PublicPages
@@ -40,6 +42,9 @@ func NewHandler(config Config) http.Handler {
 	}
 	if config.Bots != nil {
 		config.Bots.register(mux)
+	}
+	if config.LinkImports != nil {
+		config.LinkImports.register(mux)
 	}
 	if config.Public != nil {
 		config.Public.register(mux)

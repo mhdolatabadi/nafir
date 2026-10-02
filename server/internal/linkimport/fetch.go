@@ -152,6 +152,12 @@ func (f *Fetcher) get(ctx context.Context, u *url.URL) (*http.Response, error) {
 	case errors.Is(err, ErrInvalidURL):
 		return nil, ErrInvalidURL
 	case err != nil:
+		// Keep the link out of the error: it may be private, and import
+		// failures are logged.
+		var urlErr *url.Error
+		if errors.As(err, &urlErr) {
+			err = urlErr.Err
+		}
 		return nil, fmt.Errorf("%w: %v", ErrUnreachable, err)
 	}
 	if resp.StatusCode != http.StatusOK {
