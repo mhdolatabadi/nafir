@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/features/link_import/application/link_import_controller.dart';
+import 'package:nafir/features/link_import/data/link_import.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nafir/app/app_configuration.dart';
@@ -37,6 +39,7 @@ class NafirApp extends StatefulWidget {
     this.tracksApi,
     this.playlistsApi,
     this.botsApi,
+    this.linkImportsApi,
     this.uploader,
     this.picker,
     this.audioEngine,
@@ -53,6 +56,7 @@ class NafirApp extends StatefulWidget {
   final TracksApi? tracksApi;
   final PlaylistsApi? playlistsApi;
   final BotsApi? botsApi;
+  final LinkImportsApi? linkImportsApi;
   final StorageUploader? uploader;
   final AudioPicker? picker;
   final AudioEngine? audioEngine;
@@ -90,6 +94,12 @@ class _NafirAppState extends State<NafirApp> {
   late final BotLinkController? _botLinks = _botsApi == null
       ? null
       : BotLinkController(api: _botsApi, token: () => _auth?.token);
+
+  late final LinkImportsApi? _linkImportsApi =
+      widget.linkImportsApi ?? _apiClient;
+  late final LinkImportController? _linkImports = _linkImportsApi == null
+      ? null
+      : LinkImportController(api: _linkImportsApi, token: () => _auth?.token);
 
   late final UploadController? _uploads = _tracksApi == null
       ? null
@@ -138,6 +148,7 @@ class _NafirAppState extends State<NafirApp> {
     _library?.dispose();
     _playlists?.dispose();
     _botLinks?.dispose();
+    _linkImports?.dispose();
     _localAudio.dispose();
     _cache.dispose();
     super.dispose();
@@ -170,6 +181,7 @@ class _NafirAppState extends State<NafirApp> {
                 uploads: _uploads,
                 cache: _cache,
                 botLinks: _botLinks,
+                linkImports: _linkImports,
                 picker: widget.picker ?? FilePickerAudioPicker(),
               ),
       ),

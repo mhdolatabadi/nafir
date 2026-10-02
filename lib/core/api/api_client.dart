@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:nafir/features/auth/data/auth_models.dart';
 import 'package:nafir/features/bots/data/messenger_bot.dart';
 import 'package:nafir/features/library/data/track.dart';
+import 'package:nafir/features/link_import/data/link_import.dart';
 import 'package:nafir/features/playlists/data/playlist.dart';
 import 'package:nafir/features/upload/data/upload_models.dart';
 
@@ -144,7 +145,8 @@ abstract interface class BotsApi {
   Future<void> sendTrackToBot(String token, String provider, String trackId);
 }
 
-class ApiClient implements AuthApi, TracksApi, PlaylistsApi, BotsApi {
+class ApiClient
+    implements AuthApi, TracksApi, PlaylistsApi, BotsApi, LinkImportsApi {
   ApiClient(this.baseUri, {http.Client? httpClient})
       : _httpClient = httpClient ?? http.Client();
 
@@ -441,6 +443,22 @@ class ApiClient implements AuthApi, TracksApi, PlaylistsApi, BotsApi {
       String token, String provider, String trackId) async {
     await _send('POST', '/api/v1/bots/${Uri.encodeComponent(provider)}/send',
         token: token, body: {'trackId': trackId}, expectBody: false);
+  }
+
+  @override
+  Future<LinkImport> importFromLink(String token, String url) async {
+    final body = await _send('POST', '/api/v1/imports/link',
+        body: {'url': url}, token: token);
+    return LinkImport.fromJson(body);
+  }
+
+  @override
+  Future<List<LinkImport>> listLinkImports(String token) async {
+    final body = await _send('GET', '/api/v1/imports/link', token: token);
+    return [
+      for (final json in body['imports'] as List<dynamic>)
+        LinkImport.fromJson(json as Map<String, dynamic>),
+    ];
   }
 
   Future<Map<String, dynamic>> _send(
