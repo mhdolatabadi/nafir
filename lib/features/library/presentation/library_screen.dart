@@ -97,6 +97,18 @@ class _LibraryScreenState extends State<LibraryScreen>
         ));
       });
     }
+    // Opened from a collaboration link: join it once signed in.
+    final collabToken = AppConfiguration.takeInitialCollabToken();
+    if (collabToken != null && playlists != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        joinCollabPlaylist(context,
+            collabToken: collabToken,
+            controller: playlists,
+            libraryTracks: widget.library.tracks,
+            player: widget.player);
+      });
+    }
     widget.uploads.addListener(_onUploadChanged);
   }
 

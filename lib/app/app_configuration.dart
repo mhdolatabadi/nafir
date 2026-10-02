@@ -26,4 +26,21 @@ abstract final class AppConfiguration {
   }
 
   static bool _shareTokenTaken = false;
+
+  /// The collaboration link the web app was opened with (`/app/?collab=…`),
+  /// to join once signed in. Taken only once.
+  static String? takeInitialCollabToken() {
+    if (!kIsWeb || _collabTokenTaken) return null;
+    _collabTokenTaken = true;
+    return peekInitialCollabToken();
+  }
+
+  /// The same, without taking it: a guest is asked to sign in first.
+  static String? peekInitialCollabToken() {
+    if (!kIsWeb || _collabTokenTaken) return null;
+    final token = Uri.base.queryParameters['collab'];
+    return token == null || token.isEmpty ? null : token;
+  }
+
+  static bool _collabTokenTaken = false;
 }
