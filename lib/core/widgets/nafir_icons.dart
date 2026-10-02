@@ -70,6 +70,12 @@ abstract final class NafirIcons {
       IconData(0xe4e2, fontFamily: 'Phosphor');
   static const IconData waveform = IconData(0xe802, fontFamily: 'Phosphor');
   static const IconData x = IconData(0xe4f6, fontFamily: 'Phosphor');
+  static const IconData users = IconData(0xe4d6, fontFamily: 'Phosphor');
+  static const IconData userPlus = IconData(0xe4d0, fontFamily: 'Phosphor');
+  static const IconData userMinus = IconData(0xe4ce, fontFamily: 'Phosphor');
+  static const IconData minusCircle = IconData(0xe32c, fontFamily: 'Phosphor');
+  static const IconData usersFill =
+      IconData(0xe4d6, fontFamily: 'PhosphorFill');
   static const IconData heartFill =
       IconData(0xe2a8, fontFamily: 'PhosphorFill');
   static const IconData pauseFill =
