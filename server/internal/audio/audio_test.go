@@ -1,6 +1,11 @@
 package audio
 
-import "testing"
+import (
+	"errors"
+	"path"
+	"strings"
+	"testing"
+)
 
 func TestContentType(t *testing.T) {
 	for name, want := range map[string]string{
@@ -64,5 +69,71 @@ func TestTitle(t *testing.T) {
 	}
 	if got := Title(".mp3"); got != "Untitled" {
 		t.Errorf("Title = %q", got)
+	}
+}
+
+func TestValidFileName(t *testing.T) {
+	for _, tc := range []struct{ in, current, want string }{
+		{" آهنگ من.mp3 ", "track.mp3", "آهنگ من.mp3"},
+		{"New Name.MP3", "old.mp3", "New Name.mp3"},
+		{"می‌خواهم.flac", "a.FLAC", "می‌خواهم.FLAC"},
+		{"Track 01 - Intro.ogg", "x.ogg", "Track 01 - Intro.ogg"},
+	} {
+		got, err := ValidFileName(tc.in, tc.current)
+		if err != nil || got != tc.want {
+			t.Errorf("ValidFileName(%q, %q) = %q, %v; want %q", tc.in, tc.current, got, err, tc.want)
+		}
+	}
+	for _, tc := range []struct {
+		in, current string
+		want        error
+	}{
+		{"", "a.mp3", ErrFileNameEmpty},
+		{"   ", "a.mp3", ErrFileNameEmpty},
+		{".mp3", "a.mp3", ErrFileNameUnsafe},
+		{" .mp3", "a.mp3", ErrFileNameUnsafe},
+		{"..mp3", "a.mp3", ErrFileNameUnsafe},
+		{"a..mp3", "a.mp3", ErrFileNameEmpty},
+		{"../../etc/passwd.mp3", "a.mp3", ErrFileNameUnsafe},
+		{`..\secret.mp3`, "a.mp3", ErrFileNameUnsafe},
+		{"song.flac", "a.mp3", ErrFileNameExtension},
+		{"song", "a.mp3", ErrFileNameExtension},
+		{"song.mp3.exe", "a.mp3", ErrFileNameExtension},
+		{"song.mp3", "noext", ErrFileNameExtension},
+		{"evil\u202Egpj.mp3", "a.mp3", ErrFileNameUnsafe},
+		{"evil\u2067x.mp3", "a.mp3", ErrFileNameUnsafe},
+		{"line\nbreak.mp3", "a.mp3", ErrFileNameUnsafe},
+		{"nul\x00.mp3", "a.mp3", ErrFileNameUnsafe},
+		{`quote".mp3`, "a.mp3", ErrFileNameUnsafe},
+		{"what?.mp3", "a.mp3", ErrFileNameUnsafe},
+		{"bad\xff.mp3", "a.mp3", ErrFileNameUnsafe},
+		{strings.Repeat("x", 197) + ".mp3", "a.mp3", ErrFileNameTooLong},
+		{strings.Repeat("آ", 130) + ".mp3", "a.mp3", ErrFileNameTooLong}, // 264 bytes
+	} {
+		if _, err := ValidFileName(tc.in, tc.current); !errors.Is(err, tc.want) {
+			t.Errorf("ValidFileName(%q, %q) error = %v, want %v", tc.in, tc.current, err, tc.want)
+		}
+	}
+}
+
+func TestDisplayFileName(t *testing.T) {
+	for in, want := range map[string]string{
+		"آهنگ من.MP3":            "آهنگ من.mp3",
+		"../../etc/passwd.mp3":   "passwd.mp3",
+		`C:\Music\a b.flac`:      "a b.flac",
+		"what?\u202E.mp3":        "what.mp3",
+		".mp3":                   "track.mp3",
+		"":                       "track",
+		strings.Repeat("ب", 300): strings.Repeat("ب", 127),
+	} {
+		got := DisplayFileName(in)
+		if got != want {
+			t.Errorf("DisplayFileName(%q) = %q, want %q", in, got, want)
+		}
+		if got != "track" {
+			if _, err := ValidFileName(got, "x"+path.Ext(got)); err != nil && path.Ext(got) != "" {
+				t.Errorf("DisplayFileName(%q) = %q is not a valid file name: %v", in, got, err)
+			}
+		}
 	}
 }

@@ -6,8 +6,10 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/mhdolatabadi/nafir/server/internal/audio"
@@ -19,6 +21,11 @@ import (
 const (
 	maxTrackBodyBytes = 4 << 10
 	maxTextLength     = 200
+	// maxMetadataBodyBytes fits every editable field at its longest, in a
+	// script that needs several bytes per character.
+	maxMetadataBodyBytes = 24 << 10
+	maxCommentLength     = 1000
+	maxTrackNumber       = 999
 )
 
 // TrackStore reads and writes tracks for one owner; *store.Tracks implements it.
@@ -28,7 +35,7 @@ type TrackStore interface {
 	ForOwner(ctx context.Context, ownerID, trackID string) (store.Track, error)
 	ReservePending(ctx context.Context, ownerID string, track store.NewTrack, maxOwnerBytes int64, maxPending int) (store.Track, error)
 	MarkReady(ctx context.Context, ownerID, trackID string) (store.Track, error)
-	UpdateMetadata(ctx context.Context, ownerID, trackID string, metadata store.TrackMetadata) (store.Track, error)
+	UpdateMetadata(ctx context.Context, ownerID, trackID string, expectedVersion int64, metadata store.TrackMetadata) (store.Track, error)
 	Delete(ctx context.Context, ownerID, trackID string) error
 }
 
@@ -92,6 +99,8 @@ type trackResponse struct {
 	SizeBytes   int64     `json:"sizeBytes"`
 	Source      string    `json:"source"`
 	CreatedAt   time.Time `json:"createdAt"`
+	// Version is the metadata version an edit must be based on.
+	Version int64 `json:"version"`
 }
 
 func toTrackResponse(t store.Track) trackResponse {
@@ -100,7 +109,7 @@ func toTrackResponse(t store.Track) trackResponse {
 		Composer: t.Composer, Genre: t.Genre, Year: t.Year, TrackNumber: t.TrackNumber,
 		DiscNumber: t.DiscNumber, Comment: t.Comment, DurationMS: t.DurationMS,
 		FileName: t.FileName, ContentType: t.ContentType, SizeBytes: t.SizeBytes,
-		Source: t.Source, CreatedAt: t.CreatedAt.UTC(),
+		Source: t.Source, CreatedAt: t.CreatedAt.UTC(), Version: t.MetadataVersion,
 	}
 }
 
@@ -133,7 +142,12 @@ type streamResponse struct {
 	ExpiresAt time.Time `json:"expiresAt"`
 }
 
+// updateTrackRequest replaces the editable metadata: an omitted or empty
+// optional field clears it. FileName may be omitted to keep the current one.
 type updateTrackRequest struct {
+	// Version is the metadata version the edit is based on. It may instead
+	// be sent as an If-Match header.
+	Version     *int64  `json:"version"`
 	FileName    *string `json:"fileName"`
 	Title       *string `json:"title"`
 	Artist      *string `json:"artist"`
@@ -202,54 +216,47 @@ func (h *TrackHandlers) handleStream(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, streamResponse{URL: url, ExpiresAt: expiresAt.UTC()})
 }
 
+// metadataErrorResponse names the first field that failed validation so the
+// app can point at it.
+type metadataErrorResponse struct {
+	Error string `json:"error"`
+	Field string `json:"field"`
+}
+
+// conflictResponse carries the current track so the app can show what
+// changed instead of overwriting it.
+type conflictResponse struct {
+	Error string        `json:"error"`
+	Track trackResponse `json:"track"`
+}
+
 func (h *TrackHandlers) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	track, ok := h.readyTrack(w, r)
 	if !ok {
 		return
 	}
 	var input updateTrackRequest
-	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxTrackBodyBytes))
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxMetadataBodyBytes))
 	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&input); err != nil {
+	if err := decoder.Decode(&input); err != nil || decoder.More() {
 		writeError(w, http.StatusBadRequest, "invalid_json")
 		return
 	}
-	title := optionalText(input.Title)
-	if title == nil {
-		writeError(w, http.StatusBadRequest, "invalid_metadata")
+	version, ok := requestVersion(r, input.Version)
+	if !ok {
+		writeError(w, http.StatusPreconditionRequired, "version_required")
 		return
 	}
-	fileName := track.FileName
-	if input.FileName != nil {
-		candidate := optionalText(input.FileName)
-		if candidate == nil {
-			writeError(w, http.StatusBadRequest, "invalid_metadata")
-			return
-		}
-		fileName = audio.SafeFileName(*candidate)
-		contentType, ok := audio.ContentType(fileName)
-		if !ok || contentType != track.ContentType {
-			writeError(w, http.StatusBadRequest, "invalid_metadata")
-			return
-		}
-	}
-	artist := optionalText(input.Artist)
-	album := optionalText(input.Album)
-	albumArtist := optionalText(input.AlbumArtist)
-	composer := optionalText(input.Composer)
-	genre := optionalText(input.Genre)
-	comment := optionalText(input.Comment)
-	if tooLong(title) || tooLong(&fileName) || tooLong(artist) || tooLong(album) ||
-		tooLong(albumArtist) || tooLong(composer) || tooLong(genre) || tooLong(comment) ||
-		!validYear(input.Year) || !positive(input.TrackNumber) || !positive(input.DiscNumber) {
-		writeError(w, http.StatusBadRequest, "invalid_metadata")
+	metadata, field := validateMetadata(track, input)
+	if field != "" {
+		writeJSON(w, http.StatusBadRequest, metadataErrorResponse{Error: "invalid_metadata", Field: field})
 		return
 	}
-	updated, err := h.tracks.UpdateMetadata(r.Context(), track.OwnerID, track.ID, store.TrackMetadata{
-		FileName: fileName, Title: *title, Artist: artist, Album: album,
-		AlbumArtist: albumArtist, Composer: composer, Genre: genre, Year: input.Year,
-		TrackNumber: input.TrackNumber, DiscNumber: input.DiscNumber, Comment: comment,
-	})
+	updated, err := h.tracks.UpdateMetadata(r.Context(), track.OwnerID, track.ID, version, metadata)
+	if errors.Is(err, store.ErrVersionConflict) {
+		h.writeConflict(w, r, track)
+		return
+	}
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "not_found")
 		return
@@ -259,6 +266,87 @@ func (h *TrackHandlers) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, toTrackResponse(updated))
+}
+
+// writeConflict answers 409 with the latest saved version of track.
+func (h *TrackHandlers) writeConflict(w http.ResponseWriter, r *http.Request, track store.Track) {
+	latest, err := h.tracks.ForOwner(r.Context(), track.OwnerID, track.ID)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "not_found")
+		return
+	}
+	if err != nil {
+		internalError(w, "reload track", err)
+		return
+	}
+	writeJSON(w, http.StatusConflict, conflictResponse{Error: "version_conflict", Track: toTrackResponse(latest)})
+}
+
+// requestVersion reads the version an edit is based on, from the body or
+// from an If-Match header such as "3" (an ETag-style quoted number).
+func requestVersion(r *http.Request, body *int64) (int64, bool) {
+	if body != nil {
+		return *body, *body > 0
+	}
+	raw := strings.TrimSpace(r.Header.Get("If-Match"))
+	raw = strings.TrimPrefix(raw, "W/")
+	raw = strings.Trim(raw, `"`)
+	if raw == "" {
+		return 0, false
+	}
+	version, err := strconv.ParseInt(raw, 10, 64)
+	return version, err == nil && version > 0
+}
+
+// validateMetadata checks and normalizes an edit of track, returning the name
+// of the first invalid field, if any.
+func validateMetadata(track store.Track, input updateTrackRequest) (store.TrackMetadata, string) {
+	metadata := store.TrackMetadata{
+		FileName: track.FileName, Year: input.Year,
+		TrackNumber: input.TrackNumber, DiscNumber: input.DiscNumber,
+	}
+	if input.FileName != nil {
+		fileName, err := audio.ValidFileName(*input.FileName, track.FileName)
+		if err != nil {
+			return metadata, "fileName"
+		}
+		metadata.FileName = fileName
+	}
+	title := optionalText(input.Title)
+	if title == nil || !validText(title, maxTextLength) {
+		return metadata, "title"
+	}
+	metadata.Title = *title
+	for _, field := range []struct {
+		name  string
+		value *string
+		into  **string
+	}{
+		{"artist", input.Artist, &metadata.Artist},
+		{"album", input.Album, &metadata.Album},
+		{"albumArtist", input.AlbumArtist, &metadata.AlbumArtist},
+		{"composer", input.Composer, &metadata.Composer},
+		{"genre", input.Genre, &metadata.Genre},
+	} {
+		value := optionalText(field.value)
+		if !validText(value, maxTextLength) {
+			return metadata, field.name
+		}
+		*field.into = value
+	}
+	metadata.Comment = optionalText(input.Comment)
+	if !validComment(metadata.Comment) {
+		return metadata, "comment"
+	}
+	switch {
+	case !validYear(input.Year):
+		return metadata, "year"
+	case !inRange(input.TrackNumber, 1, maxTrackNumber):
+		return metadata, "trackNumber"
+	case !inRange(input.DiscNumber, 1, maxTrackNumber):
+		return metadata, "discNumber"
+	}
+	return metadata, ""
 }
 
 // ownedTrack loads the {id} track for the authenticated user. Another user's
@@ -359,7 +447,7 @@ func (h *TrackHandlers) handleCreateUpload(w http.ResponseWriter, r *http.Reques
 		Title:       *title,
 		Artist:      optionalText(input.Artist),
 		Album:       optionalText(input.Album),
-		FileName:    audio.SafeFileName(input.FileName),
+		FileName:    audio.DisplayFileName(input.FileName),
 		ContentType: contentType,
 		SizeBytes:   input.SizeBytes,
 	}, h.limits.MaxOwnerBytes, h.limits.MaxPending)
@@ -473,9 +561,34 @@ func tooLong(value *string) bool {
 }
 
 func validYear(value *int32) bool {
-	return value == nil || (*value >= 0 && *value <= 9999)
+	return inRange(value, 0, 9999)
 }
 
-func positive(value *int32) bool {
-	return value == nil || *value > 0
+func inRange(value *int32, low, high int32) bool {
+	return value == nil || (*value >= low && *value <= high)
+}
+
+// validText accepts a single line of at most max characters.
+func validText(value *string, max int) bool {
+	if value == nil {
+		return true
+	}
+	if utf8.RuneCountInString(*value) > max {
+		return false
+	}
+	for _, r := range *value {
+		if unicode.IsControl(r) || r == utf8.RuneError {
+			return false
+		}
+	}
+	return true
+}
+
+// validComment is validText that also allows line breaks and tabs.
+func validComment(value *string) bool {
+	if value == nil {
+		return true
+	}
+	singleLine := strings.NewReplacer("\r\n", " ", "\n", " ", "\t", " ").Replace(*value)
+	return validText(&singleLine, maxCommentLength)
 }

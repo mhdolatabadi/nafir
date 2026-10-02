@@ -79,7 +79,30 @@ void main() {
     expect(library.tracks.single.title, 'New title');
     expect(library.tracks.single.artist, 'New artist');
     expect(library.tracks.single.album, isNull);
+    expect(library.tracks.single.version, 2);
     expect(library.isUpdating('s1'), isFalse);
+  });
+
+  test('a metadata edit sends the version it is based on', () async {
+    final api = FakeTracksApi([_song]);
+    final library = LibraryController(api: api, token: () => 'tok');
+    await library.load();
+
+    expect(await library.updateTrackMetadata('s1', title: 'One'), isTrue);
+    // The second edit is based on the version the first one returned.
+    expect(await library.updateTrackMetadata('s1', title: 'Two'), isTrue);
+    expect(library.tracks.single.version, 3);
+
+    // A stale copy elsewhere is rejected by the server as a conflict.
+    api.tracks[0] = Track(
+      id: 's1',
+      title: 'Changed elsewhere',
+      contentType: 'audio/mpeg',
+      sizeBytes: 1000,
+      version: 9,
+    );
+    expect(await library.updateTrackMetadata('s1', title: 'Three'), isFalse);
+    expect(library.tracks.single.title, 'Two');
   });
 
   test('a failed metadata edit keeps the track and clears busy state',

@@ -126,6 +126,8 @@ class LibraryController extends ChangeNotifier {
   }) async {
     final token = _token();
     if (token == null || _updatingTrackIds.contains(trackId)) return false;
+    final current = _tracks.where((track) => track.id == trackId).firstOrNull;
+    if (current == null) return false;
     final trimmedTitle = title.trim();
     if (trimmedTitle.isEmpty) return false;
     String? clean(String? value) {
@@ -139,6 +141,7 @@ class LibraryController extends ChangeNotifier {
       final updated = await _api.updateTrackMetadata(
         token,
         trackId,
+        version: current.version,
         title: trimmedTitle,
         artist: clean(artist),
         album: clean(album),
