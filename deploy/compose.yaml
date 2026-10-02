@@ -43,6 +43,9 @@ services:
       PUBLIC_VIEW_RATE_WINDOW: ${PUBLIC_VIEW_RATE_WINDOW:-10m}
       PUBLIC_STREAM_RATE_REQUESTS: ${PUBLIC_STREAM_RATE_REQUESTS:-300}
       PUBLIC_STREAM_RATE_WINDOW: ${PUBLIC_STREAM_RATE_WINDOW:-10m}
+      # Links one user may submit for import (each makes the server fetch a page).
+      LINK_IMPORT_USER_RATE_REQUESTS: ${LINK_IMPORT_USER_RATE_REQUESTS:-20}
+      LINK_IMPORT_USER_RATE_WINDOW: ${LINK_IMPORT_USER_RATE_WINDOW:-10m}
       # Each messenger bot stays off until its token is set; see README.md.
       BALE_BOT_TOKEN: ${BALE_BOT_TOKEN:-}
       BALE_BOT_USERNAME: ${BALE_BOT_USERNAME:-}

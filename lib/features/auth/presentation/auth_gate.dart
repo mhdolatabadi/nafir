@@ -12,6 +12,7 @@ import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/playlists/application/playlists_controller.dart';
 import 'package:nafir/features/playlists/presentation/popular_playlists_screen.dart';
 import 'package:nafir/features/bots/application/bot_link_controller.dart';
+import 'package:nafir/features/link_import/application/link_import_controller.dart';
 import 'package:nafir/features/settings/application/cache_controller.dart';
 import 'package:nafir/features/upload/application/upload_controller.dart';
 import 'package:nafir/features/upload/data/audio_picker.dart';
@@ -28,6 +29,7 @@ class AuthGate extends StatefulWidget {
     required this.uploads,
     required this.cache,
     this.botLinks,
+    this.linkImports,
     required this.picker,
     required this.player,
   });
@@ -40,6 +42,7 @@ class AuthGate extends StatefulWidget {
   final UploadController uploads;
   final CacheController cache;
   final BotLinkController? botLinks;
+  final LinkImportController? linkImports;
   final AudioPicker picker;
 
   @override
@@ -88,6 +91,7 @@ class _AuthGateState extends State<AuthGate> {
     widget.library.clear();
     widget.playlists?.clear();
     widget.botLinks?.clear();
+    widget.linkImports?.clear();
     widget.uploads.dismiss();
   }
 
@@ -143,6 +147,7 @@ class _AuthGateState extends State<AuthGate> {
               uploads: widget.uploads,
               cache: widget.cache,
               botLinks: widget.botLinks,
+              linkImports: widget.linkImports,
               picker: widget.picker,
             ),
         };
