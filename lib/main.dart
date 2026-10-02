@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/features/link_import/application/link_import_controller.dart';
+import 'package:nafir/features/link_import/data/link_import.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nafir/app/app_configuration.dart';
@@ -10,8 +12,11 @@ import 'package:nafir/features/auth/data/token_store.dart';
 import 'package:nafir/features/auth/presentation/auth_gate.dart';
 import 'package:nafir/features/bots/application/bot_link_controller.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
+import 'package:nafir/features/library/application/library_sync_controller.dart';
 import 'package:nafir/features/library/application/local_audio_controller.dart';
 import 'package:nafir/features/library/data/local_audio_library.dart';
+import 'package:nafir/features/library/data/local_audio_upload.dart';
+import 'package:nafir/features/player/application/favorite_tracks.dart';
 import 'package:nafir/features/player/application/media_session.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/data/audio_cache.dart';
@@ -37,11 +42,14 @@ class NafirApp extends StatefulWidget {
     this.tracksApi,
     this.playlistsApi,
     this.botsApi,
+    this.linkImportsApi,
     this.uploader,
     this.picker,
     this.audioEngine,
     this.audioCache,
     this.localAudioLibrary,
+    this.localAudioUpload,
+    this.favoritesStore,
     this.mediaSession,
   });
 
@@ -53,11 +61,14 @@ class NafirApp extends StatefulWidget {
   final TracksApi? tracksApi;
   final PlaylistsApi? playlistsApi;
   final BotsApi? botsApi;
+  final LinkImportsApi? linkImportsApi;
   final StorageUploader? uploader;
   final AudioPicker? picker;
   final AudioEngine? audioEngine;
   final AudioCache? audioCache;
   final LocalAudioLibrary? localAudioLibrary;
+  final LocalAudioUploadSource? localAudioUpload;
+  final FavoritesStore? favoritesStore;
 
   /// System media controls; null in tests and where they are unavailable.
   final NafirAudioHandler? mediaSession;
@@ -91,6 +102,12 @@ class _NafirAppState extends State<NafirApp> {
       ? null
       : BotLinkController(api: _botsApi, token: () => _auth?.token);
 
+  late final LinkImportsApi? _linkImportsApi =
+      widget.linkImportsApi ?? _apiClient;
+  late final LinkImportController? _linkImports = _linkImportsApi == null
+      ? null
+      : LinkImportController(api: _linkImportsApi, token: () => _auth?.token);
+
   late final UploadController? _uploads = _tracksApi == null
       ? null
       : UploadController(
@@ -112,11 +129,25 @@ class _NafirAppState extends State<NafirApp> {
           api: _tracksApi,
           engine: widget.audioEngine ?? JustAudioEngine(cache: _audioCache),
           token: () => _auth?.token,
+          favorites: FavoriteTracks(
+            store: widget.favoritesStore ?? SecureFavoritesStore(),
+          )..load(),
         );
 
   late final LocalAudioController _localAudio = LocalAudioController(
     widget.localAudioLibrary ?? createLocalAudioLibrary(),
   );
+
+  late final LibrarySyncController? _sync = _uploads == null
+      ? null
+      : LibrarySyncController(
+          uploads: _uploads,
+          uploadSource:
+              widget.localAudioUpload ?? createLocalAudioUploadSource(),
+          onUploaded: () async {
+            await _library?.load();
+          },
+        );
 
   late final CacheController _cache = CacheController(
     cache: _audioCache,
@@ -134,10 +165,12 @@ class _NafirAppState extends State<NafirApp> {
   void dispose() {
     _player?.dispose();
     _auth?.dispose();
+    _sync?.dispose();
     _uploads?.dispose();
     _library?.dispose();
     _playlists?.dispose();
     _botLinks?.dispose();
+    _linkImports?.dispose();
     _localAudio.dispose();
     _cache.dispose();
     super.dispose();
@@ -158,6 +191,7 @@ class _NafirAppState extends State<NafirApp> {
         healthCheck: widget.healthCheck ?? _apiClient?.checkHealth,
         child: _auth == null ||
                 _uploads == null ||
+                _sync == null ||
                 _library == null ||
                 _player == null
             ? const SizedBox.shrink()
@@ -168,8 +202,10 @@ class _NafirAppState extends State<NafirApp> {
                 playlists: _playlists,
                 localAudio: _localAudio,
                 uploads: _uploads,
+                sync: _sync,
                 cache: _cache,
                 botLinks: _botLinks,
+                linkImports: _linkImports,
                 picker: widget.picker ?? FilePickerAudioPicker(),
               ),
       ),

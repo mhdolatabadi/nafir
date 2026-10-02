@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/app/app_configuration.dart';
+import 'package:nafir/core/links/open_link.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/core/format_size.dart';
 import 'package:nafir/features/bots/application/bot_link_controller.dart';
 import 'package:nafir/features/bots/presentation/bot_link_section.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
 import 'package:nafir/features/settings/application/cache_controller.dart';
+import 'package:nafir/features/settings/presentation/delete_account_screen.dart';
 import 'package:nafir/features/settings/presentation/storage_usage_card.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -13,7 +16,23 @@ class SettingsScreen extends StatefulWidget {
     required this.cache,
     this.botLinks,
     this.library,
+    this.email,
+    this.onDeleteAccount,
+    this.siteUri = AppConfiguration.sitePage,
+    this.openLink = openExternalLink,
   });
+
+  /// The signed-in account; null hides the account section.
+  final String? email;
+
+  /// Deletes the account; null hides the option.
+  final Future<void> Function(String password)? onDeleteAccount;
+
+  /// Where a page of the Nafir site, such as `/privacy`, lives; null when
+  /// there is no server.
+  final Uri? Function(String path) siteUri;
+
+  final LinkOpener openLink;
 
   final CacheController cache;
 
@@ -63,11 +82,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ));
   }
 
+  Future<void> _openPage(String path) async {
+    final uri = widget.siteUri(path);
+    final opened = uri != null && await widget.openLink(uri);
+    if (opened || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text('باز کردن صفحه ممکن نشد.'),
+    ));
+  }
+
+  void _openDeleteAccount(String email, Future<void> Function(String) delete) {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => DeleteAccountScreen(
+        email: email,
+        onDelete: delete,
+        onOpenPage: _openPage,
+      ),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
+    final error = Theme.of(context).colorScheme.error;
     return Scaffold(
       appBar: AppBar(title: const Text('تنظیمات')),
       body: ListView(
+        // System navigation never covers the last item.
+        padding: EdgeInsets.only(
+          bottom: 24 + MediaQuery.paddingOf(context).bottom,
+        ),
         children: [
           if (widget.library case final library?)
             Padding(
@@ -114,6 +157,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           if (widget.botLinks case final botLinks?)
             BotLinkSection(controller: botLinks),
+          const Divider(),
+          ListTile(
+            title: const Text('حساب کاربری'),
+            subtitle: widget.email == null
+                ? null
+                : Text(
+                    widget.email!,
+                    textDirection: TextDirection.ltr,
+                    textAlign: TextAlign.end,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+          ),
+          ListTile(
+            leading: const Icon(NafirIcons.shieldCheck),
+            title: const Text('حریم خصوصی'),
+            subtitle: const Text('چه چیزهایی نگه می‌داریم و چه کسی می‌بیند'),
+            trailing: const Icon(NafirIcons.arrowSquareOut, size: 20),
+            onTap: () => _openPage('/privacy'),
+          ),
+          if ((widget.email, widget.onDeleteAccount)
+              case (final String email, final delete?))
+            ListTile(
+              leading: Icon(NafirIcons.userCircleMinus, color: error),
+              iconColor: error,
+              textColor: error,
+              title: const Text('حذف حساب کاربری'),
+              subtitle: const Text(
+                'حساب، موسیقی‌های ابری و Playlistهایت برای همیشه پاک می‌شوند',
+              ),
+              trailing: const Icon(NafirIcons.caretLeft, size: 20),
+              onTap: () => _openDeleteAccount(email, delete),
+            ),
         ],
       ),
     );

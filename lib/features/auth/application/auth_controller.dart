@@ -48,6 +48,15 @@ class AuthController extends ChangeNotifier {
   Future<void> register(String email, String password) =>
       _start(_api.register(email.trim(), password));
 
+  /// Deletes the account for good, then signs out. Throws, still signed in,
+  /// when the server refuses, for example for a wrong password.
+  Future<void> deleteAccount(String password) async {
+    final token = this.token;
+    if (token == null) throw StateError('Not signed in.');
+    await _api.deleteAccount(token, password);
+    await logout();
+  }
+
   Future<void> logout() async {
     _token = null;
     await _tokenStore.clear();

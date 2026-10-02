@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/features/playlists/application/playlists_controller.dart';
@@ -136,7 +137,7 @@ class _CollabSheetState extends State<_CollabSheet> {
                   ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('لینک دعوت کپی شد.')));
                 },
-                icon: const Icon(Icons.copy),
+                icon: const Icon(NafirIcons.copy),
                 label: const Text('کپی لینک دعوت'),
               ),
               const SizedBox(height: 8),
@@ -146,12 +147,12 @@ class _CollabSheetState extends State<_CollabSheet> {
                 children: [
                   TextButton.icon(
                     onPressed: _busy ? null : _newLink,
-                    icon: const Icon(Icons.refresh),
+                    icon: const Icon(NafirIcons.arrowsClockwise),
                     label: const Text('لینک تازه'),
                   ),
                   TextButton.icon(
                     onPressed: _busy ? null : _revoke,
-                    icon: const Icon(Icons.link_off),
+                    icon: const Icon(NafirIcons.linkBreak),
                     label: const Text('باطل کردن لینک'),
                   ),
                 ],
@@ -163,7 +164,7 @@ class _CollabSheetState extends State<_CollabSheet> {
             ] else
               FilledButton.icon(
                 onPressed: _busy ? null : _newLink,
-                icon: const Icon(Icons.group_add_outlined),
+                icon: const Icon(NafirIcons.userPlus),
                 label: const Text('ساخت لینک دعوت'),
               ),
             if (_error case final error?)
@@ -185,7 +186,7 @@ class _CollabSheetState extends State<_CollabSheet> {
               for (final member in _members)
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.person_outline),
+                  leading: const Icon(NafirIcons.user),
                   title: Text(
                     member.name,
                     maxLines: 1,
@@ -196,7 +197,7 @@ class _CollabSheetState extends State<_CollabSheet> {
                   trailing: IconButton(
                     tooltip: 'حذف عضو',
                     onPressed: _busy ? null : () => _remove(member),
-                    icon: const Icon(Icons.person_remove_outlined),
+                    icon: const Icon(NafirIcons.userMinus),
                   ),
                 ),
           ],

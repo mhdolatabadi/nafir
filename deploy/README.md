@@ -122,7 +122,7 @@ external `proxynet` network. It must route exactly like `deploy/Caddyfile`:
 | `/nafir-music` | `nafir-minio:9000`, byte-for-byte: no gzip, no buffering, `Host` unchanged |
 | `/app/` | `nafir-web:80` (the Flutter app) |
 | `/?shared=…` | redirect to `/app/?shared=…` |
-| everything else: `/`, `/p/…`, `/privacy`, `sitemap.xml`, `robots.txt` | `nafir-api:8080`, with `X-Nafir-Client-IP` |
+| everything else: `/`, `/p/…`, `/privacy`, `/delete-account`, `sitemap.xml`, `robots.txt` | `nafir-api:8080`, with `X-Nafir-Client-IP` |
 
 `deploy/front-proxy.nginx.conf` has these routes ready. Copy it next to the
 nginx config and include it inside the Nafir `server { }` block:

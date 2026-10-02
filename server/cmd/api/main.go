@@ -17,6 +17,7 @@ import (
 	"github.com/mhdolatabadi/nafir/server/internal/auth"
 	"github.com/mhdolatabadi/nafir/server/internal/bot"
 	"github.com/mhdolatabadi/nafir/server/internal/httpapi"
+	"github.com/mhdolatabadi/nafir/server/internal/linkimport"
 	"github.com/mhdolatabadi/nafir/server/internal/storage"
 	"github.com/mhdolatabadi/nafir/server/internal/store"
 )
@@ -163,13 +164,23 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	accountDeleteRate, err := rateLimiterEnv("ACCOUNT_DELETE_RATE", 5, time.Hour)
+	if err != nil {
+		return err
+	}
+	users := store.NewUsers(pool)
 	authHandlers, err := httpapi.NewAuthHandlers(
-		store.NewUsers(pool), auth.Passwords{Cost: 12}, tokens,
+		users, auth.Passwords{Cost: 12}, tokens,
 		httpapi.AuthRateLimiters{Register: registerRate, Login: loginRate},
 	)
 	if err != nil {
 		return err
 	}
+	// Uploads handed out before an account is deleted may still land until
+	// pending reservations expire, so the purge job sweeps until then.
+	authHandlers.WithAccountDeletion(httpapi.AccountDeletion{
+		Accounts: users, Objects: objects, Rate: accountDeleteRate, Grace: pendingTTL,
+	})
 
 	tracks := store.NewTracks(pool)
 	playlists := store.NewPlaylists(pool)
@@ -178,7 +189,7 @@ func run() error {
 		tokenSecret: []byte(os.Getenv("AUTH_TOKEN_SECRET")),
 		tokens:      tokens,
 		bots:        bots,
-		users:       store.NewUsers(pool),
+		users:       users,
 		tracks:      tracks,
 		objects:     objects,
 		policy: bot.UploadPolicy{
@@ -189,6 +200,20 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("bots: %w", err)
 	}
+	// Imports from song pages and audio links run through the same pipeline,
+	// quota and limits as the bots' imports.
+	linkImportRate, err := rateLimiterEnv("LINK_IMPORT_USER_RATE", 20, 10*time.Minute)
+	if err != nil {
+		return err
+	}
+	linkFetcher := linkimport.NewFetcher()
+	linkImports := linkimport.NewService(linkFetcher, linkimport.NewProvider(linkFetcher, maxUploadBytes),
+		bot.NewImporter(bots, tracks, objects, bot.UploadPolicy{
+			Enabled: uploadsEnabled, MaxFileBytes: maxUploadBytes,
+			MaxOwnerBytes: ownerQuotaBytes, MaxPending: maxPending,
+		}), bots, maxPending)
+	go linkImports.Resume(ctx)
+
 	var ops *httpapi.OpsHandlers
 	if opsToken := os.Getenv("OPS_TOKEN"); opsToken != "" {
 		if len(opsToken) < 32 {
@@ -217,9 +242,10 @@ func run() error {
 			Public: httpapi.NewPublicPages(playlists, objects,
 				httpapi.AnonymousLimits{View: publicViewRate, Stream: publicStreamRate}).
 				WithContact(os.Getenv("PRIVACY_CONTACT_EMAIL")),
-			Bots:     botHandlers,
-			Ops:      ops,
-			Webhooks: webhooks,
+			Bots:        botHandlers,
+			LinkImports: httpapi.NewLinkImportHandlers(linkImports, tokens, linkImportRate),
+			Ops:         ops,
+			Webhooks:    webhooks,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
@@ -228,6 +254,7 @@ func run() error {
 	}
 
 	go cleanPendingUploads(ctx, tracks, objects, pendingTTL, cleanupEvery, cleanupBatch)
+	go purgeDeletedAccounts(ctx, users, objects, cleanupEvery, cleanupBatch)
 
 	serverErr := make(chan error, 1)
 	go func() {
@@ -363,6 +390,59 @@ func cleanPendingUploads(
 			return
 		case <-ticker.C:
 			cleanup()
+		}
+	}
+}
+
+type accountPurgeQueue interface {
+	PendingAccountPurges(ctx context.Context, limit int) ([]store.AccountDeletion, error)
+	MarkAccountPurged(ctx context.Context, userID string) (bool, error)
+}
+
+type prefixRemover interface {
+	RemovePrefix(ctx context.Context, prefix string) (int, error)
+}
+
+// purgeDeletedAccounts removes what is left in storage of deleted accounts:
+// objects the request couldn't remove, and uploads that landed afterwards.
+func purgeDeletedAccounts(ctx context.Context, accounts accountPurgeQueue, objects prefixRemover, interval time.Duration, batch int) {
+	purgeAccountsOnce(ctx, accounts, objects, batch)
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			purgeAccountsOnce(ctx, accounts, objects, batch)
+		}
+	}
+}
+
+// purgeAccountsOnce sweeps one batch of deleted accounts. An account is
+// marked purged only by a sweep after its grace period, so nothing that
+// arrives later is missed; a failed sweep is retried on the next run.
+func purgeAccountsOnce(ctx context.Context, accounts accountPurgeQueue, objects prefixRemover, batch int) {
+	pending, err := accounts.PendingAccountPurges(ctx, batch)
+	if err != nil {
+		if ctx.Err() == nil {
+			slog.Error("deleted account purge failed", "error", err)
+		}
+		return
+	}
+	for _, deletion := range pending {
+		removed, err := objects.RemovePrefix(ctx, deletion.ObjectPrefix)
+		if err != nil {
+			if ctx.Err() == nil {
+				slog.Error("deleted account objects not removed", "account", deletion.UserID, "error", err)
+			}
+			continue
+		}
+		if removed > 0 {
+			slog.Info("deleted account objects removed", "account", deletion.UserID, "objects", removed)
+		}
+		if _, err := accounts.MarkAccountPurged(ctx, deletion.UserID); err != nil && ctx.Err() == nil {
+			slog.Error("deleted account purge not recorded", "account", deletion.UserID, "error", err)
 		}
 	}
 }

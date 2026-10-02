@@ -234,15 +234,16 @@ type BotImport struct {
 	TrackID   *string
 	Error     *string
 	Attempts  int
+	CreatedAt time.Time
 }
 
 const importColumns = `id::text, provider, chat_id, message_id, user_id::text, file_id, file_name,
-	title, artist, size_bytes, state, track_id::text, error, attempts`
+	title, artist, size_bytes, state, track_id::text, error, attempts, created_at`
 
 func scanImport(row pgx.Row) (BotImport, error) {
 	var i BotImport
 	err := row.Scan(&i.ID, &i.Provider, &i.ChatID, &i.MessageID, &i.UserID, &i.FileID, &i.FileName,
-		&i.Title, &i.Artist, &i.SizeBytes, &i.State, &i.TrackID, &i.Error, &i.Attempts)
+		&i.Title, &i.Artist, &i.SizeBytes, &i.State, &i.TrackID, &i.Error, &i.Attempts, &i.CreatedAt)
 	return i, err
 }
 
@@ -342,6 +343,43 @@ func (b *Bots) UnfinishedImports(ctx context.Context, limit int) ([]BotImport, e
 	}
 	defer rows.Close()
 	var imports []BotImport
+	for rows.Next() {
+		i, err := scanImport(rows)
+		if err != nil {
+			return nil, err
+		}
+		imports = append(imports, i)
+	}
+	return imports, rows.Err()
+}
+
+// ActiveImportFor reports whether the user already has an unfinished
+// import of this file from this provider.
+func (b *Bots) ActiveImportFor(ctx context.Context, userID, provider, fileID string) (bool, error) {
+	var active bool
+	err := b.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM bot_imports
+			WHERE user_id::text = $1 AND provider = $2 AND file_id = $3
+			  AND state IN ('queued', 'downloading')
+		)
+	`, userID, provider, fileID).Scan(&active)
+	return active, err
+}
+
+// RecentImports lists the user's latest imports from one provider, newest
+// first.
+func (b *Bots) RecentImports(ctx context.Context, userID, provider string, limit int) ([]BotImport, error) {
+	rows, err := b.pool.Query(ctx, `
+		SELECT `+importColumns+` FROM bot_imports
+		WHERE user_id::text = $1 AND provider = $2
+		ORDER BY created_at DESC, id LIMIT $3
+	`, userID, provider, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	imports := []BotImport{}
 	for rows.Next() {
 		i, err := scanImport(rows)
 		if err != nil {

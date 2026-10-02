@@ -6,12 +6,14 @@ import 'package:nafir/features/auth/application/auth_controller.dart';
 import 'package:nafir/features/auth/presentation/sign_in_prompt.dart';
 import 'package:nafir/features/auth/presentation/sign_in_screen.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
+import 'package:nafir/features/library/application/library_sync_controller.dart';
 import 'package:nafir/features/library/application/local_audio_controller.dart';
 import 'package:nafir/features/library/presentation/library_screen.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/playlists/application/playlists_controller.dart';
 import 'package:nafir/features/playlists/presentation/popular_playlists_screen.dart';
 import 'package:nafir/features/bots/application/bot_link_controller.dart';
+import 'package:nafir/features/link_import/application/link_import_controller.dart';
 import 'package:nafir/features/settings/application/cache_controller.dart';
 import 'package:nafir/features/upload/application/upload_controller.dart';
 import 'package:nafir/features/upload/data/audio_picker.dart';
@@ -26,8 +28,10 @@ class AuthGate extends StatefulWidget {
     this.playlists,
     required this.localAudio,
     required this.uploads,
+    required this.sync,
     required this.cache,
     this.botLinks,
+    this.linkImports,
     required this.picker,
     required this.player,
   });
@@ -38,8 +42,10 @@ class AuthGate extends StatefulWidget {
   final PlaylistsController? playlists;
   final LocalAudioController localAudio;
   final UploadController uploads;
+  final LibrarySyncController sync;
   final CacheController cache;
   final BotLinkController? botLinks;
+  final LinkImportController? linkImports;
   final AudioPicker picker;
 
   @override
@@ -67,13 +73,29 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   /// Signing in from a guest screen lands in the library, not back on the
-  /// sign-in or playlist page it was opened from.
+  /// sign-in or playlist page it was opened from. Signing out, or deleting
+  /// the account from Settings, lands on the guest home with nothing of the
+  /// account left behind.
   void _onAuthChanged() {
     final status = widget.controller.status;
     if (status == AuthStatus.signedIn && _status != AuthStatus.signedIn) {
       Navigator.of(context).popUntil((route) => route.isFirst);
     }
+    if (status == AuthStatus.signedOut && _status == AuthStatus.signedIn) {
+      _forgetAccount();
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
     _status = status;
+  }
+
+  /// Never show one account's tracks to the next one.
+  void _forgetAccount() {
+    widget.player.stop();
+    widget.library.clear();
+    widget.playlists?.clear();
+    widget.botLinks?.clear();
+    widget.linkImports?.clear();
+    widget.uploads.dismiss();
   }
 
   void _openSignIn() {
@@ -125,16 +147,21 @@ class _AuthGateState extends State<AuthGate> {
                 widget.library.clear();
                 widget.playlists?.clear();
                 widget.botLinks?.clear();
+                widget.sync.clear();
+                widget.linkImports?.clear();
                 widget.uploads.dismiss();
                 controller.logout();
               },
+              onDeleteAccount: controller.deleteAccount,
               library: widget.library,
               playlists: widget.playlists,
               localAudio: widget.localAudio,
               player: widget.player,
               uploads: widget.uploads,
+              sync: widget.sync,
               cache: widget.cache,
               botLinks: widget.botLinks,
+              linkImports: widget.linkImports,
               picker: widget.picker,
             ),
         };

@@ -94,4 +94,12 @@ void main() {
     queue.shuffled = true;
     expect(queue.current.id, 'a');
   });
+
+  test('skipping to a queued track continues from there', () {
+    final queue = PlayQueue(_tracks, start: 1);
+    expect(queue.skipTo(2).id, 'e');
+    expect(queue.upcoming, isEmpty);
+    expect(queue.previous().id, 'd');
+    expect(() => queue.skipTo(5), throwsRangeError);
+  });
 }

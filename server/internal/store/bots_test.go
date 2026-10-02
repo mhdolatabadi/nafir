@@ -216,3 +216,41 @@ func TestLinkedChatsAndTrackFileIDs(t *testing.T) {
 		t.Fatalf("file ID survived its track: %q", id)
 	}
 }
+
+func TestLinkImportQueries(t *testing.T) {
+	ctx := context.Background()
+	pool := newTestPool(t)
+	user, _ := NewUsers(pool).Create(ctx, "links@example.com", "hash")
+	other, _ := NewUsers(pool).Create(ctx, "other@example.com", "hash")
+	bots := NewBots(pool)
+	add := func(userID, message, fileID string) BotImport {
+		t.Helper()
+		i, err := bots.AddImport(ctx, BotImport{Provider: "link", ChatID: userID, MessageID: message, UserID: userID,
+			FileID: fileID, FileName: "a.mp3"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return i
+	}
+	first := add(user.ID, "m1", "https://x.ir/a.mp3")
+	add(user.ID, "m2", "https://x.ir/b.mp3")
+	add(other.ID, "m3", "https://x.ir/c.mp3")
+
+	if active, _ := bots.ActiveImportFor(ctx, user.ID, "link", "https://x.ir/a.mp3"); !active {
+		t.Fatal("queued import is not active")
+	}
+	if active, _ := bots.ActiveImportFor(ctx, other.ID, "link", "https://x.ir/a.mp3"); active {
+		t.Fatal("another user's import counts")
+	}
+	failed := "invalid_audio"
+	if err := bots.FinishImport(ctx, first.ID, nil, &failed); err != nil {
+		t.Fatal(err)
+	}
+	if active, _ := bots.ActiveImportFor(ctx, user.ID, "link", "https://x.ir/a.mp3"); active {
+		t.Fatal("a failed import still blocks a retry")
+	}
+	recent, err := bots.RecentImports(ctx, user.ID, "link", 10)
+	if err != nil || len(recent) != 2 || recent[0].MessageID != "m2" || recent[1].Error == nil || recent[0].CreatedAt.IsZero() {
+		t.Fatalf("recent = %+v, %v", recent, err)
+	}
+}

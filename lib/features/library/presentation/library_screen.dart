@@ -1,13 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/core/format_size.dart';
 import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
+import 'package:nafir/features/library/application/library_entries.dart';
+import 'package:nafir/features/library/application/library_sync_controller.dart';
+import 'package:nafir/features/link_import/application/link_import_controller.dart';
+import 'package:nafir/features/link_import/presentation/link_import_dialog.dart';
 import 'package:nafir/features/library/application/track_groups.dart';
 import 'package:nafir/features/library/application/track_sort.dart';
 import 'package:nafir/features/library/application/local_audio_controller.dart';
-import 'package:nafir/features/library/data/local_audio_upload.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/presentation/mini_player.dart';
@@ -27,25 +32,35 @@ class LibraryScreen extends StatefulWidget {
     super.key,
     required this.email,
     required this.onLogout,
+    this.onDeleteAccount,
     required this.library,
     this.playlists,
     required this.localAudio,
     required this.uploads,
+    required this.sync,
     required this.cache,
     this.botLinks,
+    this.linkImports,
     required this.picker,
     required this.player,
   });
 
   final String email;
   final VoidCallback onLogout;
+
+  /// Deletes the account after checking [password]; null hides the option.
+  final Future<void> Function(String password)? onDeleteAccount;
   final LibraryController library;
   final PlaylistsController? playlists;
   final LocalAudioController localAudio;
   final PlayerController player;
   final UploadController uploads;
+  final LibrarySyncController sync;
   final CacheController cache;
   final BotLinkController? botLinks;
+
+  /// Adds music from song pages and audio links; null hides the action.
+  final LinkImportController? linkImports;
   final AudioPicker picker;
 
   @override
@@ -62,18 +77,40 @@ class _LibraryScreenState extends State<LibraryScreen>
     vsync: this,
   )..addListener(_onTabChanged);
 
+  /// Once nothing is being imported any more, finds out how this
+  /// session's link imports ended.
+  void _onLibraryChanged() {
+    final links = widget.linkImports;
+    if (links != null &&
+        links.hasPending &&
+        widget.library.importsInProgress == 0) {
+      links.refresh();
+    }
+  }
+
+  Future<void> _importFromLink() async {
+    final links = widget.linkImports;
+    if (links == null) return;
+    final message = await showLinkImportDialog(context, controller: links);
+    if (message == null || !mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+    // Shows the import in progress and follows it until it is done.
+    await widget.library.load();
+  }
+
   void _onTabChanged() {
     // The add-music button belongs to the tracks tab.
     if (!_tabs.indexIsChanging) setState(() {});
   }
 
   late final AppLifecycleListener _lifecycle;
-  late final LocalAudioUploadSource _localUpload;
+  late final StreamSubscription<SyncOperation> _syncFinished;
 
   @override
   void initState() {
     super.initState();
-    _localUpload = createLocalAudioUploadSource();
+    _syncFinished = widget.sync.finished.listen(_onSyncFinished);
     // Coming back from Bale or Telegram, show what was sent to the bot.
     _lifecycle = AppLifecycleListener(onResume: () {
       widget.library.load();
@@ -81,6 +118,7 @@ class _LibraryScreenState extends State<LibraryScreen>
     });
     widget.library.load();
     widget.botLinks?.load();
+    widget.library.addListener(_onLibraryChanged);
     if (widget.localAudio.supported) widget.localAudio.load();
     // Opened from a shared playlist link: show it once signed in.
     final shareToken = AppConfiguration.takeInitialShareToken();
@@ -118,6 +156,8 @@ class _LibraryScreenState extends State<LibraryScreen>
     _tabs.dispose();
     _lifecycle.dispose();
     widget.uploads.removeListener(_onUploadChanged);
+    _syncFinished.cancel();
+    widget.library.removeListener(_onLibraryChanged);
     super.dispose();
   }
 
@@ -136,28 +176,61 @@ class _LibraryScreenState extends State<LibraryScreen>
     await uploads.uploadAll(files);
   }
 
-  Future<void> _uploadLocalTrack(Track track) async {
-    if (!track.isLocal || widget.uploads.isBusy) return;
-    widget.uploads.readingFile();
-    try {
-      final file = await _localUpload.prepare(track);
-      await widget.uploads.upload(file);
-      if (!mounted) return;
-      if (widget.uploads.phase == UploadPhase.done) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('«${track.title}» روی سرور آپلود شد.')),
-        );
-        await _refreshLibrary();
-      }
-    } catch (_) {
-      if (!mounted) return;
-      widget.uploads.pickCancelled();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('آماده‌سازی آهنگ دستگاه برای آپلود ناموفق بود.'),
-        ),
-      );
+  void _onSyncFinished(SyncOperation operation) {
+    if (!mounted) return;
+    final title = operation.track.title;
+    final error = operation.error;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(error == null
+          ? '«$title» روی سرور آپلود شد.'
+          : 'آپلود «$title» ناموفق بود. ${syncErrorMessage(error)}'),
+    ));
+  }
+
+  Future<void> _confirmRemoveFromDevice(Track track) async {
+    final synced = locationOf(track) == TrackLocation.synced;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(NafirIcons.deviceMobile),
+        title: Text('حذف «${track.title}» از دستگاه؟'),
+        content: Text(synced
+            ? 'فایل از حافظهٔ دستگاه پاک می‌شود و نسخهٔ سرور می‌ماند.'
+            : 'این آهنگ روی سرور نیست؛ با حذف از دستگاه برای همیشه پاک می‌شود.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            style: synced
+                ? null
+                : FilledButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.error,
+                    foregroundColor: Theme.of(context).colorScheme.onError,
+                  ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('حذف از دستگاه'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final result = await widget.localAudio.delete(track);
+    if (!mounted) return;
+    final message = switch (result) {
+      DeviceDeleteResult.deleted => '«${track.title}» از دستگاه حذف شد.',
+      DeviceDeleteResult.declined => null,
+      DeviceDeleteResult.permissionDenied =>
+        'نفیر اجازهٔ تغییر حافظهٔ دستگاه را ندارد.',
+      DeviceDeleteResult.failed => 'حذف از دستگاه ناموفق بود.',
+    };
+    if (result == DeviceDeleteResult.deleted && !synced) {
+      await widget.player.removeTrack(track.id);
     }
+    if (message == null || !mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _editTrackMetadata(Track track) async {
@@ -185,10 +258,11 @@ class _LibraryScreenState extends State<LibraryScreen>
       builder: (context) => AlertDialog(
         icon: const Icon(NafirIcons.trash),
         title: Text('حذف «${track.title}»؟'),
-        content: const Text(
-          'این آهنگ برای همیشه از فضای ابری و Playlistها حذف می‌شود. '
-          'این کار قابل بازگشت نیست.',
-        ),
+        content: Text(locationOf(track) == TrackLocation.synced
+            ? 'نسخهٔ سرور برای همیشه از فضای ابری و Playlistها حذف می‌شود؛ '
+                'فایل روی دستگاه می‌ماند.'
+            : 'این آهنگ برای همیشه از فضای ابری و Playlistها حذف می‌شود. '
+                'این کار قابل بازگشت نیست.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -200,7 +274,9 @@ class _LibraryScreenState extends State<LibraryScreen>
               foregroundColor: Theme.of(context).colorScheme.onError,
             ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('حذف برای همیشه'),
+            child: Text(locationOf(track) == TrackLocation.synced
+                ? 'حذف از سرور'
+                : 'حذف برای همیشه'),
           ),
         ],
       ),
@@ -227,6 +303,8 @@ class _LibraryScreenState extends State<LibraryScreen>
     Navigator.of(context)
         .push(MaterialPageRoute<void>(
           builder: (_) => SettingsScreen(
+            email: widget.email,
+            onDeleteAccount: widget.onDeleteAccount,
             cache: widget.cache,
             botLinks: widget.botLinks,
             library: widget.library,
@@ -266,16 +344,13 @@ class _LibraryScreenState extends State<LibraryScreen>
     }
   }
 
-  List<Track> _unifiedTracks() {
-    final byKey = <String, Track>{};
-    for (final track in widget.library.tracks) {
-      byKey[track.id] = track;
-    }
-    for (final track in widget.localAudio.tracks) {
-      byKey.putIfAbsent(track.sourceUri?.toString() ?? track.id, () => track);
-    }
-    return byKey.values.toList(growable: false);
-  }
+  /// Each file once: the account's tracks, matched with their copies on
+  /// this device, then the device's other music.
+  List<Track> _unifiedTracks() => [
+        for (final entry
+            in mergeLibrary(widget.library.tracks, widget.localAudio.tracks))
+          entry.track,
+      ];
 
   List<Widget> _accountActions(BuildContext context) {
     if (MediaQuery.sizeOf(context).width >= 720) {
@@ -406,10 +481,26 @@ class _LibraryScreenState extends State<LibraryScreen>
           ? null
           : ListenableBuilder(
               listenable: widget.uploads,
-              builder: (context, _) => FloatingActionButton.extended(
-                onPressed: widget.uploads.isBusy ? null : _pickAndUpload,
-                icon: const Icon(NafirIcons.plus),
-                label: const Text('افزودن موسیقی'),
+              builder: (context, _) => Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (widget.linkImports != null) ...[
+                    FloatingActionButton.small(
+                      heroTag: 'link-import',
+                      tooltip: 'افزودن از لینک',
+                      onPressed: _importFromLink,
+                      child: const Icon(NafirIcons.link),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  FloatingActionButton.extended(
+                    heroTag: 'upload',
+                    onPressed: widget.uploads.isBusy ? null : _pickAndUpload,
+                    icon: const Icon(NafirIcons.plus),
+                    label: const Text('افزودن موسیقی'),
+                  ),
+                ],
               ),
             ),
       body: NafirBackdrop(
@@ -466,6 +557,7 @@ class _LibraryScreenState extends State<LibraryScreen>
         listenable: Listenable.merge([
           widget.library,
           widget.localAudio,
+          widget.sync,
           if (widget.botLinks != null) widget.botLinks,
         ]),
         builder: (context, _) {
@@ -477,6 +569,8 @@ class _LibraryScreenState extends State<LibraryScreen>
           final top = Column(
             children: [
               UploadStatusCard(controller: widget.uploads),
+              if (widget.linkImports case final links?)
+                LinkImportFailures(controller: links),
               if (widget.library.importsInProgress case final n when n > 0)
                 _ImportsInProgress(count: n),
             ],
@@ -519,10 +613,11 @@ class _LibraryScreenState extends State<LibraryScreen>
                         widget.library.isUpdating(trackId),
                     linkedBots: widget.botLinks?.linkedBots ?? const [],
                     onSendToBot: _sendToBot,
-                    onUploadToServer: _uploadLocalTrack,
-                    uploadsBusy: widget.uploads.isBusy,
+                    sync: widget.sync,
+                    onRemoveFromDevice: widget.localAudio.supported
+                        ? _confirmRemoveFromDevice
+                        : null,
                     deviceNotice: notice,
-                    showLocationBadges: true,
                   ),
           );
         },
@@ -535,8 +630,10 @@ enum _TrackAction {
   addToPlaylist,
   sendToBot,
   uploadToServer,
-  downloadToDevice,
   removeFromDevice,
+  retrySync,
+  cancelSync,
+  dismissSync,
   editMetadata,
   delete,
 }
@@ -1085,10 +1182,9 @@ class _TrackList extends StatefulWidget {
     this.isDeleting,
     this.linkedBots = const [],
     this.onSendToBot,
-    this.onUploadToServer,
-    this.uploadsBusy = false,
+    this.sync,
+    this.onRemoveFromDevice,
     this.deviceNotice,
-    this.showLocationBadges = false,
   });
 
   /// Shown above the search, scrolling with the list.
@@ -1103,10 +1199,12 @@ class _TrackList extends StatefulWidget {
   /// Bots with a linked chat, offered as «ارسال به …» for each track.
   final List<MessengerBot> linkedBots;
   final Future<void> Function(Track track, MessengerBot bot)? onSendToBot;
-  final Future<void> Function(Track track)? onUploadToServer;
-  final bool uploadsBusy;
+
+  /// Device and server copies: when set, rows show transfers and offer
+  /// uploading, retrying and cancelling.
+  final LibrarySyncController? sync;
+  final Future<void> Function(Track track)? onRemoveFromDevice;
   final _DeviceNotice? deviceNotice;
-  final bool showLocationBadges;
 
   @override
   State<_TrackList> createState() => _TrackListState();
@@ -1147,118 +1245,114 @@ class _TrackListState extends State<_TrackList> {
 
   /// The track's «اقدامات آهنگ» menu, or null when there is nothing to offer.
   Widget? _actionsFor(BuildContext context, Track track) {
-    return widget.playlists == null &&
-            widget.onDelete == null &&
-            widget.linkedBots.isEmpty &&
-            !widget.showLocationBadges
-        ? null
-        : widget.isDeleting?.call(track.id) == true
-            ? const SizedBox.square(
-                dimension: 48,
-                child: Padding(
-                  padding: EdgeInsets.all(12),
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                  ),
-                ),
-              )
-            : PopupMenuButton<(_TrackAction, MessengerBot?)>(
-                tooltip: 'اقدامات آهنگ',
-                onSelected: (choice) {
-                  switch (choice) {
-                    case (_TrackAction.addToPlaylist, _):
-                      _addToPlaylist(context, track);
-                    case (_TrackAction.sendToBot, final bot?):
-                      widget.onSendToBot?.call(track, bot);
-                    case (_TrackAction.delete, _):
-                      widget.onDelete?.call(track);
-                    case (_TrackAction.editMetadata, _):
-                      widget.onEditMetadata?.call(track);
-                    case (_TrackAction.uploadToServer, _):
-                      widget.onUploadToServer?.call(track);
-                    case (_TrackAction.downloadToDevice, _):
-                      _message(
-                        context,
-                        'دانلود روی دستگاه در issue #43 دنبال می‌شود.',
-                      );
-                    case (_TrackAction.removeFromDevice, _):
-                      _message(
-                        context,
-                        'حذف نسخهٔ دستگاه در گام sync اضافه می‌شود.',
-                      );
-                    case (_TrackAction.sendToBot, null):
-                      break;
-                  }
-                },
-                itemBuilder: (context) => [
-                  if (widget.showLocationBadges && track.isLocal)
-                    PopupMenuItem(
-                      value: const (_TrackAction.uploadToServer, null),
-                      enabled: !widget.uploadsBusy,
-                      child: const ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(NafirIcons.cloudArrowUp),
-                        title: Text('آپلود به سرور'),
-                      ),
-                    ),
-                  if (widget.showLocationBadges && !track.isLocal)
-                    const PopupMenuItem(
-                      value: (_TrackAction.downloadToDevice, null),
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(
-                          NafirIcons.cloudArrowDown,
-                        ),
-                        title: Text('دانلود روی دستگاه'),
-                      ),
-                    ),
-                  if (!track.isLocal)
-                    const PopupMenuItem(
-                      value: (_TrackAction.editMetadata, null),
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(NafirIcons.pencilSimple),
-                        title: Text('ویرایش اطلاعات آهنگ'),
-                      ),
-                    ),
-                  if (widget.playlists != null && !track.isLocal)
-                    const PopupMenuItem(
-                      value: (_TrackAction.addToPlaylist, null),
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(NafirIcons.listPlus),
-                        title: Text('افزودن به Playlist'),
-                      ),
-                    ),
-                  if (!track.isLocal)
-                    for (final bot in widget.linkedBots)
-                      PopupMenuItem(
-                        value: (_TrackAction.sendToBot, bot),
-                        child: ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: const Icon(NafirIcons.paperPlaneTilt),
-                          title: Text('ارسال به ${bot.name}'),
-                        ),
-                      ),
-                  if (widget.onDelete != null && !track.isLocal)
-                    PopupMenuItem(
-                      value: (_TrackAction.delete, null),
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(
-                          NafirIcons.trash,
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                        title: Text(
-                          'حذف آهنگ',
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.error,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              );
+    final sync = widget.sync;
+    final location = locationOf(track);
+    final onServer = location != TrackLocation.device;
+    final onDevice = location != TrackLocation.server;
+    final operation = sync?.operationFor(track.id);
+    if (widget.isDeleting?.call(track.id) == true) {
+      return const SizedBox.square(
+        dimension: 48,
+        child: Padding(
+          padding: EdgeInsets.all(12),
+          child: CircularProgressIndicator(strokeWidth: 2.5),
+        ),
+      );
+    }
+    final error = Theme.of(context).colorScheme.error;
+    PopupMenuItem<(_TrackAction, MessengerBot?)> item(
+      _TrackAction action,
+      IconData icon,
+      String label, {
+      bool destructive = false,
+      bool enabled = true,
+    }) =>
+        PopupMenuItem(
+          value: (action, null),
+          enabled: enabled,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(icon, color: destructive ? error : null),
+            title: Text(
+              label,
+              style: destructive ? TextStyle(color: error) : null,
+            ),
+          ),
+        );
+
+    final items = <PopupMenuEntry<(_TrackAction, MessengerBot?)>>[
+      if (operation != null && operation.active)
+        item(
+          _TrackAction.cancelSync,
+          NafirIcons.x,
+          'لغو آپلود',
+          enabled: sync!.canCancel(track.id),
+        ),
+      if (operation != null && !operation.active) ...[
+        item(_TrackAction.retrySync, NafirIcons.arrowsClockwise,
+            'تلاش دوباره برای آپلود'),
+        item(_TrackAction.dismissSync, NafirIcons.x, 'بستن خطا'),
+      ],
+      if (sync != null && operation == null && location == TrackLocation.device)
+        item(_TrackAction.uploadToServer, NafirIcons.cloudArrowUp,
+            'آپلود به سرور'),
+      if (onServer) ...[
+        item(_TrackAction.editMetadata, NafirIcons.pencilSimple,
+            'ویرایش اطلاعات آهنگ'),
+        if (widget.playlists != null)
+          item(_TrackAction.addToPlaylist, NafirIcons.listPlus,
+              'افزودن به Playlist'),
+        for (final bot in widget.linkedBots)
+          PopupMenuItem(
+            value: (_TrackAction.sendToBot, bot),
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(NafirIcons.paperPlaneTilt),
+              title: Text('ارسال به ${bot.name}'),
+            ),
+          ),
+      ],
+      if (onDevice && widget.onRemoveFromDevice != null && operation == null)
+        item(_TrackAction.removeFromDevice, NafirIcons.deviceMobile,
+            'حذف از دستگاه',
+            destructive: location == TrackLocation.device),
+      if (onServer && widget.onDelete != null)
+        item(
+          _TrackAction.delete,
+          NafirIcons.trash,
+          location == TrackLocation.synced ? 'حذف از سرور' : 'حذف آهنگ',
+          destructive: true,
+        ),
+    ];
+    if (items.isEmpty) return null;
+    return PopupMenuButton<(_TrackAction, MessengerBot?)>(
+      tooltip: 'اقدامات آهنگ',
+      onSelected: (choice) {
+        switch (choice) {
+          case (_TrackAction.addToPlaylist, _):
+            _addToPlaylist(context, track);
+          case (_TrackAction.sendToBot, final bot?):
+            widget.onSendToBot?.call(track, bot);
+          case (_TrackAction.delete, _):
+            widget.onDelete?.call(track);
+          case (_TrackAction.editMetadata, _):
+            widget.onEditMetadata?.call(track);
+          case (_TrackAction.uploadToServer, _):
+            sync?.upload(track);
+          case (_TrackAction.removeFromDevice, _):
+            widget.onRemoveFromDevice?.call(track);
+          case (_TrackAction.retrySync, _):
+            sync?.retry(track.id);
+          case (_TrackAction.cancelSync, _):
+            sync?.cancel(track.id);
+          case (_TrackAction.dismissSync, _):
+            sync?.dismiss(track.id);
+          case (_TrackAction.sendToBot, null):
+            break;
+        }
+      },
+      itemBuilder: (context) => items,
+    );
   }
 
   Future<void> _addToPlaylist(BuildContext context, Track track) async {
@@ -1396,6 +1490,7 @@ class _TrackListState extends State<_TrackList> {
                   current: widget.player.track?.id == track.id,
                   onTap: () => widget.player.playFrom(tracks, index),
                   actions: _actionsFor(context, track),
+                  sync: widget.sync?.operationFor(track.id),
                 );
               },
             ),
@@ -1503,9 +1598,13 @@ class _TrackRow extends StatelessWidget {
     required this.current,
     required this.onTap,
     required this.actions,
+    this.sync,
   });
 
   final Track track;
+
+  /// The track's upload, while queued, running or failed.
+  final SyncOperation? sync;
 
   /// Whether this is the track in the player.
   final bool current;
@@ -1528,7 +1627,7 @@ class _TrackRow extends StatelessWidget {
       minVerticalPadding: 14,
       contentPadding: const EdgeInsetsDirectional.only(start: 8, end: 0),
       horizontalTitleGap: 12,
-      leading: _TrackArtwork(track: track, current: current),
+      leading: _TrackArtwork(track: track, current: current, sync: sync),
       title: Row(
         children: [
           if (current) ...[
@@ -1552,39 +1651,90 @@ class _TrackRow extends StatelessWidget {
           ),
         ],
       ),
-      subtitle: Row(
-        children: [
-          Flexible(
-            child: Text(
-              artist == null || artist.isEmpty ? 'خواننده نامشخص' : artist,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: secondary,
-            ),
+      subtitle: switch (sync) {
+        SyncOperation(phase: SyncPhase.failed, :final error?) => Text(
+            syncErrorMessage(error),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: secondary?.copyWith(color: colors.error),
           ),
-          Text(' · ${formatSize(track.sizeBytes)}',
-              maxLines: 1, style: secondary),
-        ],
-      ),
+        SyncOperation(:final phase, :final progress) => Text(
+            phase == SyncPhase.queued
+                ? 'در صف آپلود · ${formatSize(track.sizeBytes)}'
+                : 'در حال آپلود ${(progress * 100).round()}٪ · '
+                    '${formatSize(track.sizeBytes)}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: secondary?.copyWith(color: colors.primary),
+          ),
+        null => Row(
+            children: [
+              Flexible(
+                child: Text(
+                  artist == null || artist.isEmpty ? 'خواننده نامشخص' : artist,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: secondary,
+                ),
+              ),
+              Text(' · ${formatSize(track.sizeBytes)}',
+                  maxLines: 1, style: secondary),
+            ],
+          ),
+      },
       trailing: actions,
     );
   }
 }
 
-/// A rounded artwork square with a small badge saying where the track is.
+/// A rounded artwork square with a small badge saying where the track is:
+/// on the device, on the server, on both, being uploaded, or failed.
 class _TrackArtwork extends StatelessWidget {
-  const _TrackArtwork({required this.track, required this.current});
+  const _TrackArtwork({required this.track, required this.current, this.sync});
 
   final Track track;
   final bool current;
+  final SyncOperation? sync;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final (badge, where) = switch (track) {
-      Track(isLocal: true) => (NafirIcons.deviceMobile, 'روی دستگاه'),
-      Track(importedFrom: final String from) => (NafirIcons.robot, 'از $from'),
-      _ => (NafirIcons.cloudCheck, 'روی سرور'),
+    final location = locationOf(track);
+    final (where, Widget badge) = switch (sync) {
+      SyncOperation(phase: SyncPhase.failed) => (
+          'آپلود ناموفق',
+          Icon(NafirIcons.warningCircle, size: 13, color: colors.error),
+        ),
+      SyncOperation(:final phase, :final progress) => (
+          phase == SyncPhase.queued ? 'در صف آپلود' : 'در حال آپلود',
+          SizedBox.square(
+            dimension: 13,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              value:
+                  phase == SyncPhase.running && progress > 0 ? progress : null,
+            ),
+          ),
+        ),
+      null => switch ((location, track.importedFrom)) {
+          (TrackLocation.device, _) => (
+              'فقط روی دستگاه',
+              Icon(NafirIcons.deviceMobile,
+                  size: 13, color: colors.onSurfaceVariant),
+            ),
+          (TrackLocation.synced, _) => (
+              'روی دستگاه و سرور',
+              Icon(NafirIcons.checkCircle, size: 13, color: colors.primary),
+            ),
+          (TrackLocation.server, final String from) => (
+              'از $from',
+              Icon(NafirIcons.robot, size: 13, color: colors.onSurfaceVariant),
+            ),
+          (TrackLocation.server, _) => (
+              'روی سرور',
+              Icon(NafirIcons.cloud, size: 13, color: colors.onSurfaceVariant),
+            ),
+        },
     };
     return SizedBox.square(
       dimension: 48,
@@ -1619,7 +1769,7 @@ class _TrackArtwork extends StatelessWidget {
                     color: colors.surface,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(badge, size: 13, color: colors.onSurfaceVariant),
+                  child: badge,
                 ),
               ),
             ),
@@ -1859,8 +2009,8 @@ class _ImportsInProgress extends StatelessWidget {
           Expanded(
             child: Text(
               count == 1
-                  ? 'یک فایل از بات در حال اضافه شدن است…'
-                  : '$count فایل از بات در حال اضافه شدن است…',
+                  ? 'یک فایل در حال اضافه شدن است…'
+                  : '$count فایل در حال اضافه شدن است…',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),

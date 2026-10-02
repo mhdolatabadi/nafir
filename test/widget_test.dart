@@ -5,6 +5,7 @@ import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/features/auth/data/auth_models.dart';
 import 'package:nafir/features/auth/data/token_store.dart';
 import 'package:nafir/features/library/data/track.dart';
+import 'package:nafir/features/link_import/data/link_import.dart';
 import 'package:nafir/features/upload/data/audio_picker.dart';
 import 'package:nafir/features/upload/data/upload_models.dart';
 import 'package:nafir/features/library/application/library_controller.dart'
@@ -27,6 +28,7 @@ class FakeAuthApi implements AuthApi {
   final String validToken;
   final Object? meError;
   final registered = <String>{};
+  final deleted = <String>[];
 
   @override
   Future<AuthSession> login(String email, String password) async {
@@ -54,6 +56,18 @@ class FakeAuthApi implements AuthApi {
     }
     return _user;
   }
+
+  @override
+  Future<void> deleteAccount(String token, String password) async {
+    if (token != validToken) {
+      throw const ApiException('401', statusCode: 401, code: 'unauthorized');
+    }
+    if (password != 'correct horse') {
+      throw const ApiException('403',
+          statusCode: 403, code: 'invalid_password');
+    }
+    deleted.add(token);
+  }
 }
 
 class FakePicker implements AudioPicker {
@@ -78,6 +92,7 @@ Future<void> _pumpApp(
   FakeAudioCache? cache,
   FakeBotsApi? bots,
   PlaylistsApi? playlists,
+  LinkImportsApi? linkImports,
   bool settle = true,
 }) async {
   await tester.pumpWidget(NafirApp(
@@ -89,6 +104,7 @@ Future<void> _pumpApp(
     audioCache: cache ?? FakeAudioCache(),
     botsApi: bots,
     playlistsApi: playlists,
+    linkImportsApi: linkImports,
     uploader: uploader ?? FakeUploader(),
     picker: picker ?? FakePicker(null),
   ));
@@ -101,6 +117,28 @@ Future<void> _submit(WidgetTester tester, String email, String password) async {
       find.widgetWithText(TextFormField, 'رمز عبور'), password);
   await tester.tap(find.byType(FilledButton));
   await tester.pumpAndSettle();
+}
+
+class FakeLinkImportsApi implements LinkImportsApi {
+  final submitted = <String>[];
+  String? refuseWith;
+  List<LinkImport> recent = [];
+
+  @override
+  Future<LinkImport> importFromLink(String token, String url) async {
+    submitted.add(url);
+    if (refuseWith case final code?) {
+      throw ApiException(code, statusCode: 422, code: code);
+    }
+    return LinkImport(
+        id: 'l${submitted.length}',
+        fileName: 'Artist - Song.mp3',
+        site: 'music.example.ir',
+        state: LinkImportState.queued);
+  }
+
+  @override
+  Future<List<LinkImport>> listLinkImports(String token) async => recent;
 }
 
 void main() {
@@ -295,6 +333,63 @@ void main() {
 
     expect(find.text('ورود به نفیر'), findsOneWidget);
     expect(await tokens.read(), isNull);
+  });
+
+  testWidgets(
+      'deleting the account from Settings on a narrow phone signs out to '
+      'the guest home', (tester) async {
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final tokens = MemoryTokenStore('valid-token');
+    final api = FakeAuthApi();
+    await _pumpApp(tester,
+        tokenStore: tokens,
+        api: api,
+        playlists: FakePlaylistsApi()..public = [listed('loved', likes: 5)]);
+
+    await tester.tap(find.byTooltip('حساب و تنظیمات'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('تنظیمات').last);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('حذف حساب کاربری'), 200,
+        scrollable: find.byType(Scrollable).first);
+    expect(find.text('حریم خصوصی'), findsOneWidget);
+    await tester.tap(find.text('حذف حساب کاربری'));
+    await tester.pumpAndSettle();
+
+    // The screen says what goes before asking for the password.
+    expect(find.text('این کار قابل بازگشت نیست'), findsOneWidget);
+    expect(find.textContaining('موسیقی‌هایی که در فضای ابری'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    final password = find.widgetWithText(TextFormField, 'رمز عبور');
+    final delete = find.ancestor(
+        of: find.text('حذف حساب برای همیشه'),
+        matching: find.bySubtype<ButtonStyleButton>());
+    await tester.enterText(password, 'wrong horse');
+    await tester.scrollUntilVisible(delete, 200,
+        scrollable: find.byType(Scrollable).first);
+    await tester.tap(delete);
+    await tester.pumpAndSettle();
+    expect(find.text('رمز عبور درست نیست.'), findsOneWidget);
+    expect(api.deleted, isEmpty);
+    expect(await tokens.read(), 'valid-token');
+
+    await tester.enterText(password, 'correct horse');
+    await tester.scrollUntilVisible(delete, 200,
+        scrollable: find.byType(Scrollable).first);
+    await tester.tap(delete);
+    await tester.pumpAndSettle();
+
+    expect(api.deleted, ['valid-token']);
+    expect(await tokens.read(), isNull);
+    expect(
+        find.text('حساب کاربری‌ات و همه‌ی اطلاعاتش حذف شد.'), findsOneWidget);
+    expect(find.text('Playlistهای محبوب'), findsOneWidget);
+    expect(find.text('حذف حساب کاربری'), findsNothing);
+    expect(find.widgetWithText(Tab, 'آهنگ‌ها'), findsNothing);
   });
 
   testWidgets('picking a file uploads it and shows the result', (
@@ -526,6 +621,98 @@ void main() {
         find.text('Artist with a really long name number 0'), findsOneWidget);
     expect(find.text(' · 3.0 مگابایت'), findsWidgets);
     expect(find.byTooltip('روی سرور'), findsWidgets);
+  });
+
+  group('import from a link', () {
+    Future<FakeLinkImportsApi> pumpWithLinks(WidgetTester tester,
+        {Size size = const Size(800, 900)}) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final api = FakeLinkImportsApi();
+      await _pumpApp(tester,
+          tokenStore: MemoryTokenStore('valid-token'), linkImports: api);
+      return api;
+    }
+
+    testWidgets('a song page link is queued and refusals are explained',
+        (tester) async {
+      final api = await pumpWithLinks(tester);
+      await tester.tap(find.byTooltip('افزودن از لینک'));
+      await tester.pumpAndSettle();
+      expect(find.text('افزودن از لینک'), findsWidgets);
+
+      // An empty link is caught before asking the server.
+      await tester.tap(find.widgetWithText(FilledButton, 'افزودن'));
+      await tester.pumpAndSettle();
+      expect(find.text('لینک صفحه‌ی آهنگ یا فایل را بچسبان.'), findsOneWidget);
+      expect(api.submitted, isEmpty);
+
+      api.refuseWith = 'no_audio';
+      await tester.enterText(
+          find.byType(TextField), ' https://music.example.ir/song/1 ');
+      await tester.tap(find.widgetWithText(FilledButton, 'افزودن'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('در این صفحه فایل صوتی پیدا نشد'),
+          findsOneWidget);
+
+      api.refuseWith = null;
+      await tester.tap(find.widgetWithText(FilledButton, 'افزودن'));
+      await tester.pumpAndSettle();
+      expect(api.submitted.last, 'https://music.example.ir/song/1');
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.textContaining('در حال اضافه کردن «Artist - Song.mp3»'),
+          findsOneWidget);
+    });
+
+    testWidgets('a failed import says why until dismissed', (tester) async {
+      final api = await pumpWithLinks(tester);
+      await tester.tap(find.byTooltip('افزودن از لینک'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'https://x.ir/a.mp3');
+      await tester.tap(find.widgetWithText(FilledButton, 'افزودن'));
+      await tester.pumpAndSettle();
+
+      api.recent = const [
+        LinkImport(
+            id: 'l1',
+            fileName: 'Artist - Song.mp3',
+            site: 'music.example.ir',
+            state: LinkImportState.failed,
+            error: 'quota_exceeded'),
+      ];
+      // The library reloads with nothing in progress any more.
+      await tester.drag(find.byType(TabBarView), const Offset(0, 400));
+      await tester.pumpAndSettle();
+      expect(find.text('افزودن از لینک ناموفق بود'), findsOneWidget);
+      expect(find.textContaining('فضای کافی در حسابت نیست'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('بستن'));
+      await tester.pumpAndSettle();
+      expect(find.text('افزودن از لینک ناموفق بود'), findsNothing);
+    });
+
+    testWidgets('the link action and dialog fit a narrow phone',
+        (tester) async {
+      await pumpWithLinks(tester, size: const Size(360, 740));
+      final link = tester.getRect(find.byTooltip('افزودن از لینک'));
+      expect(link.width, greaterThanOrEqualTo(40));
+      expect(link.left, greaterThanOrEqualTo(0));
+      // It sits above the upload button, not on top of it.
+      final upload = tester.getRect(find.text('افزودن موسیقی'));
+      expect(link.bottom, lessThanOrEqualTo(upload.top));
+
+      await tester.tap(find.byTooltip('افزودن از لینک'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      final dialog = tester.getRect(find.byType(AlertDialog));
+      expect(dialog.left, greaterThanOrEqualTo(0));
+      expect(dialog.right, lessThanOrEqualTo(360));
+      final paste = tester.getSize(find.ancestor(
+          of: find.byTooltip('چسباندن'), matching: find.byType(IconButton)));
+      expect(paste.height, greaterThanOrEqualTo(48));
+    });
   });
 
   group('library tabs', () {
@@ -1186,12 +1373,12 @@ void main() {
     }
 
     expect(find.byTooltip('از بله'), findsOneWidget);
-    expect(find.text('یک فایل از بات در حال اضافه شدن است…'), findsOneWidget);
+    expect(find.text('یک فایل در حال اضافه شدن است…'), findsOneWidget);
 
     // The import finishes; the next scheduled check picks it up.
     tracks.importsInProgress = 0;
     await tester.pump(importPollDelays.first);
     await tester.pump();
-    expect(find.text('یک فایل از بات در حال اضافه شدن است…'), findsNothing);
+    expect(find.text('یک فایل در حال اضافه شدن است…'), findsNothing);
   });
 }
