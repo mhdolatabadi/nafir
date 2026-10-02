@@ -17,9 +17,14 @@ class Track {
     this.sourceUri,
     this.source,
     this.sharedVia,
+    this.addedBy,
+    this.viaPlaylist,
   });
 
-  factory Track.fromJson(Map<String, dynamic> json, {String? sharedVia}) =>
+  /// [viaPlaylist] is the collaborative playlist a track someone else added
+  /// was listed in; it is then played through that playlist.
+  factory Track.fromJson(Map<String, dynamic> json,
+          {String? sharedVia, String? viaPlaylist}) =>
       Track(
         id: json['id'] as String,
         title: json['title'] as String,
@@ -37,6 +42,8 @@ class Track {
         fileName: json['fileName'] as String?,
         source: json['source'] as String?,
         sharedVia: sharedVia,
+        addedBy: json['addedBy'] as String?,
+        viaPlaylist: json['addedBy'] == null ? null : viaPlaylist,
       );
 
   final String id;
@@ -69,6 +76,13 @@ class Track {
   /// The share token of the playlist this track was opened from, when it is
   /// someone else's track; it is then played through that link.
   final String? sharedVia;
+
+  /// In a collaborative playlist, who added this track when it isn't the
+  /// viewer's own (their email, masked); null for the viewer's own tracks.
+  final String? addedBy;
+
+  /// The playlist someone else's track is played through, see [addedBy].
+  final String? viaPlaylist;
 
   /// The messenger a bot imported this track from, for people; null for
   /// tracks uploaded in the app.

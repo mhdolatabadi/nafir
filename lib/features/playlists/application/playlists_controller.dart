@@ -255,6 +255,63 @@ class PlaylistsController extends ChangeNotifier {
     }
   }
 
+  /// Makes a new collaboration link and returns its token, or null when
+  /// that failed. The old link stops working.
+  Future<String?> createCollabLink(String id) async {
+    final token = _token();
+    if (token == null) return null;
+    try {
+      return await _api.createCollabLink(token, id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Turns the collaboration link off; members stay. Returns whether it
+  /// worked.
+  Future<bool> revokeCollabLink(String id) =>
+      _attempt((token) => _api.revokeCollabLink(token, id));
+
+  /// Joins the playlist with this collaboration link. Throws
+  /// [SharedPlaylistUnavailable] when the link is wrong or revoked.
+  Future<Playlist> join(String collabToken) async {
+    final token = _token();
+    if (token == null) throw const SharedPlaylistUnavailable();
+    try {
+      final playlist = await _api.joinPlaylist(token, collabToken);
+      await load();
+      return playlist;
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) throw const SharedPlaylistUnavailable();
+      rethrow;
+    }
+  }
+
+  /// The owner takes a member out, with the tracks they added.
+  Future<bool> removeMember(String id, String memberId) =>
+      _attempt((token) => _api.removePlaylistMember(token, id, memberId));
+
+  /// Leaves a collaborative playlist; the tracks the user added leave too.
+  Future<bool> leave(String id) async {
+    final left = await _attempt((token) => _api.leavePlaylist(token, id));
+    if (left) {
+      playlists = playlists.where((playlist) => playlist.id != id).toList();
+      notifyListeners();
+    }
+    return left;
+  }
+
+  Future<bool> _attempt(Future<void> Function(String token) call) async {
+    final token = _token();
+    if (token == null) return false;
+    try {
+      await call(token);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   void clear() {
     playlists = const [];
     popular = const [];

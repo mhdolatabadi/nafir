@@ -240,13 +240,19 @@ class PlayerController extends ChangeNotifier {
     _setStatus(PlayerStatus.idle);
   }
 
-  /// Someone else's track, opened from a shared playlist, is played through
-  /// that playlist's link; the user's own tracks directly.
+  /// Someone else's track is played through the shared link or the
+  /// collaborative playlist it was opened from; the user's own directly.
   Future<StreamLink> _link(String? token, Track track) {
     final shareToken = track.sharedVia;
-    return shareToken == null
-        ? _api.streamLink(token!, track.id)
-        : _api.sharedStreamLink(token, shareToken, track.id);
+    final playlistId = track.viaPlaylist;
+    if (shareToken != null) {
+      return _api.sharedStreamLink(token, shareToken, track.id);
+    }
+    // Another member's track in a collaborative playlist.
+    if (playlistId != null) {
+      return _api.playlistStreamLink(token!, playlistId, track.id);
+    }
+    return _api.streamLink(token!, track.id);
   }
 
   /// Stream URLs expire; when playback fails (typically on a seek after the

@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/mhdolatabadi/nafir/server/internal/auth"
+	"github.com/mhdolatabadi/nafir/server/internal/bot"
 	"github.com/mhdolatabadi/nafir/server/internal/store"
 )
 
@@ -20,12 +21,16 @@ const (
 )
 
 type PlaylistStore interface {
-	ListForOwner(ctx context.Context, ownerID string) ([]store.Playlist, error)
-	ForOwner(ctx context.Context, ownerID, playlistID string) (store.Playlist, error)
+	ListForUser(ctx context.Context, userID string) ([]store.Playlist, error)
+	ForUser(ctx context.Context, userID, playlistID string) (store.Playlist, error)
 	Create(ctx context.Context, ownerID, name string) (store.Playlist, error)
 	Rename(ctx context.Context, ownerID, playlistID, name string) (store.Playlist, error)
-	ReplaceTracks(ctx context.Context, ownerID, playlistID string, trackIDs []string) error
+	ReplaceTracks(ctx context.Context, userID, playlistID string, trackIDs []string) error
 	Delete(ctx context.Context, ownerID, playlistID string) error
+	SetCollabToken(ctx context.Context, ownerID, playlistID string, token *string) (store.Playlist, error)
+	Join(ctx context.Context, userID, token string) (store.Playlist, error)
+	RemoveMember(ctx context.Context, actorID, playlistID, memberID string) error
+	PlaylistTrack(ctx context.Context, userID, playlistID, trackID string) (store.Track, error)
 }
 
 type PlaylistHandlers struct {
@@ -50,6 +55,7 @@ func (h *PlaylistHandlers) register(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /api/v1/playlists/{id}", h.handleRename)
 	mux.HandleFunc("DELETE /api/v1/playlists/{id}", h.handleDelete)
 	mux.HandleFunc("PUT /api/v1/playlists/{id}/tracks", h.handleReplaceTracks)
+	h.registerCollaboration(mux)
 	if h.shared != nil {
 		h.registerSharing(mux)
 	}
@@ -59,25 +65,64 @@ type playlistResponse struct {
 	ID         string `json:"id"`
 	Name       string `json:"name"`
 	TrackCount int    `json:"trackCount"`
+	// IsOwner is false for a playlist the user joined as a member.
+	IsOwner bool `json:"isOwner"`
 	// ShareToken is set while the playlist is shared; only its owner sees it.
 	ShareToken *string `json:"shareToken,omitempty"`
 	// Public is whether a shared playlist is listed for everyone.
-	Public    bool            `json:"public"`
-	Tracks    []trackResponse `json:"tracks,omitempty"`
-	CreatedAt time.Time       `json:"createdAt"`
-	UpdatedAt time.Time       `json:"updatedAt"`
+	Public bool `json:"public"`
+	// CollabToken is set while people can join; only its owner sees it.
+	CollabToken *string `json:"collabToken,omitempty"`
+	// Owner and Members are loaded with the tracks.
+	Owner     string                   `json:"owner,omitempty"`
+	Members   []playlistMemberResponse `json:"members,omitempty"`
+	Tracks    []playlistTrackResponse  `json:"tracks,omitempty"`
+	CreatedAt time.Time                `json:"createdAt"`
+	UpdatedAt time.Time                `json:"updatedAt"`
 }
 
-func toPlaylistResponse(playlist store.Playlist, includeTracks bool) playlistResponse {
+type playlistMemberResponse struct {
+	ID       string    `json:"id"`
+	Name     string    `json:"name"`
+	JoinedAt time.Time `json:"joinedAt"`
+}
+
+// playlistTrackResponse is a track as a playlist lists it. AddedBy names
+// whoever added a track that isn't the viewer's own.
+type playlistTrackResponse struct {
+	trackResponse
+	AddedBy *string `json:"addedBy,omitempty"`
+}
+
+// toPlaylistResponse shows the playlist to viewerID. Emails are masked:
+// members see who else is in the playlist, not their full address.
+func toPlaylistResponse(playlist store.Playlist, viewerID string, includeTracks bool) playlistResponse {
+	isOwner := playlist.OwnerID == viewerID
 	response := playlistResponse{
-		ID: playlist.ID, Name: playlist.Name, TrackCount: len(playlist.Tracks), ShareToken: playlist.ShareToken,
+		ID: playlist.ID, Name: playlist.Name, TrackCount: len(playlist.Tracks), IsOwner: isOwner,
 		Public: playlist.IsPublic, CreatedAt: playlist.CreatedAt.UTC(), UpdatedAt: playlist.UpdatedAt.UTC(),
 	}
-	if includeTracks {
-		response.Tracks = make([]trackResponse, 0, len(playlist.Tracks))
-		for _, track := range playlist.Tracks {
-			response.Tracks = append(response.Tracks, toTrackResponse(track))
+	if isOwner {
+		response.ShareToken, response.CollabToken = playlist.ShareToken, playlist.CollabToken
+	}
+	if !includeTracks {
+		return response
+	}
+	names := map[string]string{playlist.OwnerID: bot.MaskEmail(playlist.OwnerEmail)}
+	response.Owner = names[playlist.OwnerID]
+	response.Members = make([]playlistMemberResponse, 0, len(playlist.Members))
+	for _, m := range playlist.Members {
+		names[m.UserID] = bot.MaskEmail(m.Email)
+		response.Members = append(response.Members, playlistMemberResponse{ID: m.UserID, Name: names[m.UserID], JoinedAt: m.JoinedAt.UTC()})
+	}
+	response.Tracks = make([]playlistTrackResponse, 0, len(playlist.Tracks))
+	for _, track := range playlist.Tracks {
+		item := playlistTrackResponse{trackResponse: toTrackResponse(track)}
+		if track.OwnerID != viewerID {
+			name := names[track.OwnerID]
+			item.AddedBy = &name
 		}
+		response.Tracks = append(response.Tracks, item)
 	}
 	return response
 }
@@ -87,14 +132,14 @@ func (h *PlaylistHandlers) handleList(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	playlists, err := h.playlists.ListForOwner(r.Context(), userID)
+	playlists, err := h.playlists.ListForUser(r.Context(), userID)
 	if err != nil {
 		internalError(w, "list playlists", err)
 		return
 	}
 	response := make([]playlistResponse, 0, len(playlists))
 	for _, playlist := range playlists {
-		response = append(response, toPlaylistResponse(playlist, false))
+		response = append(response, toPlaylistResponse(playlist, userID, false))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"playlists": response})
 }
@@ -104,7 +149,7 @@ func (h *PlaylistHandlers) handleGet(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	playlist, err := h.playlists.ForOwner(r.Context(), userID, r.PathValue("id"))
+	playlist, err := h.playlists.ForUser(r.Context(), userID, r.PathValue("id"))
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "not_found")
 		return
@@ -113,7 +158,7 @@ func (h *PlaylistHandlers) handleGet(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "get playlist", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, toPlaylistResponse(playlist, true))
+	writeJSON(w, http.StatusOK, toPlaylistResponse(playlist, userID, true))
 }
 
 type playlistNameRequest struct {
@@ -134,7 +179,7 @@ func (h *PlaylistHandlers) handleCreate(w http.ResponseWriter, r *http.Request) 
 		internalError(w, "create playlist", err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, toPlaylistResponse(playlist, false))
+	writeJSON(w, http.StatusCreated, toPlaylistResponse(playlist, userID, false))
 }
 
 func (h *PlaylistHandlers) handleRename(w http.ResponseWriter, r *http.Request) {
@@ -155,7 +200,7 @@ func (h *PlaylistHandlers) handleRename(w http.ResponseWriter, r *http.Request) 
 		internalError(w, "rename playlist", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, toPlaylistResponse(playlist, false))
+	writeJSON(w, http.StatusOK, toPlaylistResponse(playlist, userID, false))
 }
 
 type replacePlaylistTracksRequest struct {
@@ -189,16 +234,20 @@ func (h *PlaylistHandlers) handleReplaceTracks(w http.ResponseWriter, r *http.Re
 	if err := h.playlists.ReplaceTracks(r.Context(), userID, r.PathValue("id"), input.TrackIDs); errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "not_found")
 		return
+	} else if errors.Is(err, store.ErrForbidden) {
+		// A member tried to take out a track someone else added.
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
 	} else if err != nil {
 		internalError(w, "replace playlist tracks", err)
 		return
 	}
-	playlist, err := h.playlists.ForOwner(r.Context(), userID, r.PathValue("id"))
+	playlist, err := h.playlists.ForUser(r.Context(), userID, r.PathValue("id"))
 	if err != nil {
 		internalError(w, "reload playlist", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, toPlaylistResponse(playlist, true))
+	writeJSON(w, http.StatusOK, toPlaylistResponse(playlist, userID, true))
 }
 
 func (h *PlaylistHandlers) handleDelete(w http.ResponseWriter, r *http.Request) {

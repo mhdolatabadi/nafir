@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/core/widgets/app_loading_screen.dart';
 import 'package:nafir/features/auth/application/auth_controller.dart';
+import 'package:nafir/features/auth/presentation/sign_in_prompt.dart';
 import 'package:nafir/features/auth/presentation/sign_in_screen.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
 import 'package:nafir/features/library/application/local_audio_controller.dart';
@@ -84,6 +85,14 @@ class _AuthGateState extends State<AuthGate> {
     if (!_guestShown) {
       _guestShown = true;
       _guestShareToken = AppConfiguration.takeInitialShareToken();
+      // A collaboration link is joined once signed in; say so.
+      if (AppConfiguration.peekInitialCollabToken() != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          askToSignIn(context,
+              action: 'پیوستن به Playlist مشترک', onSignIn: _openSignIn);
+        });
+      }
     }
     return PopularPlaylistsScreen(
       controller: playlists,

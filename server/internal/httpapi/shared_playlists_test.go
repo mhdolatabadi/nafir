@@ -25,11 +25,23 @@ type sharingStore struct {
 	limit   int
 }
 
-func (s *sharingStore) ListForOwner(context.Context, string) ([]store.Playlist, error) {
+func (s *sharingStore) ListForUser(context.Context, string) ([]store.Playlist, error) {
 	return nil, nil
 }
-func (s *sharingStore) ForOwner(context.Context, string, string) (store.Playlist, error) {
+func (s *sharingStore) ForUser(context.Context, string, string) (store.Playlist, error) {
 	return store.Playlist{}, store.ErrNotFound
+}
+func (s *sharingStore) SetCollabToken(context.Context, string, string, *string) (store.Playlist, error) {
+	return store.Playlist{}, errors.New("unused")
+}
+func (s *sharingStore) Join(context.Context, string, string) (store.Playlist, error) {
+	return store.Playlist{}, errors.New("unused")
+}
+func (s *sharingStore) RemoveMember(context.Context, string, string, string) error {
+	return errors.New("unused")
+}
+func (s *sharingStore) PlaylistTrack(context.Context, string, string, string) (store.Track, error) {
+	return store.Track{}, errors.New("unused")
 }
 func (s *sharingStore) Create(context.Context, string, string) (store.Playlist, error) {
 	return store.Playlist{}, errors.New("unused")

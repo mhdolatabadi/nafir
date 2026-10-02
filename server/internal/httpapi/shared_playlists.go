@@ -121,7 +121,7 @@ func (h *PlaylistHandlers) handleSaveShared(w http.ResponseWriter, r *http.Reque
 	case err != nil:
 		internalError(w, "save shared playlist", err)
 	default:
-		writeJSON(w, http.StatusCreated, toPlaylistResponse(saved, true))
+		writeJSON(w, http.StatusCreated, toPlaylistResponse(saved, userID, true))
 	}
 }
 
