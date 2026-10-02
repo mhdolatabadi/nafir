@@ -84,6 +84,30 @@ class Track {
   /// The playlist someone else's track is played through, see [addedBy].
   final String? viaPlaylist;
 
+  /// This cloud track, played from the identical file at [uri] on this
+  /// device.
+  Track withDeviceCopy(Uri uri) => Track(
+        id: id,
+        title: title,
+        artist: artist,
+        album: album,
+        albumArtist: albumArtist,
+        composer: composer,
+        genre: genre,
+        year: year,
+        trackNumber: trackNumber,
+        discNumber: discNumber,
+        comment: comment,
+        contentType: contentType,
+        sizeBytes: sizeBytes,
+        fileName: fileName,
+        sourceUri: uri,
+        source: source,
+        sharedVia: sharedVia,
+        addedBy: addedBy,
+        viaPlaylist: viaPlaylist,
+      );
+
   /// The messenger a bot imported this track from, for people; null for
   /// tracks uploaded in the app.
   String? get importedFrom => switch (source) {

@@ -6,6 +6,7 @@ import 'package:nafir/features/auth/application/auth_controller.dart';
 import 'package:nafir/features/auth/presentation/sign_in_prompt.dart';
 import 'package:nafir/features/auth/presentation/sign_in_screen.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
+import 'package:nafir/features/library/application/library_sync_controller.dart';
 import 'package:nafir/features/library/application/local_audio_controller.dart';
 import 'package:nafir/features/library/presentation/library_screen.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
@@ -26,6 +27,7 @@ class AuthGate extends StatefulWidget {
     this.playlists,
     required this.localAudio,
     required this.uploads,
+    required this.sync,
     required this.cache,
     this.botLinks,
     required this.picker,
@@ -38,6 +40,7 @@ class AuthGate extends StatefulWidget {
   final PlaylistsController? playlists;
   final LocalAudioController localAudio;
   final UploadController uploads;
+  final LibrarySyncController sync;
   final CacheController cache;
   final BotLinkController? botLinks;
   final AudioPicker picker;
@@ -125,6 +128,7 @@ class _AuthGateState extends State<AuthGate> {
                 widget.library.clear();
                 widget.playlists?.clear();
                 widget.botLinks?.clear();
+                widget.sync.clear();
                 widget.uploads.dismiss();
                 controller.logout();
               },
@@ -133,6 +137,7 @@ class _AuthGateState extends State<AuthGate> {
               localAudio: widget.localAudio,
               player: widget.player,
               uploads: widget.uploads,
+              sync: widget.sync,
               cache: widget.cache,
               botLinks: widget.botLinks,
               picker: widget.picker,
