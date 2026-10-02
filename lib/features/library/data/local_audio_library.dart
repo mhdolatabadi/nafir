@@ -15,6 +15,10 @@ class LocalAudioResult {
 abstract interface class LocalAudioLibrary {
   bool get supported;
   Future<LocalAudioResult> load();
+
+  /// Deletes a device track's file. Answers false when the user declined
+  /// the system's confirmation; throws when it could not be deleted.
+  Future<bool> delete(Track track);
 }
 
 LocalAudioLibrary createLocalAudioLibrary() =>

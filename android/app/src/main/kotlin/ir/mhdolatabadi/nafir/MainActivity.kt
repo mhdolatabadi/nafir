@@ -1,7 +1,10 @@
 package ir.mhdolatabadi.nafir
 
 import android.Manifest
+import android.app.Activity
+import android.app.RecoverableSecurityException
 import android.content.ContentUris
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -18,7 +21,15 @@ import java.io.File
 class MainActivity : AudioServiceActivity() {
     private val channelName = "ir.mhdolatabadi.nafir/local_audio"
     private val permissionRequest = 4102
+    private val writePermissionRequest = 4103
+    private val deleteRequest = 4104
     private var pendingResult: MethodChannel.Result? = null
+
+    /// Waiting for the storage write permission (Android 9 and older).
+    private var pendingWrite: ((Boolean) -> Unit)? = null
+
+    /// Waiting for the user to confirm deleting a file another app made.
+    private var pendingDelete: ((Boolean) -> Unit)? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -33,6 +44,7 @@ class MainActivity : AudioServiceActivity() {
                     call.argument<String>("fileName"),
                     result,
                 )
+                "deleteAudio" -> handleDeleteAudio(call.argument<String>("uri"), result)
                 else -> result.notImplemented()
             }
         }
@@ -82,6 +94,88 @@ class MainActivity : AudioServiceActivity() {
         }
     }
 
+    /// Deletes a device track. Files Nafir saved are deleted directly; for
+    /// others Android asks the user to confirm. Answers true once deleted and
+    /// false when the user declined.
+    private fun handleDeleteAudio(uri: String?, result: MethodChannel.Result) {
+        if (uri == null) {
+            result.error("INVALID_ARGUMENT", "Audio uri is required.", null)
+            return
+        }
+        if (pendingDelete != null || pendingWrite != null) {
+            result.error("BUSY", "Another storage request is active.", null)
+            return
+        }
+        withWritePermission { granted ->
+            if (!granted) {
+                result.error("PERMISSION_DENIED", "Storage access was denied.", null)
+                return@withWritePermission
+            }
+            deleteAudio(Uri.parse(uri), result, askUser = true)
+        }
+    }
+
+    private fun deleteAudio(uri: Uri, result: MethodChannel.Result, askUser: Boolean) {
+        try {
+            contentResolver.delete(uri, null, null)
+            result.success(true)
+        } catch (error: SecurityException) {
+            val sender = when {
+                !askUser -> null
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.R ->
+                    MediaStore.createDeleteRequest(contentResolver, listOf(uri)).intentSender
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                    error is RecoverableSecurityException ->
+                    error.userAction.actionIntent.intentSender
+                else -> null
+            }
+            if (sender == null) {
+                result.error("PERMISSION_DENIED", error.message, null)
+                return
+            }
+            pendingDelete = { confirmed ->
+                when {
+                    !confirmed -> result.success(false)
+                    // Android 11+ deletes the file itself once confirmed.
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> result.success(true)
+                    else -> deleteAudio(uri, result, askUser = false)
+                }
+            }
+            startIntentSenderForResult(sender, deleteRequest, null, 0, 0, 0)
+        } catch (error: Exception) {
+            result.error("DELETE_FAILED", error.message, null)
+        }
+    }
+
+    @Deprecated("Needed for MediaStore delete confirmation on API 29+.")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != deleteRequest) return
+        val callback = pendingDelete ?: return
+        pendingDelete = null
+        callback(resultCode == Activity.RESULT_OK)
+    }
+
+    /// Android 9 and older need a runtime permission to change shared
+    /// storage; newer versions use MediaStore and need none.
+    private fun withWritePermission(callback: (Boolean) -> Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ||
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE,
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            callback(true)
+            return
+        }
+        pendingWrite = callback
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+            writePermissionRequest,
+        )
+    }
+
     private fun audioPermission(): String =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             Manifest.permission.READ_MEDIA_AUDIO
@@ -100,6 +194,12 @@ class MainActivity : AudioServiceActivity() {
         grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == writePermissionRequest) {
+            val callback = pendingWrite ?: return
+            pendingWrite = null
+            callback(grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED)
+            return
+        }
         if (requestCode != permissionRequest) return
         val result = pendingResult ?: return
         pendingResult = null

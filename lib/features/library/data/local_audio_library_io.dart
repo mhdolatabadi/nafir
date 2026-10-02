@@ -46,6 +46,19 @@ class AndroidLocalAudioLibrary implements LocalAudioLibrary {
       rethrow;
     }
   }
+
+  @override
+  Future<bool> delete(Track track) async {
+    final uri = track.sourceUri;
+    if (uri == null) {
+      throw ArgumentError.value(track.id, 'track', 'Track is not local.');
+    }
+    return await _channel.invokeMethod<bool>(
+          'deleteAudio',
+          {'uri': uri.toString()},
+        ) ??
+        false;
+  }
 }
 
 LocalAudioLibrary createLocalAudioLibrary() => AndroidLocalAudioLibrary();

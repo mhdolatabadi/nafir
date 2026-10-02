@@ -6,6 +6,7 @@ import 'package:nafir/features/auth/application/auth_controller.dart';
 import 'package:nafir/features/auth/presentation/sign_in_prompt.dart';
 import 'package:nafir/features/auth/presentation/sign_in_screen.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
+import 'package:nafir/features/library/application/library_sync_controller.dart';
 import 'package:nafir/features/library/application/local_audio_controller.dart';
 import 'package:nafir/features/library/presentation/library_screen.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
@@ -27,6 +28,7 @@ class AuthGate extends StatefulWidget {
     this.playlists,
     required this.localAudio,
     required this.uploads,
+    required this.sync,
     required this.cache,
     this.botLinks,
     this.linkImports,
@@ -40,6 +42,7 @@ class AuthGate extends StatefulWidget {
   final PlaylistsController? playlists;
   final LocalAudioController localAudio;
   final UploadController uploads;
+  final LibrarySyncController sync;
   final CacheController cache;
   final BotLinkController? botLinks;
   final LinkImportController? linkImports;
@@ -138,13 +141,24 @@ class _AuthGateState extends State<AuthGate> {
               : _guestHome(widget.playlists!),
           AuthStatus.signedIn => LibraryScreen(
               email: controller.user!.email,
-              onLogout: controller.logout,
+              onLogout: () {
+                // Never show one account's tracks to the next one.
+                widget.player.stop();
+                widget.library.clear();
+                widget.playlists?.clear();
+                widget.botLinks?.clear();
+                widget.sync.clear();
+                widget.linkImports?.clear();
+                widget.uploads.dismiss();
+                controller.logout();
+              },
               onDeleteAccount: controller.deleteAccount,
               library: widget.library,
               playlists: widget.playlists,
               localAudio: widget.localAudio,
               player: widget.player,
               uploads: widget.uploads,
+              sync: widget.sync,
               cache: widget.cache,
               botLinks: widget.botLinks,
               linkImports: widget.linkImports,
