@@ -604,31 +604,32 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
             IconButton(
               tooltip: 'ترک Playlist',
               onPressed: _leave,
-              icon: const Icon(Icons.logout),
+              icon: const Icon(NafirIcons.signOut),
             )
           else ...[
             IconButton(
               tooltip: 'همکاری',
               onPressed: current == null ? null : _collab,
               icon: Icon(current?.collabToken == null
-                  ? Icons.group_add_outlined
-                  : Icons.group),
+                  ? NafirIcons.userPlus
+                  : NafirIcons.usersFill),
             ),
             IconButton(
               tooltip: 'اشتراک‌گذاری',
               onPressed: current == null ? null : _share,
-              icon:
-                  Icon(current?.shareToken == null ? Icons.share : Icons.link),
+              icon: Icon(current?.shareToken == null
+                  ? NafirIcons.shareNetwork
+                  : NafirIcons.link),
             ),
             IconButton(
               tooltip: 'تغییر نام',
               onPressed: current == null ? null : _rename,
-              icon: const Icon(Icons.edit_outlined),
+              icon: const Icon(NafirIcons.pencilSimple),
             ),
             IconButton(
               tooltip: 'حذف',
               onPressed: current == null ? null : _delete,
-              icon: const Icon(Icons.delete_outline),
+              icon: const Icon(NafirIcons.trash),
             ),
           ],
         ],
@@ -705,7 +706,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                               onPressed: () =>
                                                   _removeTrack(track),
                                               icon: const Icon(
-                                                  Icons.remove_circle_outline),
+                                                  NafirIcons.minusCircle),
                                             )
                                           : null,
                                       onTap: () => widget.player
