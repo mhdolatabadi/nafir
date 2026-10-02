@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/player/application/play_queue.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
+import 'package:nafir/features/player/presentation/now_playing_screen.dart';
 
 /// Responsive now-playing surface with track identity, playback controls,
 /// and progress.
@@ -19,20 +19,9 @@ class MiniPlayer extends StatefulWidget {
 class _MiniPlayerState extends State<MiniPlayer> {
   double? _dragMs;
 
-  static String _format(Duration value) {
-    final minutes = value.inMinutes;
-    final seconds = value.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
-  }
+  static String _format(Duration value) => formatPlaybackTime(value);
 
-  void _openNowPlaying() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        fullscreenDialog: true,
-        builder: (_) => _NowPlayingScreen(player: widget.player),
-      ),
-    );
-  }
+  void _openNowPlaying() => openNowPlaying(context, widget.player);
 
   @override
   Widget build(BuildContext context) {
@@ -355,11 +344,7 @@ class _MiniTrackText extends StatelessWidget {
         Text(
           status == PlayerStatus.error
               ? 'پخش ناموفق بود. دوباره تلاش کن.'
-              : track.artist?.trim().isNotEmpty == true
-                  ? track.artist!
-                  : track.isLocal
-                      ? 'روی دستگاه'
-                      : 'روی سرور',
+              : trackSubtitle(track),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -393,12 +378,7 @@ class _PlaybackControls extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _Toggle(
-            tooltip: player.shuffle ? 'پخش تصادفی: روشن' : 'پخش تصادفی',
-            icon: player.shuffle ? NafirIcons.shuffleFill : NafirIcons.shuffle,
-            active: player.shuffle,
-            onPressed: player.toggleShuffle,
-          ),
+          ShuffleToggle(player: player),
           IconButton(
             tooltip: 'قبلی',
             onPressed: player.previous,
@@ -439,230 +419,9 @@ class _PlaybackControls extends StatelessWidget {
             onPressed: player.next,
             icon: const Icon(NafirIcons.skipForwardFill),
           ),
-          _Toggle(
-            tooltip: switch (player.repeat) {
-              QueueRepeat.off => 'تکرار: خاموش',
-              QueueRepeat.all => 'تکرار: همه',
-              QueueRepeat.one => 'تکرار: همین آهنگ',
-            },
-            icon: switch (player.repeat) {
-              QueueRepeat.off => NafirIcons.repeat,
-              QueueRepeat.all => NafirIcons.repeatFill,
-              QueueRepeat.one => NafirIcons.repeatOnceFill,
-            },
-            active: player.repeat != QueueRepeat.off,
-            onPressed: player.cycleRepeat,
-          ),
+          RepeatToggle(player: player),
         ],
       ),
-    );
-  }
-}
-
-class _NowPlayingScreen extends StatefulWidget {
-  const _NowPlayingScreen({required this.player});
-
-  final PlayerController player;
-
-  @override
-  State<_NowPlayingScreen> createState() => _NowPlayingScreenState();
-}
-
-class _NowPlayingScreenState extends State<_NowPlayingScreen> {
-  double? _dragMs;
-
-  static String _format(Duration value) {
-    final minutes = value.inMinutes;
-    final seconds = value.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: widget.player,
-      builder: (context, _) {
-        final player = widget.player;
-        final track = player.track;
-        if (track == null) {
-          return const Scaffold(body: SizedBox.shrink());
-        }
-
-        final durationMs = player.duration?.inMilliseconds ?? 0;
-        final positionMs =
-            player.position.inMilliseconds.clamp(0, durationMs).toDouble();
-        final status = player.status;
-        final busy =
-            status == PlayerStatus.loading || status == PlayerStatus.buffering;
-        final playing =
-            status == PlayerStatus.playing || status == PlayerStatus.buffering;
-
-        return Scaffold(
-          extendBodyBehindAppBar: true,
-          appBar: AppBar(
-            leading: IconButton(
-              tooltip: 'بستن',
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(NafirIcons.caretDown),
-            ),
-            title: const Text('در حال پخش'),
-            centerTitle: true,
-            actions: [
-              IconButton(
-                tooltip: 'صف پخش',
-                onPressed: () {},
-                icon: const Icon(NafirIcons.playlist),
-              ),
-            ],
-          ),
-          body: NafirBackdrop(
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
-                child: Column(
-                  children: [
-                    const Spacer(),
-                    _MiniArtwork(track: track, status: status, size: 260),
-                    const SizedBox(height: 34),
-                    Text(
-                      track.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style:
-                          Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      track.artist?.trim().isNotEmpty == true
-                          ? track.artist!
-                          : track.isLocal
-                              ? 'روی دستگاه'
-                              : 'روی سرور',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                    ),
-                    const Spacer(),
-                    Directionality(
-                      textDirection: TextDirection.ltr,
-                      child: Column(
-                        children: [
-                          Slider(
-                            value: _dragMs ?? positionMs,
-                            max: durationMs > 0 ? durationMs.toDouble() : 1,
-                            semanticFormatterCallback: (value) => _format(
-                              Duration(milliseconds: value.round()),
-                            ),
-                            onChanged: durationMs > 0
-                                ? (value) => setState(() => _dragMs = value)
-                                : null,
-                            onChangeEnd: durationMs > 0
-                                ? (value) {
-                                    setState(() => _dragMs = null);
-                                    player.seek(
-                                      Duration(milliseconds: value.round()),
-                                    );
-                                  }
-                                : null,
-                          ),
-                          Row(
-                            children: [
-                              _TimeLabel(_format(player.position)),
-                              const Spacer(),
-                              _TimeLabel(
-                                _format(player.duration ?? Duration.zero),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 22),
-                    Directionality(
-                      textDirection: TextDirection.ltr,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _Toggle(
-                            tooltip: player.shuffle
-                                ? 'پخش تصادفی: روشن'
-                                : 'پخش تصادفی',
-                            icon: player.shuffle
-                                ? NafirIcons.shuffleFill
-                                : NafirIcons.shuffle,
-                            active: player.shuffle,
-                            onPressed: player.toggleShuffle,
-                          ),
-                          IconButton(
-                            tooltip: 'قبلی',
-                            iconSize: 34,
-                            onPressed: player.previous,
-                            icon: const Icon(NafirIcons.skipBackFill),
-                          ),
-                          if (busy)
-                            const SizedBox.square(
-                              dimension: 64,
-                              child: Padding(
-                                padding: EdgeInsets.all(16),
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 3,
-                                ),
-                              ),
-                            )
-                          else
-                            IconButton.filled(
-                              tooltip: status == PlayerStatus.error
-                                  ? 'تلاش دوباره'
-                                  : playing
-                                      ? 'توقف'
-                                      : 'پخش',
-                              iconSize: 36,
-                              onPressed: player.toggle,
-                              icon: Icon(
-                                status == PlayerStatus.error
-                                    ? NafirIcons.arrowsClockwise
-                                    : playing
-                                        ? NafirIcons.pauseFill
-                                        : NafirIcons.playFill,
-                              ),
-                            ),
-                          IconButton(
-                            tooltip: 'بعدی',
-                            iconSize: 34,
-                            onPressed: player.next,
-                            icon: const Icon(NafirIcons.skipForwardFill),
-                          ),
-                          _Toggle(
-                            tooltip: switch (player.repeat) {
-                              QueueRepeat.off => 'تکرار: خاموش',
-                              QueueRepeat.all => 'تکرار: همه',
-                              QueueRepeat.one => 'تکرار: همین آهنگ',
-                            },
-                            icon: switch (player.repeat) {
-                              QueueRepeat.off => NafirIcons.repeat,
-                              QueueRepeat.all => NafirIcons.repeatFill,
-                              QueueRepeat.one => NafirIcons.repeatOnceFill,
-                            },
-                            active: player.repeat != QueueRepeat.off,
-                            onPressed: player.cycleRepeat,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 }
@@ -684,40 +443,6 @@ class _TimeLabel extends StatelessWidget {
           fontFeatures: const [FontFeature.tabularFigures()],
         ),
       ),
-    );
-  }
-}
-
-/// A mode button with both color and background feedback when selected.
-class _Toggle extends StatelessWidget {
-  const _Toggle({
-    required this.tooltip,
-    required this.icon,
-    required this.active,
-    required this.onPressed,
-  });
-
-  final String tooltip;
-  final IconData icon;
-  final bool active;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return IconButton(
-      tooltip: tooltip,
-      isSelected: active,
-      onPressed: onPressed,
-      style: ButtonStyle(
-        foregroundColor: WidgetStatePropertyAll(
-          active ? colors.onSecondaryContainer : colors.onSurfaceVariant,
-        ),
-        backgroundColor: WidgetStatePropertyAll(
-          active ? colors.secondaryContainer : Colors.transparent,
-        ),
-      ),
-      icon: Icon(icon),
     );
   }
 }

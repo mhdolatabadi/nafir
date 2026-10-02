@@ -334,4 +334,18 @@ void main() {
       expect(player.status, PlayerStatus.completed);
     });
   });
+
+  test('the queue can be read and a queued track played', () async {
+    expect(player.upcoming, isEmpty);
+    await player.playFrom(_abc, 0);
+    expect(player.upcoming.map((t) => t.id), ['b', 'c']);
+
+    await player.skipTo(1);
+    expect(player.track?.id, 'c');
+    expect(player.status, PlayerStatus.playing);
+    expect(player.upcoming, isEmpty);
+
+    await player.skipTo(3);
+    expect(player.track?.id, 'c', reason: 'out of range is ignored');
+  });
 }

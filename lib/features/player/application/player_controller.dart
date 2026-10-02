@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/features/library/data/track.dart';
+import 'package:nafir/features/player/application/favorite_tracks.dart';
 import 'package:nafir/features/player/application/play_queue.dart';
 import 'package:nafir/features/player/data/audio_engine.dart';
 
@@ -27,10 +28,12 @@ class PlayerController extends ChangeNotifier {
     required AudioEngine engine,
     required String? Function() token,
     Random? random,
+    FavoriteTracks? favorites,
   })  : _api = api,
         _engine = engine,
         _token = token,
-        _random = random ?? Random() {
+        _random = random ?? Random(),
+        favorites = favorites ?? FavoriteTracks() {
     _subscriptions = [
       engine.position.listen((value) {
         _position = value;
@@ -58,6 +61,9 @@ class PlayerController extends ChangeNotifier {
   final Random _random;
   late final List<StreamSubscription<Object?>> _subscriptions;
 
+  /// The tracks the listener liked, shown on the now-playing screen.
+  final FavoriteTracks favorites;
+
   PlayQueue? _queue;
   bool _shuffle = false;
   QueueRepeat _repeat = QueueRepeat.off;
@@ -78,6 +84,16 @@ class PlayerController extends ChangeNotifier {
   PlayerStatus get status => _status;
   Duration get position => _position;
   Duration? get duration => _duration;
+
+  /// The tracks that will play after the current one, in order.
+  List<Track> get upcoming => _queue?.upcoming ?? const [];
+
+  /// Plays the upcoming track at [index], as picked from the queue.
+  Future<void> skipTo(int index) async {
+    final queue = _queue;
+    if (queue == null || index < 0 || index >= queue.upcoming.length) return;
+    await _start(queue.skipTo(index));
+  }
 
   /// Plays [tracks] starting at [index], or toggles pause when that track
   /// is already the current one. Shuffle and repeat settings carry over.
@@ -310,6 +326,7 @@ class PlayerController extends ChangeNotifier {
       subscription.cancel();
     }
     _engine.dispose();
+    favorites.dispose();
     super.dispose();
   }
 }
