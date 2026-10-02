@@ -54,6 +54,8 @@ services:
       TELEGRAM_PROXY_URL: ${TELEGRAM_PROXY_URL:-}
       BOT_WEBHOOK_SECRET: ${BOT_WEBHOOK_SECRET:-}
       OPS_TOKEN: ${OPS_TOKEN:-}
+      # The email the /privacy page gives for questions and account deletion.
+      PRIVACY_CONTACT_EMAIL: ${PRIVACY_CONTACT_EMAIL:-}
       BOT_PUBLIC_URL: https://${NAFIR_DOMAIN}
     depends_on:
       postgres:

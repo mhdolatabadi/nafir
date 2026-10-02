@@ -22,6 +22,7 @@ var publicTemplates = map[string]*template.Template{
 	"home":     template.Must(template.ParseFS(publicFiles, "public/layout.html", "public/home.html")),
 	"playlist": template.Must(template.ParseFS(publicFiles, "public/layout.html", "public/playlist.html")),
 	"missing":  template.Must(template.ParseFS(publicFiles, "public/layout.html", "public/missing.html")),
+	"privacy":  template.Must(template.ParseFS(publicFiles, "public/layout.html", "public/privacy.html")),
 }
 
 const (
@@ -41,6 +42,9 @@ type PublicPages struct {
 	playlists SharedPlaylistStore
 	streams   StreamPresigner
 	limits    AnonymousLimits
+	// contact is the email the privacy page gives for questions and
+	// account deletion; the page leaves it out when it is empty.
+	contact string
 }
 
 func NewPublicPages(playlists SharedPlaylistStore, streams StreamPresigner, limits AnonymousLimits) *PublicPages {
@@ -54,6 +58,7 @@ func (p *PublicPages) register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /sitemap.xml", p.handleSitemap)
 	mux.HandleFunc("GET /robots.txt", p.handleRobots)
 	mux.HandleFunc("GET /nafir.png", p.handleIcon)
+	mux.HandleFunc("GET /privacy", p.handlePrivacy)
 }
 
 type pageMeta struct {
@@ -308,6 +313,35 @@ func (p *PublicPages) handleRobots(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "public, max-age=3600")
 	fmt.Fprintf(w, "User-agent: *\nAllow: /\nDisallow: /app/\nDisallow: /api/\nSitemap: %s/sitemap.xml\n", origin(r))
+}
+
+// WithContact sets the email the privacy page gives for questions and
+// account deletion.
+func (p *PublicPages) WithContact(email string) *PublicPages {
+	p.contact = strings.TrimSpace(email)
+	return p
+}
+
+// privacyUpdated is when the privacy policy text last changed.
+const privacyUpdated = "۱۰ مهر ۱۴۰۵"
+
+// handlePrivacy serves the privacy policy app stores link to.
+func (p *PublicPages) handlePrivacy(w http.ResponseWriter, r *http.Request) {
+	site := origin(r)
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	p.render(w, http.StatusOK, "privacy", struct {
+		pageMeta
+		Updated string
+		Contact string
+	}{
+		pageMeta: pageMeta{
+			Title:       "حریم خصوصی — نفیر",
+			Description: "نفیر چه اطلاعاتی نگه می‌دارد، چه کسی آن را می‌بیند و چطور حذفش کنی.",
+			Canonical:   site + "/privacy", Image: site + "/nafir.png", OGType: "website",
+		},
+		Updated: privacyUpdated,
+		Contact: p.contact,
+	})
 }
 
 func (p *PublicPages) handleIcon(w http.ResponseWriter, r *http.Request) {

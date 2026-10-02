@@ -215,7 +215,8 @@ func run() error {
 				Objects: objects, MaxOwnerBytes: ownerQuotaBytes, Enabled: uploadsEnabled,
 			}).WithAnonymous(httpapi.AnonymousLimits{View: publicViewRate, Stream: publicStreamRate}),
 			Public: httpapi.NewPublicPages(playlists, objects,
-				httpapi.AnonymousLimits{View: publicViewRate, Stream: publicStreamRate}),
+				httpapi.AnonymousLimits{View: publicViewRate, Stream: publicStreamRate}).
+				WithContact(os.Getenv("PRIVACY_CONTACT_EMAIL")),
 			Bots:     botHandlers,
 			Ops:      ops,
 			Webhooks: webhooks,
