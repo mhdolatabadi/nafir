@@ -162,10 +162,11 @@ func TestResolveFindsTheBestQualityLink(t *testing.T) {
 	}
 	if got, err := f.ResolveAll(ctx, mustParse(t, server.URL+"/song")); err != nil {
 		t.Fatalf("resolve all: %v", err)
-	} else if len(got) != 3 ||
+	} else if len(got) != 4 ||
 		got[0].URL.String() != server.URL+"/media/preview-64.mp3" ||
 		got[1].URL.String() != server.URL+"/dl/Artist%20-%20Song%20128.mp3" ||
-		got[2].URL.String() != server.URL+"/dl/Artist%20-%20Song.mp3" {
+		got[2].URL.String() != server.URL+"/dl/Artist%20-%20Song.mp3" ||
+		got[3].URL.String() != server.URL+"/stream/song.m4a" {
 		t.Fatalf("resolve all = %+v", got)
 	}
 	if _, err := f.Resolve(ctx, mustParse(t, server.URL+"/empty")); !errors.Is(err, ErrNoAudio) {
