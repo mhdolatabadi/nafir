@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:nafir/features/link_import/application/link_import_controller.dart';
 import 'package:nafir/features/link_import/data/link_import.dart';
@@ -187,28 +188,60 @@ class _NafirAppState extends State<NafirApp> {
       supportedLocales: const [Locale('fa')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       theme: NafirTheme.dark(),
-      home: BackendGate(
-        healthCheck: widget.healthCheck ?? _apiClient?.checkHealth,
-        child: _auth == null ||
-                _uploads == null ||
-                _sync == null ||
-                _library == null ||
-                _player == null
-            ? const SizedBox.shrink()
-            : AuthGate(
-                controller: _auth,
-                player: _player,
-                library: _library,
-                playlists: _playlists,
-                localAudio: _localAudio,
-                uploads: _uploads,
-                sync: _sync,
-                cache: _cache,
-                botLinks: _botLinks,
-                linkImports: _linkImports,
-                picker: widget.picker ?? FilePickerAudioPicker(),
-              ),
+      home: _WebEdgeInsets(
+        child: BackendGate(
+          healthCheck: widget.healthCheck ?? _apiClient?.checkHealth,
+          child: _auth == null ||
+                  _uploads == null ||
+                  _sync == null ||
+                  _library == null ||
+                  _player == null
+              ? const SizedBox.shrink()
+              : AuthGate(
+                  controller: _auth,
+                  player: _player,
+                  library: _library,
+                  playlists: _playlists,
+                  localAudio: _localAudio,
+                  uploads: _uploads,
+                  sync: _sync,
+                  cache: _cache,
+                  botLinks: _botLinks,
+                  linkImports: _linkImports,
+                  picker: widget.picker ?? FilePickerAudioPicker(),
+                ),
+        ),
       ),
+    );
+  }
+}
+
+
+class _WebEdgeInsets extends StatelessWidget {
+  const _WebEdgeInsets({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!kIsWeb) return child;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final horizontal = switch (width) {
+          >= 1200 => 32.0,
+          >= 720 => 24.0,
+          _ => 0.0,
+        };
+        if (horizontal == 0) return child;
+        return ColoredBox(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: horizontal),
+            child: child,
+          ),
+        );
+      },
     );
   }
 }
