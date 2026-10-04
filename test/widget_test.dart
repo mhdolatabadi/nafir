@@ -900,6 +900,36 @@ void main() {
     expect(find.text('«Song to delete» حذف شد.'), findsOneWidget);
   });
 
+  testWidgets('adding a track can create a playlist from the picker', (
+    tester,
+  ) async {
+    final tracks = FakeTracksApi(const [
+      Track(id: 's1', title: 'Song', contentType: 'audio/mpeg', sizeBytes: 1),
+    ]);
+    final playlists = FakePlaylistsApi()..userPlaylists = [];
+
+    await _pumpApp(
+      tester,
+      tokenStore: MemoryTokenStore('valid-token'),
+      tracks: tracks,
+      playlists: playlists,
+    );
+
+    await tester.tap(find.byTooltip('اقدامات آهنگ'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('افزودن به Playlist'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Playlist جدید'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'Road songs');
+    await tester.tap(find.text('ساخت'));
+    await tester.pumpAndSettle();
+
+    expect(playlists.createdNames, ['Road songs']);
+    expect(playlists.replacedWith, ['s1']);
+    expect(find.text('آهنگ به Playlist اضافه شد.'), findsOneWidget);
+  });
+
   testWidgets('a failed list load offers a retry', (tester) async {
     final tracks = FakeTracksApi(const [
       Track(id: 's1', title: 'Song', contentType: 'audio/mpeg', sizeBytes: 1),
