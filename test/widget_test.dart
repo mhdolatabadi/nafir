@@ -132,9 +132,7 @@ class FakeLinkImportsApi implements LinkImportsApi {
     }
     return [
       LinkImportCandidate(
-          url: url,
-          fileName: 'Artist - Song.mp3',
-          site: 'music.example.ir'),
+          url: url, fileName: 'Artist - Song.mp3', site: 'music.example.ir'),
     ];
   }
 
