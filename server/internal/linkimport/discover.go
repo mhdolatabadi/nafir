@@ -34,18 +34,36 @@ var extensionsByType = map[string]string{
 // that file; a web page is searched for links to audio files, and the best
 // quality one is picked.
 func (f *Fetcher) Resolve(ctx context.Context, u *url.URL) (Candidate, error) {
-	candidates, err := f.ResolveAll(ctx, u)
+	ctx, cancel := context.WithTimeout(ctx, pageTimeout)
+	defer cancel()
+	resp, err := f.get(ctx, u)
 	if err != nil {
 		return Candidate{}, err
 	}
-	best := candidates[0]
-	bestScore := quality(link{url: best.URL})
-	for _, c := range candidates[1:] {
-		if score := quality(link{url: c.URL}); score > bestScore {
-			best, bestScore = c, score
+	defer resp.Body.Close()
+	final := resp.Request.URL
+	mediaType, _, _ := mime.ParseMediaType(resp.Header.Get("Content-Type"))
+
+	if name, ok := audioFileName(final, mediaType); ok {
+		size := resp.ContentLength
+		if size < 0 {
+			size = 0
 		}
+		return Candidate{URL: final, FileName: name, SizeBytes: size}, nil
 	}
-	return best, nil
+	if mediaType != "text/html" && mediaType != "application/xhtml+xml" {
+		return Candidate{}, ErrUnsupported
+	}
+	page, err := io.ReadAll(io.LimitReader(resp.Body, maxPageBytes))
+	if err != nil {
+		return Candidate{}, ErrUnreachable
+	}
+	best, ok := bestLink(final, string(page))
+	if !ok {
+		return Candidate{}, ErrNoAudio
+	}
+	name, _ := audioFileName(best, "")
+	return Candidate{URL: best, FileName: name}, nil
 }
 
 // ResolveAll finds every supported audio file a link leads to. A link to an
