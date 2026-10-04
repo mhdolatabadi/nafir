@@ -1451,7 +1451,6 @@ class _TrackListState extends State<_TrackList> {
         ],
       ),
     );
-    nameController.dispose();
     if (!context.mounted || name == null) return null;
 
     final playlist = await controller.create(name);
