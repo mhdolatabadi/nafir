@@ -112,7 +112,7 @@ func TestLinkImportAPI(t *testing.T) {
 		}
 	}
 
-	request := httptest.NewRequest(http.MethodGet, "/api/v1/imports/link", nil)
+	request = httptest.NewRequest(http.MethodGet, "/api/v1/imports/link", nil)
 	request.Header.Set("Authorization", "Bearer "+token)
 	list := httptest.NewRecorder()
 	handler.ServeHTTP(list, request)
