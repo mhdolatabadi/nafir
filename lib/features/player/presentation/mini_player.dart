@@ -54,87 +54,88 @@ class _MiniPlayerState extends State<MiniPlayer> {
                 child: SafeArea(
                   top: false,
                   child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final compact = constraints.maxWidth < 620;
-                  final summary = _TrackSummary(
-                    track: track,
-                    status: status,
-                    onTap: _openNowPlaying,
-                  );
-                  final controls = _PlaybackControls(
-                    player: player,
-                    status: status,
-                    busy: busy,
-                    playing: playing,
-                  );
+                    builder: (context, constraints) {
+                      final compact = constraints.maxWidth < 620;
+                      final summary = _TrackSummary(
+                        track: track,
+                        status: status,
+                        onTap: _openNowPlaying,
+                      );
+                      final controls = _PlaybackControls(
+                        player: player,
+                        status: status,
+                        busy: busy,
+                        playing: playing,
+                      );
 
-                  if (compact) {
-                    return _CompactMiniPlayer(
-                      track: track,
-                      status: status,
-                      player: player,
-                      busy: busy,
-                      playing: playing,
-                      progress: durationMs > 0
-                          ? (positionMs / durationMs).clamp(0.0, 1.0)
-                          : null,
-                      onOpen: _openNowPlaying,
-                    );
-                  }
+                      if (compact) {
+                        return _CompactMiniPlayer(
+                          track: track,
+                          status: status,
+                          player: player,
+                          busy: busy,
+                          playing: playing,
+                          progress: durationMs > 0
+                              ? (positionMs / durationMs).clamp(0.0, 1.0)
+                              : null,
+                          onOpen: _openNowPlaying,
+                        );
+                      }
 
-                  return Padding(
-                    padding:
-                        const EdgeInsetsDirectional.fromSTEB(20, 10, 20, 8),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
+                      return Padding(
+                        padding:
+                            const EdgeInsetsDirectional.fromSTEB(20, 10, 20, 8),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Expanded(child: summary),
-                            const SizedBox(width: 24),
-                            controls,
+                            Row(
+                              children: [
+                                Expanded(child: summary),
+                                const SizedBox(width: 24),
+                                controls,
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Directionality(
+                              textDirection: TextDirection.ltr,
+                              child: Row(
+                                children: [
+                                  _TimeLabel(_format(player.position)),
+                                  Expanded(
+                                    child: Slider(
+                                      value: _dragMs ?? positionMs,
+                                      max: durationMs > 0
+                                          ? durationMs.toDouble()
+                                          : 1,
+                                      semanticFormatterCallback: (value) =>
+                                          _format(
+                                        Duration(milliseconds: value.round()),
+                                      ),
+                                      onChanged: durationMs > 0
+                                          ? (value) =>
+                                              setState(() => _dragMs = value)
+                                          : null,
+                                      onChangeEnd: durationMs > 0
+                                          ? (value) {
+                                              setState(() => _dragMs = null);
+                                              player.seek(
+                                                Duration(
+                                                  milliseconds: value.round(),
+                                                ),
+                                              );
+                                            }
+                                          : null,
+                                    ),
+                                  ),
+                                  _TimeLabel(
+                                    _format(player.duration ?? Duration.zero),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
-                        const SizedBox(height: 4),
-                        Directionality(
-                          textDirection: TextDirection.ltr,
-                          child: Row(
-                            children: [
-                              _TimeLabel(_format(player.position)),
-                              Expanded(
-                                child: Slider(
-                                  value: _dragMs ?? positionMs,
-                                  max: durationMs > 0
-                                      ? durationMs.toDouble()
-                                      : 1,
-                                  semanticFormatterCallback: (value) => _format(
-                                    Duration(milliseconds: value.round()),
-                                  ),
-                                  onChanged: durationMs > 0
-                                      ? (value) =>
-                                          setState(() => _dragMs = value)
-                                      : null,
-                                  onChangeEnd: durationMs > 0
-                                      ? (value) {
-                                          setState(() => _dragMs = null);
-                                          player.seek(
-                                            Duration(
-                                              milliseconds: value.round(),
-                                            ),
-                                          );
-                                        }
-                                      : null,
-                                ),
-                              ),
-                              _TimeLabel(
-                                _format(player.duration ?? Duration.zero),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
+                      );
                     },
                   ),
                 ),
@@ -146,7 +147,6 @@ class _MiniPlayerState extends State<MiniPlayer> {
     );
   }
 }
-
 class _CompactMiniPlayer extends StatelessWidget {
   const _CompactMiniPlayer({
     required this.track,
