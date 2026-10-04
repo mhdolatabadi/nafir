@@ -330,7 +330,7 @@ class _PlaylistsOverview extends StatelessWidget {
             ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 4),
               leading:
-                  _PlaylistCover(trackCount: playlist.trackCount, size: 56),
+                  _PlaylistCover(trackCount: playlist.displayTrackCount, size: 56),
               title: Row(
                 children: [
                   Flexible(
@@ -350,7 +350,7 @@ class _PlaylistsOverview extends StatelessWidget {
                     ),
                 ],
               ),
-              subtitle: Text('${playlist.trackCount} قطعه موسیقی'),
+              subtitle: Text('${playlist.displayTrackCount} قطعه موسیقی'),
               trailing: const Icon(NafirIcons.caretLeft),
               onTap: () => onOpen(playlist),
             ),
@@ -379,7 +379,7 @@ class _PlaylistFeatureCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _PlaylistCover(trackCount: playlist.trackCount, size: 148),
+            _PlaylistCover(trackCount: playlist.displayTrackCount, size: 148),
             const SizedBox(height: 10),
             Text(
               playlist.name,
@@ -390,7 +390,7 @@ class _PlaylistFeatureCard extends StatelessWidget {
                   ),
             ),
             Text(
-              '${playlist.trackCount} قطعه موسیقی',
+              '${playlist.displayTrackCount} قطعه موسیقی',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -745,7 +745,7 @@ class _PlaylistDetailHeader extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            _PlaylistCover(trackCount: playlist.trackCount, size: 92),
+            _PlaylistCover(trackCount: playlist.displayTrackCount, size: 92),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -762,7 +762,7 @@ class _PlaylistDetailHeader extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     [
-                      '${playlist.trackCount} قطعه موسیقی',
+                      '${playlist.displayTrackCount} قطعه موسیقی',
                       if (!playlist.isOwner && playlist.owner != null)
                         'از ${playlist.owner}'
                       else if (playlist.members.isNotEmpty)
