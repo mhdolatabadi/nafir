@@ -329,8 +329,8 @@ class _PlaylistsOverview extends StatelessWidget {
           for (final playlist in playlists)
             ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-              leading:
-                  _PlaylistCover(trackCount: playlist.displayTrackCount, size: 56),
+              leading: _PlaylistCover(
+                  trackCount: playlist.displayTrackCount, size: 56),
               title: Row(
                 children: [
                   Flexible(
