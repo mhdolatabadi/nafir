@@ -147,6 +147,7 @@ class _MiniPlayerState extends State<MiniPlayer> {
     );
   }
 }
+
 class _CompactMiniPlayer extends StatelessWidget {
   const _CompactMiniPlayer({
     required this.track,
