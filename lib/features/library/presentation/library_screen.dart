@@ -1211,6 +1211,8 @@ class _TrackList extends StatefulWidget {
 }
 
 class _TrackListState extends State<_TrackList> {
+  static const _createPlaylistAction = '__create_playlist__';
+
   final TextEditingController _search = TextEditingController();
   String _query = '';
 
@@ -1364,41 +1366,45 @@ class _TrackListState extends State<_TrackList> {
       _message(context, 'دریافت Playlistها ناموفق بود.');
       return;
     }
-    if (controller.playlists.isEmpty) {
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Playlistی نداری'),
-          content: const Text('اول از بخش Playlistها یک Playlist بساز.'),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('متوجه شدم'),
+
+    var playlistId = controller.playlists.isEmpty
+        ? await _createPlaylist(context, controller)
+        : await showDialog<String>(
+            context: context,
+            builder: (context) => SimpleDialog(
+              title: const Text('افزودن به Playlist'),
+              children: [
+                SimpleDialogOption(
+                  onPressed: () =>
+                      Navigator.pop(context, _createPlaylistAction),
+                  child: const ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(NafirIcons.plus),
+                    title: Text('Playlist جدید'),
+                  ),
+                ),
+                const Divider(height: 1),
+                for (final playlist in controller.playlists)
+                  SimpleDialogOption(
+                    onPressed: () => Navigator.pop(context, playlist.id),
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(NafirIcons.playlist),
+                      title: Text(playlist.name),
+                      subtitle:
+                          Text('${playlist.displayTrackCount} قطعه موسیقی'),
+                    ),
+                  ),
+              ],
             ),
-          ],
-        ),
-      );
-      return;
+          );
+
+    if (!context.mounted || playlistId == null) return;
+    if (playlistId == _createPlaylistAction) {
+      playlistId = await _createPlaylist(context, controller);
+      if (!context.mounted || playlistId == null) return;
     }
-    final playlistId = await showDialog<String>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        title: const Text('افزودن به Playlist'),
-        children: [
-          for (final playlist in controller.playlists)
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, playlist.id),
-              child: ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(NafirIcons.playlist),
-                title: Text(playlist.name),
-                subtitle: Text('${playlist.trackCount} قطعه موسیقی'),
-              ),
-            ),
-        ],
-      ),
-    );
-    if (playlistId == null) return;
+
     final result = await controller.addTrack(playlistId, track.id);
     if (!context.mounted) return;
     switch (result) {
@@ -1409,6 +1415,51 @@ class _TrackListState extends State<_TrackList> {
       case AddTrackResult.failure:
         _message(context, 'افزودن آهنگ به Playlist ناموفق بود.');
     }
+  }
+
+  Future<String?> _createPlaylist(
+    BuildContext context,
+    PlaylistsController controller,
+  ) async {
+    final nameController = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Playlist جدید'),
+        content: TextField(
+          controller: nameController,
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          decoration: const InputDecoration(labelText: 'نام Playlist'),
+          onSubmitted: (value) {
+            final name = value.trim();
+            if (name.isNotEmpty) Navigator.pop(context, name);
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final name = nameController.text.trim();
+              if (name.isNotEmpty) Navigator.pop(context, name);
+            },
+            child: const Text('ساخت'),
+          ),
+        ],
+      ),
+    );
+    if (!context.mounted || name == null) return null;
+
+    final playlist = await controller.create(name);
+    if (!context.mounted) return null;
+    if (playlist == null) {
+      _message(context, 'ساخت Playlist ناموفق بود.');
+      return null;
+    }
+    return playlist.id;
   }
 
   void _message(BuildContext context, String text) {

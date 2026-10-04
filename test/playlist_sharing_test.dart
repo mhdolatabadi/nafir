@@ -23,6 +23,8 @@ class FakePlaylistsApi implements PlaylistsApi {
   List<PlaylistMember> members = [];
   bool isOwner = true;
   List<Track> tracks = [];
+  List<Playlist>? userPlaylists;
+  final createdNames = <String>[];
   final joined = <String>[];
   final removedMembers = <String>[];
   bool left = false;
@@ -115,12 +117,34 @@ class FakePlaylistsApi implements PlaylistsApi {
     return playlist;
   }
 
+  Playlist _playlistById(String id) {
+    return (userPlaylists ?? [playlist]).firstWhere(
+      (playlist) => playlist.id == id,
+      orElse: () => playlist,
+    );
+  }
+
   @override
-  Future<Playlist> getPlaylist(String t, String id) async => playlist;
+  Future<Playlist> getPlaylist(String t, String id) async => _playlistById(id);
   @override
-  Future<List<Playlist>> listPlaylists(String t) async => [playlist];
+  Future<List<Playlist>> listPlaylists(String t) async =>
+      userPlaylists ?? [playlist];
   @override
-  Future<Playlist> createPlaylist(String t, String name) async => playlist;
+  Future<Playlist> createPlaylist(String t, String name) async {
+    createdNames.add(name);
+    final existing = userPlaylists ?? [playlist];
+    final created = Playlist(
+      id: 'p${existing.length + 1}',
+      name: name,
+      trackCount: 0,
+      tracks: const [],
+      createdAt: DateTime.utc(2026),
+      updatedAt: DateTime.utc(2026),
+    );
+    userPlaylists = [created, ...existing];
+    return created;
+  }
+
   @override
   Future<Playlist> renamePlaylist(String t, String id, String name) async =>
       playlist;
@@ -128,7 +152,29 @@ class FakePlaylistsApi implements PlaylistsApi {
   Future<Playlist> replacePlaylistTracks(
       String t, String id, List<String> trackIds) async {
     replacedWith = trackIds;
-    return playlist;
+    final current = _playlistById(id);
+    final knownTracks = {
+      for (final track in [...current.tracks, ...tracks]) track.id: track,
+    };
+    final updated = current.withTracks([
+      for (final trackId in trackIds)
+        knownTracks[trackId] ??
+            Track(
+              id: trackId,
+              title: trackId,
+              contentType: 'audio/mpeg',
+              sizeBytes: 1,
+            ),
+    ]);
+    if (userPlaylists != null) {
+      userPlaylists = [
+        for (final playlist in userPlaylists!)
+          playlist.id == id ? updated : playlist,
+      ];
+    } else if (id == playlist.id) {
+      tracks = updated.tracks;
+    }
+    return updated;
   }
 
   @override
