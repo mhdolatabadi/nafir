@@ -31,6 +31,21 @@ class LinkImportController extends ChangeNotifier {
 
   bool get hasPending => _pending.isNotEmpty;
 
+  Future<List<LinkImportCandidate>> preview(String url) async {
+    final token = _token();
+    if (token == null) {
+      throw const ApiException('Not signed in.');
+    }
+    _submitting = true;
+    notifyListeners();
+    try {
+      return await _api.previewLink(token, url.trim());
+    } finally {
+      _submitting = false;
+      notifyListeners();
+    }
+  }
+
   Future<LinkSubmitResult> submit(String url) async {
     final token = _token();
     if (token == null) {
@@ -45,6 +60,39 @@ class LinkImportController extends ChangeNotifier {
         queued: true,
         message:
             'در حال اضافه کردن «${job.fileName}»؛ وقتی آماده شد در کتابخانه می‌آید.',
+      );
+    } on ApiException catch (e) {
+      return (queued: false, message: linkImportMessage(e.code));
+    } catch (_) {
+      return (queued: false, message: linkImportMessage(null));
+    } finally {
+      _submitting = false;
+      notifyListeners();
+    }
+  }
+
+  Future<LinkSubmitResult> submitCandidates(
+      List<LinkImportCandidate> candidates) async {
+    final token = _token();
+    if (token == null) {
+      return (queued: false, message: linkImportMessage(null));
+    }
+    if (candidates.isEmpty) {
+      return (queued: false, message: 'حداقل یک فایل را انتخاب کن.');
+    }
+    _submitting = true;
+    notifyListeners();
+    try {
+      final jobs = <LinkImport>[];
+      for (final candidate in candidates) {
+        jobs.add(await _api.importFromLink(token, candidate.url));
+      }
+      _pending.addAll(jobs.map((job) => job.id));
+      return (
+        queued: true,
+        message: jobs.length == 1
+            ? 'در حال اضافه کردن «${jobs.single.fileName}»؛ وقتی آماده شد در کتابخانه می‌آید.'
+            : '${jobs.length} فایل در حال اضافه شدن است؛ وقتی آماده شوند در کتابخانه می‌آیند.',
       );
     } on ApiException catch (e) {
       return (queued: false, message: linkImportMessage(e.code));
