@@ -41,15 +41,19 @@ class _MiniPlayerState extends State<MiniPlayer> {
         final playing =
             status == PlayerStatus.playing || status == PlayerStatus.buffering;
 
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-          child: GlassSurface(
-            radius: 24,
-            blur: 24,
-            tint: NafirGlass.primary,
-            child: SafeArea(
-              top: false,
-              child: LayoutBuilder(
+        return Align(
+          alignment: Alignment.bottomCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 960),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              child: GlassSurface(
+                radius: 24,
+                blur: 24,
+                tint: NafirGlass.primary,
+                child: SafeArea(
+                  top: false,
+                  child: LayoutBuilder(
                 builder: (context, constraints) {
                   final compact = constraints.maxWidth < 620;
                   final summary = _TrackSummary(
@@ -131,7 +135,9 @@ class _MiniPlayerState extends State<MiniPlayer> {
                       ],
                     ),
                   );
-                },
+                    },
+                  ),
+                ),
               ),
             ),
           ),
