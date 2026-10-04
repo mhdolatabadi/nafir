@@ -194,9 +194,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.replacedWith, ['theirs', 'mine', 'extra']);
 
-    await tester.tap(find.byTooltip('حذف از Playlist'));
+    expect(find.byTooltip('حذف از Playlist'), findsNWidgets(2));
+    await tester.tap(find.byTooltip('حذف از Playlist').first);
     await tester.pumpAndSettle();
-    expect(api.replacedWith, ['theirs']);
+    expect(api.replacedWith, ['theirs', 'extra']);
 
     await tester.tap(find.byTooltip('ترک Playlist'));
     await tester.pumpAndSettle();
