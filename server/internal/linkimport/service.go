@@ -46,6 +46,38 @@ func NewService(fetcher *Fetcher, provider *Provider, importer *bot.Importer, im
 	}
 }
 
+// Preview lists the supported audio files a link leads to without queueing an
+// import. Files the current upload policy refuses are left out.
+func (s *Service) Preview(ctx context.Context, userID, rawURL string) ([]Candidate, error) {
+	u, err := ParseURL(rawURL)
+	if err != nil {
+		return nil, err
+	}
+	candidates, err := s.fetcher.ResolveAll(ctx, u)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]Candidate, 0, len(candidates))
+	tooLarge := false
+	for _, candidate := range candidates {
+		switch s.importer.Check(s.provider, bot.File{Name: candidate.FileName, SizeBytes: candidate.SizeBytes}) {
+		case "":
+			result = append(result, candidate)
+		case bot.ReasonTooLarge:
+			tooLarge = true
+		case bot.ReasonDisabled:
+			return nil, ErrDisabled
+		}
+	}
+	if len(result) == 0 {
+		if tooLarge {
+			return nil, ErrTooLarge
+		}
+		return nil, ErrUnsupported
+	}
+	return result, nil
+}
+
 // Submit finds the audio file a link leads to and queues its import. The
 // errors are the package's refusal reasons, or an internal failure.
 func (s *Service) Submit(ctx context.Context, userID, rawURL string) (store.BotImport, error) {
