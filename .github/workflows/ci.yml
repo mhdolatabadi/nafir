@@ -121,6 +121,11 @@ jobs:
           assert "encode " not in media
           assert "reverse_proxy minio:9000" in media
 
+          # Store/legal pages stay outside /app and are rendered by the API.
+          public_legal = config.split("handle @publicLegal {", 1)[1].split("}", 1)[0]
+          assert "@publicLegal path /privacy /delete-account" in config
+          assert "reverse_proxy api:8080" in public_legal
+          assert "reverse_proxy web:80" not in public_legal
           # The app lives under /app/; old share and collab links redirect there.
           assert "handle /app/* {" in config
           assert "@legacyShare" in config and "@legacyCollab" in config
@@ -150,6 +155,10 @@ jobs:
           front = Path("deploy/front-proxy.nginx.conf").read_text()
           for route in ("location /api/", "location /nafir-music", "location /app/", "location / {"):
               assert route in front, route
+          for route in ("location = /privacy", "location = /delete-account"):
+              block = front.split(route, 1)[1].split("}", 1)[0]
+              assert "nafir-api:8080" in block
+              assert "nafir-web:80" not in block
           assert "nafir-web:80" in front.split("location /app/", 1)[1].split("}", 1)[0]
           assert "$arg_collab" in front and "$arg_shared" in front
           assert "nafir-api:8080" in front.rsplit("location / {", 1)[1]
