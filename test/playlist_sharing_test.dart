@@ -153,20 +153,26 @@ class FakePlaylistsApi implements PlaylistsApi {
       String t, String id, List<String> trackIds) async {
     replacedWith = trackIds;
     final current = _playlistById(id);
+    final knownTracks = {
+      for (final track in [...current.tracks, ...tracks]) track.id: track,
+    };
     final updated = current.withTracks([
       for (final trackId in trackIds)
-        Track(
-          id: trackId,
-          title: trackId,
-          contentType: 'audio/mpeg',
-          sizeBytes: 1,
-        ),
+        knownTracks[trackId] ??
+            Track(
+              id: trackId,
+              title: trackId,
+              contentType: 'audio/mpeg',
+              sizeBytes: 1,
+            ),
     ]);
     if (userPlaylists != null) {
       userPlaylists = [
         for (final playlist in userPlaylists!)
           playlist.id == id ? updated : playlist,
       ];
+    } else if (id == playlist.id) {
+      tracks = updated.tracks;
     }
     return updated;
   }
