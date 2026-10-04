@@ -216,7 +216,6 @@ class _NafirAppState extends State<NafirApp> {
   }
 }
 
-
 class _WebEdgeInsets extends StatelessWidget {
   const _WebEdgeInsets({required this.child});
 
