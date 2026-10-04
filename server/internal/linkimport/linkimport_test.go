@@ -160,6 +160,14 @@ func TestResolveFindsTheBestQualityLink(t *testing.T) {
 	if got, _ := f.Resolve(ctx, mustParse(t, server.URL+"/lossless")); got.FileName != "a.flac" {
 		t.Fatalf("lossless = %+v", got)
 	}
+	if got, err := f.ResolveAll(ctx, mustParse(t, server.URL+"/song")); err != nil {
+		t.Fatalf("resolve all: %v", err)
+	} else if len(got) != 3 ||
+		got[0].URL.String() != server.URL+"/media/preview-64.mp3" ||
+		got[1].URL.String() != server.URL+"/dl/Artist%20-%20Song%20128.mp3" ||
+		got[2].URL.String() != server.URL+"/dl/Artist%20-%20Song.mp3" {
+		t.Fatalf("resolve all = %+v", got)
+	}
 	if _, err := f.Resolve(ctx, mustParse(t, server.URL+"/empty")); !errors.Is(err, ErrNoAudio) {
 		t.Fatalf("page without audio: %v", err)
 	}
