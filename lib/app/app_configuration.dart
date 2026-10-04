@@ -35,8 +35,9 @@ abstract final class AppConfiguration {
   /// to join once signed in. Taken only once.
   static String? takeInitialCollabToken() {
     if (!kIsWeb || _collabTokenTaken) return null;
+    final token = peekInitialCollabToken();
     _collabTokenTaken = true;
-    return peekInitialCollabToken();
+    return token;
   }
 
   /// The same, without taking it: a guest is asked to sign in first.
