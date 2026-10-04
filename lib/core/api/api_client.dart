@@ -459,7 +459,8 @@ class ApiClient
   }
 
   @override
-  Future<List<LinkImportCandidate>> previewLink(String token, String url) async {
+  Future<List<LinkImportCandidate>> previewLink(
+      String token, String url) async {
     final body = await _send('POST', '/api/v1/imports/link/preview',
         token: token, body: {'url': url});
     return [
