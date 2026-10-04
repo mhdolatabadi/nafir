@@ -125,7 +125,8 @@ class FakeLinkImportsApi implements LinkImportsApi {
   List<LinkImport> recent = [];
 
   @override
-  Future<List<LinkImportCandidate>> previewLink(String token, String url) async {
+  Future<List<LinkImportCandidate>> previewLink(
+      String token, String url) async {
     if (refuseWith case final code?) {
       throw ApiException(code, statusCode: 422, code: code);
     }
