@@ -71,6 +71,32 @@ void main() {
       expect(playlist.canRemove(playlist.tracks[1]), isFalse);
     });
 
+    test('uses loaded tracks when the server count is stale', () {
+      final playlist = Playlist.fromJson({
+        'id': 'p1',
+        'name': 'mix',
+        'trackCount': 0,
+        'tracks': [
+          {
+            'id': 'a',
+            'title': 'first',
+            'contentType': 'audio/mpeg',
+            'sizeBytes': 1
+          },
+          {
+            'id': 'b',
+            'title': 'second',
+            'contentType': 'audio/mpeg',
+            'sizeBytes': 1
+          },
+        ],
+        'createdAt': '2026-01-01T00:00:00Z',
+        'updatedAt': '2026-01-01T00:00:00Z',
+      });
+
+      expect(playlist.displayTrackCount, 2);
+    });
+
     test('an older server response means the user owns it', () {
       final playlist = Playlist.fromJson({
         'id': 'p1',
