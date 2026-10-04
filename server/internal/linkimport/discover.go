@@ -34,11 +34,28 @@ var extensionsByType = map[string]string{
 // that file; a web page is searched for links to audio files, and the best
 // quality one is picked.
 func (f *Fetcher) Resolve(ctx context.Context, u *url.URL) (Candidate, error) {
+	candidates, err := f.ResolveAll(ctx, u)
+	if err != nil {
+		return Candidate{}, err
+	}
+	best := candidates[0]
+	bestScore := quality(link{url: best.URL})
+	for _, c := range candidates[1:] {
+		if score := quality(link{url: c.URL}); score > bestScore {
+			best, bestScore = c, score
+		}
+	}
+	return best, nil
+}
+
+// ResolveAll finds every supported audio file a link leads to. A link to an
+// audio file is that file; a web page is searched for all audio links it names.
+func (f *Fetcher) ResolveAll(ctx context.Context, u *url.URL) ([]Candidate, error) {
 	ctx, cancel := context.WithTimeout(ctx, pageTimeout)
 	defer cancel()
 	resp, err := f.get(ctx, u)
 	if err != nil {
-		return Candidate{}, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 	final := resp.Request.URL
@@ -49,21 +66,25 @@ func (f *Fetcher) Resolve(ctx context.Context, u *url.URL) (Candidate, error) {
 		if size < 0 {
 			size = 0
 		}
-		return Candidate{URL: final, FileName: name, SizeBytes: size}, nil
+		return []Candidate{{URL: final, FileName: name, SizeBytes: size}}, nil
 	}
 	if mediaType != "text/html" && mediaType != "application/xhtml+xml" {
-		return Candidate{}, ErrUnsupported
+		return nil, ErrUnsupported
 	}
 	page, err := io.ReadAll(io.LimitReader(resp.Body, maxPageBytes))
 	if err != nil {
-		return Candidate{}, ErrUnreachable
+		return nil, ErrUnreachable
 	}
-	best, ok := bestLink(final, string(page))
-	if !ok {
-		return Candidate{}, ErrNoAudio
+	links := findLinks(final, string(page))
+	if len(links) == 0 {
+		return nil, ErrNoAudio
 	}
-	name, _ := audioFileName(best, "")
-	return Candidate{URL: best, FileName: name}, nil
+	candidates := make([]Candidate, 0, len(links))
+	for _, l := range links {
+		name, _ := audioFileName(l.url, "")
+		candidates = append(candidates, Candidate{URL: l.url, FileName: name})
+	}
+	return candidates, nil
 }
 
 // audioFileName names the file at u, if it is supported audio: by the
