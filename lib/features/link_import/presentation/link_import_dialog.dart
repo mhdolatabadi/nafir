@@ -156,7 +156,7 @@ class _LinkImportDialogState extends State<_LinkImportDialog> {
                                       _selected.clear();
                                       _error = null;
                                     }),
-                            icon: const Icon(NafirIcons.edit),
+                            icon: const Icon(NafirIcons.pencilSimple),
                           )
                         : IconButton(
                             tooltip: 'چسباندن',
