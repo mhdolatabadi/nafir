@@ -656,7 +656,7 @@ void main() {
       expect(find.text('افزودن از لینک'), findsWidgets);
 
       // An empty link is caught before asking the server.
-      await tester.tap(find.widgetWithText(FilledButton, 'افزودن'));
+      await tester.tap(find.widgetWithText(FilledButton, 'بررسی لینک'));
       await tester.pumpAndSettle();
       expect(find.text('لینک صفحه‌ی آهنگ یا فایل را بچسبان.'), findsOneWidget);
       expect(api.submitted, isEmpty);
@@ -664,13 +664,16 @@ void main() {
       api.refuseWith = 'no_audio';
       await tester.enterText(
           find.byType(TextField), ' https://music.example.ir/song/1 ');
-      await tester.tap(find.widgetWithText(FilledButton, 'افزودن'));
+      await tester.tap(find.widgetWithText(FilledButton, 'بررسی لینک'));
       await tester.pumpAndSettle();
       expect(find.textContaining('در این صفحه فایل صوتی پیدا نشد'),
           findsOneWidget);
 
       api.refuseWith = null;
-      await tester.tap(find.widgetWithText(FilledButton, 'افزودن'));
+      await tester.tap(find.widgetWithText(FilledButton, 'بررسی لینک'));
+      await tester.pumpAndSettle();
+      expect(find.text('Artist - Song.mp3'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'افزودن انتخاب‌شده‌ها'));
       await tester.pumpAndSettle();
       expect(api.submitted.last, 'https://music.example.ir/song/1');
       expect(find.byType(AlertDialog), findsNothing);
@@ -683,7 +686,9 @@ void main() {
       await tester.tap(find.byTooltip('افزودن از لینک'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'https://x.ir/a.mp3');
-      await tester.tap(find.widgetWithText(FilledButton, 'افزودن'));
+      await tester.tap(find.widgetWithText(FilledButton, 'بررسی لینک'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'افزودن انتخاب‌شده‌ها'));
       await tester.pumpAndSettle();
 
       api.recent = const [
