@@ -121,8 +121,10 @@ jobs:
           assert "encode " not in media
           assert "reverse_proxy minio:9000" in media
 
-          # The app lives under /app/; old share links redirect there.
+          # The app lives under /app/; old share and collab links redirect there.
           assert "handle /app/* {" in config
+          assert "@legacyShare" in config and "@legacyCollab" in config
+          assert "query shared=*" in config and "query collab=*" in config
           assert "redir * /app/?{query} 302" in config
           # The public pages (and their rate limits) need the client IP.
           fallback = config.rsplit("handle {", 1)[1]
@@ -149,6 +151,7 @@ jobs:
           for route in ("location /api/", "location /nafir-music", "location /app/", "location / {"):
               assert route in front, route
           assert "nafir-web:80" in front.split("location /app/", 1)[1].split("}", 1)[0]
+          assert "$arg_collab" in front and "$arg_shared" in front
           assert "nafir-api:8080" in front.rsplit("location / {", 1)[1]
           assert "X-Nafir-Client-IP" in front.rsplit("location / {", 1)[1]
           assert "gzip off" in front.split("location /nafir-music", 1)[1].split("}", 1)[0]
