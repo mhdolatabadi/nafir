@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -16,8 +17,9 @@ import (
 )
 
 type fakeLinkImporter struct {
-	err  error
-	urls []string
+	err        error
+	urls       []string
+	candidates []linkimport.Candidate
 }
 
 func (f *fakeLinkImporter) Submit(_ context.Context, userID, rawURL string) (store.BotImport, error) {
@@ -31,6 +33,14 @@ func (f *fakeLinkImporter) Submit(_ context.Context, userID, rawURL string) (sto
 	}, nil
 }
 
+func (f *fakeLinkImporter) Preview(_ context.Context, _ string, rawURL string) ([]linkimport.Candidate, error) {
+	f.urls = append(f.urls, rawURL)
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.candidates, nil
+}
+
 func (f *fakeLinkImporter) Recent(context.Context, string) ([]store.BotImport, error) {
 	return []store.BotImport{{ID: "i1", FileID: "https://cdn.example.ir/x.mp3", FileName: "x.mp3", State: store.ImportDone}}, nil
 }
@@ -38,7 +48,10 @@ func (f *fakeLinkImporter) Recent(context.Context, string) ([]store.BotImport, e
 func TestLinkImportAPI(t *testing.T) {
 	tokens, _ := auth.NewTokens([]byte(strings.Repeat("k", auth.MinSecretBytes)), time.Hour)
 	token, _, _ := tokens.Issue("u1")
-	importer := &fakeLinkImporter{}
+	audioURL, _ := url.Parse("https://cdn.example.ir/dl/private-token/song.mp3")
+	importer := &fakeLinkImporter{candidates: []linkimport.Candidate{{
+		URL: audioURL, FileName: "song.mp3", SizeBytes: 1234,
+	}}}
 	handler := NewHandler(Config{LinkImports: NewLinkImportHandlers(importer, tokens,
 		NewRateLimiter(RateLimit{Requests: 20, Window: time.Minute}, 100))})
 	submit := func(body string, auth bool) *httptest.ResponseRecorder {
@@ -64,6 +77,16 @@ func TestLinkImportAPI(t *testing.T) {
 	if response.Code != http.StatusAccepted || created.Site != "cdn.example.ir" || created.State != "queued" ||
 		strings.Contains(response.Body.String(), "private-token") {
 		t.Fatalf("submit = %d %+v", response.Code, created)
+	}
+
+	preview := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/imports/link/preview", strings.NewReader(`{"url":"https://music.example.ir/song/1"}`))
+	request.Header.Set("Authorization", "Bearer "+token)
+	handler.ServeHTTP(preview, request)
+	if preview.Code != http.StatusOK ||
+		!strings.Contains(preview.Body.String(), `"fileName":"song.mp3"`) ||
+		!strings.Contains(preview.Body.String(), `"url":"https://cdn.example.ir/dl/private-token/song.mp3"`) {
+		t.Fatalf("preview = %d %s", preview.Code, preview.Body.String())
 	}
 
 	for _, tc := range []struct {
