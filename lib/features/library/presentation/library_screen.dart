@@ -1391,7 +1391,7 @@ class _TrackListState extends State<_TrackList> {
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(NafirIcons.playlist),
                       title: Text(playlist.name),
-                      subtitle: Text('${playlist.trackCount} قطعه موسیقی'),
+                      subtitle: Text('${playlist.displayTrackCount} قطعه موسیقی'),
                     ),
                   ),
               ],
