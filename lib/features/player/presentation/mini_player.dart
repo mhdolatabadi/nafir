@@ -43,6 +43,7 @@ class _MiniPlayerState extends State<MiniPlayer> {
 
         return Align(
           alignment: Alignment.bottomCenter,
+          heightFactor: 1,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 960),
             child: Padding(
