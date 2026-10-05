@@ -115,7 +115,7 @@ class _PopularPlaylistsScreenState extends State<PopularPlaylistsScreen> {
                     const Center(child: CircularProgressIndicator()),
                   PlaylistsStatus.error when popular.isEmpty => _Notice(
                       icon: NafirIcons.cloudSlash,
-                      text: 'فهرست فهرست‌های پخش محبوب بارگذاری نشد.',
+                      text: 'فهرست‌های پخش محبوب بارگذاری نشد.',
                       action: FilledButton.icon(
                         onPressed: controller.loadPopular,
                         icon: const Icon(NafirIcons.arrowsClockwise),
