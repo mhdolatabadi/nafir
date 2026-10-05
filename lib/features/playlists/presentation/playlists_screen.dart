@@ -239,9 +239,13 @@ class _PlaylistsViewState extends State<PlaylistsView> {
               ),
             ),
           PlaylistsStatus.loaded => widget.controller.playlists.isEmpty
-              ? const SliverFillRemaining(
+              ? SliverFillRemaining(
                   hasScrollBody: false,
-                  child: Center(child: Text('هنوز فهرست پخشی نساخته‌ای.')),
+                  child: _PlaylistEmptyState(
+                    message: 'هنوز فهرست پخشی نساخته‌ای.',
+                    action: 'ساخت اولین فهرست پخش',
+                    onPressed: _create,
+                  ),
                 )
               : _PlaylistsOverview(
                   playlists: widget.controller.playlists,
@@ -608,7 +612,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
             )
           else ...[
             IconButton(
-              tooltip: 'همکاری',
+              tooltip: 'دعوت دوستان و مدیریت اعضا',
               onPressed: current == null ? null : _collab,
               icon: Icon(current?.collabToken == null
                   ? NafirIcons.userPlus
@@ -647,8 +651,10 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 900),
                     child: current.tracks.isEmpty
-                        ? const Center(
-                            child: Text('برای این فهرست پخش آهنگ انتخاب کن.'),
+                        ? _PlaylistEmptyState(
+                            message: 'برای این فهرست پخش آهنگ انتخاب کن.',
+                            action: 'انتخاب از کتابخانه',
+                            onPressed: _selectTracks,
                           )
                         : Column(
                             children: [
@@ -979,4 +985,43 @@ class _Retry extends StatelessWidget {
           label: const Text('تلاش دوباره'),
         ),
       );
+}
+
+/// A consistent, actionable first step for empty playlists.
+class _PlaylistEmptyState extends StatelessWidget {
+  const _PlaylistEmptyState({
+    required this.message,
+    required this.action,
+    required this.onPressed,
+  });
+
+  final String message;
+  final String action;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: GlassSurface(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(NafirIcons.playlist, size: 40),
+              const SizedBox(height: 16),
+              Text(message, textAlign: TextAlign.center),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: onPressed,
+                icon: const Icon(NafirIcons.plus),
+                label: Text(action),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
