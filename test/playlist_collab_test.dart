@@ -271,7 +271,12 @@ void main() {
             ),
           ]);
     expect(tester.takeException(), isNull);
-    for (final tooltip in ['همکاری', 'اشتراک‌گذاری', 'تغییر نام', 'حذف']) {
+    for (final tooltip in [
+      'دعوت دوستان و مدیریت اعضا',
+      'اشتراک‌گذاری',
+      'تغییر نام',
+      'حذف'
+    ]) {
       final size = tester.getSize(find
           .ancestor(
               of: find.byTooltip(tooltip), matching: find.byType(IconButton))
