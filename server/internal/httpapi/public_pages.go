@@ -145,12 +145,12 @@ func (p *PublicPages) handleHome(w http.ResponseWriter, r *http.Request) {
 		Playlists []publicListItem
 	}{
 		pageMeta: pageMeta{
-			Title:       "نفیر — Playlistهای محبوب",
-			Description: "Playlistهای محبوب کاربران نفیر را بدون ثبت‌نام بشنو و Playlist خودت را بساز.",
+			Title:       "نفیر — فهرست‌های پخش محبوب",
+			Description: "فهرست‌های پخش محبوب کاربران نفیر را بدون ثبت‌نام بشنو و فهرست پخش خودت را بساز.",
 			Canonical:   site + "/", Image: site + "/nafir.png", OGType: "website",
 			JSONLD: map[string]any{
 				"@context": "https://schema.org", "@type": "ItemList",
-				"name": "Playlistهای محبوب نفیر", "itemListElement": listJSON,
+				"name": "فهرست‌های پخش محبوب نفیر", "itemListElement": listJSON,
 			},
 		},
 		Playlists: items,
@@ -171,7 +171,7 @@ func (p *PublicPages) publicPlaylistFor(w http.ResponseWriter, r *http.Request) 
 	}
 	if errors.Is(err, store.ErrNotFound) {
 		p.render(w, http.StatusNotFound, "missing", struct{ pageMeta }{pageMeta{
-			Title: "پیدا نشد — نفیر", Description: "این Playlist عمومی نیست یا حذف شده است.",
+			Title: "پیدا نشد — نفیر", Description: "این فهرست پخش عمومی نیست یا حذف شده است.",
 			Canonical: origin(r) + r.URL.Path, Image: origin(r) + "/nafir.png", OGType: "website", NoIndex: true,
 		}})
 		return store.SharedPlaylist{}, false
@@ -223,7 +223,7 @@ func (p *PublicPages) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 		}
 		recordings = append(recordings, recording)
 	}
-	description := fmt.Sprintf("Playlist «%s» با %d آهنگ در نفیر", shared.Name, len(shared.Tracks))
+	description := fmt.Sprintf("فهرست پخش «%s» با %d آهنگ در نفیر", shared.Name, len(shared.Tracks))
 	if len(artists) > 0 {
 		description += "، از " + strings.Join(artists, "، ")
 	}
@@ -235,7 +235,7 @@ func (p *PublicPages) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 		Playlist publicPlaylist
 	}{
 		pageMeta: pageMeta{
-			Title:       shared.Name + " — Playlist در نفیر",
+			Title:       shared.Name + " — فهرست پخش در نفیر",
 			Description: description,
 			Canonical:   canonical, Image: site + "/nafir.png", OGType: "music.playlist",
 			JSONLD: map[string]any{
@@ -361,7 +361,7 @@ func (p *PublicPages) handleDeleteAccount(w http.ResponseWriter, r *http.Request
 	}{
 		pageMeta: pageMeta{
 			Title:       "حذف حساب کاربری — نفیر",
-			Description: "چطور حساب نفیر و همه‌ی موسیقی‌ها و Playlistهایت را برای همیشه حذف کنی.",
+			Description: "چطور حساب نفیر و همه‌ی موسیقی‌ها و فهرست‌های پخشت را برای همیشه حذف کنی.",
 			Canonical:   site + "/delete-account", Image: site + "/nafir.png", OGType: "website",
 		},
 		Updated: deleteAccountUpdated,
