@@ -193,7 +193,7 @@ void main() {
           tracks: tracks,
           playlists: guestPlaylists());
 
-      expect(find.text('Playlistهای محبوب'), findsOneWidget);
+      expect(find.text('فهرست‌های پخش محبوب'), findsOneWidget);
       expect(find.text('loved'), findsOneWidget);
       expect(find.text('ورود / ثبت‌نام'), findsOneWidget);
 
@@ -399,7 +399,7 @@ void main() {
     expect(await tokens.read(), isNull);
     expect(
         find.text('حساب کاربری‌ات و همه‌ی اطلاعاتش حذف شد.'), findsOneWidget);
-    expect(find.text('Playlistهای محبوب'), findsOneWidget);
+    expect(find.text('فهرست‌های پخش محبوب'), findsOneWidget);
     expect(find.text('حذف حساب کاربری'), findsNothing);
     expect(find.widgetWithText(Tab, 'آهنگ‌ها'), findsNothing);
   });
@@ -763,14 +763,14 @@ void main() {
     testWidgets('switch between tracks, playlists, albums and artists',
         (tester) async {
       await pumpPhone(tester);
-      for (final tab in ['آهنگ‌ها', 'Playlistها', 'آلبوم‌ها', 'هنرمندان']) {
+      for (final tab in ['آهنگ‌ها', 'فهرست‌های پخش', 'آلبوم‌ها', 'هنرمندان']) {
         expect(find.widgetWithText(Tab, tab), findsOneWidget);
       }
       expect(find.text('افزودن موسیقی'), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(Tab, 'Playlistها'));
+      await tester.tap(find.widgetWithText(Tab, 'فهرست‌های پخش'));
       await tester.pumpAndSettle();
-      expect(find.text('Playlist جدید'), findsOneWidget);
+      expect(find.text('فهرست پخش جدید'), findsOneWidget);
       expect(find.text('mix'), findsWidgets);
       // Adding music belongs to the tracks tab only.
       expect(find.text('افزودن موسیقی'), findsNothing);
@@ -936,13 +936,14 @@ void main() {
 
     await tester.tap(find.byTooltip('اقدامات آهنگ'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('افزودن به Playlist'));
+    await tester.tap(find.text('افزودن به فهرست پخش'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Playlist جدید'), findsOneWidget);
+    expect(find.text('فهرست پخش جدید'), findsOneWidget);
     final nameField = find.byWidgetPredicate(
       (widget) =>
-          widget is TextField && widget.decoration?.labelText == 'نام Playlist',
+          widget is TextField &&
+          widget.decoration?.labelText == 'نام فهرست پخش',
     );
     await tester.enterText(nameField, 'Road songs');
     await tester.tap(find.text('ساخت'));
@@ -950,7 +951,7 @@ void main() {
 
     expect(playlists.createdNames, ['Road songs']);
     expect(playlists.replacedWith, ['s1']);
-    expect(find.text('آهنگ به Playlist اضافه شد.'), findsOneWidget);
+    expect(find.text('آهنگ به فهرست پخش اضافه شد.'), findsOneWidget);
   });
 
   testWidgets('a failed list load offers a retry', (tester) async {

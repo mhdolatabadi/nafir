@@ -71,7 +71,7 @@ class _LibraryScreenState extends State<LibraryScreen>
     with SingleTickerProviderStateMixin {
   UploadPhase _lastPhase = UploadPhase.idle;
 
-  /// «آهنگ‌ها», «Playlistها» when available, «آلبوم‌ها» and «هنرمندان».
+  /// «آهنگ‌ها», «فهرست‌های پخش» when available, «آلبوم‌ها» and «هنرمندان».
   late final TabController _tabs = TabController(
     length: widget.playlists == null ? 3 : 4,
     vsync: this,
@@ -259,9 +259,9 @@ class _LibraryScreenState extends State<LibraryScreen>
         icon: const Icon(NafirIcons.trash),
         title: Text('حذف «${track.title}»؟'),
         content: Text(locationOf(track) == TrackLocation.synced
-            ? 'نسخهٔ سرور برای همیشه از فضای ابری و Playlistها حذف می‌شود؛ '
+            ? 'نسخهٔ سرور برای همیشه از فضای ابری و فهرست‌های پخش حذف می‌شود؛ '
                 'فایل روی دستگاه می‌ماند.'
-            : 'این آهنگ برای همیشه از فضای ابری و Playlistها حذف می‌شود. '
+            : 'این آهنگ برای همیشه از فضای ابری و فهرست‌های پخش حذف می‌شود. '
                 'این کار قابل بازگشت نیست.'),
         actions: [
           TextButton(
@@ -443,7 +443,7 @@ class _LibraryScreenState extends State<LibraryScreen>
           ?.copyWith(fontWeight: FontWeight.w500),
       tabs: [
         const Tab(text: 'آهنگ‌ها'),
-        if (widget.playlists != null) const Tab(text: 'Playlistها'),
+        if (widget.playlists != null) const Tab(text: 'فهرست‌های پخش'),
         const Tab(text: 'آلبوم‌ها'),
         const Tab(text: 'هنرمندان'),
       ],
@@ -1303,7 +1303,7 @@ class _TrackListState extends State<_TrackList> {
             'ویرایش اطلاعات آهنگ'),
         if (widget.playlists != null)
           item(_TrackAction.addToPlaylist, NafirIcons.listPlus,
-              'افزودن به Playlist'),
+              'افزودن به فهرست پخش'),
         for (final bot in widget.linkedBots)
           PopupMenuItem(
             value: (_TrackAction.sendToBot, bot),
@@ -1363,7 +1363,7 @@ class _TrackListState extends State<_TrackList> {
     final loaded = await controller.load();
     if (!context.mounted) return;
     if (!loaded) {
-      _message(context, 'دریافت Playlistها ناموفق بود.');
+      _message(context, 'دریافت فهرست‌های پخش ناموفق بود.');
       return;
     }
 
@@ -1372,7 +1372,7 @@ class _TrackListState extends State<_TrackList> {
         : await showDialog<String>(
             context: context,
             builder: (context) => SimpleDialog(
-              title: const Text('افزودن به Playlist'),
+              title: const Text('افزودن به فهرست پخش'),
               children: [
                 SimpleDialogOption(
                   onPressed: () =>
@@ -1380,7 +1380,7 @@ class _TrackListState extends State<_TrackList> {
                   child: const ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: Icon(NafirIcons.plus),
-                    title: Text('Playlist جدید'),
+                    title: Text('فهرست پخش جدید'),
                   ),
                 ),
                 const Divider(height: 1),
@@ -1409,11 +1409,11 @@ class _TrackListState extends State<_TrackList> {
     if (!context.mounted) return;
     switch (result) {
       case AddTrackResult.added:
-        _message(context, 'آهنگ به Playlist اضافه شد.');
+        _message(context, 'آهنگ به فهرست پخش اضافه شد.');
       case AddTrackResult.alreadyPresent:
-        _message(context, 'این آهنگ از قبل در Playlist است.');
+        _message(context, 'این آهنگ از قبل در فهرست پخش است.');
       case AddTrackResult.failure:
-        _message(context, 'افزودن آهنگ به Playlist ناموفق بود.');
+        _message(context, 'افزودن آهنگ به فهرست پخش ناموفق بود.');
     }
   }
 
@@ -1425,12 +1425,12 @@ class _TrackListState extends State<_TrackList> {
     final name = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Playlist جدید'),
+        title: const Text('فهرست پخش جدید'),
         content: TextField(
           controller: nameController,
           autofocus: true,
           textInputAction: TextInputAction.done,
-          decoration: const InputDecoration(labelText: 'نام Playlist'),
+          decoration: const InputDecoration(labelText: 'نام فهرست پخش'),
           onSubmitted: (value) {
             final name = value.trim();
             if (name.isNotEmpty) Navigator.pop(context, name);
@@ -1456,7 +1456,7 @@ class _TrackListState extends State<_TrackList> {
     final playlist = await controller.create(name);
     if (!context.mounted) return null;
     if (playlist == null) {
-      _message(context, 'ساخت Playlist ناموفق بود.');
+      _message(context, 'ساخت فهرست پخش ناموفق بود.');
       return null;
     }
     return playlist.id;

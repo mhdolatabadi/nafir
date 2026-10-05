@@ -178,28 +178,28 @@ void main() {
     // The owner's controls are gone; leaving is offered instead.
     expect(find.byTooltip('تغییر نام'), findsNothing);
     expect(find.byTooltip('حذف'), findsNothing);
-    expect(find.byTooltip('همکاری'), findsNothing);
-    expect(find.byTooltip('ترک Playlist'), findsOneWidget);
+    expect(find.byTooltip('دعوت دوستان و مدیریت اعضا'), findsNothing);
+    expect(find.byTooltip('ترک فهرست پخش'), findsOneWidget);
     expect(find.textContaining('از o***@example.com'), findsOneWidget);
     expect(find.text('خواننده نامشخص · افزوده‌ی f***@example.com'),
         findsOneWidget);
     // Only their own track can be taken out.
-    expect(find.byTooltip('حذف از Playlist'), findsOneWidget);
+    expect(find.byTooltip('حذف از فهرست پخش'), findsOneWidget);
 
     // Picking tracks keeps the ones others added.
-    await tester.tap(find.text('انتخاب آهنگ‌ها'));
+    await tester.tap(find.text('مدیریت آهنگ‌ها'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Another of mine'));
     await tester.tap(find.text('ذخیره'));
     await tester.pumpAndSettle();
     expect(api.replacedWith, ['theirs', 'mine', 'extra']);
 
-    expect(find.byTooltip('حذف از Playlist'), findsNWidgets(2));
-    await tester.tap(find.byTooltip('حذف از Playlist').first);
+    expect(find.byTooltip('حذف از فهرست پخش'), findsNWidgets(2));
+    await tester.tap(find.byTooltip('حذف از فهرست پخش').first);
     await tester.pumpAndSettle();
     expect(api.replacedWith, ['theirs', 'extra']);
 
-    await tester.tap(find.byTooltip('ترک Playlist'));
+    await tester.tap(find.byTooltip('ترک فهرست پخش'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'ترک'));
     await tester.pumpAndSettle();
@@ -271,7 +271,12 @@ void main() {
             ),
           ]);
     expect(tester.takeException(), isNull);
-    for (final tooltip in ['همکاری', 'اشتراک‌گذاری', 'تغییر نام', 'حذف']) {
+    for (final tooltip in [
+      'دعوت دوستان و مدیریت اعضا',
+      'اشتراک‌گذاری',
+      'تغییر نام',
+      'حذف'
+    ]) {
       final size = tester.getSize(find
           .ancestor(
               of: find.byTooltip(tooltip), matching: find.byType(IconButton))
@@ -279,7 +284,7 @@ void main() {
       expect(size.width, greaterThanOrEqualTo(48), reason: tooltip);
     }
 
-    await tester.tap(find.byTooltip('همکاری'));
+    await tester.tap(find.byTooltip('دعوت دوستان و مدیریت اعضا'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     final remove = tester.getRect(find

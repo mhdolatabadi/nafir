@@ -113,7 +113,7 @@ class _AuthGateState extends State<AuthGate> {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           askToSignIn(context,
-              action: 'پیوستن به Playlist مشترک', onSignIn: _openSignIn);
+              action: 'پیوستن به فهرست پخش مشترک', onSignIn: _openSignIn);
         });
       }
     }

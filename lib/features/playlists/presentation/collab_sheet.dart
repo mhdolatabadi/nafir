@@ -68,7 +68,7 @@ class _CollabSheetState extends State<_CollabSheet> {
       builder: (context) => AlertDialog(
         title: const Text('حذف عضو؟'),
         content: Text(
-            '${member.name} از این Playlist حذف می‌شود و آهنگ‌هایی که اضافه کرده هم از آن بیرون می‌روند.'),
+            '${member.name} از این فهرست پخش حذف می‌شود و آهنگ‌هایی که اضافه کرده هم از آن بیرون می‌روند.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
