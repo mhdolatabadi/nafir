@@ -75,7 +75,7 @@ class _SignInScreenState extends State<SignInScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      _isRegistering ? 'ساخت حساب نفیر' : 'ورود به نفیر',
+                      _isRegistering ? 'ساخت حساب ریتمو' : 'ورود به ریتمو',
                       style: Theme.of(context).textTheme.headlineSmall,
                       textAlign: TextAlign.center,
                     ),

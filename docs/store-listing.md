@@ -1,6 +1,6 @@
 # Store listing and release checklist
 
-Materials for publishing Nafir (نفیر) on **Google Play** (#94) and **Cafe Bazaar** (#95).
+Materials for publishing rhythmo (ریتمو) on **Google Play** (#94) and **Cafe Bazaar** (#95).
 Everything below is based on the code as of this document. Re-check it whenever
 permissions, data handling, or the release workflow change.
 
@@ -13,7 +13,7 @@ permissions, data handling, or the release workflow change.
 
 **App title** (Play allows 30 characters; Bazaar allows a similar length):
 
-> نفیر: موسیقی ابری
+> ریتمو: موسیقی ابری
 
 **Short description** (66 of 80 characters):
 
@@ -21,7 +21,7 @@ permissions, data handling, or the release workflow change.
 
 **Long description:**
 
-> نفیر پخش‌کننده‌ی موسیقی شخصی توست: فایل‌هایت را یک بار بارگذاری کن و از گوشی یا مرورگر، هر جا که هستی، گوششان کن.
+> ریتمو پخش‌کننده‌ی موسیقی شخصی توست: فایل‌هایت را یک بار بارگذاری کن و از گوشی یا مرورگر، هر جا که هستی، گوششان کن.
 >
 > • **کیفیت اصلی، بی‌کم‌وکاست:** فایل‌ها همان‌طور که هستند نگه داشته و پخش می‌شوند؛ هیچ فشرده‌سازی یا کاهش کیفیتی در کار نیست.
 > • **کتابخانه‌ی مرتب:** آهنگ‌ها، آلبوم‌ها و هنرمندان، با جست‌وجو و مرتب‌سازی. نام آهنگ، خواننده و آلبوم را خودت ویرایش کن.
@@ -29,7 +29,7 @@ permissions, data handling, or the release workflow change.
 > • **بارگذاری چندتایی:** چند فایل را با هم بارگذاری کن و پیشرفت هر کدام را جدا ببین.
 > • **فهرست‌های پخش:** فهرست پخش بساز، با لینک به اشتراک بگذار، عمومی‌اش کن تا دیگران پیدایش کنند، یا با دوستانت فهرست پخش مشترک بساز.
 > • **پخش در پس‌زمینه:** با صفحه‌ی خاموش و از اعلان و صفحه‌ی قفل پخش را کنترل کن. آهنگ‌هایی که گوش داده‌ای در کش می‌مانند تا دفعه‌ی بعد سریع‌تر و بدون اینترنت پخش شوند.
-> • **بات بله و تلگرام:** آهنگ را برای بات نفیر بفرست تا مستقیم به کتابخانه‌ات اضافه شود.
+> • **بات بله و تلگرام:** آهنگ را برای بات ریتمو بفرست تا مستقیم به کتابخانه‌ات اضافه شود.
 > • **حریم خصوصی:** موسیقی‌هایت خصوصی‌اند مگر خودت به اشتراک بگذاری. تبلیغات و ابزار ردیابی در کار نیست و هر وقت بخواهی حسابت را از داخل اپ کامل حذف می‌کنی.
 >
 > هر حساب ۱ گیگابایت فضای ابری رایگان دارد. فقط موسیقی‌ای را بارگذاری و به اشتراک بگذار که حق استفاده از آن را داری.
@@ -46,7 +46,7 @@ Before publishing, confirm the quota sentence matches the server's `STORAGE_QUOT
 
 These are from `android/app/src/main/AndroidManifest.xml`.
 
-| Permission | Why Nafir needs it (Persian text for Pishkhan) |
+| Permission | Why rhythmo needs it (Persian text for Pishkhan) |
 |---|---|
 | `INTERNET` | برای ورود به حساب، پخش موسیقی از فضای ابری و بارگذاری آهنگ‌ها. |
 | `READ_MEDIA_AUDIO` (Android 13+) / `READ_EXTERNAL_STORAGE` (Android 12 and older, `maxSdkVersion=32`) | برای نمایش و پخش موسیقی‌های روی گوشی. این فایل‌ها فقط وقتی به سرور فرستاده می‌شوند که کاربر خودش بارگذاری‌شان کند. فقط به فایل‌های صوتی دسترسی داریم، نه عکس و فیلم. |
@@ -86,7 +86,7 @@ Sending a track to Bale or Telegram happens only at the user's own request, thro
 
 - **Ads:** none.
 - **App access:** sign-in is required for the library. A guest can still browse and play popular public playlists. Create a reviewer account with a few tracks and a playlist, and enter its email and password under *App access*.
-- **Target audience:** 18 and over is the suggested choice. Nafir hosts user-uploaded and publicly shared content and is not designed for children, so this keeps it out of the Families policy.
+- **Target audience:** 18 and over is the suggested choice. rhythmo hosts user-uploaded and publicly shared content and is not designed for children, so this keeps it out of the Families policy.
 - **Content rating questionnaire:** a music player with user-generated content. Answer yes to "users can share content with each other" (public and shared playlists) and to "users can interact" (collaborative playlists). There is no violence, sexual content, gambling or purchases.
 - **News app / COVID / government / financial:** no.
 

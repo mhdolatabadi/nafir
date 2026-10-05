@@ -171,7 +171,7 @@ class _PlaylistsViewState extends State<PlaylistsView> {
     }
     final token = shareTokenFrom(input);
     if (token == null) {
-      _message('این لینک فهرست پخش نفیر نیست.');
+      _message('این لینک فهرست پخش ریتمو نیست.');
       return;
     }
     await Navigator.of(context).push(MaterialPageRoute<void>(

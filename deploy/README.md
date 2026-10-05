@@ -1,4 +1,4 @@
-# Nafir server deployment
+# rhythmo server deployment
 
 ## One-time setup
 
@@ -92,7 +92,7 @@ Changing it later signs every user out.
 
 ## Upgrading from SOT
 
-The project was renamed from SOT to Nafir. On a server deployed before the rename:
+The infrastructure was previously renamed from SOT to Nafir; the display brand is now rhythmo. On a server deployed before the rename:
 
 1. In `deploy/.env`, rename `SOT_DOMAIN` to `NAFIR_DOMAIN` and add `NAFIR_IMAGE_REPO` from `.env.example`.
 2. PostgreSQL only reads `POSTGRES_DB` and `POSTGRES_USER` when its volume is first created, so the
@@ -112,7 +112,7 @@ The project was renamed from SOT to Nafir. On a server deployed before the renam
 
 ## Behind a shared nginx (proxynet)
 
-On a server where a shared nginx already owns ports 80 and 443, Nafir runs
+On a server where a shared nginx already owns ports 80 and 443, rhythmo runs
 without its Caddy container and that nginx reaches the stack over the
 external `proxynet` network. It must route exactly like `deploy/Caddyfile`:
 
@@ -126,11 +126,11 @@ external `proxynet` network. It must route exactly like `deploy/Caddyfile`:
 | everything else: `/`, `/p/…`, `sitemap.xml`, `robots.txt` | `nafir-api:8080`, with `X-Nafir-Client-IP` |
 
 `deploy/front-proxy.nginx.conf` has these routes ready. Copy it next to the
-nginx config and include it inside the Nafir `server { }` block:
+nginx config and include it inside the rhythmo `server { }` block:
 
 ```sh
 sudo cp deploy/front-proxy.nginx.conf /etc/nginx/snippets/nafir.conf   # or the nginx container's config folder
-# in the Nafir server block:  include /etc/nginx/snippets/nafir.conf;
+# in the rhythmo server block:  include /etc/nginx/snippets/nafir.conf;
 sudo nginx -t && sudo nginx -s reload                                  # or: docker exec <nginx> nginx -t / nginx -s reload
 curl -sI https://$NAFIR_DOMAIN/ | head -3                              # 200 from the API, not nginx's page
 ```
@@ -143,9 +143,9 @@ previous nginx file and reloading.
 
 ## Bale and Telegram bots
 
-People can send audio to Nafir's Bale or Telegram bot and it lands in their
+People can send audio to rhythmo's Bale or Telegram bot and it lands in their
 library. To link a chat to their account, they open **Settings → اتصال به بات**
-in the Nafir app (web or Android), get a one-time 8-digit code, and send it to
+in the rhythmo app (web or Android), get a one-time 8-digit code, and send it to
 the bot. Proving who they are happens in the app they are already signed in to,
 so the bots need no email and never ask for a password.
 
@@ -241,7 +241,7 @@ webhook secret is never printed.
 1. The deploy output shows `Bot health: {"healthy":true,...}`.
 2. In the app: **Settings → اتصال به بات → دریافت کد اتصال**. Send the code to
    the bot; it replies that the chat is linked.
-3. Send an mp3 to the bot. It replies «… به کتابخانهٔ نفیر اضافه شد.», and the
+3. Send an mp3 to the bot. It replies «… به کتابخانهٔ ریتمو اضافه شد.», and the
    track appears in the app with «از بله» or «از تلگرام».
 4. From the track's menu choose «ارسال به …»; the audio arrives in the chat.
 5. `/logout` in the bot, then send another file: the bot asks to link again.
@@ -262,7 +262,7 @@ retries them at the new one.
 
 ### When a messenger or the network is down
 - **Updates:** Telegram and Bale keep undelivered updates and retry them.
-  Nafir ignores updates it has already handled, so retries are safe. When all
+  rhythmo ignores updates it has already handled, so retries are safe. When all
   16 update workers are busy, the webhook answers 503 so the messenger retries
   later.
 - **Imports:** a failed download is retried three times with growing delays.

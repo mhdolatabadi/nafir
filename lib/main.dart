@@ -180,7 +180,7 @@ class _NafirAppState extends State<NafirApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Nafir',
+      title: 'rhythmo',
       debugShowCheckedModeBanner: false,
       // The UI is Persian only: right-to-left layout and Persian Material
       // strings (tooltips, dialogs), whatever the device language is.

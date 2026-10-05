@@ -48,7 +48,7 @@ class _BotLinkSectionState extends State<BotLinkSection> {
             ListTile(
               title: const Text('اتصال به بات'),
               subtitle: Text(
-                'آهنگ‌ها را در $names برای بات نفیر بفرستید تا مستقیم به '
+                'آهنگ‌ها را در $names برای بات ریتمو بفرستید تا مستقیم به '
                 'کتابخانه‌تان اضافه شوند. برای اتصال، کد بگیرید و برای بات بفرستید.',
               ),
             ),
@@ -130,7 +130,7 @@ class _CodeCard extends StatelessWidget {
             for (final bot in bots)
               Text(
                 bot.username == null
-                    ? 'این کد را در ${bot.name} برای بات نفیر بفرستید.'
+                    ? 'این کد را در ${bot.name} برای بات ریتمو بفرستید.'
                     : 'این کد را در ${bot.name} برای @${bot.username} بفرستید.',
                 textAlign: TextAlign.center,
               ),

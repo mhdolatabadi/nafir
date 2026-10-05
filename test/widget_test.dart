@@ -177,7 +177,7 @@ void main() {
   ) async {
     await _pumpApp(tester, tokenStore: MemoryTokenStore());
 
-    expect(find.text('ورود به نفیر'), findsOneWidget);
+    expect(find.text('ورود به ریتمو'), findsOneWidget);
   });
 
   group('guest', () {
@@ -225,10 +225,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(SnackBarAction, 'ورود'));
       await tester.pumpAndSettle();
-      expect(find.text('ورود به نفیر'), findsOneWidget);
+      expect(find.text('ورود به ریتمو'), findsOneWidget);
 
       await _submit(tester, 'listener@example.com', 'correct horse');
-      expect(find.text('ورود به نفیر'), findsNothing);
+      expect(find.text('ورود به ریتمو'), findsNothing);
       expect(find.text('Friend mix'), findsNothing);
       expect(find.widgetWithText(Tab, 'آهنگ‌ها'), findsOneWidget);
       expect(await tokens.read(), 'valid-token');
@@ -316,7 +316,7 @@ void main() {
     final tokens = MemoryTokenStore('expired-token');
     await _pumpApp(tester, tokenStore: tokens);
 
-    expect(find.text('ورود به نفیر'), findsOneWidget);
+    expect(find.text('ورود به ریتمو'), findsOneWidget);
     expect(await tokens.read(), isNull);
   });
 
@@ -343,7 +343,7 @@ void main() {
     await tester.tap(find.byIcon(NafirIcons.signOut));
     await tester.pumpAndSettle();
 
-    expect(find.text('ورود به نفیر'), findsOneWidget);
+    expect(find.text('ورود به ریتمو'), findsOneWidget);
     expect(await tokens.read(), isNull);
   });
 
@@ -1379,7 +1379,7 @@ void main() {
 
     expect(bots.sent, ['bale/s1']);
     expect(
-        find.text('بات نفیر «Song» را در بله برایت می‌فرستد.'), findsOneWidget);
+        find.text('بات ریتمو «Song» را در بله برایت می‌فرستد.'), findsOneWidget);
   });
 
   testWidgets('without a linked bot the track menu offers no sending', (

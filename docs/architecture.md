@@ -1,6 +1,6 @@
 # Architecture
 
-Nafir is self-hosted on an Ubuntu server.
+rhythmo is self-hosted on an Ubuntu server.
 
 ## Components
 

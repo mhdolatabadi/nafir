@@ -1,4 +1,4 @@
-"""Generates the Nafir icons: a red nafir (the long Persian horn) on black.
+"""Generates the rhythmo icons: a red nafir (the long Persian horn) on black.
 
 The horn is drawn lying along the x axis around the centre of a 512×512
 canvas and then tilted, so the same shapes serve every icon. Writes:
