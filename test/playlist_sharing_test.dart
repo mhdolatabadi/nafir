@@ -348,7 +348,7 @@ void main() {
       expect(playlists.saved, [token]);
       expect(
           find.text(
-              'به Playlistها و کتابخانه‌ات اضافه شد. این نسخه مال خودت است.'),
+              'به فهرست‌های پخش و کتابخانه‌ات اضافه شد. این نسخه مال خودت است.'),
           findsOneWidget);
     });
 
@@ -408,7 +408,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     final longName =
-        'یک Playlist با اسمی بسیار طولانی که نباید از صفحه بیرون بزند ' * 2;
+        'یک فهرست پخش با اسمی بسیار طولانی که نباید از صفحه بیرون بزند ' * 2;
     final playlists = FakePlaylistsApi()
       ..shared[token] = SharedPlaylist.fromJson(token, {
         'name': longName,
@@ -568,7 +568,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(api.shareCalls, [true]);
       expect(api.isPublic, isTrue);
-      expect(find.textContaining('Playlistهای محبوب'), findsOneWidget);
+      expect(find.textContaining('فهرست‌های پخش محبوب'), findsOneWidget);
 
       await tester.tap(find.text('فقط با لینک'));
       await tester.pumpAndSettle();
@@ -639,13 +639,13 @@ void main() {
       testWidgets('says when nothing is public yet', (tester) async {
         await pump(tester, FakePlaylistsApi());
         expect(
-            find.textContaining('هنوز Playlist عمومی‌ای نیست'), findsOneWidget);
+            find.textContaining('هنوز فهرست پخش عمومی‌ای نیست'), findsOneWidget);
       });
 
       testWidgets('offers a retry when the list fails', (tester) async {
         final api = await pump(tester, FakePlaylistsApi()..listFails = true);
         expect(
-            find.text('فهرست Playlistهای محبوب بارگذاری نشد.'), findsOneWidget);
+            find.text('فهرست فهرست‌های پخش محبوب بارگذاری نشد.'), findsOneWidget);
 
         api
           ..listFails = false
@@ -662,7 +662,7 @@ void main() {
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
         final long =
-            'یک Playlist عمومی با اسمی بسیار طولانی که نباید بیرون بزند ' * 2;
+            'یک فهرست پخش عمومی با اسمی بسیار طولانی که نباید بیرون بزند ' * 2;
         await pump(
             tester,
             FakePlaylistsApi()
