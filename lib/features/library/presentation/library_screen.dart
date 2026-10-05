@@ -357,7 +357,7 @@ class _LibraryScreenState extends State<LibraryScreen>
       ];
 
   List<Widget> _accountActions(BuildContext context) {
-    if (MediaQuery.sizeOf(context).width >= 720) {
+    if (MediaQuery.sizeOf(context).width >= 960) {
       return [
         _AccountChip(email: widget.email),
         if (widget.verified)

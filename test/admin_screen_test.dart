@@ -96,6 +96,7 @@ void main() {
     addTearDown(tester.view.reset);
     await pump(tester, FakeAdminApi());
     await tester.ensureVisible(find.text('تأیید حساب'));
+    await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     final button = find.ancestor(
         of: find.text('تأیید حساب'), matching: find.byType(OutlinedButton));

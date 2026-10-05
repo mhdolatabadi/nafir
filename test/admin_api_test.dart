@@ -29,8 +29,8 @@ void main() {
           }),
           200);
     }));
-    final page =
-        await client.listAccounts('token', query: 'a+b@example.com', offset: 50);
+    final page = await client.listAccounts('token',
+        query: 'a+b@example.com', offset: 50);
     expect(page.accounts.single.user.verified, isTrue);
     expect(page.accounts.single.user.isAdmin, isFalse);
     expect(page.hasMore, isTrue);
@@ -45,8 +45,8 @@ void main() {
     }));
     await expectLater(
       client.setAccountVerification('token', 'u1', false),
-      throwsA(isA<ApiException>().having(
-          (error) => error.statusCode, 'statusCode', 403)),
+      throwsA(isA<ApiException>()
+          .having((error) => error.statusCode, 'statusCode', 403)),
     );
   });
 }
