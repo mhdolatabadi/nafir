@@ -76,7 +76,7 @@ class _PopularPlaylistsScreenState extends State<PopularPlaylistsScreen> {
     if (!mounted || result == LikeResult.done) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(result == LikeResult.gone
-          ? 'این Playlist دیگر عمومی نیست.'
+          ? 'این فهرست پخش دیگر عمومی نیست.'
           : 'پسندیدن ثبت نشد. دوباره تلاش کن.'),
     ));
     if (result == LikeResult.gone) await widget.controller.loadPopular();
@@ -88,7 +88,7 @@ class _PopularPlaylistsScreenState extends State<PopularPlaylistsScreen> {
     return Scaffold(
       extendBody: true,
       appBar: AppBar(
-        title: const Text('Playlistهای محبوب'),
+        title: const Text('فهرست‌های پخش محبوب'),
         actions: [
           if (widget.onSignIn != null && !controller.signedIn)
             Padding(
@@ -115,7 +115,7 @@ class _PopularPlaylistsScreenState extends State<PopularPlaylistsScreen> {
                     const Center(child: CircularProgressIndicator()),
                   PlaylistsStatus.error when popular.isEmpty => _Notice(
                       icon: NafirIcons.cloudSlash,
-                      text: 'فهرست Playlistهای محبوب بارگذاری نشد.',
+                      text: 'فهرست فهرست‌های پخش محبوب بارگذاری نشد.',
                       action: FilledButton.icon(
                         onPressed: controller.loadPopular,
                         icon: const Icon(NafirIcons.arrowsClockwise),
@@ -124,7 +124,7 @@ class _PopularPlaylistsScreenState extends State<PopularPlaylistsScreen> {
                     ),
                   _ when popular.isEmpty => const _Notice(
                       icon: NafirIcons.globe,
-                      text: 'هنوز Playlist عمومی‌ای نیست. وقتی Playlistی را '
+                      text: 'هنوز فهرست پخش عمومی‌ای نیست. وقتی فهرست پخشی را '
                           'به اشتراک می‌گذاری، «عمومی» را انتخاب کن تا اینجا '
                           'نشان داده شود.',
                     ),
@@ -213,7 +213,7 @@ class _PopularRow extends StatelessWidget {
         ),
         subtitle: Text(
           [
-            playlist.isOwner ? 'Playlist خودت' : playlist.owner,
+            playlist.isOwner ? 'فهرست پخش خودت' : playlist.owner,
             '${playlist.trackCount} آهنگ',
           ].join(' · '),
           maxLines: 1,
