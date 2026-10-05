@@ -1,3 +1,4 @@
+import 'package:nafir/core/persian_digits.dart';
 import 'package:flutter/material.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:flutter/services.dart';
@@ -135,7 +136,7 @@ class _CodeCard extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
             Text(
-              'تا ساعت $until معتبر است و فقط یک بار کار می‌کند.',
+              'تا ساعت ${persianDigits(until)} معتبر است و فقط یک بار کار می‌کند.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,
             ),

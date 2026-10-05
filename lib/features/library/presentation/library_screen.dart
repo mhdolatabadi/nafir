@@ -1,3 +1,4 @@
+import 'package:nafir/core/persian_digits.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -977,7 +978,7 @@ class _GroupList extends StatelessWidget {
                 ),
               ),
               subtitle: Text(
-                '${group.tracks.length} آهنگ',
+                '${persianDigits(group.tracks.length)} آهنگ',
                 style: theme.textTheme.bodySmall
                     ?.copyWith(color: colors.onSurfaceVariant),
               ),
@@ -1057,7 +1058,7 @@ class _AlbumCard extends StatelessWidget {
           Text(
             [
               if (group.artist case final artist?) artist,
-              '${group.tracks.length} آهنگ'
+              '${persianDigits(group.tracks.length)} آهنگ'
             ].join(' · '),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -1143,7 +1144,7 @@ class _TrackGroupScreen extends StatelessWidget {
                                     [
                                       if (group.artist case final artist?)
                                         artist,
-                                      '${groupTracks.length} آهنگ',
+                                      '${persianDigits(groupTracks.length)} آهنگ',
                                     ].join(' · '),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -1424,7 +1425,7 @@ class _TrackListState extends State<_TrackList> {
                       leading: const Icon(NafirIcons.playlist),
                       title: Text(playlist.name),
                       subtitle:
-                          Text('${playlist.displayTrackCount} قطعه موسیقی'),
+                          Text('${persianDigits(playlist.displayTrackCount)} قطعه موسیقی'),
                     ),
                   ),
               ],
@@ -1643,7 +1644,7 @@ class _TrackListHeader extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              filtered ? '$shown از $total آهنگ' : '$total آهنگ',
+              filtered ? '${persianDigits(shown)} از ${persianDigits(total)} آهنگ' : '${persianDigits(total)} آهنگ',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.labelLarge
@@ -1744,7 +1745,7 @@ class _TrackRow extends StatelessWidget {
         SyncOperation(:final phase, :final progress) => Text(
             phase == SyncPhase.queued
                 ? 'در صف آپلود · ${formatSize(track.sizeBytes)}'
-                : 'در حال آپلود ${(progress * 100).round()}٪ · '
+                : 'در حال آپلود ${persianDigits((progress * 100).round())}٪ · '
                     '${formatSize(track.sizeBytes)}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -2093,7 +2094,7 @@ class _ImportsInProgress extends StatelessWidget {
             child: Text(
               count == 1
                   ? 'یک فایل در حال اضافه شدن است…'
-                  : '$count فایل در حال اضافه شدن است…',
+                  : '${persianDigits(count)} فایل در حال اضافه شدن است…',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),

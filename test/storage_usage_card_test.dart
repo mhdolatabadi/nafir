@@ -14,7 +14,7 @@ void main() {
 
   testWidgets('shows use against the limit', (tester) async {
     await pump(tester, gib ~/ 4, gib);
-    expect(find.text('256.0 مگابایت از 1.0 گیگابایت'), findsOneWidget);
+    expect(find.text('۲۵۶.۰ مگابایت از ۱.۰ گیگابایت'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
     expect(find.textContaining('پر است'), findsNothing);
   });
@@ -30,7 +30,7 @@ void main() {
   testWidgets('without a reported limit it shows only what is used',
       (tester) async {
     await pump(tester, 3 * 1024 * 1024, 0);
-    expect(find.text('3.0 مگابایت مصرف‌شده'), findsOneWidget);
+    expect(find.text('۳.۰ مگابایت مصرف‌شده'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsNothing);
   });
 }

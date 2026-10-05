@@ -1,3 +1,4 @@
+import 'package:nafir/core/persian_digits.dart';
 import 'package:flutter/material.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:flutter/services.dart';
@@ -230,7 +231,7 @@ class _Contents extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           [
-                            '${tracks.length} آهنگ',
+                            '${persianDigits(tracks.length)} آهنگ',
                             if (playlist.isOwner)
                               playlist.isPublic ? 'عمومی' : 'فقط با لینک',
                           ].join(' · '),
@@ -341,7 +342,7 @@ class PlaylistLikeButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: Semantics(
-        label: liked ? 'پسندیده‌ای، $count پسند' : 'نپسندیده‌ای، $count پسند',
+        label: liked ? 'پسندیده‌ای، ${persianDigits(count)} پسند' : 'نپسندیده‌ای، ${persianDigits(count)} پسند',
         toggled: liked,
         excludeSemantics: true,
         button: true,
@@ -351,13 +352,13 @@ class PlaylistLikeButton extends StatelessWidget {
             ? TextButton.icon(
                 onPressed: onPressed,
                 icon: icon,
-                label: Text('$count'),
+                label: Text(persianDigits(count)),
                 style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
               )
             : OutlinedButton.icon(
                 onPressed: onPressed,
                 icon: icon,
-                label: Text(liked ? 'پسندیدی · $count' : 'پسندیدن · $count'),
+                label: Text(liked ? 'پسندیدی · ${persianDigits(count)}' : 'پسندیدن · ${persianDigits(count)}'),
               ),
       ),
     );

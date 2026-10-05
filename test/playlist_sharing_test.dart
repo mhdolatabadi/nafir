@@ -527,18 +527,18 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('پسندیدن · 0'), findsOneWidget);
+      expect(find.text('پسندیدن · ۰'), findsOneWidget);
       expect(find.byIcon(NafirIcons.heart), findsOneWidget);
-      await tester.tap(find.text('پسندیدن · 0'));
+      await tester.tap(find.text('پسندیدن · ۰'));
       await tester.pumpAndSettle();
-      expect(find.text('پسندیدی · 1'), findsOneWidget);
+      expect(find.text('پسندیدی · ۱'), findsOneWidget);
       expect(find.byIcon(NafirIcons.heartFill), findsOneWidget);
-      expect(find.bySemanticsLabel('پسندیده‌ای، 1 پسند'), findsOneWidget);
+      expect(find.bySemanticsLabel('پسندیده‌ای، ۱ پسند'), findsOneWidget);
 
       api.likeStatus = 503;
-      await tester.tap(find.text('پسندیدی · 1'));
+      await tester.tap(find.text('پسندیدی · ۱'));
       await tester.pumpAndSettle();
-      expect(find.text('پسندیدی · 1'), findsOneWidget);
+      expect(find.text('پسندیدی · ۱'), findsOneWidget);
       expect(find.text('پسندیدن ثبت نشد. دوباره تلاش کن.'), findsOneWidget);
     });
 
@@ -603,8 +603,8 @@ void main() {
               ]);
 
         expect(find.text('loved'), findsOneWidget);
-        expect(find.text('f***@example.com · 3 آهنگ'), findsNWidgets(2));
-        await tester.tap(find.text('5'));
+        expect(find.text('f***@example.com · ۳ آهنگ'), findsNWidgets(2));
+        await tester.tap(find.text('۵'));
         await tester.pumpAndSettle();
         expect(api.likeCalls, [true]);
         expect(find.byIcon(NafirIcons.heartFill), findsOneWidget);
