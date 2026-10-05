@@ -83,11 +83,16 @@ GitHub Actions. The Android application ID is `ir.mhdolatabadi.nafir`, and the
 artifact is retained for 14 days. The APK talks to `https://nafir.mhdolatabadi.ir`;
 set the repository variable `NAFIR_API_BASE_URL` to point it elsewhere.
 
-The app keeps its existing red musical horn mark on black. To change it, edit and run
-`tool/generate_icons.py` (writes `web/icons/icon.svg` and the notification
-icon), then render `web/icons/icon.svg` to the five
-`android/app/src/main/res/mipmap-*/ic_launcher.png` sizes (48, 72, 96, 144 and
-192 px) and to `assets/icon/nafir.png` (288 px, used by the loading screen).
+The rhythmo icon combines a waveform and a play mark on a dark background.
+The single vector geometry in `tool/generate_icons.py` generates the web SVG,
+192/512 px PWA PNGs, all five Android launcher sizes, the monochrome notification
+icon and the 288 px loading/artwork image. The mark fits the maskable safe circle.
+Existing asset filenames remain stable for compatibility.
+
+```bash
+python3 -m pip install -r tool/icon-requirements.txt
+python3 tool/generate_icons.py
+```
 
 The Android project lives in `android/`. Build it locally with:
 
