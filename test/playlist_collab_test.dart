@@ -178,7 +178,7 @@ void main() {
     // The owner's controls are gone; leaving is offered instead.
     expect(find.byTooltip('تغییر نام'), findsNothing);
     expect(find.byTooltip('حذف'), findsNothing);
-    expect(find.byTooltip('همکاری'), findsNothing);
+    expect(find.byTooltip('دعوت دوستان و مدیریت اعضا'), findsNothing);
     expect(find.byTooltip('ترک فهرست پخش'), findsOneWidget);
     expect(find.textContaining('از o***@example.com'), findsOneWidget);
     expect(find.text('خواننده نامشخص · افزوده‌ی f***@example.com'),
@@ -279,7 +279,7 @@ void main() {
       expect(size.width, greaterThanOrEqualTo(48), reason: tooltip);
     }
 
-    await tester.tap(find.byTooltip('همکاری'));
+    await tester.tap(find.byTooltip('دعوت دوستان و مدیریت اعضا'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     final remove = tester.getRect(find
