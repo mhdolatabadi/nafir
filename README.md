@@ -1,4 +1,4 @@
-# Nafir
+# rhythmo
 
 Cross-platform personal cloud music player. Music is stored on the user's self-hosted server and streamed to Android and the web with a bounded, disposable device cache.
 
@@ -83,7 +83,7 @@ GitHub Actions. The Android application ID is `ir.mhdolatabadi.nafir`, and the
 artifact is retained for 14 days. The APK talks to `https://nafir.mhdolatabadi.ir`;
 set the repository variable `NAFIR_API_BASE_URL` to point it elsewhere.
 
-The app icon is a red nafir (the horn) on black. To change it, edit and run
+The app keeps its existing red musical horn mark on black. To change it, edit and run
 `tool/generate_icons.py` (writes `web/icons/icon.svg` and the notification
 icon), then render `web/icons/icon.svg` to the five
 `android/app/src/main/res/mipmap-*/ic_launcher.png` sizes (48, 72, 96, 144 and
@@ -116,3 +116,11 @@ builds `ir.mhdolatabadi.nafir`, generates release notes and attaches
 
 
 See [deploy/README.md](deploy/README.md). Do not commit deployment secrets or `.env`.
+
+## Account administration
+
+Set `ADMIN_EMAILS` in the server environment (or `deploy/.env`) to a comma-separated list of existing account emails. Restart/redeploy the API, then sign in again to refresh the account menu. Leave it empty to disable admin access. Register the intended accounts before configuring the allowlist.
+
+Admins can search the account directory, confirm account verification and revoke it. Every API request resolves the current account from the database and checks the server-managed allowlist. Verification is independent of admin privileges and does not verify email ownership. Real verification changes and the acting admin are recorded atomically in `account_verification_audit`.
+
+Migration 013 adds verification columns and the audit table. Removing an email from the allowlist revokes administrative API access immediately after the API reloads; no token rotation is needed. To roll back the feature, deploy the previous API/client and clear `ADMIN_EMAILS`; leave the additive database migration in place.

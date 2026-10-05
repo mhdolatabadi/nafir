@@ -77,7 +77,7 @@ abstract interface class LinkImportsApi {
 /// What a refused link or a failed import means, in Persian.
 String linkImportMessage(String? code) => switch (code) {
       'invalid_url' => 'این لینک معتبر نیست. یک لینک http یا https بچسبان.',
-      'blocked_url' => 'نفیر اجازه ندارد به نشانی این لینک وصل شود.',
+      'blocked_url' => 'ریتمو اجازه ندارد به نشانی این لینک وصل شود.',
       'unreachable' =>
         'صفحه باز نشد. لینک را بررسی کن یا کمی بعد دوباره امتحان کن.',
       'no_audio' =>

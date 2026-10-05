@@ -1,11 +1,12 @@
 # AGENTS.md
 
-This file defines the standing rules for every contributor and coding agent working on Nafir.
+This file defines the standing rules for every contributor and coding agent working on rhythmo.
 
 ## Product identity and scope
 
-- The product name is **Nafir** (نفیر). Do not introduce the old name `sot` in code, copy, package names, artifacts, infrastructure, or documentation.
+- The product name is **rhythmo** (ریتمو). Do not introduce the old name `sot` in code, copy, package names, artifacts, infrastructure, or documentation.
 - The supported clients are **Web and Android**. Do not add, restore, build, test, or maintain iOS-specific code or workflows unless the owner explicitly changes this rule.
+- Existing `nafir` package identifiers, routes, domains and storage names remain compatible until a dedicated technical migration is requested.
 - The Android application ID is `ir.mhdolatabadi.nafir`.
 - Keep Web and Android behavior consistent where platform capabilities allow it.
 - User-facing copy is Persian and the primary layout direction is RTL.
@@ -20,7 +21,7 @@ This file defines the standing rules for every contributor and coding agent work
 
 ## UI and UX
 
-- Nafir uses a polished, dark, glass-like visual language. Glass effects must preserve contrast, legibility, and performance.
+- rhythmo uses a polished, dark, glass-like visual language. Glass effects must preserve contrast, legibility, and performance.
 - Mobile layouts need generous breathing room, safe-area awareness, and touch targets of at least 48 logical pixels.
 - Floating controls, the mini player, browser chrome, and system insets must never cover the last list item or a primary action.
 - Prefer the artist as the secondary track detail; show file size as supporting information.

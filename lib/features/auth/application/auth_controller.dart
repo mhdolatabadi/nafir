@@ -57,6 +57,13 @@ class AuthController extends ChangeNotifier {
     await logout();
   }
 
+  Future<void> refreshUser() async {
+    final currentToken = token;
+    if (currentToken == null) return;
+    final user = await _api.me(currentToken);
+    if (token == currentToken) _set(AuthStatus.signedIn, user);
+  }
+
   Future<void> logout() async {
     _token = null;
     await _tokenStore.clear();

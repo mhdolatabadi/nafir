@@ -31,6 +31,8 @@ class LibraryScreen extends StatefulWidget {
   const LibraryScreen({
     super.key,
     required this.email,
+    this.verified = false,
+    this.onAdmin,
     required this.onLogout,
     this.onDeleteAccount,
     required this.library,
@@ -46,6 +48,8 @@ class LibraryScreen extends StatefulWidget {
   });
 
   final String email;
+  final bool verified;
+  final VoidCallback? onAdmin;
   final VoidCallback onLogout;
 
   /// Deletes the account after checking [password]; null hides the option.
@@ -222,7 +226,7 @@ class _LibraryScreenState extends State<LibraryScreen>
       DeviceDeleteResult.deleted => '«${track.title}» از دستگاه حذف شد.',
       DeviceDeleteResult.declined => null,
       DeviceDeleteResult.permissionDenied =>
-        'نفیر اجازهٔ تغییر حافظهٔ دستگاه را ندارد.',
+        'ریتمو اجازهٔ تغییر حافظهٔ دستگاه را ندارد.',
       DeviceDeleteResult.failed => 'حذف از دستگاه ناموفق بود.',
     };
     if (result == DeviceDeleteResult.deleted && !synced) {
@@ -322,7 +326,7 @@ class _LibraryScreenState extends State<LibraryScreen>
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(switch (result) {
         BotSendResult.queued =>
-          'بات نفیر «${track.title}» را در ${bot.name} برایت می‌فرستد.',
+          'بات ریتمو «${track.title}» را در ${bot.name} برایت می‌فرستد.',
         BotSendResult.notLinked =>
           'گفتگوی ${bot.name} دیگر به حسابت وصل نیست. از تنظیمات دوباره وصلش کن.',
         BotSendResult.tooLarge =>
@@ -353,9 +357,21 @@ class _LibraryScreenState extends State<LibraryScreen>
       ];
 
   List<Widget> _accountActions(BuildContext context) {
-    if (MediaQuery.sizeOf(context).width >= 720) {
+    final wideActions = widget.onAdmin == null ? 720 : 960;
+    if (MediaQuery.sizeOf(context).width >= wideActions) {
       return [
         _AccountChip(email: widget.email),
+        if (widget.verified)
+          const Tooltip(
+            message: 'حساب تأییدشده',
+            child: Icon(NafirIcons.checkCircle),
+          ),
+        if (widget.onAdmin != null)
+          TextButton.icon(
+            onPressed: widget.onAdmin,
+            icon: const Icon(NafirIcons.usersFill),
+            label: const Text('مدیریت حساب‌ها'),
+          ),
         const SizedBox(width: 8),
         Tooltip(
           message: 'تنظیمات',
@@ -385,6 +401,8 @@ class _LibraryScreenState extends State<LibraryScreen>
           switch (action) {
             case _HeaderAction.settings:
               _openSettings();
+            case _HeaderAction.admin:
+              widget.onAdmin?.call();
             case _HeaderAction.logout:
               widget.onLogout();
           }
@@ -398,6 +416,20 @@ class _LibraryScreenState extends State<LibraryScreen>
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          if (widget.verified)
+            const PopupMenuItem<_HeaderAction>(
+              enabled: false,
+              child: Text('حساب تأییدشده'),
+            ),
+          if (widget.onAdmin != null)
+            const PopupMenuItem(
+              value: _HeaderAction.admin,
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(NafirIcons.usersFill),
+                title: Text('مدیریت حساب‌ها'),
+              ),
+            ),
           const PopupMenuDivider(),
           const PopupMenuItem(
             value: _HeaderAction.settings,
@@ -624,7 +656,7 @@ class _LibraryScreenState extends State<LibraryScreen>
       );
 }
 
-enum _HeaderAction { settings, logout }
+enum _HeaderAction { settings, logout, admin }
 
 enum _TrackAction {
   addToPlaylist,
@@ -672,7 +704,7 @@ class _CollapsingTitle extends StatelessWidget {
                   _NafirMark(size: 32),
                   SizedBox(width: 10),
                   Text(
-                    'نفیر',
+                    'ریتمو',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
                   ),
                 ],
@@ -698,7 +730,7 @@ class _CollapsingTitle extends StatelessWidget {
                     const SizedBox(width: 14),
                     Flexible(
                       child: Text(
-                        'نفیر',
+                        'ریتمو',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.headlineMedium
@@ -716,7 +748,7 @@ class _CollapsingTitle extends StatelessWidget {
   }
 }
 
-/// The Nafir logo mark: the horn's sound wave on the brand gradient.
+/// The rhythmo logo mark: the horn's sound wave on the brand gradient.
 class _NafirMark extends StatelessWidget {
   const _NafirMark({this.size = 44});
 
@@ -773,7 +805,7 @@ class _NafirBrand extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'نفیر',
+                          'ریتمو',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w700,
@@ -791,7 +823,7 @@ class _NafirBrand extends StatelessWidget {
                       ],
                     )
                   : const Text(
-                      'نفیر',
+                      'ریتمو',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -2147,7 +2179,7 @@ class _EmptyLibrary extends StatelessWidget {
           icon: NafirIcons.musicNotes,
           title: 'کتابخانهٔ شما خالی است',
           message:
-              'با «افزودن موسیقی» آهنگ آپلود کن یا اجازه بده نفیر آهنگ‌های دستگاه را هم همین‌جا نشان بدهد.',
+              'با «افزودن موسیقی» آهنگ آپلود کن یا اجازه بده ریتمو آهنگ‌های دستگاه را هم همین‌جا نشان بدهد.',
         ),
       ],
     );
