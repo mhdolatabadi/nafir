@@ -19,7 +19,7 @@ type AdminStore interface {
 }
 
 type AdminHandlers struct {
-	auth *AuthHandlers
+	auth  *AuthHandlers
 	users AdminStore
 }
 
@@ -56,14 +56,14 @@ func (h *AdminHandlers) authorize(w http.ResponseWriter, r *http.Request) (strin
 
 type adminAccountResponse struct {
 	userResponse
-	CreatedAt time.Time `json:"createdAt"`
+	CreatedAt  time.Time  `json:"createdAt"`
 	VerifiedAt *time.Time `json:"verifiedAt,omitempty"`
 }
 
 func (h *AdminHandlers) account(user store.User) adminAccountResponse {
 	return adminAccountResponse{
 		userResponse: h.auth.userResponse(user),
-		CreatedAt: user.CreatedAt, VerifiedAt: user.VerifiedAt,
+		CreatedAt:    user.CreatedAt, VerifiedAt: user.VerifiedAt,
 	}
 }
 
@@ -96,7 +96,7 @@ func (h *AdminHandlers) list(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, struct {
 		Accounts []adminAccountResponse `json:"accounts"`
-		HasMore bool `json:"hasMore"`
+		HasMore  bool                   `json:"hasMore"`
 	}{accounts, more})
 }
 

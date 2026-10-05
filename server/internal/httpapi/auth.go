@@ -66,7 +66,7 @@ type AuthHandlers struct {
 	// dummyHash is compared against when an email is unknown, so a login for a
 	// missing account takes as long as one with a wrong password.
 	dummyHash string
-	admins map[string]bool
+	admins    map[string]bool
 }
 
 func NewAuthHandlers(users UserStore, passwords auth.Passwords, tokens *auth.Tokens, limiters AuthRateLimiters) (*AuthHandlers, error) {
@@ -98,10 +98,10 @@ type credentials struct {
 }
 
 type userResponse struct {
-	ID    string `json:"id"`
-	Email string `json:"email"`
-	Verified bool `json:"verified"`
-	IsAdmin bool `json:"isAdmin"`
+	ID       string `json:"id"`
+	Email    string `json:"email"`
+	Verified bool   `json:"verified"`
+	IsAdmin  bool   `json:"isAdmin"`
 }
 
 type sessionResponse struct {
@@ -288,7 +288,6 @@ func (h *AuthHandlers) writeSession(w http.ResponseWriter, status int, user stor
 		User:      h.userResponse(user),
 	})
 }
-
 
 // WithAdmins configures the operator-managed allowlist. No client can set roles.
 func (h *AuthHandlers) WithAdmins(emails []string) *AuthHandlers {

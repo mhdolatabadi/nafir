@@ -18,10 +18,10 @@ var (
 const uniqueViolation = "23505"
 
 type User struct {
-	ID        string
-	Email     string
-	CreatedAt time.Time
-	Verified bool
+	ID         string
+	Email      string
+	CreatedAt  time.Time
+	Verified   bool
 	VerifiedAt *time.Time
 }
 

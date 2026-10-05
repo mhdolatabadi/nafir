@@ -6,8 +6,7 @@ class AuthUser {
     this.isAdmin = false,
   });
 
-  factory AuthUser.fromJson(Map<String, dynamic> json) =>
-      AuthUser(
+  factory AuthUser.fromJson(Map<String, dynamic> json) => AuthUser(
         id: json['id'] as String,
         email: json['email'] as String,
         verified: json['verified'] == true,

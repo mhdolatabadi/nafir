@@ -14,9 +14,9 @@ import (
 )
 
 type fakeAdminStore struct {
-	user store.User
+	user  store.User
 	actor string
-	fail bool
+	fail  bool
 	calls int
 }
 

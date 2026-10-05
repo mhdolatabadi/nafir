@@ -191,8 +191,8 @@ class _AdminScreenState extends State<AdminScreen> {
                   if (!_loading && _error == null && _accounts.isEmpty)
                     const Padding(
                       padding: EdgeInsets.all(32),
-                      child: Text('حسابی پیدا نشد.',
-                          textAlign: TextAlign.center),
+                      child:
+                          Text('حسابی پیدا نشد.', textAlign: TextAlign.center),
                     ),
                   const SizedBox(height: 16),
                   for (final account in _accounts)

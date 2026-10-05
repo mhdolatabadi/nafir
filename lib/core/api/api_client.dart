@@ -152,7 +152,13 @@ abstract interface class BotsApi {
 }
 
 class ApiClient
-    implements AuthApi, TracksApi, PlaylistsApi, BotsApi, LinkImportsApi, AdminApi {
+    implements
+        AuthApi,
+        TracksApi,
+        PlaylistsApi,
+        BotsApi,
+        LinkImportsApi,
+        AdminApi {
   ApiClient(this.baseUri, {http.Client? httpClient})
       : _httpClient = httpClient ?? http.Client();
 
