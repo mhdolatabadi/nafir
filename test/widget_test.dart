@@ -1378,8 +1378,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(bots.sent, ['bale/s1']);
-    expect(
-        find.text('بات ریتمو «Song» را در بله برایت می‌فرستد.'), findsOneWidget);
+    expect(find.text('بات ریتمو «Song» را در بله برایت می‌فرستد.'),
+        findsOneWidget);
   });
 
   testWidgets('without a linked bot the track menu offers no sending', (
