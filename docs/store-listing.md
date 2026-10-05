@@ -27,7 +27,7 @@ permissions, data handling, or the release workflow change.
 > • **کتابخانه‌ی مرتب:** آهنگ‌ها، آلبوم‌ها و هنرمندان، با جست‌وجو و مرتب‌سازی. نام آهنگ، خواننده و آلبوم را خودت ویرایش کن.
 > • **موسیقی‌های گوشی و فضای ابری کنار هم:** موسیقی‌های روی گوشی را هم ببین و پخش کن و هر کدام را خواستی به فضای ابری بفرست.
 > • **بارگذاری چندتایی:** چند فایل را با هم بارگذاری کن و پیشرفت هر کدام را جدا ببین.
-> • **فهرست‌های پخش:** Playlist بساز، با لینک به اشتراک بگذار، عمومی‌اش کن تا دیگران پیدایش کنند، یا با دوستانت Playlist مشترک بساز.
+> • **فهرست‌های پخش:** فهرست پخش بساز، با لینک به اشتراک بگذار، عمومی‌اش کن تا دیگران پیدایش کنند، یا با دوستانت فهرست پخش مشترک بساز.
 > • **پخش در پس‌زمینه:** با صفحه‌ی خاموش و از اعلان و صفحه‌ی قفل پخش را کنترل کن. آهنگ‌هایی که گوش داده‌ای در کش می‌مانند تا دفعه‌ی بعد سریع‌تر و بدون اینترنت پخش شوند.
 > • **بات بله و تلگرام:** آهنگ را برای بات نفیر بفرست تا مستقیم به کتابخانه‌ات اضافه شود.
 > • **حریم خصوصی:** موسیقی‌هایت خصوصی‌اند مگر خودت به اشتراک بگذاری. تبلیغات و ابزار ردیابی در کار نیست و هر وقت بخواهی حسابت را از داخل اپ کامل حذف می‌کنی.
@@ -40,7 +40,7 @@ Before publishing, confirm the quota sentence matches the server's `STORAGE_QUOT
 
 - **Google Play:** Music & Audio.
 - **Cafe Bazaar:** the music and audio category (موسیقی و صدا, or whatever Pishkhan currently calls it).
-- Tags or keywords: موسیقی، پخش‌کننده، فضای ابری، Playlist، آهنگ
+- Tags or keywords: موسیقی، پخش‌کننده، فضای ابری، فهرست پخش، آهنگ
 
 ## Permissions (Bazaar asks for an explanation of each)
 
@@ -97,7 +97,7 @@ Take these on a phone at 1080×1920 or larger, in portrait. Use the release buil
 1. **Library, Tracks tab:** the dark glass header, a full track list with artist and size, and the mini player playing.
 2. **Albums or Artists tab:** the grouped grid or list.
 3. **Upload in progress:** several files with per-file progress.
-4. **Playlists tab:** a few playlists, one shared or public.
+4. **فهرست پخشs tab:** a few playlists, one shared or public.
 5. **Shared or collaborative playlist:** the members and the "add to my account" action.
 6. **Popular playlists (guest home):** what people see before signing in.
 7. **Settings:** cloud storage usage, cache, the bot link, and the account section with «حریم خصوصی» and «حذف حساب کاربری».
