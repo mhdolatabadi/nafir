@@ -226,7 +226,7 @@ class _LibraryScreenState extends State<LibraryScreen>
       DeviceDeleteResult.deleted => '«${track.title}» از دستگاه حذف شد.',
       DeviceDeleteResult.declined => null,
       DeviceDeleteResult.permissionDenied =>
-        'نفیر اجازهٔ تغییر حافظهٔ دستگاه را ندارد.',
+        'ریتمو اجازهٔ تغییر حافظهٔ دستگاه را ندارد.',
       DeviceDeleteResult.failed => 'حذف از دستگاه ناموفق بود.',
     };
     if (result == DeviceDeleteResult.deleted && !synced) {
@@ -326,7 +326,7 @@ class _LibraryScreenState extends State<LibraryScreen>
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(switch (result) {
         BotSendResult.queued =>
-          'بات نفیر «${track.title}» را در ${bot.name} برایت می‌فرستد.',
+          'بات ریتمو «${track.title}» را در ${bot.name} برایت می‌فرستد.',
         BotSendResult.notLinked =>
           'گفتگوی ${bot.name} دیگر به حسابت وصل نیست. از تنظیمات دوباره وصلش کن.',
         BotSendResult.tooLarge =>
@@ -703,7 +703,7 @@ class _CollapsingTitle extends StatelessWidget {
                   _NafirMark(size: 32),
                   SizedBox(width: 10),
                   Text(
-                    'نفیر',
+                    'ریتمو',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
                   ),
                 ],
@@ -729,7 +729,7 @@ class _CollapsingTitle extends StatelessWidget {
                     const SizedBox(width: 14),
                     Flexible(
                       child: Text(
-                        'نفیر',
+                        'ریتمو',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.headlineMedium
@@ -747,7 +747,7 @@ class _CollapsingTitle extends StatelessWidget {
   }
 }
 
-/// The Nafir logo mark: the horn's sound wave on the brand gradient.
+/// The rhythmo logo mark: the horn's sound wave on the brand gradient.
 class _NafirMark extends StatelessWidget {
   const _NafirMark({this.size = 44});
 
@@ -804,7 +804,7 @@ class _NafirBrand extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'نفیر',
+                          'ریتمو',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w700,
@@ -822,7 +822,7 @@ class _NafirBrand extends StatelessWidget {
                       ],
                     )
                   : const Text(
-                      'نفیر',
+                      'ریتمو',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -2178,7 +2178,7 @@ class _EmptyLibrary extends StatelessWidget {
           icon: NafirIcons.musicNotes,
           title: 'کتابخانهٔ شما خالی است',
           message:
-              'با «افزودن موسیقی» آهنگ آپلود کن یا اجازه بده نفیر آهنگ‌های دستگاه را هم همین‌جا نشان بدهد.',
+              'با «افزودن موسیقی» آهنگ آپلود کن یا اجازه بده ریتمو آهنگ‌های دستگاه را هم همین‌جا نشان بدهد.',
         ),
       ],
     );

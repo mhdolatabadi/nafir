@@ -1,4 +1,4 @@
-# Nafir
+# rhythmo
 
 Cross-platform personal cloud music player. Music is stored on the user's self-hosted server and streamed to Android and the web with a bounded, disposable device cache.
 
@@ -83,7 +83,7 @@ GitHub Actions. The Android application ID is `ir.mhdolatabadi.nafir`, and the
 artifact is retained for 14 days. The APK talks to `https://nafir.mhdolatabadi.ir`;
 set the repository variable `NAFIR_API_BASE_URL` to point it elsewhere.
 
-The app icon is a red nafir (the horn) on black. To change it, edit and run
+The app keeps its existing red musical horn mark on black. To change it, edit and run
 `tool/generate_icons.py` (writes `web/icons/icon.svg` and the notification
 icon), then render `web/icons/icon.svg` to the five
 `android/app/src/main/res/mipmap-*/ic_launcher.png` sizes (48, 72, 96, 144 and

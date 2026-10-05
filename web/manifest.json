@@ -1,11 +1,11 @@
 {
-  "name": "Nafir Music",
-  "short_name": "Nafir",
+  "name": "rhythmo",
+  "short_name": "rhythmo",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#101418",
-  "theme_color": "#1a73e8",
-  "description": "Private cloud music player",
+  "background_color": "#070810",
+  "theme_color": "#070810",
+  "description": "ریتمو — پخش‌کنندهٔ موسیقی ابری شخصی",
   "orientation": "portrait-primary",
   "icons": [
     {
