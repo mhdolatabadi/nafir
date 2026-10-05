@@ -187,7 +187,7 @@ void main() {
     expect(find.byTooltip('حذف از فهرست پخش'), findsOneWidget);
 
     // Picking tracks keeps the ones others added.
-    await tester.tap(find.text('انتخاب آهنگ‌ها'));
+    await tester.tap(find.text('مدیریت آهنگ‌ها'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Another of mine'));
     await tester.tap(find.text('ذخیره'));
