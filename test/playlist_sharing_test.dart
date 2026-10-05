@@ -644,7 +644,7 @@ void main() {
 
       testWidgets('offers a retry when the list fails', (tester) async {
         final api = await pump(tester, FakePlaylistsApi()..listFails = true);
-        expect(find.text('فهرست فهرست‌های پخش محبوب بارگذاری نشد.'),
+        expect(find.text('فهرست‌های پخش محبوب بارگذاری نشد.'),
             findsOneWidget);
 
         api
