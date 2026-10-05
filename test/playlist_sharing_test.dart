@@ -638,14 +638,14 @@ void main() {
 
       testWidgets('says when nothing is public yet', (tester) async {
         await pump(tester, FakePlaylistsApi());
-        expect(
-            find.textContaining('هنوز فهرست پخش عمومی‌ای نیست'), findsOneWidget);
+        expect(find.textContaining('هنوز فهرست پخش عمومی‌ای نیست'),
+            findsOneWidget);
       });
 
       testWidgets('offers a retry when the list fails', (tester) async {
         final api = await pump(tester, FakePlaylistsApi()..listFails = true);
-        expect(
-            find.text('فهرست فهرست‌های پخش محبوب بارگذاری نشد.'), findsOneWidget);
+        expect(find.text('فهرست فهرست‌های پخش محبوب بارگذاری نشد.'),
+            findsOneWidget);
 
         api
           ..listFails = false
