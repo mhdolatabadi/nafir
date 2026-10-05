@@ -177,7 +177,17 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	authHandlers.WithAdmins(strings.Split(os.Getenv("ADMIN_EMAILS"), ","))
+	adminEmails := strings.Split(os.Getenv("ADMIN_EMAILS"), ",")
+	for _, raw := range adminEmails {
+		email := strings.ToLower(strings.TrimSpace(raw))
+		if email == "" {
+			continue
+		}
+		if _, _, err := users.ByEmail(ctx, email); err != nil {
+			return fmt.Errorf("ADMIN_EMAILS requires existing accounts: %w", err)
+		}
+	}
+	authHandlers.WithAdmins(adminEmails)
 	// Uploads handed out before an account is deleted may still land until
 	// pending reservations expire, so the purge job sweeps until then.
 	authHandlers.WithAccountDeletion(httpapi.AccountDeletion{

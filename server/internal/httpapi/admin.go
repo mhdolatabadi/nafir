@@ -34,6 +34,7 @@ func (h *AdminHandlers) register(mux *http.ServeMux) {
 
 // Authorize against a fresh database lookup on every request, not token claims.
 func (h *AdminHandlers) authorize(w http.ResponseWriter, r *http.Request) (string, bool) {
+	w.Header().Set("Cache-Control", "no-store")
 	id, ok := authenticate(h.auth.tokens, w, r)
 	if !ok {
 		return "", false

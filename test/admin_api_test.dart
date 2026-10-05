@@ -12,7 +12,8 @@ void main() {
     final client = ApiClient(uri, httpClient: MockClient((request) async {
       expect(request.headers['Authorization'], 'Bearer token');
       expect(request.url.path, '/api/v1/admin/accounts');
-      expect(request.url.queryParameters, {'q': 'a+b@example.com', 'offset': '50'});
+      expect(request.url.queryParameters,
+          {'q': 'a+b@example.com', 'offset': '50'});
       return http.Response(
           jsonEncode({
             'accounts': [
