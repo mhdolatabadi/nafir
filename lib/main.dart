@@ -199,6 +199,7 @@ class _NafirAppState extends State<NafirApp> {
               ? const SizedBox.shrink()
               : AuthGate(
                   controller: _auth,
+                  adminApi: _apiClient,
                   player: _player,
                   library: _library,
                   playlists: _playlists,

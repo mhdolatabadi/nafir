@@ -116,3 +116,11 @@ builds `ir.mhdolatabadi.nafir`, generates release notes and attaches
 
 
 See [deploy/README.md](deploy/README.md). Do not commit deployment secrets or `.env`.
+
+## Account administration
+
+Set `ADMIN_EMAILS` in the server environment (or `deploy/.env`) to a comma-separated list of existing account emails. Restart/redeploy the API, then sign in again to refresh the account menu. Leave it empty to disable admin access. Register the intended accounts before configuring the allowlist.
+
+Admins can search the account directory, confirm account verification and revoke it. Every API request resolves the current account from the database and checks the server-managed allowlist. Verification is independent of admin privileges and does not verify email ownership. Real verification changes and the acting admin are recorded atomically in `account_verification_audit`.
+
+Migration 013 adds verification columns and the audit table. Removing an email from the allowlist revokes administrative API access immediately after the API reloads; no token rotation is needed. To roll back the feature, deploy the previous API/client and clear `ADMIN_EMAILS`; leave the additive database migration in place.
