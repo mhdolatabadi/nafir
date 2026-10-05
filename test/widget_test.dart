@@ -942,7 +942,8 @@ void main() {
     expect(find.text('فهرست پخش جدید'), findsOneWidget);
     final nameField = find.byWidgetPredicate(
       (widget) =>
-          widget is TextField && widget.decoration?.labelText == 'نام فهرست پخش',
+          widget is TextField &&
+          widget.decoration?.labelText == 'نام فهرست پخش',
     );
     await tester.enterText(nameField, 'Road songs');
     await tester.tap(find.text('ساخت'));
