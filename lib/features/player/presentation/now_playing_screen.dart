@@ -209,8 +209,8 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                     child: SafeArea(
                       child: Center(
                         child: ConstrainedBox(
-                          constraints:
-                              const BoxConstraints(maxWidth: nowPlayingMaxWidth),
+                          constraints: const BoxConstraints(
+                              maxWidth: nowPlayingMaxWidth),
                           child: Padding(
                             padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
                             child: LayoutBuilder(
@@ -324,8 +324,7 @@ class _PlaybackBackdropPainter extends CustomPainter {
       for (var step = 0; step <= 80; step++) {
         final x = size.width * step / 80;
         final y = baseline +
-            sin(step / 80 * 2 * pi + phase + band * 0.7) *
-                size.height * 0.035;
+            sin(step / 80 * 2 * pi + phase + band * 0.7) * size.height * 0.035;
         if (step == 0) {
           path.moveTo(x, y);
         } else {
