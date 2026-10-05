@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -176,6 +177,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	authHandlers.WithAdmins(strings.Split(os.Getenv("ADMIN_EMAILS"), ","))
 	// Uploads handed out before an account is deleted may still land until
 	// pending reservations expire, so the purge job sweeps until then.
 	authHandlers.WithAccountDeletion(httpapi.AccountDeletion{
@@ -230,6 +232,7 @@ func run() error {
 		Handler: httpapi.NewHandler(httpapi.Config{
 			AllowedOrigin: os.Getenv("WEB_ORIGIN"),
 			Auth:          authHandlers,
+			Admin:         httpapi.NewAdminHandlers(authHandlers, users),
 			Tracks: httpapi.NewTrackHandlers(tracks, objects, tokens, httpapi.UploadLimits{
 				MaxFileBytes: maxUploadBytes, MaxOwnerBytes: ownerQuotaBytes,
 				MaxPending: maxPending, Enabled: uploadsEnabled,

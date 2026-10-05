@@ -31,6 +31,8 @@ class LibraryScreen extends StatefulWidget {
   const LibraryScreen({
     super.key,
     required this.email,
+    this.verified = false,
+    this.onAdmin,
     required this.onLogout,
     this.onDeleteAccount,
     required this.library,
@@ -46,6 +48,8 @@ class LibraryScreen extends StatefulWidget {
   });
 
   final String email;
+  final bool verified;
+  final VoidCallback? onAdmin;
   final VoidCallback onLogout;
 
   /// Deletes the account after checking [password]; null hides the option.
@@ -356,6 +360,17 @@ class _LibraryScreenState extends State<LibraryScreen>
     if (MediaQuery.sizeOf(context).width >= 720) {
       return [
         _AccountChip(email: widget.email),
+        if (widget.verified)
+          const Tooltip(
+            message: 'حساب تأییدشده',
+            child: Icon(NafirIcons.checkCircle),
+          ),
+        if (widget.onAdmin != null)
+          TextButton.icon(
+            onPressed: widget.onAdmin,
+            icon: const Icon(NafirIcons.usersFill),
+            label: const Text('مدیریت حساب‌ها'),
+          ),
         const SizedBox(width: 8),
         Tooltip(
           message: 'تنظیمات',
@@ -385,6 +400,8 @@ class _LibraryScreenState extends State<LibraryScreen>
           switch (action) {
             case _HeaderAction.settings:
               _openSettings();
+            case _HeaderAction.admin:
+              widget.onAdmin?.call();
             case _HeaderAction.logout:
               widget.onLogout();
           }
@@ -398,6 +415,20 @@ class _LibraryScreenState extends State<LibraryScreen>
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          if (widget.verified)
+            const PopupMenuItem<_HeaderAction>(
+              enabled: false,
+              child: Text('حساب تأییدشده'),
+            ),
+          if (widget.onAdmin != null)
+            const PopupMenuItem(
+              value: _HeaderAction.admin,
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(NafirIcons.usersFill),
+                title: Text('مدیریت حساب‌ها'),
+              ),
+            ),
           const PopupMenuDivider(),
           const PopupMenuItem(
             value: _HeaderAction.settings,
@@ -624,7 +655,7 @@ class _LibraryScreenState extends State<LibraryScreen>
       );
 }
 
-enum _HeaderAction { settings, logout }
+enum _HeaderAction { settings, logout, admin }
 
 enum _TrackAction {
   addToPlaylist,

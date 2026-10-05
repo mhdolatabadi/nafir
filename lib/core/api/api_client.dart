@@ -1,3 +1,4 @@
+import 'package:nafir/features/admin/data/admin_account.dart';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -151,7 +152,7 @@ abstract interface class BotsApi {
 }
 
 class ApiClient
-    implements AuthApi, TracksApi, PlaylistsApi, BotsApi, LinkImportsApi {
+    implements AuthApi, TracksApi, PlaylistsApi, BotsApi, LinkImportsApi, AdminApi {
   ApiClient(this.baseUri, {http.Client? httpClient})
       : _httpClient = httpClient ?? http.Client();
 
@@ -159,6 +160,30 @@ class ApiClient
 
   final Uri baseUri;
   final http.Client _httpClient;
+
+  @override
+  Future<AdminAccountPage> listAccounts(String token,
+      {String query = '', int offset = 0}) async {
+    final body = await _send('GET',
+        '/api/v1/admin/accounts?q=${Uri.encodeQueryComponent(query)}&offset=$offset',
+        token: token);
+    return (
+      accounts: [
+        for (final json in body['accounts'] as List<dynamic>)
+          AdminAccount.fromJson(json as Map<String, dynamic>),
+      ],
+      hasMore: body['hasMore'] == true,
+    );
+  }
+
+  @override
+  Future<AdminAccount> setAccountVerification(
+      String token, String accountId, bool verified) async {
+    final body = await _send('PATCH',
+        '/api/v1/admin/accounts/${Uri.encodeComponent(accountId)}/verification',
+        token: token, body: {'verified': verified});
+    return AdminAccount.fromJson(body);
+  }
 
   Future<void> checkHealth() async {
     final body = await _send('GET', '/api/v1/health');
