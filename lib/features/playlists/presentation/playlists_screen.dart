@@ -24,7 +24,7 @@ Future<void> joinCollabPlaylist(
     final playlist = await controller.join(collabToken);
     messenger.showSnackBar(SnackBar(
         content: Text(playlist.isOwner
-            ? 'این Playlist خودت است.'
+            ? 'این فهرست پخش خودت است.'
             : 'به «${playlist.name}» پیوستی؛ حالا می‌توانی آهنگ‌هایت را اضافه کنی.')));
     await navigator.push(MaterialPageRoute<void>(
       builder: (_) => PlaylistDetailScreen(
@@ -59,7 +59,7 @@ class PlaylistsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Playlistها')),
+      appBar: AppBar(title: const Text('فهرست‌های پخش')),
       body: PlaylistsView(
         controller: controller,
         libraryTracks: libraryTracks,
@@ -70,7 +70,7 @@ class PlaylistsScreen extends StatelessWidget {
 }
 
 /// The user's playlists with actions to make one, discover popular ones and
-/// open a share link. It is the «Playlistها» tab of the library.
+/// open a share link. It is the «فهرست‌های پخش» tab of the library.
 class PlaylistsView extends StatefulWidget {
   const PlaylistsView({
     super.key,
@@ -104,12 +104,12 @@ class _PlaylistsViewState extends State<PlaylistsView> {
   }
 
   Future<void> _create() async {
-    final name = await _askName(context, 'Playlist جدید');
+    final name = await _askName(context, 'فهرست پخش جدید');
     if (name == null) return;
     final playlist = await widget.controller.create(name);
     if (!mounted) return;
     if (playlist == null) {
-      _message('ساخت Playlist ناموفق بود.');
+      _message('ساخت فهرست پخش ناموفق بود.');
       return;
     }
     _open(playlist);
@@ -143,7 +143,7 @@ class _PlaylistsViewState extends State<PlaylistsView> {
           autofocus: true,
           textDirection: TextDirection.ltr,
           decoration: const InputDecoration(
-              hintText: 'لینک Playlist یا دعوت را اینجا بچسبان'),
+              hintText: 'لینک فهرست پخش یا دعوت را اینجا بچسبان'),
           onSubmitted: (value) => Navigator.pop(context, value),
         ),
         actions: [
@@ -171,7 +171,7 @@ class _PlaylistsViewState extends State<PlaylistsView> {
     }
     final token = shareTokenFrom(input);
     if (token == null) {
-      _message('این لینک Playlist نفیر نیست.');
+      _message('این لینک فهرست پخش نفیر نیست.');
       return;
     }
     await Navigator.of(context).push(MaterialPageRoute<void>(
@@ -207,12 +207,12 @@ class _PlaylistsViewState extends State<PlaylistsView> {
           FilledButton.tonalIcon(
             onPressed: _create,
             icon: const Icon(NafirIcons.listPlus),
-            label: const Text('Playlist جدید'),
+            label: const Text('فهرست پخش جدید'),
           ),
           OutlinedButton.icon(
             onPressed: _openPopular,
             icon: const Icon(NafirIcons.fire),
-            label: const Text('Playlistهای محبوب'),
+            label: const Text('فهرست‌های پخش محبوب'),
           ),
           IconButton(
             tooltip: 'باز کردن لینک اشتراک',
@@ -241,7 +241,7 @@ class _PlaylistsViewState extends State<PlaylistsView> {
           PlaylistsStatus.loaded => widget.controller.playlists.isEmpty
               ? const SliverFillRemaining(
                   hasScrollBody: false,
-                  child: Center(child: Text('هنوز Playlistی نساخته‌ای.')),
+                  child: Center(child: Text('هنوز فهرست پخشی نساخته‌ای.')),
                 )
               : _PlaylistsOverview(
                   playlists: widget.controller.playlists,
@@ -320,7 +320,7 @@ class _PlaylistsOverview extends StatelessWidget {
           Padding(
             padding: const EdgeInsetsDirectional.only(start: 4, bottom: 8),
             child: Text(
-              'همهٔ Playlistها',
+              'همهٔ فهرست‌های پخش',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -493,9 +493,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('ترک Playlist؟'),
+        title: const Text('ترک فهرست پخش؟'),
         content: const Text(
-            'آهنگ‌هایی که به این Playlist اضافه کرده‌ای از آن بیرون می‌روند؛ در کتابخانه‌ات می‌مانند.'),
+            'آهنگ‌هایی که به این فهرست پخش اضافه کرده‌ای از آن بیرون می‌روند؛ در کتابخانه‌ات می‌مانند.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -514,7 +514,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     if (left) {
       Navigator.pop(context);
     } else {
-      _message('ترک Playlist ناموفق بود.');
+      _message('ترک فهرست پخش ناموفق بود.');
     }
   }
 
@@ -527,7 +527,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       busy = false;
     });
     if (saved == null) {
-      _message('ذخیرهٔ Playlist ناموفق بود.');
+      _message('ذخیرهٔ فهرست پخش ناموفق بود.');
       // Show what the server has, not the change it refused.
       await _load();
     }
@@ -546,7 +546,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     if (current == null) return;
     final name = await _askName(
       context,
-      'تغییر نام Playlist',
+      'تغییر نام فهرست پخش',
       initialValue: current.name,
     );
     if (name == null) return;
@@ -563,7 +563,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('حذف Playlist؟'),
+        title: const Text('حذف فهرست پخش؟'),
         content: const Text('آهنگ‌های کتابخانه حذف نمی‌شوند.'),
         actions: [
           TextButton(
@@ -583,7 +583,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     if (deleted) {
       Navigator.pop(context);
     } else {
-      _message('حذف Playlist ناموفق بود.');
+      _message('حذف فهرست پخش ناموفق بود.');
     }
   }
 
@@ -596,13 +596,13 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     final current = playlist;
     return Scaffold(
       appBar: AppBar(
-        title: Text(current?.name ?? 'Playlist'),
+        title: Text(current?.name ?? 'فهرست پخش'),
         actions: [
           // A member adds and removes their own tracks; the rest is the
           // owner's.
           if (current != null && !current.isOwner)
             IconButton(
-              tooltip: 'ترک Playlist',
+              tooltip: 'ترک فهرست پخش',
               onPressed: _leave,
               icon: const Icon(NafirIcons.signOut),
             )
@@ -637,7 +637,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: current == null || busy ? null : _selectTracks,
         icon: const Icon(NafirIcons.plusCircle),
-        label: const Text('انتخاب آهنگ‌ها'),
+        label: const Text('مدیریت آهنگ‌ها'),
       ),
       body: busy
           ? const Center(child: CircularProgressIndicator())
@@ -648,7 +648,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                     constraints: const BoxConstraints(maxWidth: 900),
                     child: current.tracks.isEmpty
                         ? const Center(
-                            child: Text('آهنگ‌های این Playlist را انتخاب کن.'),
+                            child: Text('برای این فهرست پخش آهنگ انتخاب کن.'),
                           )
                         : Column(
                             children: [
@@ -702,7 +702,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                       ),
                                       trailing: current.canRemove(track)
                                           ? IconButton(
-                                              tooltip: 'حذف از Playlist',
+                                              tooltip: 'حذف از فهرست پخش',
                                               onPressed: () =>
                                                   _removeTrack(track),
                                               icon: const Icon(
@@ -890,7 +890,7 @@ class _TrackPickerState extends State<_TrackPicker> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('انتخاب آهنگ‌ها'),
+      title: const Text('انتخاب آهنگ‌های فهرست پخش'),
       content: SizedBox(
         width: 560,
         height: 480,
