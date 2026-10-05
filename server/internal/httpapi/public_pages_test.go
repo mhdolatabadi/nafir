@@ -93,8 +93,8 @@ func TestPublicPlaylistPage(t *testing.T) {
 		t.Fatalf("playlist page = %d", response.Code)
 	}
 	for _, want := range []string{
-		`<title>Road trip — Playlist در نفیر</title>`,
-		`<meta name="description" content="Playlist «Road trip» با 2 آهنگ در نفیر`,
+		`<title>Road trip — فهرست پخش در نفیر</title>`,
+		`<meta name="description" content="فهرست پخش «Road trip» با 2 آهنگ در نفیر`,
 		`<link rel="canonical" href="https://nafir.example.com/p/` + token + `">`,
 		`<meta property="og:type" content="music.playlist">`,
 		`src="/p/` + token + `/t/t1"`,
