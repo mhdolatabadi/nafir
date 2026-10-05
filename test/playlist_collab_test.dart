@@ -179,12 +179,12 @@ void main() {
     expect(find.byTooltip('تغییر نام'), findsNothing);
     expect(find.byTooltip('حذف'), findsNothing);
     expect(find.byTooltip('همکاری'), findsNothing);
-    expect(find.byTooltip('ترک Playlist'), findsOneWidget);
+    expect(find.byTooltip('ترک فهرست پخش'), findsOneWidget);
     expect(find.textContaining('از o***@example.com'), findsOneWidget);
     expect(find.text('خواننده نامشخص · افزوده‌ی f***@example.com'),
         findsOneWidget);
     // Only their own track can be taken out.
-    expect(find.byTooltip('حذف از Playlist'), findsOneWidget);
+    expect(find.byTooltip('حذف از فهرست پخش'), findsOneWidget);
 
     // Picking tracks keeps the ones others added.
     await tester.tap(find.text('انتخاب آهنگ‌ها'));
@@ -194,12 +194,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.replacedWith, ['theirs', 'mine', 'extra']);
 
-    expect(find.byTooltip('حذف از Playlist'), findsNWidgets(2));
-    await tester.tap(find.byTooltip('حذف از Playlist').first);
+    expect(find.byTooltip('حذف از فهرست پخش'), findsNWidgets(2));
+    await tester.tap(find.byTooltip('حذف از فهرست پخش').first);
     await tester.pumpAndSettle();
     expect(api.replacedWith, ['theirs', 'extra']);
 
-    await tester.tap(find.byTooltip('ترک Playlist'));
+    await tester.tap(find.byTooltip('ترک فهرست پخش'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'ترک'));
     await tester.pumpAndSettle();
