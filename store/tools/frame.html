@@ -1,0 +1,25 @@
+<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><style>
+@font-face{font-family:V;src:url(../../assets/fonts/Vazirmatn-Bold.ttf);font-weight:800}
+@font-face{font-family:V;src:url(../../assets/fonts/Vazirmatn-Regular.ttf);font-weight:400}
+html,body{margin:0;width:1080px;height:1920px;overflow:hidden}
+body{font-family:V,sans-serif;color:#f3f4f8;
+background:radial-gradient(900px 700px at 90% 0%,#ff626a40,transparent 60%),radial-gradient(900px 800px at 0% 100%,#6a5cff33,transparent 60%),linear-gradient(180deg,#0d0f1a,#070810);}
+.head{position:absolute;top:130px;left:40px;right:40px;text-align:center}
+h1{margin:0;font-size:76px;line-height:1.3;white-space:nowrap;font-weight:800;letter-spacing:-1px}
+p{margin:22px 0 0;font-size:40px;line-height:1.6;color:#c9ccd8}
+.phone{position:absolute;left:50%;bottom:-120px;transform:translateX(-50%);width:640px;height:1421px;border-radius:84px;padding:18px;
+background:linear-gradient(145deg,#2a2d3a,#0b0c12);box-shadow:0 60px 140px #000c,0 0 0 2px #ffffff22,inset 0 0 0 2px #ffffff14}
+.phone img{display:block;width:100%;height:100%;object-fit:cover;object-position:top;border-radius:68px}
+.badge{position:absolute;top:60px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:14px;font-size:30px;color:#ff8a90;font-weight:800}
+.badge svg{width:44px;height:44px}
+</style></head><body>
+<div class="badge"><svg viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#000"/><g transform="rotate(-35 256 256) translate(256 256) scale(0.9) translate(-256 -256)"><path fill="#E53935" d="M52 238C64 240 72 247 78 249L330 244C382 242 424 222 452 186L452 326C424 290 382 270 330 268L78 263C72 265 64 272 52 274Z"/><ellipse cx="452" cy="256" rx="9" ry="70" fill="#9E1C1A"/></g></svg>ریتمو</div>
+<div class="head"><h1 id="t"></h1><p id="s"></p></div>
+<div class="phone"><img id="img"></div>
+<script>
+const q=new URLSearchParams(location.search);
+document.getElementById('t').textContent=q.get('t');
+document.getElementById('s').textContent=q.get('s');
+document.getElementById('img').src=q.get('img');
+</script>
+</body></html>
