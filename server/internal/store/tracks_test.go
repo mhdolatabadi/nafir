@@ -119,15 +119,15 @@ func TestUpdateMetadataIsOwnerScopedAndReadyOnly(t *testing.T) {
 	if ready.MetadataVersion != 1 {
 		t.Fatalf("new track version = %d, want 1", ready.MetadataVersion)
 	}
-	if _, err := tracks.UpdateMetadata(ctx, bob.ID, ready.ID, 1, TrackMetadata{Title: "Stolen"}); !errors.Is(err, ErrNotFound) {
+	if _, err := tracks.UpdateMetadata(ctx, bob.ID, ready.ID, 1, TrackMetadata{TagStatus: TagPending, Title: "Stolen"}); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("bob updated alice's track: %v", err)
 	}
 	// Even with a wrong version, someone else's track is not found rather
 	// than a conflict, so its existence does not leak.
-	if _, err := tracks.UpdateMetadata(ctx, bob.ID, ready.ID, 7, TrackMetadata{Title: "Stolen"}); !errors.Is(err, ErrNotFound) {
+	if _, err := tracks.UpdateMetadata(ctx, bob.ID, ready.ID, 7, TrackMetadata{TagStatus: TagPending, Title: "Stolen"}); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("bob probing alice's track: %v", err)
 	}
-	if _, err := tracks.UpdateMetadata(ctx, alice.ID, pending.ID, 1, TrackMetadata{Title: "Hidden"}); !errors.Is(err, ErrNotFound) {
+	if _, err := tracks.UpdateMetadata(ctx, alice.ID, pending.ID, 1, TrackMetadata{TagStatus: TagPending, Title: "Hidden"}); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("pending track update error = %v", err)
 	}
 
@@ -139,7 +139,7 @@ func TestUpdateMetadataIsOwnerScopedAndReadyOnly(t *testing.T) {
 	year := int32(2026)
 	trackNumber := int32(7)
 	discNumber := int32(1)
-	updated, err := tracks.UpdateMetadata(ctx, alice.ID, ready.ID, 1, TrackMetadata{
+	updated, err := tracks.UpdateMetadata(ctx, alice.ID, ready.ID, 1, TrackMetadata{TagStatus: TagPending,
 		FileName: "آهنگ تازه.mp3", Title: "New", Album: &album, AlbumArtist: &albumArtist,
 		Composer: &composer, Genre: &genre, Year: &year, TrackNumber: &trackNumber,
 		DiscNumber: &discNumber, Comment: &comment,
@@ -164,7 +164,7 @@ func TestUpdateMetadataIsOwnerScopedAndReadyOnly(t *testing.T) {
 	}
 
 	// An edit based on the old version is a conflict and changes nothing.
-	if _, err := tracks.UpdateMetadata(ctx, alice.ID, ready.ID, 1, TrackMetadata{FileName: "x.mp3", Title: "Stale"}); !errors.Is(err, ErrVersionConflict) {
+	if _, err := tracks.UpdateMetadata(ctx, alice.ID, ready.ID, 1, TrackMetadata{TagStatus: TagPending, FileName: "x.mp3", Title: "Stale"}); !errors.Is(err, ErrVersionConflict) {
 		t.Fatalf("stale update error = %v, want conflict", err)
 	}
 	reloaded, err := tracks.ForOwner(ctx, alice.ID, ready.ID)
@@ -185,7 +185,7 @@ func TestConcurrentMetadataEditsCannotBothWin(t *testing.T) {
 	results := make(chan error, 2)
 	for _, title := range []string{"One", "Two"} {
 		go func() {
-			_, err := tracks.UpdateMetadata(ctx, alice.ID, track.ID, 1, TrackMetadata{FileName: "song.mp3", Title: title})
+			_, err := tracks.UpdateMetadata(ctx, alice.ID, track.ID, 1, TrackMetadata{TagStatus: TagPending, FileName: "song.mp3", Title: title})
 			results <- err
 		}()
 	}
