@@ -34,6 +34,38 @@ abstract interface class AuthApi {
   Future<void> deleteAccount(String token, String password);
 }
 
+/// A short-lived URL that saves one cloud track as a file under its edited
+/// name; the server sends `Content-Disposition` with [fileName].
+class DownloadLink {
+  const DownloadLink({
+    required this.url,
+    required this.expiresAt,
+    required this.fileName,
+    required this.version,
+    required this.tagsUpToDate,
+  });
+
+  factory DownloadLink.fromJson(Map<String, dynamic> json) => DownloadLink(
+        url: Uri.parse(json['url'] as String),
+        expiresAt: DateTime.parse(json['expiresAt'] as String),
+        fileName: json['fileName'] as String,
+        version: (json['version'] as num).toInt(),
+        tagsUpToDate: json['tagsUpToDate'] == true,
+      );
+
+  final Uri url;
+  final DateTime expiresAt;
+  final String fileName;
+
+  /// The track's metadata version the file is for; a saved copy for another
+  /// version is out of date.
+  final int version;
+
+  /// False when the file's embedded tags cannot match the saved metadata
+  /// (its format has no tag writer, or rewriting failed).
+  final bool tagsUpToDate;
+}
+
 /// A short-lived URL for playing one track.
 class StreamLink {
   const StreamLink(this.url, this.expiresAt);
@@ -61,6 +93,11 @@ class TrackLibrary {
 abstract interface class TracksApi {
   Future<TrackLibrary> listTracks(String token);
   Future<StreamLink> streamLink(String token, String trackId);
+
+  /// A link to save a cloud track. While an edit's embedded tags are still
+  /// being written this fails with HTTP 409 `tags_pending`; try again a few
+  /// seconds later rather than saving the file with old tags.
+  Future<DownloadLink> downloadLink(String token, String trackId);
   Future<UploadTicket> createUpload(
       String token, String fileName, int sizeBytes);
   Future<Track> completeUpload(String token, String trackId);
@@ -236,6 +273,14 @@ class ApiClient
       limitBytes: (storage['limitBytes'] as num).toInt(),
       importsInProgress: (body['importsInProgress'] as num?)?.toInt() ?? 0,
     );
+  }
+
+  @override
+  Future<DownloadLink> downloadLink(String token, String trackId) async {
+    final body = await _send(
+        'GET', '/api/v1/tracks/${Uri.encodeComponent(trackId)}/download',
+        token: token);
+    return DownloadLink.fromJson(body);
   }
 
   @override
