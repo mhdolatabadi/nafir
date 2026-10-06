@@ -46,6 +46,17 @@ class FakeTracksApi implements TracksApi {
   Object? linkError;
 
   @override
+  Future<DownloadLink> downloadLink(String token, String trackId) async =>
+      DownloadLink(
+        url: Uri.parse('https://example.com/$trackId?download'),
+        expiresAt: DateTime.now().add(const Duration(hours: 1)),
+        fileName: tracks.firstWhere((track) => track.id == trackId).fileName ??
+            '$trackId.mp3',
+        version: 1,
+        tagsUpToDate: true,
+      );
+
+  @override
   Future<StreamLink> streamLink(String token, String trackId) async {
     calls.add('stream:$trackId');
     if (linkError != null) throw linkError!;

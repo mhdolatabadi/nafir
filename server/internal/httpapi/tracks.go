@@ -43,6 +43,7 @@ type TrackStore interface {
 // ObjectStore is the object storage the track endpoints use; *storage.Storage implements it.
 type ObjectStore interface {
 	PresignGet(ctx context.Context, key string) (string, time.Time, error)
+	PresignDownload(ctx context.Context, key, disposition, contentType string) (string, time.Time, error)
 	PresignUpload(ctx context.Context, key, contentType string, sizeBytes int64) (storage.Upload, error)
 	Size(ctx context.Context, key string) (int64, error)
 	Head(ctx context.Context, key string, n int64) ([]byte, error)
@@ -94,6 +95,7 @@ func (h *TrackHandlers) register(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /api/v1/tracks/{id}", h.handleDelete)
 	mux.HandleFunc("POST /api/v1/tracks/{id}/complete", h.handleComplete)
 	mux.HandleFunc("GET /api/v1/tracks/{id}/stream", h.handleStream)
+	mux.HandleFunc("GET /api/v1/tracks/{id}/download", h.handleDownload)
 }
 
 type trackResponse struct {
@@ -245,6 +247,55 @@ func (h *TrackHandlers) handleStream(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, streamResponse{URL: url, ExpiresAt: expiresAt.UTC()})
+}
+
+type downloadResponse struct {
+	// URL downloads the file; storage answers with Content-Disposition set
+	// to FileName, so a browser saves it under the edited name.
+	URL         string    `json:"url"`
+	ExpiresAt   time.Time `json:"expiresAt"`
+	FileName    string    `json:"fileName"`
+	ContentType string    `json:"contentType"`
+	SizeBytes   int64     `json:"sizeBytes"`
+	// Version is the metadata version the file was served for; a client
+	// caching downloads should treat a different track version as stale.
+	Version int64 `json:"version"`
+	// TagsUpToDate is false when the file's embedded tags cannot match the
+	// saved metadata: its format has no writer, or rewriting it failed.
+	TagsUpToDate bool                 `json:"tagsUpToDate"`
+	EmbeddedTags embeddedTagsResponse `json:"embeddedTags"`
+}
+
+// handleDownload hands out a short-lived link that saves the track's current
+// object under its edited file name. While an edit's tag rewrite is still
+// running the object holds the old tags, so the answer is 409 tags_pending
+// with Retry-After instead of stale bytes. Every rewrite has its own object
+// key, so a cached response for an older version can never be served for
+// the new one.
+func (h *TrackHandlers) handleDownload(w http.ResponseWriter, r *http.Request) {
+	track, ok := h.readyTrack(w, r)
+	if !ok {
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	if track.TagStatus == store.TagPending {
+		w.Header().Set("Retry-After", "5")
+		writeJSON(w, http.StatusConflict, conflictResponse{Error: "tags_pending", Track: toTrackResponse(track)})
+		return
+	}
+	url, expiresAt, err := h.storage.PresignDownload(r.Context(), track.StorageKey,
+		audio.ContentDisposition(track.FileName), track.ContentType)
+	if err != nil {
+		internalError(w, "presign download", err)
+		return
+	}
+	upToDate := track.TagStatus == store.TagOriginal ||
+		(track.TagStatus == store.TagWritten && track.TagVersion != nil && *track.TagVersion == track.MetadataVersion)
+	writeJSON(w, http.StatusOK, downloadResponse{
+		URL: url, ExpiresAt: expiresAt.UTC(), FileName: track.FileName, ContentType: track.ContentType,
+		SizeBytes: track.SizeBytes, Version: track.MetadataVersion, TagsUpToDate: upToDate,
+		EmbeddedTags: toTrackResponse(track).EmbeddedTags,
+	})
 }
 
 // metadataErrorResponse names the first field that failed validation so the
