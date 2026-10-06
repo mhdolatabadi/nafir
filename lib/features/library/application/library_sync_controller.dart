@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/features/library/data/local_audio_upload.dart';
+import 'package:nafir/features/library/data/track_download.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/upload/application/upload_controller.dart';
 
@@ -10,6 +12,10 @@ import 'package:nafir/features/upload/application/upload_controller.dart';
 enum SyncKind {
   /// From this device's music to the account.
   upload,
+
+  /// From the account to this device's music (or, on the web, a browser
+  /// download).
+  download,
 }
 
 enum SyncPhase {
@@ -28,6 +34,18 @@ enum SyncError {
   unsupportedFormat,
   invalidAudio,
   notFound,
+
+  /// The file is already on this device.
+  duplicate,
+
+  /// Not enough free space on the device.
+  storageFull,
+
+  /// The download stopped before every byte arrived.
+  incomplete,
+
+  /// This platform cannot save downloads.
+  unsupported,
   unknown,
 }
 
@@ -44,7 +62,8 @@ class SyncOperation {
 
   final SyncKind kind;
 
-  /// The copy being transferred: the device track for an upload.
+  /// The copy being transferred: the device track for an upload, the cloud
+  /// track for a download.
   final Track track;
   final SyncPhase phase;
 
@@ -64,30 +83,53 @@ class SyncOperation {
       );
 }
 
-/// Copies tracks between this device and the account, one at a time, and
-/// remembers each one's state for its row in the library: queued, running
-/// with progress, or failed with a reason until retried or dismissed.
+/// Copies tracks between this device and the account and remembers each
+/// one's state for its row in the library: queued, running with progress,
+/// or failed with a reason until retried or dismissed. Uploads run one at a
+/// time, and so do downloads, but an upload and a download can run at once.
 ///
 /// Uploads go through [UploadController], so quota, size and format checks,
 /// per-file progress and the cleanup of failed uploads are the same as for
-/// picked files. The file is sent as is, never transcoded.
+/// picked files. Downloads save the stored original through a short-lived
+/// link. Files are copied as they are, never transcoded.
 class LibrarySyncController extends ChangeNotifier {
   LibrarySyncController({
     required UploadController uploads,
     required LocalAudioUploadSource uploadSource,
     required Future<void> Function() onUploaded,
+    required TracksApi api,
+    required String? Function() token,
+    required TrackDownloader downloader,
+    required Future<void> Function() onDownloaded,
   })  : _uploads = uploads,
         _uploadSource = uploadSource,
-        _onUploaded = onUploaded;
+        _onUploaded = onUploaded,
+        _api = api,
+        _token = token,
+        _downloader = downloader,
+        _onDownloaded = onDownloaded;
 
   final UploadController _uploads;
   final LocalAudioUploadSource _uploadSource;
   final Future<void> Function() _onUploaded;
+  final TracksApi _api;
+  final String? Function() _token;
+  final TrackDownloader _downloader;
+  final Future<void> Function() _onDownloaded;
 
   /// By the transferred copy's track ID, in the order they were started.
   final Map<String, SyncOperation> _operations = {};
-  String? _running;
-  bool _draining = false;
+
+  /// The running transfer of each kind.
+  final Map<SyncKind, String> _running = {};
+  final Set<SyncKind> _draining = {};
+
+  /// Stops the running download.
+  Completer<void>? _cancelDownload;
+
+  /// Whether downloads are saved into this device's music, with progress,
+  /// to play offline; on the web the browser saves them instead.
+  bool get downloadsToDevice => _downloader.savesToDevice;
 
   final _finished = StreamController<SyncOperation>.broadcast(sync: true);
 
@@ -107,7 +149,24 @@ class LibrarySyncController extends ChangeNotifier {
     if (existing != null && existing.active) return;
     _operations[local.id] = SyncOperation(kind: SyncKind.upload, track: local);
     notifyListeners();
-    _drain();
+    _drain(SyncKind.upload);
+  }
+
+  /// Downloads a cloud track's original file. A track already on this
+  /// device is not downloaded again; started again when it already failed;
+  /// ignored while it is queued or running.
+  void download(Track cloud) {
+    if (cloud.id.startsWith('device:')) return;
+    final existing = _operations[cloud.id];
+    if (existing != null && existing.active) return;
+    final operation = SyncOperation(kind: SyncKind.download, track: cloud);
+    if (cloud.isLocal) {
+      _operations[cloud.id] = operation;
+      return _fail(cloud.id, SyncError.duplicate);
+    }
+    _operations[cloud.id] = operation;
+    notifyListeners();
+    _drain(SyncKind.download);
   }
 
   /// Starts a failed transfer again.
@@ -118,6 +177,8 @@ class LibrarySyncController extends ChangeNotifier {
     switch (operation.kind) {
       case SyncKind.upload:
         upload(operation.track);
+      case SyncKind.download:
+        download(operation.track);
     }
   }
 
@@ -125,10 +186,13 @@ class LibrarySyncController extends ChangeNotifier {
   void cancel(String trackId) {
     final operation = _operations[trackId];
     if (operation == null || !operation.active) return;
-    if (_running == trackId) {
-      if (operation.kind == SyncKind.upload) {
-        if (!_uploads.canCancel) return;
-        _uploads.cancel();
+    if (_running[operation.kind] == trackId) {
+      switch (operation.kind) {
+        case SyncKind.upload:
+          if (_uploads.canCancel) _uploads.cancel();
+        case SyncKind.download:
+          final cancel = _cancelDownload;
+          if (cancel != null && !cancel.isCompleted) cancel.complete();
       }
       return;
     }
@@ -148,32 +212,98 @@ class LibrarySyncController extends ChangeNotifier {
   bool canCancel(String trackId) {
     final operation = _operations[trackId];
     if (operation == null || !operation.active) return false;
-    if (_running != trackId) return true;
-    return _uploads.canCancel;
+    if (_running[operation.kind] != trackId) return true;
+    return switch (operation.kind) {
+      SyncKind.upload => _uploads.canCancel,
+      SyncKind.download => _cancelDownload != null,
+    };
   }
 
-  Future<void> _drain() async {
-    if (_draining) return;
-    _draining = true;
+  Future<void> _drain(SyncKind kind) async {
+    if (!_draining.add(kind)) return;
     try {
       while (true) {
         final next = _operations.entries
-            .where((e) => e.value.phase == SyncPhase.queued)
+            .where((e) =>
+                e.value.kind == kind && e.value.phase == SyncPhase.queued)
             .firstOrNull;
         if (next == null) return;
         // A picked file may still be uploading; wait for it.
-        if (_uploads.isBusy) {
+        if (kind == SyncKind.upload && _uploads.isBusy) {
           await _idle(_uploads);
           continue;
         }
-        _running = next.key;
+        _running[kind] = next.key;
         _set(next.key, next.value._copy(phase: SyncPhase.running));
-        await _runUpload(next.key, next.value.track);
-        _running = null;
+        switch (kind) {
+          case SyncKind.upload:
+            await _runUpload(next.key, next.value.track);
+          case SyncKind.download:
+            await _runDownload(next.key, next.value.track);
+        }
+        _running.remove(kind);
       }
     } finally {
-      _draining = false;
+      _draining.remove(kind);
     }
+  }
+
+  Future<void> _runDownload(String id, Track cloud) async {
+    final token = _token();
+    if (token == null) return _fail(id, SyncError.unknown);
+    final cancel = _cancelDownload = Completer<void>();
+    try {
+      final DownloadLink link;
+      try {
+        link = await _api.downloadLink(token, id);
+      } on ApiException catch (error) {
+        return _fail(id,
+            error.statusCode == 404 ? SyncError.notFound : SyncError.unknown);
+      } catch (_) {
+        return _fail(id, SyncError.offline);
+      }
+      if (cancel.isCompleted) return _forget(id);
+      await _downloader.download(
+        link,
+        contentType: cloud.contentType,
+        sizeBytes: cloud.sizeBytes,
+        onProgress: (received, total) {
+          final operation = _operations[id];
+          if (operation == null || total <= 0 || cancel.isCompleted) return;
+          _set(id, operation._copy(progress: (received / total).clamp(0, 1)));
+        },
+        cancelled: cancel.future,
+      );
+      // Kept as running until the device list shows the file, so the row
+      // goes straight from downloading to synced.
+      if (_downloader.savesToDevice) await _onDownloaded();
+      final operation = _operations.remove(id);
+      notifyListeners();
+      if (operation != null) _finished.add(operation._copy(progress: 1));
+    } on DownloadCancelled {
+      _forget(id);
+    } on DownloadException catch (error) {
+      _fail(
+          id,
+          switch (error.reason) {
+            DownloadFailure.offline => SyncError.offline,
+            DownloadFailure.storageFull => SyncError.storageFull,
+            DownloadFailure.permission => SyncError.permission,
+            DownloadFailure.incomplete => SyncError.incomplete,
+            DownloadFailure.duplicate => SyncError.duplicate,
+            DownloadFailure.unsupported => SyncError.unsupported,
+            DownloadFailure.unknown => SyncError.unknown,
+          });
+    } catch (_) {
+      _fail(id, SyncError.unknown);
+    } finally {
+      _cancelDownload = null;
+    }
+  }
+
+  void _forget(String id) {
+    _operations.remove(id);
+    notifyListeners();
   }
 
   Future<void> _runUpload(String id, Track local) async {
@@ -260,10 +390,12 @@ class LibrarySyncController extends ChangeNotifier {
     return done.future.whenComplete(() => uploads.removeListener(check));
   }
 
-  /// Forgets every transfer, for example on logout. A running upload is
+  /// Forgets every transfer, for example on logout. Running ones are
   /// cancelled.
   void clear() {
     if (_uploads.canCancel) _uploads.cancel();
+    final cancel = _cancelDownload;
+    if (cancel != null && !cancel.isCompleted) cancel.complete();
     _operations.clear();
     notifyListeners();
   }
@@ -285,6 +417,11 @@ String syncErrorMessage(SyncError error) => switch (error) {
       SyncError.tooLarge => 'این فایل از حداکثر اندازهٔ مجاز بزرگ‌تر است.',
       SyncError.unsupportedFormat => 'قالب این فایل پشتیبانی نمی‌شود.',
       SyncError.invalidAudio => 'این فایل صوتی سالم نیست.',
-      SyncError.notFound => 'فایل روی دستگاه پیدا نشد.',
+      SyncError.notFound => 'فایل پیدا نشد؛ شاید حذف شده باشد.',
+      SyncError.duplicate => 'این آهنگ از قبل روی دستگاه هست.',
+      SyncError.storageFull =>
+        'فضای خالی دستگاه کافی نیست. کمی جا باز کن و دوباره تلاش کن.',
+      SyncError.incomplete => 'فایل کامل دریافت نشد. دوباره تلاش کن.',
+      SyncError.unsupported => 'ذخیره روی این دستگاه پشتیبانی نمی‌شود.',
       SyncError.unknown => 'کار ناتمام ماند. دوباره تلاش کن.',
     };

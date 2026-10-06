@@ -51,7 +51,8 @@ void main() {
     expect(sent.url.toString(),
         'https://music.example.com/api/v1/tracks/t1/download');
     expect(sent.headers['Authorization'], 'Bearer t0ken');
-    expect(link.url.toString(), 'https://music.example.com/nafir-music/k?sig=1');
+    expect(
+        link.url.toString(), 'https://music.example.com/nafir-music/k?sig=1');
     expect(link.fileName, 'My_Song.mp3');
   });
 
