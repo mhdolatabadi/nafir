@@ -16,7 +16,9 @@ type Config struct {
 	Admin         *AdminHandlers
 	Tracks        *TrackHandlers
 	Playlists     *PlaylistHandlers
-	Bots          *BotHandlers
+	// History is each user's recently played tracks.
+	History *HistoryHandlers
+	Bots    *BotHandlers
 	// LinkImports adds music from song pages and audio links.
 	LinkImports *LinkImportHandlers
 	// Public serves the public HTML pages at /, /p/{token}, sitemap.xml and
@@ -43,6 +45,9 @@ func NewHandler(config Config) http.Handler {
 	}
 	if config.Playlists != nil {
 		config.Playlists.register(mux)
+	}
+	if config.History != nil {
+		config.History.register(mux)
 	}
 	if config.Bots != nil {
 		config.Bots.register(mux)
