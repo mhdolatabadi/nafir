@@ -46,6 +46,9 @@ enum SyncError {
 
   /// This platform cannot save downloads.
   unsupported,
+
+  /// The server kept rewriting the file's embedded tags for too long.
+  tagsPending,
   unknown,
 }
 
@@ -57,6 +60,7 @@ class SyncOperation {
     required this.track,
     this.phase = SyncPhase.queued,
     this.progress = 0,
+    this.preparing = false,
     this.error,
   });
 
@@ -69,16 +73,26 @@ class SyncOperation {
 
   /// 0..1 while running.
   final double progress;
+
+  /// Running, but waiting for the server to finish writing the file's
+  /// edited tags before the download starts.
+  final bool preparing;
   final SyncError? error;
 
   bool get active => phase != SyncPhase.failed;
 
-  SyncOperation _copy({SyncPhase? phase, double? progress, SyncError? error}) =>
+  SyncOperation _copy({
+    SyncPhase? phase,
+    double? progress,
+    bool preparing = false,
+    SyncError? error,
+  }) =>
       SyncOperation(
         kind: kind,
         track: track,
         phase: phase ?? this.phase,
         progress: progress ?? this.progress,
+        preparing: preparing,
         error: error,
       );
 }
@@ -101,7 +115,11 @@ class LibrarySyncController extends ChangeNotifier {
     required String? Function() token,
     required TrackDownloader downloader,
     required Future<void> Function() onDownloaded,
-  })  : _uploads = uploads,
+    this.tagsPendingDelay = const Duration(seconds: 5),
+    this.tagsPendingAttempts = 12,
+    Future<void> Function(Duration delay)? wait,
+  })  : _wait = wait ?? Future<void>.delayed,
+        _uploads = uploads,
         _uploadSource = uploadSource,
         _onUploaded = onUploaded,
         _api = api,
@@ -116,6 +134,12 @@ class LibrarySyncController extends ChangeNotifier {
   final String? Function() _token;
   final TrackDownloader _downloader;
   final Future<void> Function() _onDownloaded;
+  final Future<void> Function(Duration delay) _wait;
+
+  /// How long to wait before asking again while the server rewrites a
+  /// track's tags, and how many times to ask (about a minute in all).
+  final Duration tagsPendingDelay;
+  final int tagsPendingAttempts;
 
   /// By the transferred copy's track ID, in the order they were started.
   final Map<String, SyncOperation> _operations = {};
@@ -253,16 +277,36 @@ class LibrarySyncController extends ChangeNotifier {
     if (token == null) return _fail(id, SyncError.unknown);
     final cancel = _cancelDownload = Completer<void>();
     try {
-      final DownloadLink link;
-      try {
-        link = await _api.downloadLink(token, id);
-      } on ApiException catch (error) {
-        return _fail(id,
-            error.statusCode == 404 ? SyncError.notFound : SyncError.unknown);
-      } catch (_) {
-        return _fail(id, SyncError.offline);
+      DownloadLink? link;
+      // Right after an edit the server is still writing the new tags into
+      // the file; wait for it rather than saving the old tags.
+      for (var attempt = 1; link == null; attempt++) {
+        try {
+          link = await _api.downloadLink(token, id);
+        } on ApiException catch (error) {
+          if (error.code != 'tags_pending') {
+            return _fail(
+                id,
+                error.statusCode == 404
+                    ? SyncError.notFound
+                    : SyncError.unknown);
+          }
+          if (attempt >= tagsPendingAttempts) {
+            return _fail(id, SyncError.tagsPending);
+          }
+          final operation = _operations[id];
+          if (operation != null && !operation.preparing) {
+            _set(id, operation._copy(preparing: true));
+          }
+          await Future.any([_wait(tagsPendingDelay), cancel.future]);
+          if (cancel.isCompleted) return _forget(id);
+        } catch (_) {
+          return _fail(id, SyncError.offline);
+        }
       }
       if (cancel.isCompleted) return _forget(id);
+      final preparing = _operations[id];
+      if (preparing != null && preparing.preparing) _set(id, preparing._copy());
       await _downloader.download(
         link,
         contentType: cloud.contentType,
@@ -423,5 +467,7 @@ String syncErrorMessage(SyncError error) => switch (error) {
         'فضای خالی دستگاه کافی نیست. کمی جا باز کن و دوباره تلاش کن.',
       SyncError.incomplete => 'فایل کامل دریافت نشد. دوباره تلاش کن.',
       SyncError.unsupported => 'ذخیره روی این دستگاه پشتیبانی نمی‌شود.',
+      SyncError.tagsPending =>
+        'آماده‌سازی فایل بیش از حد طول کشید. کمی بعد دوباره تلاش کن.',
       SyncError.unknown => 'کار ناتمام ماند. دوباره تلاش کن.',
     };

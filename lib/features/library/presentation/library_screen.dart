@@ -1770,6 +1770,12 @@ class _TrackRow extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: secondary?.copyWith(color: colors.error),
           ),
+        SyncOperation(preparing: true) => Text(
+            'در حال آماده‌سازی فایل…',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: secondary?.copyWith(color: colors.primary),
+          ),
         SyncOperation(:final kind, :final phase, :final progress) => Text(
             phase == SyncPhase.queued
                 ? 'در صف ${_syncVerb(kind)} · ${formatSize(track.sizeBytes)}'
