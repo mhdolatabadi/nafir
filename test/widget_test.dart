@@ -1435,4 +1435,26 @@ void main() {
     await tester.pump();
     expect(find.text('یک فایل در حال اضافه شدن است…'), findsNothing);
   });
+
+  testWidgets('every library tab label fits on a 360 px phone', (tester) async {
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await _pumpApp(tester,
+        tokenStore: MemoryTokenStore('valid-token'),
+        playlists: FakePlaylistsApi());
+
+    for (final label in ['آهنگ‌ها', 'فهرست‌های پخش', 'آلبوم‌ها', 'هنرمندان']) {
+      final text =
+          find.descendant(of: find.byType(TabBar), matching: find.text(label));
+      expect(text, findsOneWidget, reason: label);
+      final tab = tester
+          .getRect(find.ancestor(of: text, matching: find.byType(Tab)).first);
+      final shown = tester.getRect(text);
+      expect(shown.left, greaterThanOrEqualTo(tab.left - 0.5), reason: label);
+      expect(shown.right, lessThanOrEqualTo(tab.right + 0.5), reason: label);
+      expect(tab.height, greaterThanOrEqualTo(48), reason: label);
+    }
+    expect(tester.takeException(), isNull);
+  });
 }
