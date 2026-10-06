@@ -109,49 +109,21 @@ func (s *Storage) PresignGet(ctx context.Context, key string) (string, time.Time
 	return signed.String(), expiresAt, nil
 }
 
-// PresignDownload is PresignGet for saving the file: storage answers with
-// a Content-Disposition that saves it as fileName, so a browser downloads
-// it instead of playing it. The bytes are the stored original.
-func (s *Storage) PresignDownload(ctx context.Context, key, fileName string) (string, time.Time, error) {
+// PresignDownload is PresignGet for saving the object as a file: storage
+// answers with the given Content-Disposition and Content-Type, which are part
+// of the signature, and tells caches not to reuse the response.
+func (s *Storage) PresignDownload(ctx context.Context, key, disposition, contentType string) (string, time.Time, error) {
 	expiresAt := s.now().Add(s.ttl)
-	params := url.Values{"response-content-disposition": {AttachmentDisposition(fileName)}}
+	params := url.Values{
+		"response-content-disposition": {disposition},
+		"response-content-type":        {contentType},
+		"response-cache-control":       {"private, no-cache"},
+	}
 	signed, err := s.public.PresignedGetObject(ctx, s.bucket, key, s.ttl, params)
 	if err != nil {
 		return "", time.Time{}, err
 	}
 	return signed.String(), expiresAt, nil
-}
-
-// AttachmentDisposition is a Content-Disposition header value that saves a
-// download as fileName. Characters that are unsafe in a quoted filename are
-// replaced in the plain form; filename* carries the exact UTF-8 name.
-func AttachmentDisposition(fileName string) string {
-	plain := strings.Map(func(r rune) rune {
-		if r < 0x20 || r > 0x7e || r == '"' || r == '\\' || r == '/' {
-			return '_'
-		}
-		return r
-	}, fileName)
-	if strings.Trim(plain, "_. ") == "" {
-		plain = "track"
-	}
-	return `attachment; filename="` + plain + `"; filename*=UTF-8''` + extValue(fileName)
-}
-
-// extValue percent-encodes s as an RFC 8187 ext-value: every byte that is
-// not an attr-char.
-func extValue(s string) string {
-	var b strings.Builder
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || '0' <= c && c <= '9' ||
-			strings.IndexByte("!#$&+-.^_`|~", c) >= 0 {
-			b.WriteByte(c)
-		} else {
-			fmt.Fprintf(&b, "%%%02X", c)
-		}
-	}
-	return b.String()
 }
 
 // PresignUpload returns a POST policy that MinIO itself enforces: only this

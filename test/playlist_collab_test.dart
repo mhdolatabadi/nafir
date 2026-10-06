@@ -131,6 +131,41 @@ void main() {
   });
 
   group('playlists controller', () {
+    test('an edited track shows its new metadata in loaded playlists', () {
+      final controller =
+          PlaylistsController(api: FakePlaylistsApi(), token: () => 'tok');
+      const song = Track(
+          id: 's1', title: 'Old', contentType: 'audio/mpeg', sizeBytes: 1);
+      controller.playlists = [
+        Playlist(
+          id: 'p1',
+          name: 'With it',
+          trackCount: 1,
+          tracks: const [song],
+          createdAt: DateTime(2026),
+          updatedAt: DateTime(2026),
+        ),
+        Playlist(
+          id: 'p2',
+          name: 'Not loaded',
+          trackCount: 7,
+          tracks: const [],
+          createdAt: DateTime(2026),
+          updatedAt: DateTime(2026),
+        ),
+      ];
+      var notified = 0;
+      controller.addListener(() => notified++);
+
+      controller.updateTrack(const Track(
+          id: 's1', title: 'New', contentType: 'audio/mpeg', sizeBytes: 1));
+
+      expect(controller.playlists.first.tracks.single.title, 'New');
+      // A playlist whose tracks are not loaded keeps its count.
+      expect(controller.playlists.last.trackCount, 7);
+      expect(notified, 1);
+    });
+
     test('joining a wrong link says it is unavailable; leaving drops it',
         () async {
       final api = FakePlaylistsApi()..collabToken = 'C' * 22;

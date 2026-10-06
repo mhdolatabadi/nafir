@@ -69,9 +69,11 @@ void main() {
       AndroidTrackDownloader(android: true, workDirectory: () async => work);
 
   DownloadLink link() => DownloadLink(
-        Uri.parse('http://${server.address.host}:${server.port}/song.mp3'),
-        DateTime.now().add(const Duration(hours: 1)),
-        'My_Song.mp3',
+        url: Uri.parse('http://${server.address.host}:${server.port}/song.mp3'),
+        expiresAt: DateTime.now().add(const Duration(hours: 1)),
+        fileName: 'My_Song.mp3',
+        version: 1,
+        tagsUpToDate: true,
       );
 
   Future<void> download(

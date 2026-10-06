@@ -115,6 +115,16 @@ class PlayQueue {
     return true;
   }
 
+  /// Swaps in fresh metadata for the track with [track]'s ID, keeping the
+  /// position and play order. Returns whether the track was queued.
+  bool replace(Track track) {
+    final index = _tracks.indexWhere((queued) => queued.id == track.id);
+    if (index < 0) return false;
+    _tracks = List.unmodifiable(
+        [..._tracks]..[index] = track.keepingContextOf(_tracks[index]));
+    return true;
+  }
+
   Track previous() {
     if (_position > 0) {
       _position--;

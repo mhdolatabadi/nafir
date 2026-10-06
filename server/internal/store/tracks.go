@@ -52,6 +52,15 @@ type Track struct {
 	CreatedAt time.Time
 	// MetadataVersion increases with every metadata edit.
 	MetadataVersion int64
+	// TagStatus says whether the stored object's embedded tags match the
+	// metadata; TagVersion is the metadata version they were written from.
+	TagStatus  TagStatus
+	TagVersion *int64
+	TagError   *string
+	// TagAttempts counts rewrite attempts since the last edit.
+	TagAttempts int32
+	// PendingStorageKey is an uploaded rewrite not yet swapped in.
+	PendingStorageKey *string
 }
 
 // NewTrack is what a caller supplies; the ID is chosen by the store so the
@@ -89,6 +98,9 @@ type TrackMetadata struct {
 	TrackNumber *int32
 	DiscNumber  *int32
 	Comment     *string
+	// TagStatus is TagPending when the stored file's tags will be rewritten
+	// to match, or TagUnsupported when its format has no tag writer.
+	TagStatus TagStatus
 }
 
 // StorageKey is the owner-scoped object path for a track. The object name is
@@ -118,7 +130,8 @@ var trackColumnNames = []string{
 	"id::text", "owner_id::text", "status", "title", "artist", "album", "album_artist",
 	"composer", "genre", "year", "track_number", "disc_number", "comment", "duration_ms",
 	"file_name", "storage_key", "content_type", "size_bytes", "source", "created_at",
-	"metadata_version",
+	"metadata_version", "tag_status", "tag_version", "tag_error", "tag_attempts",
+	"pending_storage_key",
 }
 
 var trackColumns = strings.Join(trackColumnNames, ", ")
@@ -142,7 +155,8 @@ func scanTrack(row pgx.Row) (Track, error) {
 	err := row.Scan(&t.ID, &t.OwnerID, &t.Status, &t.Title, &t.Artist, &t.Album, &t.AlbumArtist,
 		&t.Composer, &t.Genre, &t.Year, &t.TrackNumber, &t.DiscNumber, &t.Comment, &t.DurationMS,
 		&t.FileName, &t.StorageKey, &t.ContentType, &t.SizeBytes, &t.Source, &t.CreatedAt,
-		&t.MetadataVersion)
+		&t.MetadataVersion, &t.TagStatus, &t.TagVersion, &t.TagError, &t.TagAttempts,
+		&t.PendingStorageKey)
 	return t, err
 }
 
@@ -286,6 +300,10 @@ func (t *Tracks) UpdateMetadata(
 	expectedVersion int64,
 	metadata TrackMetadata,
 ) (Track, error) {
+	tagStatus := metadata.TagStatus
+	if tagStatus != TagPending && tagStatus != TagUnsupported {
+		return Track{}, fmt.Errorf("metadata edit needs a tag status, got %q", tagStatus)
+	}
 	var updated Track
 	err := pgx.BeginFunc(ctx, t.pool, func(tx pgx.Tx) error {
 		var current int64
@@ -308,12 +326,13 @@ func (t *Tracks) UpdateMetadata(
 				file_name = $3, title = $4, artist = $5, album = $6, album_artist = $7,
 				composer = $8, genre = $9, year = $10, track_number = $11,
 				disc_number = $12, comment = $13,
-				metadata_version = metadata_version + 1, metadata_updated_at = now()
+				metadata_version = metadata_version + 1, metadata_updated_at = now(),
+				tag_status = $14, tag_error = NULL, tag_attempts = 0, tag_not_before = NULL
 			 WHERE id::text = $1 AND owner_id::text = $2
 			 RETURNING `+trackColumns,
 			trackID, ownerID, metadata.FileName, metadata.Title, metadata.Artist, metadata.Album,
 			metadata.AlbumArtist, metadata.Composer, metadata.Genre, metadata.Year,
-			metadata.TrackNumber, metadata.DiscNumber, metadata.Comment))
+			metadata.TrackNumber, metadata.DiscNumber, metadata.Comment, string(tagStatus)))
 		return err
 	})
 	return updated, err
