@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/core/links/open_link.dart';
+import 'package:nafir/core/links/site_page.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/core/format_size.dart';
 import 'package:nafir/features/bots/application/bot_link_controller.dart';
@@ -30,7 +31,7 @@ class SettingsScreen extends StatefulWidget {
 
   /// Where a page of the Nafir site, such as `/privacy`, lives; null when
   /// there is no server.
-  final Uri? Function(String path) siteUri;
+  final SitePageResolver siteUri;
 
   final LinkOpener openLink;
 
@@ -82,14 +83,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ));
   }
 
-  Future<void> _openPage(String path) async {
-    final uri = widget.siteUri(path);
-    final opened = uri != null && await widget.openLink(uri);
-    if (opened || !mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text('باز کردن صفحه ممکن نشد.'),
-    ));
-  }
+  Future<void> _openPage(String path) => openSitePage(context, path,
+      siteUri: widget.siteUri, openLink: widget.openLink);
 
   void _openDeleteAccount(String email, Future<void> Function(String) delete) {
     Navigator.of(context).push(MaterialPageRoute<void>(
