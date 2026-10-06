@@ -370,6 +370,35 @@ void main() {
       expect(find.text('حذف از دستگاه'), findsOneWidget);
     });
 
+    testWidgets('waits while the server writes edited tags, on a narrow screen',
+        (tester) async {
+      tester.view.physicalSize = const Size(360, 740);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final device = FakeLocalAudioLibrary(
+          const LocalAudioResult(LocalAudioStatus.loaded, []));
+      final downloader = savingInto(device);
+      final tracks = FakeTracksApi([cloud])..tagsPending = 1;
+      await _pump(tester,
+          tracks: tracks, device: device, downloader: downloader);
+
+      await _openMenu(tester, 'Server song');
+      await tester.tap(find.text('دانلود روی دستگاه'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('در حال آماده‌سازی فایل…'), findsOneWidget);
+      expect(downloader.saved, isEmpty);
+      expect(tester.takeException(), isNull);
+
+      // The tags are written by the time it asks again.
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      expect(find.text('در حال آماده‌سازی فایل…'), findsNothing);
+      expect(downloader.saved, ['Server_song.mp3']);
+      expect(find.byTooltip('روی دستگاه و سرور'), findsOneWidget);
+    });
+
     testWidgets('a full device explains why and can be retried',
         (tester) async {
       final device = FakeLocalAudioLibrary(
