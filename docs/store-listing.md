@@ -92,6 +92,9 @@ Sending a track to Bale or Telegram happens only at the user's own request, thro
 
 ## Screenshot shot-list
 
+Ready-made screenshots, the teaser video, the feature graphic and the 512 px icon are in [`store/listing`](../store/listing). [`store/README.md`](../store/README.md) explains how to regenerate them. The list below is the full shot-list for hand-taken screenshots on a real phone.
+
+
 Take these on a phone at 1080×1920 or larger, in portrait. Use the release build against production with a reviewer account full of tracks you have the rights to (no commercial album art). Play accepts 2–8 phone screenshots and Bazaar accepts several. Use the same set in the same order for both stores.
 
 1. **Library, Tracks tab:** the dark glass header, a full track list with artist and size, and the mini player playing.
