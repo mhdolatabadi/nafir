@@ -1,13 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/core/api/api_client.dart';
+import 'package:nafir/core/links/open_link.dart';
+import 'package:nafir/core/links/site_page.dart';
+import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/features/auth/application/auth_controller.dart';
 
 const _minPasswordLength = 8;
 
 class SignInScreen extends StatefulWidget {
-  const SignInScreen({super.key, required this.controller});
+  const SignInScreen({
+    super.key,
+    required this.controller,
+    this.siteUri = AppConfiguration.sitePage,
+    this.openLink = openExternalLink,
+  });
 
   final AuthController controller;
+
+  /// Where the privacy policy link points.
+  final SitePageResolver siteUri;
+
+  final LinkOpener openLink;
 
   @override
   State<SignInScreen> createState() => _SignInScreenState();
@@ -137,6 +151,13 @@ class _SignInScreenState extends State<SignInScreen> {
                       child: Text(_isRegistering
                           ? 'حساب داری؟ وارد شو'
                           : 'حساب نداری؟ ثبت‌نام کن'),
+                    ),
+                    // Readable before signing up, as the stores expect.
+                    TextButton.icon(
+                      onPressed: () => openSitePage(context, '/privacy',
+                          siteUri: widget.siteUri, openLink: widget.openLink),
+                      icon: const Icon(NafirIcons.shieldCheck, size: 20),
+                      label: const Text('حریم خصوصی'),
                     ),
                   ],
                 ),
