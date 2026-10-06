@@ -6,6 +6,7 @@ import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/player/application/favorite_tracks.dart';
 import 'package:nafir/features/player/application/play_queue.dart';
+import 'package:nafir/features/player/application/playback_settings.dart';
 import 'package:nafir/features/player/data/audio_engine.dart';
 
 enum PlayerStatus {
@@ -20,6 +21,13 @@ enum PlayerStatus {
 
 /// "Previous" restarts the current track once it has played this long.
 const restartThreshold = Duration(seconds: 3);
+
+/// How long the sleep timer fades the music out before pausing.
+const sleepFade = Duration(seconds: 5);
+
+/// How close to the end of a track the next one is fetched and buffered.
+/// Late enough that its short-lived link is still fresh when it starts.
+const preloadLead = Duration(seconds: 30);
 
 /// A play counts as a real listen, for the recently played history, after
 /// this long, or after half of a shorter track.
@@ -40,16 +48,22 @@ class PlayerController extends ChangeNotifier {
     required String? Function() token,
     Random? random,
     FavoriteTracks? favorites,
+    PlaybackSettingsStore? settingsStore,
+    DateTime Function()? now,
     this.onListened,
   })  : _api = api,
         _engine = engine,
         _token = token,
         _random = random ?? Random(),
+        _settingsStore = settingsStore ?? MemoryPlaybackSettingsStore(),
+        _now = now ?? DateTime.now,
         favorites = favorites ?? FavoriteTracks() {
     _subscriptions = [
       engine.position.listen((value) {
         _countHeard(value - _position);
         _position = value;
+        _maybePreload();
+        _maybeFadeAtTrackEnd();
         notifyListeners();
       }),
       engine.duration.listen((value) {
@@ -65,6 +79,7 @@ class PlayerController extends ChangeNotifier {
         _refreshStatus();
       }),
       engine.errors.listen(_onEngineError),
+      engine.advanced.listen(_onAdvanced),
     ];
   }
 
@@ -72,6 +87,8 @@ class PlayerController extends ChangeNotifier {
   final AudioEngine _engine;
   final String? Function() _token;
   final Random _random;
+  final PlaybackSettingsStore _settingsStore;
+  final DateTime Function() _now;
   late final List<StreamSubscription<Object?>> _subscriptions;
 
   /// The tracks the listener liked, shown on the now-playing screen.
@@ -102,12 +119,192 @@ class PlayerController extends ChangeNotifier {
   bool _retriedLink = false;
   int _request = 0;
 
+  PlaybackSettings _settings = const PlaybackSettings();
+
+  /// The track after the current one handed to the engine, and its link.
+  String? _preloadedId;
+  ({String id, Uri url, DateTime? expiresAt})? _prefetched;
+
+  DateTime? _sleepAt;
+  bool _sleepAtTrackEnd = false;
+  Timer? _sleepTick;
+  Timer? _fadeTimer;
+
   Track? get track => _track;
   bool get shuffle => _shuffle;
   QueueRepeat get repeat => _repeat;
   PlayerStatus get status => _status;
   Duration get position => _position;
   Duration? get duration => _duration;
+
+  double get speed => _settings.speed;
+
+  /// How long consecutive tracks overlap; zero when off or unsupported.
+  Duration get crossfade => _settings.crossfade;
+
+  /// Whether this platform can overlap tracks; otherwise crossfade is hidden.
+  bool get supportsCrossfade => _engine.supportsCrossfade;
+
+  /// Whether a sleep timer is set, for a duration or the track's end.
+  bool get sleepTimerActive => _sleepAt != null || _sleepAtTrackEnd;
+
+  /// The sleep timer waits for the current track to end.
+  bool get sleepsAtTrackEnd => _sleepAtTrackEnd;
+
+  /// Time left on a duration sleep timer.
+  Duration? get sleepRemaining {
+    final at = _sleepAt;
+    if (at == null) return null;
+    final left = at.difference(_now());
+    return left.isNegative ? Duration.zero : left;
+  }
+
+  /// Whether the sleep timer is fading the music out right now.
+  bool get sleepFading => _fadeTimer != null;
+
+  /// Restores saved speed and crossfade; changes made meanwhile win.
+  Future<void> loadSettings() async {
+    try {
+      final saved = await _settingsStore.read();
+      if (_settings.speed == 1) await _applySpeed(saved.speed);
+      if (_settings.crossfade == Duration.zero) {
+        await _applyCrossfade(saved.crossfade);
+      }
+      notifyListeners();
+    } catch (error) {
+      debugPrint('Playback settings unavailable: $error');
+    }
+  }
+
+  /// Plays faster or slower, keeping the pitch; remembered between sessions.
+  Future<void> setSpeed(double speed) async {
+    await _applySpeed(speed);
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  /// Overlaps the end of each track with the next by [value] (zero is off);
+  /// remembered between sessions. Ignored where [supportsCrossfade] is false.
+  Future<void> setCrossfade(Duration value) async {
+    if (!supportsCrossfade) return;
+    await _applyCrossfade(value);
+    notifyListeners();
+    await _saveSettings();
+    // The next track is buffered differently with and without an overlap.
+    await _dropPreload();
+    _maybePreload();
+  }
+
+  Future<void> _applySpeed(double speed) async {
+    final value =
+        speed.clamp(playbackSpeeds.first, playbackSpeeds.last).toDouble();
+    _settings = _settings.copyWith(speed: value);
+    await _engine.setSpeed(value);
+  }
+
+  Future<void> _applyCrossfade(Duration value) async {
+    if (!supportsCrossfade) return;
+    final clamped = Duration(
+      milliseconds: value.inMilliseconds.clamp(0, maxCrossfade.inMilliseconds),
+    );
+    _settings = _settings.copyWith(crossfade: clamped);
+    await _engine.setCrossfade(clamped);
+  }
+
+  Future<void> _saveSettings() async {
+    try {
+      await _settingsStore.write(_settings);
+    } catch (error) {
+      debugPrint('Could not save playback settings: $error');
+    }
+  }
+
+  /// Pauses after [after] of listening, fading out over [sleepFade] first.
+  /// Replaces any earlier sleep timer.
+  void setSleepTimer(Duration after) {
+    _clearSleep();
+    _sleepAt = _now().add(after);
+    _sleepTick = Timer.periodic(const Duration(seconds: 1), (_) => _onTick());
+    notifyListeners();
+  }
+
+  /// Pauses when the current track ends, fading out its last seconds; the
+  /// next track is then ready to play.
+  void setSleepAtTrackEnd() {
+    _clearSleep();
+    _sleepAtTrackEnd = true;
+    // The track must end by itself, without sliding into the next one.
+    unawaited(_dropPreload());
+    notifyListeners();
+  }
+
+  void cancelSleepTimer() {
+    final wasEndOfTrack = _sleepAtTrackEnd;
+    _clearSleep();
+    notifyListeners();
+    if (wasEndOfTrack) _maybePreload();
+  }
+
+  void _onTick() {
+    final remaining = sleepRemaining;
+    if (remaining == null) return;
+    if (remaining <= sleepFade && _fadeTimer == null) {
+      if (_status == PlayerStatus.playing ||
+          _status == PlayerStatus.buffering) {
+        _startFade(remaining);
+      } else {
+        // Already quiet: nothing to stop.
+        _clearSleep();
+      }
+    }
+    notifyListeners();
+  }
+
+  void _maybeFadeAtTrackEnd() {
+    final duration = _duration;
+    if (!_sleepAtTrackEnd ||
+        _fadeTimer != null ||
+        duration == null ||
+        _status != PlayerStatus.playing) {
+      return;
+    }
+    final left = (duration - _position) * (1 / speed);
+    if (left <= sleepFade) _startFade(left);
+  }
+
+  /// Lowers the volume step by step over [over]. A duration timer pauses
+  /// when it is silent; a track-end timer waits for the track to finish.
+  void _startFade(Duration over) {
+    const step = Duration(milliseconds: 100);
+    final steps = max(1, (over.inMilliseconds / step.inMilliseconds).ceil());
+    var done = 0;
+    _fadeTimer = Timer.periodic(step, (timer) {
+      done++;
+      unawaited(_engine.setVolume(max(0, 1 - done / steps)));
+      if (done < steps) return;
+      timer.cancel();
+      if (!_sleepAtTrackEnd) unawaited(_sleep());
+    });
+    notifyListeners();
+  }
+
+  Future<void> _sleep() async {
+    _clearSleep(restoreVolume: false);
+    await pause();
+    await _engine.setVolume(1);
+    notifyListeners();
+  }
+
+  void _clearSleep({bool restoreVolume = true}) {
+    final fading = _fadeTimer != null;
+    _sleepTick?.cancel();
+    _fadeTimer?.cancel();
+    _sleepTick = null;
+    _fadeTimer = null;
+    _sleepAt = null;
+    _sleepAtTrackEnd = false;
+    if (fading && restoreVolume) unawaited(_engine.setVolume(1));
+  }
 
   /// The tracks that will play after the current one, in order.
   List<Track> get upcoming => _queue?.upcoming ?? const [];
@@ -161,6 +358,7 @@ class PlayerController extends ChangeNotifier {
     _shuffle = !_shuffle;
     _queue?.shuffled = _shuffle;
     notifyListeners();
+    unawaited(_replanPreload());
   }
 
   /// Off → all → one → off.
@@ -169,12 +367,17 @@ class PlayerController extends ChangeNotifier {
         QueueRepeat.values[(_repeat.index + 1) % QueueRepeat.values.length];
     _queue?.repeat = _repeat;
     notifyListeners();
+    unawaited(_replanPreload());
   }
 
-  Future<void> _start(Track track) async {
+  /// Loads [track] and plays it, or leaves it paused when [autoplay] is false.
+  Future<void> _start(Track track, {bool autoplay = true}) async {
     final token = _token();
     if (!track.isLocal && token == null && track.sharedVia == null) return;
     final request = ++_request;
+    final prefetched = _freshPrefetch(track.id);
+    _preloadedId = null;
+    _prefetched = null;
     _track = track;
     _position = Duration.zero;
     _duration = null;
@@ -183,14 +386,21 @@ class PlayerController extends ChangeNotifier {
     _heard = Duration.zero;
     _advancing = false;
     _loading = true;
+    if (_fadeTimer != null && _sleepAtTrackEnd) {
+      // A new track restarts the wait for a track's end at full volume.
+      _fadeTimer!.cancel();
+      _fadeTimer = null;
+      unawaited(_engine.setVolume(1));
+    }
     _setStatus(PlayerStatus.loading);
     try {
-      final url = track.sourceUri ?? (await _link(token, track)).url;
+      final url =
+          track.sourceUri ?? prefetched ?? (await _link(token, track)).url;
       if (request != _request) return;
       await _engine.load(track, url);
       if (request != _request) return;
       _loading = false;
-      _engine.play();
+      if (autoplay) _engine.play();
       _refreshStatus();
     } catch (_) {
       if (request != _request) return;
@@ -200,10 +410,17 @@ class PlayerController extends ChangeNotifier {
   }
 
   /// A finished track moves the queue on, or replays itself on repeat-one.
+  /// With the sleep timer set for the track's end, the next track is only
+  /// loaded, paused, so playing again continues from it.
   Future<void> _onCompleted() async {
     final queue = _queue;
     if (_advancing || queue == null) return;
     _advancing = true;
+    final sleep = _sleepAtTrackEnd;
+    if (sleep) {
+      _clearSleep(restoreVolume: false);
+      await _engine.setVolume(1);
+    }
     final next = queue.next(auto: true);
     if (next == null) {
       _setStatus(PlayerStatus.completed);
@@ -212,10 +429,98 @@ class PlayerController extends ChangeNotifier {
       _listened = false;
       _heard = Duration.zero;
       await _engine.seek(Duration.zero);
-      _engine.play();
+      if (!sleep) _engine.play();
     } else {
-      await _start(next);
+      await _start(next, autoplay: !sleep);
     }
+  }
+
+  /// The engine moved on to the preloaded track by itself, gaplessly or by
+  /// a crossfade: follow it in the queue without loading anything.
+  void _onAdvanced(String id) {
+    final queue = _queue;
+    if (queue == null || id != _preloadedId) return;
+    if (queue.peekNext(auto: true)?.id != id) return;
+    final next = queue.next(auto: true)!;
+    _request++;
+    _preloadedId = null;
+    _prefetched = null;
+    _track = next;
+    _position = Duration.zero;
+    _duration = null;
+    _retriedLink = false;
+    _listened = false;
+    _heard = Duration.zero;
+    _advancing = false;
+    _refreshStatus();
+  }
+
+  /// Hands the engine the next track once the current one nears its end.
+  void _maybePreload() {
+    final queue = _queue;
+    final track = _track;
+    final duration = _duration;
+    if (queue == null ||
+        track == null ||
+        duration == null ||
+        _loading ||
+        _sleepAtTrackEnd ||
+        _preloadedId != null ||
+        (_status != PlayerStatus.playing &&
+            _status != PlayerStatus.buffering &&
+            _status != PlayerStatus.paused)) {
+      return;
+    }
+    final next = queue.peekNext(auto: true);
+    // Repeating one track replays it through the completed state instead.
+    if (next == null || next.id == track.id) return;
+    final lead = preloadLead + crossfade * speed;
+    if (duration - _position > lead) return;
+    unawaited(_preload(next));
+  }
+
+  Future<void> _preload(Track next) async {
+    final token = _token();
+    if (!next.isLocal && token == null && next.sharedVia == null) return;
+    final request = _request;
+    _preloadedId = next.id;
+    try {
+      final link = next.sourceUri == null ? await _link(token, next) : null;
+      if (request != _request || _preloadedId != next.id) return;
+      final url = next.sourceUri ?? link!.url;
+      _prefetched = (id: next.id, url: url, expiresAt: link?.expiresAt);
+      await _engine.preload(next, url);
+    } catch (error) {
+      // The track still starts, with a short gap, when this one ends.
+      debugPrint('Could not preload the next track: $error');
+    }
+  }
+
+  /// The link fetched while preloading [trackId], unless it is about to
+  /// expire.
+  Uri? _freshPrefetch(String trackId) {
+    final prefetched = _prefetched;
+    if (prefetched == null || prefetched.id != trackId) return null;
+    final expiresAt = prefetched.expiresAt;
+    if (expiresAt != null &&
+        expiresAt.isBefore(_now().add(const Duration(minutes: 1)))) {
+      return null;
+    }
+    return prefetched.url;
+  }
+
+  Future<void> _dropPreload() async {
+    if (_preloadedId == null) return;
+    _preloadedId = null;
+    _prefetched = null;
+    await _engine.clearPreload();
+  }
+
+  /// The queue changed: drop a preloaded track that no longer comes next.
+  Future<void> _replanPreload() async {
+    final planned = _queue?.peekNext(auto: true)?.id;
+    if (_preloadedId != null && _preloadedId != planned) await _dropPreload();
+    _maybePreload();
   }
 
   Future<void> toggle() async {
@@ -240,6 +545,11 @@ class PlayerController extends ChangeNotifier {
   Future<void> resume() async {
     switch (_status) {
       case PlayerStatus.paused:
+        if (_fadeTimer != null) {
+          // Playing again while it fades means the listener is still awake.
+          _clearSleep();
+          notifyListeners();
+        }
         _engine.play();
       case PlayerStatus.completed:
         _advancing = false;
@@ -270,6 +580,7 @@ class PlayerController extends ChangeNotifier {
       return;
     }
     notifyListeners();
+    await _replanPreload();
   }
 
   /// Shows edited metadata for a queued or playing track without
@@ -285,6 +596,9 @@ class PlayerController extends ChangeNotifier {
   /// Stops playback and forgets the track, for example on logout.
   Future<void> stop() async {
     _request++;
+    _clearSleep();
+    _preloadedId = null;
+    _prefetched = null;
     _queue = null;
     _track = null;
     _position = Duration.zero;
@@ -327,6 +641,9 @@ class PlayerController extends ChangeNotifier {
     try {
       final link = await _link(token, track);
       if (request != _request) return;
+      // Reloading drops the preloaded track; it is fetched again later.
+      _preloadedId = null;
+      _prefetched = null;
       await _engine.load(track, link.url, start: resumeAt);
       _engine.play();
     } catch (_) {
@@ -377,6 +694,7 @@ class PlayerController extends ChangeNotifier {
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
+    _clearSleep(restoreVolume: false);
     _engine.dispose();
     favorites.dispose();
     super.dispose();

@@ -336,6 +336,7 @@ class _LibraryScreenState extends State<LibraryScreen>
             cache: widget.cache,
             botLinks: widget.botLinks,
             library: widget.library,
+            player: widget.player,
           ),
         ))
         // A chat may have been linked meanwhile; offer sending to it.
@@ -506,11 +507,14 @@ class _LibraryScreenState extends State<LibraryScreen>
           .textTheme
           .titleSmall
           ?.copyWith(fontWeight: FontWeight.w500),
+      // Phone tabs share a narrow width: tighter padding, and a label that
+      // still does not fit shrinks a little instead of being clipped.
+      labelPadding: wide ? null : const EdgeInsets.symmetric(horizontal: 4),
       tabs: [
-        const Tab(text: 'آهنگ‌ها'),
-        if (widget.playlists != null) const Tab(text: 'فهرست‌های پخش'),
-        const Tab(text: 'آلبوم‌ها'),
-        const Tab(text: 'هنرمندان'),
+        const _TabLabel('آهنگ‌ها'),
+        if (widget.playlists != null) const _TabLabel('فهرست‌های پخش'),
+        const _TabLabel('آلبوم‌ها'),
+        const _TabLabel('هنرمندان'),
       ],
     );
     final bar = wide
@@ -2794,4 +2798,21 @@ class _PlaylistResult extends StatelessWidget {
       trailing: Icon(NafirIcons.caretLeft, color: colors.onSurfaceVariant),
     );
   }
+}
+
+/// A library tab whose label is always shown in full.
+class _TabLabel extends StatelessWidget {
+  const _TabLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Tab(
+        // A full touch target, a little taller than Material's default.
+        height: 48,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(text, maxLines: 1, softWrap: false),
+        ),
+      );
 }

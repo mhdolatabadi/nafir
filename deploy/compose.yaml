@@ -68,6 +68,9 @@ services:
       PRIVACY_CONTACT_EMAIL: ${PRIVACY_CONTACT_EMAIL:-}
       # Where the front page sends visitors to install the Android app (optional).
       ANDROID_APP_URL: ${ANDROID_APP_URL:-}
+      # Search console ownership tokens for the front page (optional).
+      GOOGLE_SITE_VERIFICATION: ${GOOGLE_SITE_VERIFICATION:-}
+      BING_SITE_VERIFICATION: ${BING_SITE_VERIFICATION:-}
       BOT_PUBLIC_URL: https://${NAFIR_DOMAIN}
     depends_on:
       postgres:

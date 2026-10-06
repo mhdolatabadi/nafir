@@ -274,7 +274,9 @@ func run() error {
 				httpapi.AnonymousLimits{View: publicViewRate, Stream: publicStreamRate}).
 				WithContact(os.Getenv("PRIVACY_CONTACT_EMAIL")).
 				WithQuota(ownerQuotaBytes).
-				WithAndroidApp(os.Getenv("ANDROID_APP_URL")),
+				WithAndroidApp(os.Getenv("ANDROID_APP_URL")).
+				WithSite(os.Getenv("WEB_ORIGIN")).
+				WithVerification(os.Getenv("GOOGLE_SITE_VERIFICATION"), os.Getenv("BING_SITE_VERIFICATION")),
 			Bots:        botHandlers,
 			LinkImports: httpapi.NewLinkImportHandlers(linkImports, tokens, linkImportRate),
 			Ops:         ops,

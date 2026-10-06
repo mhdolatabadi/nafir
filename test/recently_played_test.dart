@@ -113,6 +113,23 @@ void main() {
       playFor(const Duration(seconds: 31));
       expect(listened, ['a', 'b']);
     });
+
+    test('a track reached gaplessly or by crossfade counts too', () async {
+      await player.playFrom([track('a'), track('b')], 0);
+      playFor(const Duration(seconds: 31));
+      expect(listened, ['a']);
+      // Near the end the next track is preloaded; the engine moves on to it
+      // by itself instead of the player loading it.
+      engine.positionCtl.add(const Duration(minutes: 2, seconds: 31));
+      await pumpEventQueue();
+      expect(engine.preloaded, 'b');
+      engine.advance();
+      await pumpEventQueue();
+      expect(player.track?.id, 'b');
+
+      playFor(const Duration(seconds: 31));
+      expect(listened, ['a', 'b']);
+    });
   });
 
   group('RecentlyPlayedController', () {

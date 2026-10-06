@@ -53,6 +53,19 @@ type PublicPages struct {
 	// contact is the email the privacy page gives for questions and
 	// account deletion; the page leaves it out when it is empty.
 	contact string
+	// site is the configured origin every canonical, Open Graph and sitemap
+	// URL uses, so one page never shows up under several hosts; empty
+	// falls back to the request's own host.
+	site string
+	// verify holds the search console ownership tokens for the front page.
+	verify siteVerification
+}
+
+// siteVerification is the content of the search engines' ownership <meta>
+// tags; an empty one is left out.
+type siteVerification struct {
+	Google string
+	Bing   string
 }
 
 func NewPublicPages(playlists SharedPlaylistStore, streams StreamPresigner, limits AnonymousLimits) *PublicPages {
@@ -129,6 +142,7 @@ func (p *PublicPages) register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /social.png", p.handleSocialImage)
 	mux.HandleFunc("GET /privacy", p.handlePrivacy)
 	mux.HandleFunc("GET /delete-account", p.handleDeleteAccount)
+	mux.HandleFunc("GET /", p.handleNotFound)
 }
 
 type pageMeta struct {
@@ -166,6 +180,36 @@ type publicPlaylist struct {
 	Tracks     []publicTrack
 }
 
+// WithSite sets the origin, such as https://rhythmo.ir, that canonical,
+// Open Graph and sitemap URLs use. Anything but a plain http(s) origin is
+// ignored, and the request's host is used instead.
+func (p *PublicPages) WithSite(site string) *PublicPages {
+	u, err := url.Parse(strings.TrimRight(strings.TrimSpace(site), "/"))
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" ||
+		u.Path != "" || u.RawQuery != "" || u.Fragment != "" || u.User != nil {
+		p.site = ""
+		return p
+	}
+	p.site = u.Scheme + "://" + u.Host
+	return p
+}
+
+// WithVerification sets the Google Search Console and Bing Webmaster Tools
+// ownership tokens shown on the front page; empty ones are left out.
+func (p *PublicPages) WithVerification(google, bing string) *PublicPages {
+	p.verify = siteVerification{Google: strings.TrimSpace(google), Bing: strings.TrimSpace(bing)}
+	return p
+}
+
+// origin is the configured site origin, or the request's own scheme and
+// host when none is set.
+func (p *PublicPages) origin(r *http.Request) string {
+	if p.site != "" {
+		return p.site
+	}
+	return origin(r)
+}
+
 // origin is the site's own scheme and host, as Caddy forwards them.
 func origin(r *http.Request) string {
 	scheme := "https"
@@ -195,7 +239,7 @@ func (p *PublicPages) handleHome(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "list public playlists", err)
 		return
 	}
-	site := origin(r)
+	site := p.origin(r)
 	items := make([]publicListItem, 0, len(listed))
 	listJSON := make([]map[string]any, 0, len(listed))
 	for i, pl := range listed {
@@ -218,11 +262,13 @@ func (p *PublicPages) handleHome(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", publicPageMaxAge)
 	p.render(w, http.StatusOK, "home", struct {
 		pageMeta
+		Verify     siteVerification
 		Features   []publicFeature
 		Questions  []publicQuestion
 		AndroidApp string
 		Playlists  []publicListItem
 	}{
+		Verify: p.verify,
 		pageMeta: pageMeta{
 			Title: "ریتمو — پخش‌کننده و فضای ابری موسیقی",
 			Description: "ریتمو کتابخانه‌ی موسیقی ابری توست: آهنگ‌هایت را با کیفیت اصلی آپلود کن، " +
@@ -245,6 +291,35 @@ func (p *PublicPages) handleHome(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// renderMissing writes the branded not-found page, which search engines
+// are told not to index.
+func (p *PublicPages) renderMissing(w http.ResponseWriter, r *http.Request, heading, body, description string) {
+	site := p.origin(r)
+	p.render(w, http.StatusNotFound, "missing", struct {
+		pageMeta
+		Heading string
+		Body    string
+	}{
+		pageMeta: pageMeta{
+			Title: "پیدا نشد — ریتمو", Description: description,
+			Canonical: site + r.URL.Path, Image: site + "/social.png", OGType: "website", NoIndex: true,
+		},
+		Heading: heading, Body: body,
+	})
+}
+
+// handleNotFound answers every path nothing else serves: API clients get
+// the usual JSON error, people and crawlers the branded page.
+func (p *PublicPages) handleNotFound(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/api" || strings.HasPrefix(r.URL.Path, "/api/") {
+		writeError(w, http.StatusNotFound, "not_found")
+		return
+	}
+	p.renderMissing(w, r, "این صفحه پیدا نشد",
+		"نشانی را بررسی کن یا از صفحه‌ی اول ادامه بده.",
+		"صفحه‌ای که دنبالش بودی در ریتمو پیدا نشد.")
+}
+
 // publicPlaylistFor loads the public playlist at {token}, or writes the
 // not-found page: link-only and private playlists look the same as missing.
 func (p *PublicPages) publicPlaylistFor(w http.ResponseWriter, r *http.Request) (store.SharedPlaylist, bool) {
@@ -258,10 +333,9 @@ func (p *PublicPages) publicPlaylistFor(w http.ResponseWriter, r *http.Request) 
 		err = store.ErrNotFound
 	}
 	if errors.Is(err, store.ErrNotFound) {
-		p.render(w, http.StatusNotFound, "missing", struct{ pageMeta }{pageMeta{
-			Title: "پیدا نشد — ریتمو", Description: "این فهرست پخش عمومی نیست یا حذف شده است.",
-			Canonical: origin(r) + r.URL.Path, Image: origin(r) + "/social.png", OGType: "website", NoIndex: true,
-		}})
+		p.renderMissing(w, r, "این فهرست پخش پیدا نشد",
+			"ممکن است صاحبش آن را خصوصی کرده یا حذف کرده باشد.",
+			"این فهرست پخش عمومی نیست یا حذف شده است.")
 		return store.SharedPlaylist{}, false
 	}
 	if err != nil {
@@ -284,7 +358,7 @@ func (p *PublicPages) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "load playlist likes", err)
 		return
 	}
-	site := origin(r)
+	site := p.origin(r)
 	token := *shared.ShareToken
 	page := publicPlaylist{
 		ShareToken: token, Name: shared.Name, Owner: bot.MaskEmail(shared.OwnerEmail),
@@ -381,8 +455,8 @@ func (p *PublicPages) handleSitemap(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "list sitemap playlists", err)
 		return
 	}
-	site := origin(r)
-	urls := []sitemapURL{{Loc: site + "/"}}
+	site := p.origin(r)
+	urls := []sitemapURL{{Loc: site + "/"}, {Loc: site + "/privacy"}, {Loc: site + "/delete-account"}}
 	for _, pl := range listed {
 		urls = append(urls, sitemapURL{
 			Loc: site + "/p/" + pl.ShareToken, LastMod: pl.UpdatedAt.UTC().Format(time.DateOnly),
@@ -402,7 +476,7 @@ func (p *PublicPages) handleSitemap(w http.ResponseWriter, r *http.Request) {
 func (p *PublicPages) handleRobots(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "public, max-age=3600")
-	fmt.Fprintf(w, "User-agent: *\nAllow: /\nDisallow: /app/\nDisallow: /api/\nSitemap: %s/sitemap.xml\n", origin(r))
+	fmt.Fprintf(w, "User-agent: *\nAllow: /\nDisallow: /app/\nDisallow: /api/\nSitemap: %s/sitemap.xml\n", p.origin(r))
 }
 
 // WithContact sets the email the privacy page gives for questions and
@@ -417,7 +491,7 @@ const privacyUpdated = "۱۰ مهر ۱۴۰۵"
 
 // handlePrivacy serves the privacy policy app stores link to.
 func (p *PublicPages) handlePrivacy(w http.ResponseWriter, r *http.Request) {
-	site := origin(r)
+	site := p.origin(r)
 	w.Header().Set("Cache-Control", "public, max-age=3600")
 	p.render(w, http.StatusOK, "privacy", struct {
 		pageMeta
@@ -440,7 +514,7 @@ const deleteAccountUpdated = "۱۰ مهر ۱۴۰۵"
 // handleDeleteAccount serves the account deletion page app stores link to,
 // for people who no longer have the app.
 func (p *PublicPages) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
-	site := origin(r)
+	site := p.origin(r)
 	w.Header().Set("Cache-Control", "public, max-age=3600")
 	p.render(w, http.StatusOK, "delete", struct {
 		pageMeta

@@ -9,7 +9,15 @@ String normalizeForSearch(String text) {
   for (final rune in text.toLowerCase().runes) {
     if (_ignored(rune)) continue;
     final mapped = _folded[rune] ?? _digit(rune) ?? rune;
-    final isSpace = mapped == 0x20 || mapped == 0x09 || mapped == 0x0a;
+    final isSpace = mapped == 0x20 ||
+        (mapped >= 0x09 && mapped <= 0x0d) ||
+        mapped == 0x1680 ||
+        (mapped >= 0x2000 && mapped <= 0x200a) ||
+        mapped == 0x2028 ||
+        mapped == 0x2029 ||
+        mapped == 0x202f ||
+        mapped == 0x205f ||
+        mapped == 0x3000;
     if (isSpace) {
       space = out.isNotEmpty;
       continue;
@@ -27,7 +35,14 @@ bool matchesSearch(String query, Iterable<String?> fields) {
   final words = normalizeForSearch(query).split(' ').where((w) => w.isNotEmpty);
   if (words.isEmpty) return true;
   final haystack = normalizeForSearch(fields.whereType<String>().join(' '));
-  return words.every(haystack.contains);
+  // Joined and spaced Persian spellings should match in both directions.
+  // Keep the original fields separate so a word cannot span title/artist.
+  final compactFields = fields
+      .whereType<String>()
+      .map((field) => normalizeForSearch(field).replaceAll(' ', ''));
+  return words.every((word) =>
+      haystack.contains(word) ||
+      compactFields.any((field) => field.contains(word)));
 }
 
 bool _ignored(int rune) =>

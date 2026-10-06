@@ -36,6 +36,7 @@ abstract final class NafirIcons {
   static const IconData folderSimpleDashed =
       IconData(0xec2a, fontFamily: 'Phosphor');
   static const IconData gear = IconData(0xe270, fontFamily: 'Phosphor');
+  static const IconData gauge = IconData(0xe628, fontFamily: 'Phosphor');
   static const IconData globe = IconData(0xe288, fontFamily: 'Phosphor');
   static const IconData heart = IconData(0xe2a8, fontFamily: 'Phosphor');
   static const IconData link = IconData(0xe2e2, fontFamily: 'Phosphor');
@@ -46,6 +47,7 @@ abstract final class NafirIcons {
       IconData(0xe30c, fontFamily: 'Phosphor');
   static const IconData magnifyingGlassMinus =
       IconData(0xe30e, fontFamily: 'Phosphor');
+  static const IconData moonStars = IconData(0xe58e, fontFamily: 'Phosphor');
   static const IconData musicNote = IconData(0xe33c, fontFamily: 'Phosphor');
   static const IconData musicNotes = IconData(0xe340, fontFamily: 'Phosphor');
   static const IconData musicNotesMinus =
@@ -85,6 +87,8 @@ abstract final class NafirIcons {
       IconData(0xe4d6, fontFamily: 'PhosphorFill');
   static const IconData heartFill =
       IconData(0xe2a8, fontFamily: 'PhosphorFill');
+  static const IconData moonStarsFill =
+      IconData(0xe58e, fontFamily: 'PhosphorFill');
   static const IconData pauseFill =
       IconData(0xe39e, fontFamily: 'PhosphorFill');
   static const IconData playFill = IconData(0xe3d0, fontFamily: 'PhosphorFill');
