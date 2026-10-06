@@ -93,8 +93,8 @@ void main() {
     expect(find.byType(NowPlayingScreen), findsOneWidget);
     expect(find.text(_tracks[0].title), findsOneWidget);
     expect(find.text('Artist A'), findsOneWidget);
-    expect(find.text('0:00'), findsOneWidget);
-    expect(find.text('3:00'), findsOneWidget);
+    expect(find.text('۰:۰۰'), findsOneWidget);
+    expect(find.text('۳:۰۰'), findsOneWidget);
     expect(find.byType(Slider), findsOneWidget);
   });
 
@@ -150,7 +150,7 @@ void main() {
       (tester) async {
     await open(tester);
 
-    await tester.tap(find.text('صف پخش · 2'));
+    await tester.tap(find.text('صف پخش · ۲'));
     await advanceUi(tester);
 
     final sheet = find.byType(QueueSheet);
@@ -178,7 +178,7 @@ void main() {
 
     expect(find.text('Album'), findsOneWidget);
     expect(find.text('a.mp3'), findsOneWidget);
-    expect(find.text('2 کیلوبایت'), findsOneWidget);
+    expect(find.text('۲ کیلوبایت'), findsOneWidget);
   });
 
   testWidgets('swiping down closes; a short drag springs back', (tester) async {
@@ -240,7 +240,7 @@ void main() {
           screen.contains(rect.topLeft) && rect.right <= screen.right, isTrue,
           reason: '$tooltip is on screen');
     }
-    final queue = tester.getRect(find.text('صف پخش · 2'));
+    final queue = tester.getRect(find.text('صف پخش · ۲'));
     expect(queue.bottom, lessThanOrEqualTo(640 - 34),
         reason: 'the bottom row clears the gesture bar');
     final title = tester.getRect(find.text(_tracks[0].title));
@@ -248,7 +248,7 @@ void main() {
     expect(title.left, greaterThanOrEqualTo(0));
 
     // The queue sheet also fits, and its last row clears the inset.
-    await tester.tap(find.text('صف پخش · 2'));
+    await tester.tap(find.text('صف پخش · ۲'));
     await advanceUi(tester);
     expect(tester.takeException(), isNull);
     expect(

@@ -1,3 +1,4 @@
+import 'package:nafir/core/persian_digits.dart';
 import 'package:flutter/material.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/core/widgets/glass_surface.dart';
@@ -354,7 +355,8 @@ class _PlaylistsOverview extends StatelessWidget {
                     ),
                 ],
               ),
-              subtitle: Text('${playlist.displayTrackCount} قطعه موسیقی'),
+              subtitle: Text(
+                  '${persianDigits(playlist.displayTrackCount)} قطعه موسیقی'),
               trailing: const Icon(NafirIcons.caretLeft),
               onTap: () => onOpen(playlist),
             ),
@@ -394,7 +396,7 @@ class _PlaylistFeatureCard extends StatelessWidget {
                   ),
             ),
             Text(
-              '${playlist.displayTrackCount} قطعه موسیقی',
+              '${persianDigits(playlist.displayTrackCount)} قطعه موسیقی',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -768,11 +770,11 @@ class _PlaylistDetailHeader extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     [
-                      '${playlist.displayTrackCount} قطعه موسیقی',
+                      '${persianDigits(playlist.displayTrackCount)} قطعه موسیقی',
                       if (!playlist.isOwner && playlist.owner != null)
                         'از ${playlist.owner}'
                       else if (playlist.members.isNotEmpty)
-                        'مشترک با ${playlist.members.length} نفر',
+                        'مشترک با ${persianDigits(playlist.members.length)} نفر',
                     ].join(' · '),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -852,7 +854,7 @@ class _PlaylistCover extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 child: Text(
-                  trackCount.toString(),
+                  persianDigits(trackCount),
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: colors.onSurface,
                         fontWeight: FontWeight.w700,

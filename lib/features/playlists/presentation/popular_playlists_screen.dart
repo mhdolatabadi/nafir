@@ -1,3 +1,4 @@
+import 'package:nafir/core/persian_digits.dart';
 import 'package:flutter/material.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/core/widgets/glass_surface.dart';
@@ -214,7 +215,7 @@ class _PopularRow extends StatelessWidget {
         subtitle: Text(
           [
             playlist.isOwner ? 'فهرست پخش خودت' : playlist.owner,
-            '${playlist.trackCount} آهنگ',
+            '${persianDigits(playlist.trackCount)} آهنگ',
           ].join(' · '),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,

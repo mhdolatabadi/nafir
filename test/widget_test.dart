@@ -198,7 +198,7 @@ void main() {
       expect(find.text('ورود / ثبت‌نام'), findsOneWidget);
 
       // Liking needs an account; the guest is offered sign-in instead.
-      await tester.tap(find.text('5'));
+      await tester.tap(find.text('۵'));
       await tester.pumpAndSettle();
       expect(find.text('برای پسندیدن وارد حسابت شو.'), findsOneWidget);
 
@@ -486,9 +486,9 @@ void main() {
 
     expect(find.text('Uploaded earlier'), findsOneWidget);
     expect(find.text('Artist'), findsOneWidget);
-    expect(find.textContaining('3.0 مگابایت'), findsWidgets);
+    expect(find.textContaining('۳.۰ مگابایت'), findsWidgets);
     // Storage use lives in the account screen, not above the tracks.
-    expect(find.textContaining('از 5.0 گیگابایت'), findsNothing);
+    expect(find.textContaining('از ۵.۰ گیگابایت'), findsNothing);
     expect(find.text('کتابخانهٔ شما خالی است'), findsNothing);
   });
 
@@ -517,7 +517,7 @@ void main() {
     await tester.tap(find.text('تنظیمات').last);
     await tester.pumpAndSettle();
     expect(find.text('فضای ابری'), findsOneWidget);
-    expect(find.textContaining('از 5.0 گیگابایت'), findsOneWidget);
+    expect(find.textContaining('از ۵.۰ گیگابایت'), findsOneWidget);
     expect(
         find.bySemanticsLabel(RegExp('^فضای ابری مصرف‌شده')), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -545,18 +545,18 @@ void main() {
       ]),
     );
 
-    expect(find.text('2 آهنگ'), findsOneWidget);
+    expect(find.text('۲ آهنگ'), findsOneWidget);
     await tester.enterText(find.byType(SearchBar), 'missing');
     await tester.pumpAndSettle();
 
-    expect(find.text('0 از 2 آهنگ'), findsOneWidget);
+    expect(find.text('۰ از ۲ آهنگ'), findsOneWidget);
     expect(find.text('نتیجه‌ای پیدا نشد'), findsOneWidget);
     await tester.ensureVisible(find.text('پاک کردن جست‌وجو'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('پاک کردن جست‌وجو'));
     await tester.pumpAndSettle();
 
-    expect(find.text('2 آهنگ'), findsOneWidget);
+    expect(find.text('۲ آهنگ'), findsOneWidget);
     expect(find.text('First song'), findsOneWidget);
   });
 
@@ -631,7 +631,7 @@ void main() {
     // Artist first, the size after it on the same line.
     expect(
         find.text('Artist with a really long name number 0'), findsOneWidget);
-    expect(find.text(' · 3.0 مگابایت'), findsWidgets);
+    expect(find.text(' · ۳.۰ مگابایت'), findsWidgets);
     expect(find.byTooltip('روی سرور'), findsWidgets);
   });
 
@@ -778,7 +778,7 @@ void main() {
       await tester.tap(find.widgetWithText(Tab, 'آلبوم‌ها'));
       await tester.pumpAndSettle();
       expect(find.text('Opera'), findsOneWidget);
-      expect(find.text('Queen · 15 آهنگ'), findsOneWidget);
+      expect(find.text('Queen · ۱۵ آهنگ'), findsOneWidget);
       expect(find.text('نامشخص'), findsOneWidget);
 
       await tester.tap(find.widgetWithText(Tab, 'هنرمندان'));
@@ -787,7 +787,7 @@ void main() {
       // An artist opens their page, which plays all of their tracks.
       await tester.tap(find.text('فرهاد'));
       await tester.pumpAndSettle();
-      expect(find.text('15 آهنگ'), findsOneWidget);
+      expect(find.text('۱۵ آهنگ'), findsOneWidget);
       expect(find.text('Track number 1'), findsOneWidget);
       await tester.tap(find.text('پخش همه'));
       await tester.pumpAndSettle();
@@ -1030,7 +1030,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byTooltip('توقف'), findsOneWidget);
-    expect(find.text('3:00'), findsOneWidget);
+    expect(find.text('۳:۰۰'), findsOneWidget);
     expect(find.text('Song'), findsWidgets);
     // The playing row says so with an icon and in words, not color alone.
     expect(
@@ -1243,8 +1243,8 @@ void main() {
     double x(String tooltip) => tester.getCenter(find.byTooltip(tooltip)).dx;
     expect(x('قبلی'), lessThan(x('توقف')));
     expect(x('توقف'), lessThan(x('بعدی')));
-    expect(tester.getCenter(find.text('0:00')).dx,
-        lessThan(tester.getCenter(find.text('3:00')).dx),
+    expect(tester.getCenter(find.text('۰:۰۰')).dx,
+        lessThan(tester.getCenter(find.text('۳:۰۰')).dx),
         reason: 'elapsed time on the left, duration on the right');
   });
 
@@ -1256,7 +1256,7 @@ void main() {
 
     await tester.tap(find.byTooltip('تنظیمات'));
     await tester.pumpAndSettle();
-    expect(find.text('حجم کش: 3.0 مگابایت'), findsOneWidget);
+    expect(find.text('حجم کش: ۳.۰ مگابایت'), findsOneWidget);
 
     // Cancelling keeps everything.
     await tester.tap(find.text('پاک کردن کش'));
@@ -1271,7 +1271,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(cache.files, isEmpty);
-    expect(find.text('حجم کش: 0 کیلوبایت'), findsOneWidget);
+    expect(find.text('حجم کش: ۰ کیلوبایت'), findsOneWidget);
     expect(find.text('کش پاک شد.'), findsOneWidget);
     final button = tester.widget<OutlinedButton>(
         find.widgetWithText(OutlinedButton, 'پاک کردن کش'));

@@ -1,3 +1,4 @@
+import 'package:nafir/core/persian_digits.dart';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -51,7 +52,7 @@ String trackSubtitle(Track track) {
 String formatPlaybackTime(Duration value) {
   final minutes = value.inMinutes;
   final seconds = value.inSeconds.remainder(60).toString().padLeft(2, '0');
-  return '$minutes:$seconds';
+  return persianDigits('$minutes:$seconds');
 }
 
 /// A dark, saturated color picked from the track's id, standing in for
@@ -659,7 +660,8 @@ class _BottomRow extends StatelessWidget {
           style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
           onPressed: onQueue,
           icon: const Icon(NafirIcons.playlist),
-          label: Text(upcoming == 0 ? 'صف پخش' : 'صف پخش · $upcoming'),
+          label: Text(
+              upcoming == 0 ? 'صف پخش' : 'صف پخش · ${persianDigits(upcoming)}'),
         ),
         const Spacer(),
         IconButton(
@@ -782,7 +784,9 @@ class QueueSheet extends StatelessWidget {
               Padding(
                 padding: const EdgeInsetsDirectional.fromSTEB(24, 12, 24, 4),
                 child: Text(
-                  upcoming.isEmpty ? 'بعدی' : 'بعدی · ${upcoming.length} آهنگ',
+                  upcoming.isEmpty
+                      ? 'بعدی'
+                      : 'بعدی · ${persianDigits(upcoming.length)} آهنگ',
                   style: theme.textTheme.labelLarge?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),

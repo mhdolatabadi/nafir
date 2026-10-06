@@ -55,7 +55,7 @@ func TestPublicFrontPageListsPublicPlaylists(t *testing.T) {
 		`<link rel="canonical" href="https://nafir.example.com/">`,
 		`<meta property="og:title"`,
 		`href="/p/` + token + `"`,
-		`<bdi>a***@example.com</bdi> · 1 آهنگ`,
+		`<bdi>a***@example.com</bdi> · ۱ آهنگ`,
 		`href="/app/"`,
 	} {
 		if !strings.Contains(page, want) {
@@ -94,7 +94,7 @@ func TestPublicPlaylistPage(t *testing.T) {
 	}
 	for _, want := range []string{
 		`<title>Road trip — فهرست پخش در ریتمو</title>`,
-		`<meta name="description" content="فهرست پخش «Road trip» با 2 آهنگ در ریتمو`,
+		`<meta name="description" content="فهرست پخش «Road trip» با ۲ آهنگ در ریتمو`,
 		`<link rel="canonical" href="https://nafir.example.com/p/` + token + `">`,
 		`<meta property="og:type" content="music.playlist">`,
 		`src="/p/` + token + `/t/t1"`,
