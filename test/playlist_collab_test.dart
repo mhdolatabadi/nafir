@@ -225,24 +225,27 @@ void main() {
     // Picking tracks keeps the ones others added.
     await tester.tap(find.text('مدیریت آهنگ‌ها'));
     await tester.pumpAndSettle();
-    expect(find.text('۱ آهنگ انتخاب شده'), findsOneWidget);
+    final picker = find.byType(AlertDialog);
+    Finder pickerText(String text) =>
+        find.descendant(of: picker, matching: find.text(text));
+    expect(pickerText('۱ آهنگ انتخاب شده'), findsOneWidget);
     final search = find.widgetWithText(TextField, 'جست‌وجوی عنوان یا هنرمند');
     await tester.enterText(search, 'example artist');
     await tester.pump();
-    expect(find.text('Another of mine'), findsOneWidget);
+    expect(pickerText('Another of mine'), findsOneWidget);
     await tester.enterText(search, 'ANOTHER');
     await tester.pump();
-    expect(find.text('My song'), findsNothing);
-    await tester.tap(find.text('Another of mine'));
+    expect(pickerText('My song'), findsNothing);
+    await tester.tap(pickerText('Another of mine'));
     await tester.pump();
-    expect(find.text('۲ آهنگ انتخاب شده'), findsOneWidget);
+    expect(pickerText('۲ آهنگ انتخاب شده'), findsOneWidget);
     await tester.enterText(search, 'no matching song');
     await tester.pump();
-    expect(find.text('آهنگی با این جست‌وجو پیدا نشد.'), findsOneWidget);
+    expect(pickerText('آهنگی با این جست‌وجو پیدا نشد.'), findsOneWidget);
     await tester.enterText(search, '');
     await tester.pump();
-    expect(find.text('My song'), findsOneWidget);
-    expect(find.text('۲ آهنگ انتخاب شده'), findsOneWidget);
+    expect(pickerText('My song'), findsOneWidget);
+    expect(pickerText('۲ آهنگ انتخاب شده'), findsOneWidget);
     await tester.tap(find.text('ذخیره'));
     await tester.pumpAndSettle();
     expect(api.replacedWith, ['theirs', 'mine', 'extra']);
