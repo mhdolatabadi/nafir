@@ -109,6 +109,11 @@ class JustAudioEngine implements AudioEngine {
 
   Timer? _fade;
   _Deck? _fadingOut;
+  Completer<void>? _fadeDone;
+
+  /// Bumped by every load, stop and clear, so a preload that was still
+  /// fetching its source when the queue moved on is dropped.
+  int _generation = 0;
 
   _Deck _listen(_Deck deck) {
     final player = deck.player;
@@ -166,6 +171,7 @@ class JustAudioEngine implements AudioEngine {
   @override
   Future<void> load(Track track, Uri url,
       {Duration start = Duration.zero}) async {
+    _generation++;
     await _finishCrossfade();
     await _clearStandby();
     final source = await _source(track, url);
@@ -183,7 +189,12 @@ class JustAudioEngine implements AudioEngine {
   @override
   Future<void> preload(Track track, Uri url) async {
     await clearPreload();
+    final generation = _generation;
+    // A short track can reach its preload point while it is still fading
+    // in; the second player is free once that fade is over.
+    await _fadeDone?.future;
     final source = await _source(track, url);
+    if (generation != _generation) return;
     _nextId = track.id;
     if (supportsCrossfade && _crossfade > Duration.zero) {
       final deck = _standby ??= _listen(_Deck());
@@ -204,6 +215,7 @@ class JustAudioEngine implements AudioEngine {
 
   @override
   Future<void> clearPreload() async {
+    _generation++;
     _nextId = null;
     final deck = _active;
     final after = deck.index + 1;
@@ -273,6 +285,7 @@ class JustAudioEngine implements AudioEngine {
     final id = into.ids.first;
     _currentId = id;
     _nextId = null;
+    _fadeDone = Completer<void>();
     unawaited(into.player.play());
     _advanced.add(id);
     _duration.add(into.player.duration);
@@ -304,6 +317,8 @@ class JustAudioEngine implements AudioEngine {
     out.ids.clear();
     await _active.player.setVolume(_volume);
     await out.player.stop();
+    _fadeDone?.complete();
+    _fadeDone = null;
   }
 
   @override
@@ -323,6 +338,7 @@ class JustAudioEngine implements AudioEngine {
 
   @override
   Future<void> stop() async {
+    _generation++;
     await _finishCrossfade();
     await _clearStandby();
     _currentId = null;
@@ -352,6 +368,9 @@ class JustAudioEngine implements AudioEngine {
   @override
   Future<void> dispose() async {
     _fade?.cancel();
+    _fadeDone?.complete();
+    await _active.player.dispose();
+    await _standby?.player.dispose();
     await Future.wait([
       _position.close(),
       _duration.close(),
@@ -360,7 +379,5 @@ class JustAudioEngine implements AudioEngine {
       _errors.close(),
       _advanced.close(),
     ]);
-    await _active.player.dispose();
-    await _standby?.player.dispose();
   }
 }
