@@ -5,7 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/core/format_size.dart';
+import 'package:nafir/core/search_text.dart';
 import 'package:nafir/core/widgets/glass_surface.dart';
+import 'package:nafir/features/history/application/recently_played_controller.dart';
+import 'package:nafir/features/history/presentation/recently_played_shelf.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
 import 'package:nafir/features/library/application/library_entries.dart';
 import 'package:nafir/features/library/application/library_sync_controller.dart';
@@ -19,6 +22,7 @@ import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/presentation/mini_player.dart';
 import 'package:nafir/features/playlists/presentation/shared_playlist_screen.dart';
 import 'package:nafir/features/playlists/application/playlists_controller.dart';
+import 'package:nafir/features/playlists/data/playlist.dart';
 import 'package:nafir/features/playlists/presentation/playlists_screen.dart';
 import 'package:nafir/features/bots/application/bot_link_controller.dart';
 import 'package:nafir/features/bots/data/messenger_bot.dart';
@@ -46,6 +50,7 @@ class LibraryScreen extends StatefulWidget {
     this.linkImports,
     required this.picker,
     required this.player,
+    this.recent,
   });
 
   final String email;
@@ -67,6 +72,9 @@ class LibraryScreen extends StatefulWidget {
   /// Adds music from song pages and audio links; null hides the action.
   final LinkImportController? linkImports;
   final AudioPicker picker;
+
+  /// The account's recently played tracks; null hides them.
+  final RecentlyPlayedController? recent;
 
   @override
   State<LibraryScreen> createState() => _LibraryScreenState();
@@ -120,9 +128,12 @@ class _LibraryScreenState extends State<LibraryScreen>
     _lifecycle = AppLifecycleListener(onResume: () {
       widget.library.load();
       widget.botLinks?.load();
+      // What was played on another device meanwhile.
+      widget.recent?.load();
     });
     widget.library.load();
     widget.botLinks?.load();
+    widget.recent?.load();
     widget.library.addListener(_onLibraryChanged);
     if (widget.localAudio.supported) widget.localAudio.load();
     // Opened from a shared playlist link: show it once signed in.
@@ -302,6 +313,7 @@ class _LibraryScreenState extends State<LibraryScreen>
       return;
     }
     await widget.player.removeTrack(track.id);
+    widget.recent?.remove(track.id);
     if (!mounted) return;
     widget.playlists?.load();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -345,6 +357,7 @@ class _LibraryScreenState extends State<LibraryScreen>
 
   Future<void> _refreshLibrary() async {
     widget.botLinks?.load();
+    widget.recent?.load();
     if (widget.localAudio.supported) widget.localAudio.load();
     final ok = await widget.library.load();
     if (!ok && mounted) {
@@ -364,8 +377,15 @@ class _LibraryScreenState extends State<LibraryScreen>
 
   List<Widget> _accountActions(BuildContext context) {
     final wideActions = widget.onAdmin == null ? 720 : 960;
+    final search = IconButton(
+      tooltip: 'جست‌وجو در کتابخانه',
+      onPressed: _openSearch,
+      icon: const Icon(NafirIcons.magnifyingGlass),
+    );
     if (MediaQuery.sizeOf(context).width >= wideActions) {
       return [
+        search,
+        const SizedBox(width: 8),
         _AccountChip(email: widget.email),
         if (widget.verified)
           const Tooltip(
@@ -400,6 +420,7 @@ class _LibraryScreenState extends State<LibraryScreen>
       ];
     }
     return [
+      search,
       PopupMenuButton<_HeaderAction>(
         tooltip: 'حساب و تنظیمات',
         icon: const Icon(NafirIcons.userCircle),
@@ -591,13 +612,76 @@ class _LibraryScreenState extends State<LibraryScreen>
     ));
   }
 
+  /// The history as the library shows it: own tracks with their current
+  /// metadata and device copy.
+  List<Track> _recentTracks() =>
+      resolveRecent(widget.recent?.tracks ?? const [], _unifiedTracks());
+
+  /// [tracks] with the library's row actions: playlists, bots, sync,
+  /// editing and deleting.
+  _TrackList _trackList(
+    List<Track> tracks, {
+    Widget? top,
+    _DeviceNotice? deviceNotice,
+    bool filterable = true,
+    bool nested = true,
+  }) =>
+      _TrackList(
+        top: top,
+        tracks: tracks,
+        player: widget.player,
+        playlists: widget.playlists,
+        onDelete: _confirmDeleteTrack,
+        onEditMetadata: _editTrackMetadata,
+        isDeleting: (trackId) =>
+            widget.library.isDeleting(trackId) ||
+            widget.library.isUpdating(trackId),
+        linkedBots: widget.botLinks?.linkedBots ?? const [],
+        onSendToBot: _sendToBot,
+        sync: widget.sync,
+        onRemoveFromDevice:
+            widget.localAudio.supported ? _confirmRemoveFromDevice : null,
+        deviceNotice: deviceNotice,
+        filterable: filterable,
+        nested: nested,
+      );
+
+  Listenable get _libraryChanges => Listenable.merge([
+        widget.library,
+        widget.localAudio,
+        widget.sync,
+        if (widget.botLinks != null) widget.botLinks,
+      ]);
+
+  void _openRecent() {
+    final recent = widget.recent;
+    if (recent == null) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => _RecentlyPlayedScreen(
+        recent: recent,
+        changes: _libraryChanges,
+        tracks: _recentTracks,
+        player: widget.player,
+        list: (tracks) => _trackList(tracks, filterable: false, nested: false),
+      ),
+    ));
+  }
+
+  void _openSearch() {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => LibrarySearchScreen(
+        changes: _libraryChanges,
+        tracks: _unifiedTracks,
+        libraryTracks: () => widget.library.tracks,
+        playlists: widget.playlists,
+        player: widget.player,
+        onSharedSaved: widget.library.load,
+      ),
+    ));
+  }
+
   Widget _unifiedLibrary() => ListenableBuilder(
-        listenable: Listenable.merge([
-          widget.library,
-          widget.localAudio,
-          widget.sync,
-          if (widget.botLinks != null) widget.botLinks,
-        ]),
+        listenable: _libraryChanges,
         builder: (context, _) {
           final localStatus = widget.localAudio.status;
           final localLoading = widget.localAudio.supported &&
@@ -611,6 +695,13 @@ class _LibraryScreenState extends State<LibraryScreen>
                 LinkImportFailures(controller: links),
               if (widget.library.importsInProgress case final n when n > 0)
                 _ImportsInProgress(count: n),
+              if (widget.recent case final recent?)
+                RecentlyPlayedShelf(
+                  recent: recent,
+                  tracks: _recentTracks,
+                  player: widget.player,
+                  onOpenAll: _openRecent,
+                ),
             ],
           );
           Widget state(Widget child) => _TabScrollView(slivers: [
@@ -639,24 +730,7 @@ class _LibraryScreenState extends State<LibraryScreen>
             onRefresh: _refreshLibrary,
             child: tracks.isEmpty
                 ? state(_EmptyLibrary(deviceNotice: notice))
-                : _TrackList(
-                    top: top,
-                    tracks: tracks,
-                    player: widget.player,
-                    playlists: widget.playlists,
-                    onDelete: _confirmDeleteTrack,
-                    onEditMetadata: _editTrackMetadata,
-                    isDeleting: (trackId) =>
-                        widget.library.isDeleting(trackId) ||
-                        widget.library.isUpdating(trackId),
-                    linkedBots: widget.botLinks?.linkedBots ?? const [],
-                    onSendToBot: _sendToBot,
-                    sync: widget.sync,
-                    onRemoveFromDevice: widget.localAudio.supported
-                        ? _confirmRemoveFromDevice
-                        : null,
-                    deviceNotice: notice,
-                  ),
+                : _trackList(tracks, top: top, deviceNotice: notice),
           );
         },
       );
@@ -1230,6 +1304,8 @@ class _TrackList extends StatefulWidget {
     this.sync,
     this.onRemoveFromDevice,
     this.deviceNotice,
+    this.filterable = true,
+    this.nested = true,
   });
 
   /// Shown above the search, scrolling with the list.
@@ -1250,6 +1326,13 @@ class _TrackList extends StatefulWidget {
   final LibrarySyncController? sync;
   final Future<void> Function(Track track)? onRemoveFromDevice;
   final _DeviceNotice? deviceNotice;
+
+  /// Whether the list can be searched and sorted; otherwise it keeps its
+  /// order, as the recently played list does, with play-all on top.
+  final bool filterable;
+
+  /// Whether it is a tab under the library's collapsing header.
+  final bool nested;
 
   @override
   State<_TrackList> createState() => _TrackListState();
@@ -1272,16 +1355,12 @@ class _TrackListState extends State<_TrackList> {
   }
 
   List<Track> get _filteredTracks {
-    final query = _query.trim().toLowerCase();
-    final matching = query.isEmpty
+    if (!widget.filterable) return widget.tracks;
+    final matching = _query.trim().isEmpty
         ? widget.tracks
-        : widget.tracks.where((track) {
-            final searchable = [track.title, track.artist, track.album]
-                .whereType<String>()
-                .join(' ')
-                .toLowerCase();
-            return searchable.contains(query);
-          }).toList(growable: false);
+        : widget.tracks
+            .where((track) => matchesSearch(_query, _searchFields(track)))
+            .toList(growable: false);
     return sortTracks(matching, _sort);
   }
 
@@ -1292,6 +1371,9 @@ class _TrackListState extends State<_TrackList> {
 
   /// The track's «اقدامات آهنگ» menu, or null when there is nothing to offer.
   Widget? _actionsFor(BuildContext context, Track track) {
+    // Someone else's track, from a collaborative playlist, is theirs to
+    // manage.
+    if (track.addedBy != null) return null;
     final sync = widget.sync;
     final location = locationOf(track);
     final onServer = location != TrackLocation.device;
@@ -1523,6 +1605,7 @@ class _TrackListState extends State<_TrackList> {
   Widget build(BuildContext context) {
     final tracks = _filteredTracks;
     return _TabScrollView(
+      nested: widget.nested,
       slivers: [
         SliverToBoxAdapter(
           child: Column(
@@ -1530,36 +1613,44 @@ class _TrackListState extends State<_TrackList> {
               if (widget.top case final top?) top,
               if (widget.deviceNotice case final notice?)
                 _DeviceStatusBanner(notice: notice),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
-                child: SearchBar(
-                  controller: _search,
-                  hintText: 'جست‌وجوی آهنگ، خواننده یا آلبوم',
-                  leading: const Icon(NafirIcons.magnifyingGlass),
-                  trailing: [
-                    if (_query.isNotEmpty)
-                      IconButton(
-                        tooltip: 'پاک کردن جست‌وجو',
-                        onPressed: () {
-                          _search.clear();
-                          setState(() => _query = '');
-                        },
-                        icon: const Icon(NafirIcons.x),
-                      ),
-                  ],
-                  onChanged: (value) => setState(() => _query = value),
+              if (!widget.filterable)
+                _PlayAllHeader(
+                  count: tracks.length,
+                  onPlay: () => widget.player.playFrom(tracks, 0),
+                  onShuffle: () => widget.player.playShuffled(tracks),
+                )
+              else ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+                  child: SearchBar(
+                    controller: _search,
+                    hintText: 'جست‌وجوی آهنگ، خواننده یا آلبوم',
+                    leading: const Icon(NafirIcons.magnifyingGlass),
+                    trailing: [
+                      if (_query.isNotEmpty)
+                        IconButton(
+                          tooltip: 'پاک کردن جست‌وجو',
+                          onPressed: () {
+                            _search.clear();
+                            setState(() => _query = '');
+                          },
+                          icon: const Icon(NafirIcons.x),
+                        ),
+                    ],
+                    onChanged: (value) => setState(() => _query = value),
+                  ),
                 ),
-              ),
-              _TrackListHeader(
-                shown: tracks.length,
-                total: widget.tracks.length,
-                filtered: _query.trim().isNotEmpty,
-                sort: _sort,
-                onSort: _setSort,
-                onShuffle: tracks.isEmpty
-                    ? null
-                    : () => widget.player.playShuffled(tracks),
-              ),
+                _TrackListHeader(
+                  shown: tracks.length,
+                  total: widget.tracks.length,
+                  filtered: _query.trim().isNotEmpty,
+                  sort: _sort,
+                  onSort: _setSort,
+                  onShuffle: tracks.isEmpty
+                      ? null
+                      : () => widget.player.playShuffled(tracks),
+                ),
+              ],
             ],
           ),
         ),
@@ -1608,10 +1699,14 @@ class _TrackListState extends State<_TrackList> {
 /// centered at most 880 px wide, with room at the end for the add button
 /// and the mini player so they never cover the last row.
 class _TabScrollView extends StatelessWidget {
-  const _TabScrollView({required this.slivers});
+  const _TabScrollView({required this.slivers, this.nested = true});
 
   static const double _maxWidth = 880;
   final List<Widget> slivers;
+
+  /// Under the library's NestedScrollView header; a screen of its own
+  /// has nothing to inject.
+  final bool nested;
 
   @override
   Widget build(BuildContext context) {
@@ -1623,9 +1718,11 @@ class _TabScrollView extends StatelessWidget {
         return CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            SliverOverlapInjector(
-              handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
-            ),
+            if (nested)
+              SliverOverlapInjector(
+                handle:
+                    NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+              ),
             SliverPadding(
               padding: EdgeInsets.fromLTRB(side, 12, side, 128),
               sliver: SliverMainAxisGroup(slivers: slivers),
@@ -2230,6 +2327,582 @@ class _LoadError extends StatelessWidget {
           label: const Text('تلاش دوباره'),
         ),
       ),
+    );
+  }
+}
+
+/// What a track is found by: its title, artist, album and filename.
+List<String?> _searchFields(Track track) => [
+      track.title,
+      track.artist,
+      track.album,
+      track.albumArtist,
+      track.fileName,
+    ];
+
+/// «N آهنگ» with play-all and shuffle, above a list kept in its order.
+class _PlayAllHeader extends StatelessWidget {
+  const _PlayAllHeader({
+    required this.count,
+    required this.onPlay,
+    required this.onShuffle,
+  });
+
+  final int count;
+  final VoidCallback onPlay;
+  final VoidCallback onShuffle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(8, 4, 0, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              '${persianDigits(count)} آهنگ',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelLarge
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+          ),
+          FilledButton.icon(
+            onPressed: count == 0 ? null : onPlay,
+            icon: const Icon(NafirIcons.playFill),
+            label: const Text('پخش همه'),
+          ),
+          const SizedBox(width: 4),
+          IconButton(
+            tooltip: 'پخش تصادفی',
+            onPressed: count == 0 ? null : onShuffle,
+            icon: const Icon(NafirIcons.shuffle),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// «اخیراً پخش‌شده»: what the account played on any device, most recent
+/// first, with the library's row actions.
+class _RecentlyPlayedScreen extends StatelessWidget {
+  const _RecentlyPlayedScreen({
+    required this.recent,
+    required this.changes,
+    required this.tracks,
+    required this.player,
+    required this.list,
+  });
+
+  final RecentlyPlayedController recent;
+
+  /// The library's changes, which the rows reflect.
+  final Listenable changes;
+  final List<Track> Function() tracks;
+  final PlayerController player;
+  final Widget Function(List<Track> tracks) list;
+
+  Future<void> _confirmClear(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(NafirIcons.clockCounterClockwise),
+        title: const Text('پاک کردن تاریخچهٔ پخش؟'),
+        content: const Text(
+            'فهرست «اخیراً پخش‌شده» روی همهٔ دستگاه‌هایت خالی می‌شود. آهنگ‌ها سر جایشان می‌مانند.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('پاک کردن'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    final cleared = await recent.clearAll();
+    if (cleared || !context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('پاک کردن تاریخچه ناموفق بود. دوباره تلاش کن.')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([recent, changes]),
+      builder: (context, _) {
+        final shown = tracks();
+        Widget state(Widget child) => RefreshIndicator(
+              onRefresh: recent.load,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(24, 56, 24, 128),
+                children: [child],
+              ),
+            );
+        final Widget body;
+        if (shown.isNotEmpty) {
+          body = RefreshIndicator(
+            onRefresh: recent.load,
+            child: list(shown),
+          );
+        } else {
+          body = switch (recent.status) {
+            RecentlyPlayedStatus.loading => const Center(
+                child: CircularProgressIndicator(
+                    semanticsLabel: 'در حال دریافت تاریخچه'),
+              ),
+            RecentlyPlayedStatus.error => state(_LibraryState(
+                icon: NafirIcons.cloudSlash,
+                title: 'تاریخچه دریافت نشد',
+                message: 'اتصال اینترنت را بررسی کن و دوباره تلاش کن.',
+                action: FilledButton.icon(
+                  onPressed: recent.load,
+                  icon: const Icon(NafirIcons.arrowsClockwise),
+                  label: const Text('تلاش دوباره'),
+                ),
+              )),
+            RecentlyPlayedStatus.loaded => state(const _LibraryState(
+                icon: NafirIcons.clockCounterClockwise,
+                title: 'هنوز آهنگی پخش نشده',
+                message:
+                    'هر آهنگی که دست‌کم نیم دقیقه بشنوی این‌جا می‌آید؛ روی وب و اندروید یکسان.',
+              )),
+          };
+        }
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('اخیراً پخش‌شده'),
+            actions: [
+              if (shown.isNotEmpty)
+                IconButton(
+                  tooltip: 'پاک کردن تاریخچه',
+                  onPressed: () => _confirmClear(context),
+                  icon: const Icon(NafirIcons.trash),
+                ),
+              const SizedBox(width: 8),
+            ],
+          ),
+          bottomNavigationBar: MiniPlayer(player: player),
+          body: NafirBackdrop(child: body),
+        );
+      },
+    );
+  }
+}
+
+/// One search over the whole library: the account's tracks (title, artist,
+/// album and filename), its playlists and the public popular playlists,
+/// grouped. Matching ignores case, diacritics, ZWNJ and the Arabic forms of
+/// Persian letters, see [normalizeForSearch]. It runs on the lists the app
+/// already has, so results appear as you type, even offline.
+class LibrarySearchScreen extends StatefulWidget {
+  const LibrarySearchScreen({
+    super.key,
+    required this.changes,
+    required this.tracks,
+    required this.libraryTracks,
+    required this.player,
+    this.playlists,
+    this.onSharedSaved,
+  });
+
+  /// Changes to the tracks, which the results follow.
+  final Listenable changes;
+
+  /// The unified library: the account's tracks and the device's music.
+  final List<Track> Function() tracks;
+
+  /// The account's own tracks, for adding to a playlist opened from here.
+  final List<Track> Function() libraryTracks;
+  final PlayerController player;
+
+  /// Null without playlists, which then aren't searched.
+  final PlaylistsController? playlists;
+  final VoidCallback? onSharedSaved;
+
+  @override
+  State<LibrarySearchScreen> createState() => _LibrarySearchScreenState();
+}
+
+class _LibrarySearchScreenState extends State<LibrarySearchScreen> {
+  final TextEditingController _field = TextEditingController();
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    final playlists = widget.playlists;
+    if (playlists != null) {
+      if (playlists.status != PlaylistsStatus.loaded) playlists.load();
+      if (playlists.popularStatus != PlaylistsStatus.loaded) {
+        playlists.loadPopular();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _field.dispose();
+    super.dispose();
+  }
+
+  void _clear() {
+    _field.clear();
+    setState(() => _query = '');
+  }
+
+  Future<void> _openPlaylist(Playlist playlist) async {
+    final controller = widget.playlists!;
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => PlaylistDetailScreen(
+        playlistId: playlist.id,
+        controller: controller,
+        libraryTracks: widget.libraryTracks(),
+        player: widget.player,
+      ),
+    ));
+    if (mounted) controller.load();
+  }
+
+  Future<void> _openPopular(PublicPlaylist playlist) async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => SharedPlaylistScreen(
+        shareToken: playlist.shareToken,
+        controller: widget.playlists!,
+        player: widget.player,
+        onSaved: widget.onSharedSaved,
+      ),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final playlists = widget.playlists;
+    return Scaffold(
+      appBar: AppBar(title: const Text('جست‌وجو')),
+      bottomNavigationBar: MiniPlayer(player: widget.player),
+      body: NafirBackdrop(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final side = constraints.maxWidth >= 900
+                ? ((constraints.maxWidth - 880) / 2).clamp(40.0, 10000.0)
+                : 16.0;
+            return Column(
+              children: [
+                Padding(
+                  padding: EdgeInsets.fromLTRB(side, 8, side, 8),
+                  child: SearchBar(
+                    controller: _field,
+                    autoFocus: true,
+                    hintText: 'آهنگ، خواننده، آلبوم یا فهرست پخش',
+                    leading: const Icon(NafirIcons.magnifyingGlass),
+                    textInputAction: TextInputAction.search,
+                    trailing: [
+                      if (_query.isNotEmpty)
+                        IconButton(
+                          tooltip: 'پاک کردن جست‌وجو',
+                          onPressed: _clear,
+                          icon: const Icon(NafirIcons.x),
+                        ),
+                    ],
+                    onChanged: (value) => setState(() => _query = value),
+                  ),
+                ),
+                Expanded(
+                  child: ListenableBuilder(
+                    listenable: Listenable.merge([
+                      widget.changes,
+                      widget.player,
+                      if (playlists != null) playlists,
+                    ]),
+                    builder: (context, _) => _results(context, side),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _results(BuildContext context, double side) {
+    Widget centered(Widget child) => ListView(
+          padding: EdgeInsets.fromLTRB(side + 8, 48, side + 8, 128),
+          children: [child],
+        );
+    if (normalizeForSearch(_query).isEmpty) {
+      return centered(const _LibraryState(
+        icon: NafirIcons.magnifyingGlass,
+        title: 'در همهٔ کتابخانه بگرد',
+        message:
+            'آهنگ‌ها، فهرست‌های پخش خودت و فهرست‌های محبوب، همه با یک جست‌وجو.',
+      ));
+    }
+
+    final playlists = widget.playlists;
+    final tracks = widget
+        .tracks()
+        .where((track) => matchesSearch(_query, _searchFields(track)))
+        .toList(growable: false);
+    final mine = [
+      for (final playlist in playlists?.playlists ?? const <Playlist>[])
+        if (matchesSearch(_query, [playlist.name])) playlist,
+    ];
+    final popular = [
+      for (final playlist in playlists?.popular ?? const <PublicPlaylist>[])
+        // The user's own public playlists are already among theirs.
+        if (!playlist.isOwner &&
+            matchesSearch(_query, [playlist.name, playlist.owner]))
+          playlist,
+    ];
+    final mineState = playlists == null
+        ? PlaylistsStatus.loaded
+        : (playlists.playlists.isEmpty
+            ? playlists.status
+            : PlaylistsStatus.loaded);
+    final popularState = playlists == null
+        ? PlaylistsStatus.loaded
+        : (playlists.popular.isEmpty
+            ? playlists.popularStatus
+            : PlaylistsStatus.loaded);
+
+    if (tracks.isEmpty &&
+        mine.isEmpty &&
+        popular.isEmpty &&
+        mineState == PlaylistsStatus.loaded &&
+        popularState == PlaylistsStatus.loaded) {
+      return centered(_LibraryState(
+        icon: NafirIcons.magnifyingGlassMinus,
+        title: 'نتیجه‌ای پیدا نشد',
+        message: 'عبارت دیگری را امتحان کن یا جست‌وجو را پاک کن.',
+        action: OutlinedButton.icon(
+          onPressed: _clear,
+          icon: const Icon(NafirIcons.x),
+          label: const Text('پاک کردن جست‌وجو'),
+        ),
+      ));
+    }
+
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          // Room for the mini player under the last result.
+          padding: EdgeInsets.fromLTRB(side, 4, side, 128),
+          sliver: SliverMainAxisGroup(slivers: [
+            if (tracks.isNotEmpty) ...[
+              _ResultsHeader(title: 'آهنگ‌ها', count: tracks.length),
+              SliverList.builder(
+                itemCount: tracks.length,
+                itemBuilder: (context, index) {
+                  final track = tracks[index];
+                  return _TrackRow(
+                    track: track,
+                    current: widget.player.track?.id == track.id,
+                    onTap: () => widget.player.playFrom(tracks, index),
+                    actions: null,
+                  );
+                },
+              ),
+            ],
+            if (playlists != null) ...[
+              if (mine.isNotEmpty || mineState != PlaylistsStatus.loaded)
+                _ResultsHeader(title: 'فهرست‌های پخش من', count: mine.length),
+              if (mine.isEmpty && mineState != PlaylistsStatus.loaded)
+                _GroupStatus(
+                  status: mineState,
+                  failed: 'فهرست‌های پخش دریافت نشد.',
+                  onRetry: playlists.load,
+                ),
+              SliverList.builder(
+                itemCount: mine.length,
+                itemBuilder: (context, index) {
+                  final playlist = mine[index];
+                  return _PlaylistResult(
+                    icon: NafirIcons.playlist,
+                    title: playlist.name,
+                    subtitle: [
+                      '${persianDigits(playlist.displayTrackCount)} قطعه موسیقی',
+                      if (!playlist.isOwner) 'مشترک',
+                    ].join(' · '),
+                    onTap: () => _openPlaylist(playlist),
+                  );
+                },
+              ),
+              if (popular.isNotEmpty || popularState != PlaylistsStatus.loaded)
+                _ResultsHeader(
+                    title: 'فهرست‌های پخش محبوب', count: popular.length),
+              if (popular.isEmpty && popularState != PlaylistsStatus.loaded)
+                _GroupStatus(
+                  status: popularState,
+                  failed: 'فهرست‌های محبوب دریافت نشد.',
+                  onRetry: playlists.loadPopular,
+                ),
+              SliverList.builder(
+                itemCount: popular.length,
+                itemBuilder: (context, index) {
+                  final playlist = popular[index];
+                  return _PlaylistResult(
+                    icon: NafirIcons.fire,
+                    title: playlist.name,
+                    subtitle: [
+                      playlist.owner,
+                      '${persianDigits(playlist.likes.likeCount)} پسند',
+                    ].join(' · '),
+                    onTap: () => _openPopular(playlist),
+                  );
+                },
+              ),
+            ],
+          ]),
+        ),
+      ],
+    );
+  }
+}
+
+/// A group's title in the search results, with how many it found.
+class _ResultsHeader extends StatelessWidget {
+  const _ResultsHeader({required this.title, required this.count});
+
+  final String title;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsetsDirectional.fromSTEB(8, 20, 8, 6),
+        child: Semantics(
+          header: true,
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+              ),
+              if (count > 0)
+                Text(
+                  persianDigits(count),
+                  style: theme.textTheme.labelLarge
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A group still loading, or failed, in the search results.
+class _GroupStatus extends StatelessWidget {
+  const _GroupStatus({
+    required this.status,
+    required this.failed,
+    required this.onRetry,
+  });
+
+  final PlaylistsStatus status;
+  final String failed;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsetsDirectional.fromSTEB(8, 4, 0, 4),
+        child: status == PlaylistsStatus.error
+            ? Row(
+                children: [
+                  Icon(NafirIcons.warningCircle, size: 20, color: colors.error),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(failed)),
+                  TextButton(
+                    onPressed: onRetry,
+                    child: const Text('تلاش دوباره'),
+                  ),
+                ],
+              )
+            : const SizedBox(
+                height: 48,
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      semanticsLabel: 'در حال دریافت',
+                    ),
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+/// A playlist found by the search.
+class _PlaylistResult extends StatelessWidget {
+  const _PlaylistResult({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return ListTile(
+      onTap: onTap,
+      minTileHeight: 64,
+      minVerticalPadding: 14,
+      contentPadding: const EdgeInsetsDirectional.only(start: 8, end: 8),
+      horizontalTitleGap: 12,
+      leading: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: colors.secondaryContainer,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: colors.onSecondaryContainer),
+      ),
+      title: Text(
+        title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style:
+            theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+      ),
+      subtitle: Text(
+        subtitle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.bodySmall
+            ?.copyWith(color: colors.onSurfaceVariant, height: 1.3),
+      ),
+      trailing: Icon(NafirIcons.caretLeft, color: colors.onSurfaceVariant),
     );
   }
 }

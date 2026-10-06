@@ -558,8 +558,8 @@ class ApiClient
 
   @override
   Future<List<Track>> listHistory(String token, {int? limit}) async {
-    final body = await _send(
-        'GET', limit == null ? '/api/v1/history' : '/api/v1/history?limit=$limit',
+    final body = await _send('GET',
+        limit == null ? '/api/v1/history' : '/api/v1/history?limit=$limit',
         token: token);
     return [
       for (final entry in body['entries'] as List<dynamic>)

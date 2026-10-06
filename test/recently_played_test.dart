@@ -139,8 +139,7 @@ void main() {
       expect(recent.status, RecentlyPlayedStatus.error);
     });
 
-    test('recording moves the track to the top and tells the server',
-        () async {
+    test('recording moves the track to the top and tells the server', () async {
       api.history = [track('a'), track('b')];
       await recent.load();
       await recent.record(track('b'));
@@ -151,8 +150,8 @@ void main() {
 
     test('device-only, shared-link and signed-out plays are not kept',
         () async {
-      await recent.record(
-          track('device:7', device: Uri.parse('content://media/7')));
+      await recent
+          .record(track('device:7', device: Uri.parse('content://media/7')));
       await recent.record(track('s', shared: 'tok3n'));
       token = null;
       await recent.record(track('a'));
@@ -199,8 +198,7 @@ void main() {
     test('lists entries, playing others\' tracks through their playlist',
         () async {
       late http.Request sent;
-      final client =
-          ApiClient(baseUri, httpClient: MockClient((request) async {
+      final client = ApiClient(baseUri, httpClient: MockClient((request) async {
         sent = request;
         return http.Response(
           jsonEncode({
@@ -243,8 +241,7 @@ void main() {
 
     test('records a play and clears the history', () async {
       final sent = <http.Request>[];
-      final client =
-          ApiClient(baseUri, httpClient: MockClient((request) async {
+      final client = ApiClient(baseUri, httpClient: MockClient((request) async {
         sent.add(request);
         return http.Response('', 204);
       }));
