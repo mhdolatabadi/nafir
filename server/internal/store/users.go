@@ -18,9 +18,11 @@ var (
 const uniqueViolation = "23505"
 
 type User struct {
-	ID        string
-	Email     string
-	CreatedAt time.Time
+	ID         string
+	Email      string
+	CreatedAt  time.Time
+	Verified   bool
+	VerifiedAt *time.Time
 }
 
 type Users struct {
@@ -35,9 +37,9 @@ func (u *Users) Create(ctx context.Context, email, passwordHash string) (User, e
 	var user User
 	err := u.pool.QueryRow(ctx,
 		`INSERT INTO users (email, password_hash) VALUES ($1, $2)
-		 RETURNING id::text, email, created_at`,
+		 RETURNING id::text, email, created_at, verified, verified_at`,
 		email, passwordHash,
-	).Scan(&user.ID, &user.Email, &user.CreatedAt)
+	).Scan(&user.ID, &user.Email, &user.CreatedAt, &user.Verified, &user.VerifiedAt)
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation {
 		return User{}, ErrEmailTaken
@@ -50,8 +52,8 @@ func (u *Users) ByEmail(ctx context.Context, email string) (User, string, error)
 	var user User
 	var hash string
 	err := u.pool.QueryRow(ctx,
-		`SELECT id::text, email, created_at, password_hash FROM users WHERE email = $1`, email,
-	).Scan(&user.ID, &user.Email, &user.CreatedAt, &hash)
+		`SELECT id::text, email, created_at, verified, verified_at, password_hash FROM users WHERE email = $1`, email,
+	).Scan(&user.ID, &user.Email, &user.CreatedAt, &user.Verified, &user.VerifiedAt, &hash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, "", ErrNotFound
 	}
@@ -62,8 +64,8 @@ func (u *Users) ByID(ctx context.Context, id string) (User, error) {
 	var user User
 	// Comparing as text avoids a cast error when a token carries a malformed ID.
 	err := u.pool.QueryRow(ctx,
-		`SELECT id::text, email, created_at FROM users WHERE id::text = $1`, id,
-	).Scan(&user.ID, &user.Email, &user.CreatedAt)
+		`SELECT id::text, email, created_at, verified, verified_at FROM users WHERE id::text = $1`, id,
+	).Scan(&user.ID, &user.Email, &user.CreatedAt, &user.Verified, &user.VerifiedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrNotFound
 	}

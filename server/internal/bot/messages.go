@@ -4,14 +4,14 @@ import "fmt"
 
 // Everything the bots say, in one place.
 const (
-	msgWelcome     = "سلام! این ربات نفیر است. فایل‌های صوتی را اینجا بفرستید تا به کتابخانهٔ نفیر شما اضافه شوند.\n\n" + msgHowToLink
-	msgHowToLink   = "برای اتصال حساب نفیر: در اپ نفیر به «تنظیمات ← اتصال به بات» بروید، «دریافت کد» را بزنید و کد ۸ رقمی را همین‌جا بفرستید."
-	msgBadCode     = "این کد درست نیست یا منقضی شده است. از اپ نفیر کد تازه بگیرید و دوباره بفرستید."
+	msgWelcome     = "سلام! این ربات ریتمو است. فایل‌های صوتی را اینجا بفرستید تا به کتابخانهٔ ریتمو شما اضافه شوند.\n\n" + msgHowToLink
+	msgHowToLink   = "برای اتصال حساب ریتمو: در اپ ریتمو به «تنظیمات ← اتصال به بات» بروید، «دریافت کد» را بزنید و کد ۸ رقمی را همین‌جا بفرستید."
+	msgBadCode     = "این کد درست نیست یا منقضی شده است. از اپ ریتمو کد تازه بگیرید و دوباره بفرستید."
 	msgLocked      = "چند بار کد اشتباه فرستاده‌اید. یک ساعت دیگر دوباره امتحان کنید."
-	msgUnlinked    = "اتصال این گفتگو به حساب نفیر قطع شد. برای اتصال دوباره، از اپ نفیر کد تازه بگیرید."
-	msgNotLinked   = "این گفتگو هنوز به حساب نفیر وصل نیست.\n\n" + msgHowToLink
-	msgPrivateOnly = "ربات نفیر فقط در گفتگوی خصوصی کار می‌کند."
-	msgHelp        = "فایل صوتی (mp3، m4a، flac، ogg، wav و …) بفرستید تا به کتابخانهٔ نفیر اضافه شود.\n\n" +
+	msgUnlinked    = "اتصال این گفتگو به حساب ریتمو قطع شد. برای اتصال دوباره، از اپ ریتمو کد تازه بگیرید."
+	msgNotLinked   = "این گفتگو هنوز به حساب ریتمو وصل نیست.\n\n" + msgHowToLink
+	msgPrivateOnly = "ربات ریتمو فقط در گفتگوی خصوصی کار می‌کند."
+	msgHelp        = "فایل صوتی (mp3، m4a، flac، ogg، wav و …) بفرستید تا به کتابخانهٔ ریتمو اضافه شود.\n\n" +
 		"/status حساب متصل\n/logout قطع اتصال\n/help همین راهنما\n\n" + msgHowToLink
 	msgTryAgain  = "مشکلی پیش آمد. کمی بعد دوباره امتحان کنید."
 	msgSendAudio = "فایل صوتی بفرستید، یا /help را ببینید."
@@ -27,7 +27,7 @@ func msgStatus(email string) string {
 }
 
 func msgImported(title string) string {
-	return fmt.Sprintf("«%s» به کتابخانهٔ نفیر اضافه شد.", title)
+	return fmt.Sprintf("«%s» به کتابخانهٔ ریتمو اضافه شد.", title)
 }
 
 func msgRefused(reason string, maxMB int64) string {
@@ -50,7 +50,7 @@ func msgRefused(reason string, maxMB int64) string {
 }
 
 func msgSendFailed(title string) string {
-	return fmt.Sprintf("فرستادن «%s» از نفیر ناموفق بود. کمی بعد دوباره از اپ امتحان کنید.", title)
+	return fmt.Sprintf("فرستادن «%s» از ریتمو ناموفق بود. کمی بعد دوباره از اپ امتحان کنید.", title)
 }
 
 func msgSendTooLarge(title string, maxMB int64) string {

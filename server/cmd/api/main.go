@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -176,6 +177,17 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	adminEmails := strings.Split(os.Getenv("ADMIN_EMAILS"), ",")
+	for _, raw := range adminEmails {
+		email := strings.ToLower(strings.TrimSpace(raw))
+		if email == "" {
+			continue
+		}
+		if _, _, err := users.ByEmail(ctx, email); err != nil {
+			return fmt.Errorf("ADMIN_EMAILS requires existing accounts: %w", err)
+		}
+	}
+	authHandlers.WithAdmins(adminEmails)
 	// Uploads handed out before an account is deleted may still land until
 	// pending reservations expire, so the purge job sweeps until then.
 	authHandlers.WithAccountDeletion(httpapi.AccountDeletion{
@@ -230,6 +242,7 @@ func run() error {
 		Handler: httpapi.NewHandler(httpapi.Config{
 			AllowedOrigin: os.Getenv("WEB_ORIGIN"),
 			Auth:          authHandlers,
+			Admin:         httpapi.NewAdminHandlers(authHandlers, users),
 			Tracks: httpapi.NewTrackHandlers(tracks, objects, tokens, httpapi.UploadLimits{
 				MaxFileBytes: maxUploadBytes, MaxOwnerBytes: ownerQuotaBytes,
 				MaxPending: maxPending, Enabled: uploadsEnabled,

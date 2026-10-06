@@ -278,7 +278,7 @@ class LibrarySyncController extends ChangeNotifier {
 /// A short Persian explanation of [error], for a snackbar or a row.
 String syncErrorMessage(SyncError error) => switch (error) {
       SyncError.permission =>
-        'نفیر اجازهٔ دسترسی به موسیقی دستگاه را ندارد. از تنظیمات اندروید اجازه بده.',
+        'ریتمو اجازهٔ دسترسی به موسیقی دستگاه را ندارد. از تنظیمات اندروید اجازه بده.',
       SyncError.quota => 'فضای ابری حسابت پر است. چند آهنگ را حذف کن.',
       SyncError.offline =>
         'اتصال اینترنت برقرار نیست. وصل شو و دوباره تلاش کن.',

@@ -27,6 +27,7 @@ type Playlist struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	Tracks      []Track
+	TrackCount  int
 	// Members are the people besides the owner who can add tracks, and
 	// OwnerEmail who owns it. Both are only loaded with the tracks.
 	Members    []Member
@@ -87,7 +88,13 @@ func NewPlaylists(pool *pgxpool.Pool) *Playlists {
 // recently changed first.
 func (p *Playlists) ListForUser(ctx context.Context, userID string) ([]Playlist, error) {
 	rows, err := p.pool.Query(ctx, `
-		SELECT `+qualifiedPlaylistColumns+`
+		SELECT `+qualifiedPlaylistColumns+`,
+			(SELECT count(*)::int
+			 FROM playlist_tracks pt
+			 JOIN tracks ON tracks.id = pt.track_id
+			 WHERE pt.playlist_id = playlists.id
+			   AND tracks.status = 'ready'
+			   AND `+trackBelongs("tracks", "playlists")+`)
 		FROM playlists
 		WHERE `+canEdit("playlists", "$1")+`
 		ORDER BY updated_at DESC, id
@@ -99,8 +106,18 @@ func (p *Playlists) ListForUser(ctx context.Context, userID string) ([]Playlist,
 
 	playlists := []Playlist{}
 	for rows.Next() {
-		playlist, err := scanPlaylist(rows)
-		if err != nil {
+		var playlist Playlist
+		if err := rows.Scan(
+			&playlist.ID,
+			&playlist.OwnerID,
+			&playlist.Name,
+			&playlist.ShareToken,
+			&playlist.IsPublic,
+			&playlist.CollabToken,
+			&playlist.CreatedAt,
+			&playlist.UpdatedAt,
+			&playlist.TrackCount,
+		); err != nil {
 			return nil, err
 		}
 		playlists = append(playlists, playlist)

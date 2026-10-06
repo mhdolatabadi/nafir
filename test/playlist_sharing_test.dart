@@ -23,6 +23,8 @@ class FakePlaylistsApi implements PlaylistsApi {
   List<PlaylistMember> members = [];
   bool isOwner = true;
   List<Track> tracks = [];
+  List<Playlist>? userPlaylists;
+  final createdNames = <String>[];
   final joined = <String>[];
   final removedMembers = <String>[];
   bool left = false;
@@ -115,12 +117,34 @@ class FakePlaylistsApi implements PlaylistsApi {
     return playlist;
   }
 
+  Playlist _playlistById(String id) {
+    return (userPlaylists ?? [playlist]).firstWhere(
+      (playlist) => playlist.id == id,
+      orElse: () => playlist,
+    );
+  }
+
   @override
-  Future<Playlist> getPlaylist(String t, String id) async => playlist;
+  Future<Playlist> getPlaylist(String t, String id) async => _playlistById(id);
   @override
-  Future<List<Playlist>> listPlaylists(String t) async => [playlist];
+  Future<List<Playlist>> listPlaylists(String t) async =>
+      userPlaylists ?? [playlist];
   @override
-  Future<Playlist> createPlaylist(String t, String name) async => playlist;
+  Future<Playlist> createPlaylist(String t, String name) async {
+    createdNames.add(name);
+    final existing = userPlaylists ?? [playlist];
+    final created = Playlist(
+      id: 'p${existing.length + 1}',
+      name: name,
+      trackCount: 0,
+      tracks: const [],
+      createdAt: DateTime.utc(2026),
+      updatedAt: DateTime.utc(2026),
+    );
+    userPlaylists = [created, ...existing];
+    return created;
+  }
+
   @override
   Future<Playlist> renamePlaylist(String t, String id, String name) async =>
       playlist;
@@ -128,7 +152,29 @@ class FakePlaylistsApi implements PlaylistsApi {
   Future<Playlist> replacePlaylistTracks(
       String t, String id, List<String> trackIds) async {
     replacedWith = trackIds;
-    return playlist;
+    final current = _playlistById(id);
+    final knownTracks = {
+      for (final track in [...current.tracks, ...tracks]) track.id: track,
+    };
+    final updated = current.withTracks([
+      for (final trackId in trackIds)
+        knownTracks[trackId] ??
+            Track(
+              id: trackId,
+              title: trackId,
+              contentType: 'audio/mpeg',
+              sizeBytes: 1,
+            ),
+    ]);
+    if (userPlaylists != null) {
+      userPlaylists = [
+        for (final playlist in userPlaylists!)
+          playlist.id == id ? updated : playlist,
+      ];
+    } else if (id == playlist.id) {
+      tracks = updated.tracks;
+    }
+    return updated;
   }
 
   @override
@@ -302,7 +348,7 @@ void main() {
       expect(playlists.saved, [token]);
       expect(
           find.text(
-              'به Playlistها و کتابخانه‌ات اضافه شد. این نسخه مال خودت است.'),
+              'به فهرست‌های پخش و کتابخانه‌ات اضافه شد. این نسخه مال خودت است.'),
           findsOneWidget);
     });
 
@@ -362,7 +408,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     final longName =
-        'یک Playlist با اسمی بسیار طولانی که نباید از صفحه بیرون بزند ' * 2;
+        'یک فهرست پخش با اسمی بسیار طولانی که نباید از صفحه بیرون بزند ' * 2;
     final playlists = FakePlaylistsApi()
       ..shared[token] = SharedPlaylist.fromJson(token, {
         'name': longName,
@@ -522,7 +568,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(api.shareCalls, [true]);
       expect(api.isPublic, isTrue);
-      expect(find.textContaining('Playlistهای محبوب'), findsOneWidget);
+      expect(find.textContaining('فهرست‌های پخش محبوب'), findsOneWidget);
 
       await tester.tap(find.text('فقط با لینک'));
       await tester.pumpAndSettle();
@@ -592,14 +638,13 @@ void main() {
 
       testWidgets('says when nothing is public yet', (tester) async {
         await pump(tester, FakePlaylistsApi());
-        expect(
-            find.textContaining('هنوز Playlist عمومی‌ای نیست'), findsOneWidget);
+        expect(find.textContaining('هنوز فهرست پخش عمومی‌ای نیست'),
+            findsOneWidget);
       });
 
       testWidgets('offers a retry when the list fails', (tester) async {
         final api = await pump(tester, FakePlaylistsApi()..listFails = true);
-        expect(
-            find.text('فهرست Playlistهای محبوب بارگذاری نشد.'), findsOneWidget);
+        expect(find.text('فهرست‌های پخش محبوب بارگذاری نشد.'), findsOneWidget);
 
         api
           ..listFails = false
@@ -616,7 +661,7 @@ void main() {
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
         final long =
-            'یک Playlist عمومی با اسمی بسیار طولانی که نباید بیرون بزند ' * 2;
+            'یک فهرست پخش عمومی با اسمی بسیار طولانی که نباید بیرون بزند ' * 2;
         await pump(
             tester,
             FakePlaylistsApi()

@@ -56,13 +56,13 @@ class _SharedPlaylistScreenState extends State<SharedPlaylistScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(switch (result) {
         SaveSharedResult.saved =>
-          'به Playlistها و کتابخانه‌ات اضافه شد. این نسخه مال خودت است.',
-        SaveSharedResult.alreadyYours => 'این Playlist خودت است.',
+          'به فهرست‌های پخش و کتابخانه‌ات اضافه شد. این نسخه مال خودت است.',
+        SaveSharedResult.alreadyYours => 'این فهرست پخش خودت است.',
         SaveSharedResult.noSpace =>
           'فضای کافی در حسابت نیست. چند آهنگ را حذف کن و دوباره امتحان کن.',
         SaveSharedResult.uploadsDisabled =>
           'افزودن آهنگ فعلاً غیرفعال است. کمی بعد دوباره امتحان کن.',
-        SaveSharedResult.gone => 'این Playlist دیگر به اشتراک گذاشته نمی‌شود.',
+        SaveSharedResult.gone => 'این فهرست پخش دیگر به اشتراک گذاشته نمی‌شود.',
         SaveSharedResult.failed => 'افزودن ناموفق بود. دوباره تلاش کن.',
       }),
     ));
@@ -85,7 +85,7 @@ class _SharedPlaylistScreenState extends State<SharedPlaylistScreen> {
     if (!mounted || result == LikeResult.done) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(result == LikeResult.gone
-          ? 'این Playlist دیگر به اشتراک گذاشته نمی‌شود.'
+          ? 'این فهرست پخش دیگر به اشتراک گذاشته نمی‌شود.'
           : 'پسندیدن ثبت نشد. دوباره تلاش کن.'),
     ));
   }
@@ -119,7 +119,7 @@ class _SharedPlaylistScreenState extends State<SharedPlaylistScreen> {
       extendBody: true,
       appBar: AppBar(
         title: Text(
-          playlist?.name ?? 'Playlist اشتراکی',
+          playlist?.name ?? 'فهرست پخش اشتراکی',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -135,7 +135,7 @@ class _SharedPlaylistScreenState extends State<SharedPlaylistScreen> {
             ),
           _Load.failed => _Message(
               icon: NafirIcons.cloudSlash,
-              text: 'بارگذاری Playlist ناموفق بود.',
+              text: 'بارگذاری فهرست پخش ناموفق بود.',
               action: FilledButton.icon(
                 onPressed: _load,
                 icon: const Icon(NafirIcons.arrowsClockwise),
@@ -218,7 +218,7 @@ class _Contents extends StatelessWidget {
                       children: [
                         Text(
                           playlist.isOwner
-                              ? 'Playlist خودت، که با لینک به اشتراک گذاشته‌ای'
+                              ? 'فهرست پخش خودت، که با لینک به اشتراک گذاشته‌ای'
                               : 'اشتراک‌گذاری‌شده توسط ${playlist.owner}',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -273,7 +273,7 @@ class _Contents extends StatelessWidget {
               const Expanded(
                 child: _Message(
                   icon: NafirIcons.musicNotesMinus,
-                  text: 'این Playlist فعلاً آهنگی ندارد.',
+                  text: 'این فهرست پخش فعلاً آهنگی ندارد.',
                 ),
               )
             else
@@ -337,7 +337,7 @@ class PlaylistLikeButton extends StatelessWidget {
     final color = liked ? Theme.of(context).colorScheme.primary : null;
     final icon =
         Icon(liked ? NafirIcons.heartFill : NafirIcons.heart, color: color);
-    final tooltip = liked ? 'برداشتن پسند' : 'پسندیدن این Playlist';
+    final tooltip = liked ? 'برداشتن پسند' : 'پسندیدن این فهرست پخش';
     return Tooltip(
       message: tooltip,
       child: Semantics(
@@ -496,8 +496,8 @@ class _ShareSheetState extends State<_ShareSheet> {
             const SizedBox(height: 8),
             Text(
               link == null
-                  ? 'با لینک اشتراک، هر کسی که حساب نفیر دارد می‌تواند این Playlist را ببیند و آهنگ‌هایش را پخش کند. هر وقت بخواهی می‌توانی لینک را باطل کنی.'
-                  : 'هر کسی که این لینک را دارد و وارد نفیر شده، این Playlist را می‌بیند و پخش می‌کند.',
+                  ? 'با لینک اشتراک، هر کسی که حساب ریتمو دارد می‌تواند این فهرست پخش را ببیند و آهنگ‌هایش را پخش کند. هر وقت بخواهی می‌توانی لینک را باطل کنی.'
+                  : 'هر کسی که این لینک را دارد و وارد ریتمو شده، این فهرست پخش را می‌بیند و پخش می‌کند.',
             ),
             const SizedBox(height: 16),
             SegmentedButton<bool>(
@@ -523,7 +523,7 @@ class _ShareSheetState extends State<_ShareSheet> {
             const SizedBox(height: 8),
             Text(
               _public
-                  ? 'در «Playlistهای محبوب» به همه‌ی کاربران نفیر نشان داده می‌شود و می‌توانند آن را بپسندند.'
+                  ? 'در «فهرست‌های پخش محبوب» به همه‌ی کاربران ریتمو نشان داده می‌شود و می‌توانند آن را بپسندند.'
                   : 'در هیچ فهرستی نمی‌آید؛ فقط کسی که لینک را دارد پیدایش می‌کند.',
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: theme.colorScheme.onSurfaceVariant),

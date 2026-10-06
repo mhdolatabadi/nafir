@@ -15,6 +15,7 @@ import (
 
 // LinkImporter adds music from links: a song page or an audio file.
 type LinkImporter interface {
+	Preview(ctx context.Context, userID, rawURL string) ([]linkimport.Candidate, error)
 	Submit(ctx context.Context, userID, rawURL string) (store.BotImport, error)
 	Recent(ctx context.Context, userID string) ([]store.BotImport, error)
 }
@@ -32,6 +33,7 @@ func NewLinkImportHandlers(importer LinkImporter, tokens *auth.Tokens, rate *Rat
 }
 
 func (h *LinkImportHandlers) register(mux *http.ServeMux) {
+	mux.HandleFunc("POST /api/v1/imports/link/preview", h.handlePreview)
 	mux.HandleFunc("POST /api/v1/imports/link", h.handleSubmit)
 	mux.HandleFunc("GET /api/v1/imports/link", h.handleList)
 }
@@ -55,6 +57,68 @@ func toLinkImportResponse(i store.BotImport) linkImportResponse {
 	return linkImportResponse{
 		ID: i.ID, FileName: i.FileName, Site: site, State: string(i.State),
 		Error: i.Error, TrackID: i.TrackID, CreatedAt: i.CreatedAt.UTC(),
+	}
+}
+
+type linkImportCandidateResponse struct {
+	URL       string `json:"url"`
+	FileName  string `json:"fileName"`
+	Site      string `json:"site"`
+	SizeBytes int64  `json:"sizeBytes,omitempty"`
+}
+
+func toLinkImportCandidateResponse(c linkimport.Candidate) linkImportCandidateResponse {
+	site := ""
+	if c.URL != nil {
+		site = c.URL.Hostname()
+	}
+	return linkImportCandidateResponse{
+		URL: c.URL.String(), FileName: c.FileName, Site: site, SizeBytes: c.SizeBytes,
+	}
+}
+
+func (h *LinkImportHandlers) handlePreview(w http.ResponseWriter, r *http.Request) {
+	userID, ok := authenticate(h.tokens, w, r)
+	if !ok {
+		return
+	}
+	if h.rate != nil && !enforceRateLimit(w, h.rate, userID) {
+		return
+	}
+	var input struct {
+		URL string `json:"url"`
+	}
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8<<10))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&input); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	candidates, err := h.importer.Preview(r.Context(), userID, input.URL)
+	switch {
+	case errors.Is(err, linkimport.ErrInvalidURL):
+		writeError(w, http.StatusBadRequest, "invalid_url")
+	case errors.Is(err, linkimport.ErrBlocked):
+		writeError(w, http.StatusBadRequest, "blocked_url")
+	case errors.Is(err, linkimport.ErrUnreachable):
+		writeError(w, http.StatusBadGateway, "unreachable")
+	case errors.Is(err, linkimport.ErrNoAudio):
+		writeError(w, http.StatusUnprocessableEntity, "no_audio")
+	case errors.Is(err, linkimport.ErrUnsupported):
+		writeError(w, http.StatusUnsupportedMediaType, "unsupported_format")
+	case errors.Is(err, linkimport.ErrTooLarge):
+		writeError(w, http.StatusRequestEntityTooLarge, "too_large")
+	case errors.Is(err, linkimport.ErrDisabled):
+		writeError(w, http.StatusServiceUnavailable, "uploads_disabled")
+	case err != nil:
+		internalError(w, "preview link import", err)
+	default:
+		response := make([]linkImportCandidateResponse, 0, len(candidates))
+		for _, c := range candidates {
+			response = append(response, toLinkImportCandidateResponse(c))
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		writeJSON(w, http.StatusOK, map[string]any{"candidates": response})
 	}
 }
 

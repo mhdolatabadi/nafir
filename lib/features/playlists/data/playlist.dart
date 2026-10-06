@@ -72,6 +72,10 @@ class Playlist {
   /// People besides the owner who joined; loaded with the tracks.
   final List<PlaylistMember> members;
 
+  /// Count to show when loaded tracks are newer than a stale server count.
+  int get displayTrackCount =>
+      tracks.length > trackCount ? tracks.length : trackCount;
+
   /// The same playlist with [tracks] in this order.
   Playlist withTracks(List<Track> tracks) => Playlist(
         id: id,

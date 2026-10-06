@@ -185,7 +185,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               textColor: error,
               title: const Text('حذف حساب کاربری'),
               subtitle: const Text(
-                'حساب، موسیقی‌های ابری و Playlistهایت برای همیشه پاک می‌شوند',
+                'حساب، موسیقی‌های ابری و فهرست‌های پخشت برای همیشه پاک می‌شوند',
               ),
               trailing: const Icon(NafirIcons.caretLeft, size: 20),
               onTap: () => _openDeleteAccount(email, delete),

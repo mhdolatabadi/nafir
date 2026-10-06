@@ -1,3 +1,5 @@
+import 'package:nafir/features/admin/data/admin_account.dart';
+import 'package:nafir/features/admin/presentation/admin_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/app/app_configuration.dart';
@@ -26,6 +28,7 @@ class AuthGate extends StatefulWidget {
     required this.controller,
     required this.library,
     this.playlists,
+    this.adminApi,
     required this.localAudio,
     required this.uploads,
     required this.sync,
@@ -37,6 +40,7 @@ class AuthGate extends StatefulWidget {
   });
 
   final AuthController controller;
+  final AdminApi? adminApi;
   final PlayerController player;
   final LibraryController library;
   final PlaylistsController? playlists;
@@ -141,6 +145,22 @@ class _AuthGateState extends State<AuthGate> {
               : _guestHome(widget.playlists!),
           AuthStatus.signedIn => LibraryScreen(
               email: controller.user!.email,
+              verified: controller.user!.verified,
+              onAdmin: controller.user!.isAdmin && widget.adminApi != null
+                  ? () async {
+                      await Navigator.of(context).push(MaterialPageRoute<void>(
+                        builder: (_) => AdminScreen(
+                          api: widget.adminApi!,
+                          token: () => controller.token,
+                        ),
+                      ));
+                      try {
+                        await controller.refreshUser();
+                      } catch (_) {
+                        // A network failure keeps the current session intact.
+                      }
+                    }
+                  : null,
               onLogout: () {
                 // Never show one account's tracks to the next one.
                 widget.player.stop();
