@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mhdolatabadi/nafir/server/internal/display"
 	"github.com/mhdolatabadi/nafir/server/internal/bot"
+	"github.com/mhdolatabadi/nafir/server/internal/display"
 	"github.com/mhdolatabadi/nafir/server/internal/store"
 )
 

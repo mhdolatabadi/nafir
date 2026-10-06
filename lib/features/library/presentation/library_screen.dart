@@ -1424,8 +1424,8 @@ class _TrackListState extends State<_TrackList> {
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(NafirIcons.playlist),
                       title: Text(playlist.name),
-                      subtitle:
-                          Text('${persianDigits(playlist.displayTrackCount)} قطعه موسیقی'),
+                      subtitle: Text(
+                          '${persianDigits(playlist.displayTrackCount)} قطعه موسیقی'),
                     ),
                   ),
               ],
@@ -1644,7 +1644,9 @@ class _TrackListHeader extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              filtered ? '${persianDigits(shown)} از ${persianDigits(total)} آهنگ' : '${persianDigits(total)} آهنگ',
+              filtered
+                  ? '${persianDigits(shown)} از ${persianDigits(total)} آهنگ'
+                  : '${persianDigits(total)} آهنگ',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.labelLarge

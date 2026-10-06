@@ -660,7 +660,8 @@ class _BottomRow extends StatelessWidget {
           style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
           onPressed: onQueue,
           icon: const Icon(NafirIcons.playlist),
-          label: Text(upcoming == 0 ? 'صف پخش' : 'صف پخش · ${persianDigits(upcoming)}'),
+          label: Text(
+              upcoming == 0 ? 'صف پخش' : 'صف پخش · ${persianDigits(upcoming)}'),
         ),
         const Spacer(),
         IconButton(
@@ -783,7 +784,9 @@ class QueueSheet extends StatelessWidget {
               Padding(
                 padding: const EdgeInsetsDirectional.fromSTEB(24, 12, 24, 4),
                 child: Text(
-                  upcoming.isEmpty ? 'بعدی' : 'بعدی · ${persianDigits(upcoming.length)} آهنگ',
+                  upcoming.isEmpty
+                      ? 'بعدی'
+                      : 'بعدی · ${persianDigits(upcoming.length)} آهنگ',
                   style: theme.textTheme.labelLarge?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),

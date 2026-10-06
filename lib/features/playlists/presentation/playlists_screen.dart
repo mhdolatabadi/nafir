@@ -355,7 +355,8 @@ class _PlaylistsOverview extends StatelessWidget {
                     ),
                 ],
               ),
-              subtitle: Text('${persianDigits(playlist.displayTrackCount)} قطعه موسیقی'),
+              subtitle: Text(
+                  '${persianDigits(playlist.displayTrackCount)} قطعه موسیقی'),
               trailing: const Icon(NafirIcons.caretLeft),
               onTap: () => onOpen(playlist),
             ),

@@ -342,7 +342,9 @@ class PlaylistLikeButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: Semantics(
-        label: liked ? 'پسندیده‌ای، ${persianDigits(count)} پسند' : 'نپسندیده‌ای، ${persianDigits(count)} پسند',
+        label: liked
+            ? 'پسندیده‌ای، ${persianDigits(count)} پسند'
+            : 'نپسندیده‌ای، ${persianDigits(count)} پسند',
         toggled: liked,
         excludeSemantics: true,
         button: true,
@@ -358,7 +360,9 @@ class PlaylistLikeButton extends StatelessWidget {
             : OutlinedButton.icon(
                 onPressed: onPressed,
                 icon: icon,
-                label: Text(liked ? 'پسندیدی · ${persianDigits(count)}' : 'پسندیدن · ${persianDigits(count)}'),
+                label: Text(liked
+                    ? 'پسندیدی · ${persianDigits(count)}'
+                    : 'پسندیدن · ${persianDigits(count)}'),
               ),
       ),
     );
