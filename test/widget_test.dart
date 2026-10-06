@@ -198,7 +198,7 @@ void main() {
       expect(find.text('ورود / ثبت‌نام'), findsOneWidget);
 
       // Liking needs an account; the guest is offered sign-in instead.
-      await tester.tap(find.text('5'));
+      await tester.tap(find.text('۵'));
       await tester.pumpAndSettle();
       expect(find.text('برای پسندیدن وارد حسابت شو.'), findsOneWidget);
 
