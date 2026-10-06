@@ -10,13 +10,18 @@ import 'package:nafir/features/playlists/data/playlist.dart';
 import 'package:nafir/features/upload/data/upload_models.dart';
 
 class ApiException implements Exception {
-  const ApiException(this.message, {this.statusCode, this.code});
+  const ApiException(this.message,
+      {this.statusCode, this.code, this.details = const {}});
 
   final String message;
   final int? statusCode;
 
   /// Machine-readable error from the API body, for example `email_taken`.
   final String? code;
+
+  /// The rest of the error body, for example the invalid `field`, or the
+  /// latest `track` on a version conflict.
+  final Map<String, dynamic> details;
 
   bool get isUnauthorized => statusCode == 401;
 
@@ -93,6 +98,9 @@ class TrackLibrary {
 abstract interface class TracksApi {
   Future<TrackLibrary> listTracks(String token);
   Future<StreamLink> streamLink(String token, String trackId);
+
+  /// One of the user's own cloud tracks, as the server has it now.
+  Future<Track> getTrack(String token, String trackId);
 
   /// A link to save a cloud track. While an edit's embedded tags are still
   /// being written this fails with HTTP 409 `tags_pending`; try again a few
@@ -273,6 +281,14 @@ class ApiClient
       limitBytes: (storage['limitBytes'] as num).toInt(),
       importsInProgress: (body['importsInProgress'] as num?)?.toInt() ?? 0,
     );
+  }
+
+  @override
+  Future<Track> getTrack(String token, String trackId) async {
+    final body = await _send(
+        'GET', '/api/v1/tracks/${Uri.encodeComponent(trackId)}',
+        token: token);
+    return Track.fromJson(body);
   }
 
   @override
@@ -585,6 +601,7 @@ class ApiClient
         'Server returned HTTP ${response.statusCode}.',
         statusCode: response.statusCode,
         code: code is String ? code : null,
+        details: decoded ?? const {},
       );
     }
     if (!expectBody) return const {};

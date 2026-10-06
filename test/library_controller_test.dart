@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
+import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/features/library/data/track.dart';
+import 'package:nafir/features/library/data/track_metadata.dart';
 
 import 'upload_controller_test.dart' show FakeTracksApi;
 
@@ -60,78 +62,145 @@ void main() {
     expect(library.isDeleting('s1'), isFalse);
   });
 
-  test('editing metadata updates the visible track', () async {
+  test('saving metadata updates the visible track and bumps the version',
+      () async {
     final api = FakeTracksApi([_song]);
     final library = LibraryController(api: api, token: () => 'tok');
     await library.load();
 
-    expect(
-      await library.updateTrackMetadata(
-        's1',
+    final result = await library.saveTrackMetadata(
+      's1',
+      const TrackMetadataDraft(
+        fileName: ' آهنگ.mp3 ',
         title: '  New title  ',
         artist: '  New artist ',
         album: '   ',
+        year: 2026,
       ),
-      isTrue,
+      version: 1,
     );
 
+    expect(result, isA<MetadataSaved>());
     expect(api.calls, contains('update:s1'));
-    expect(library.tracks.single.title, 'New title');
-    expect(library.tracks.single.artist, 'New artist');
-    expect(library.tracks.single.album, isNull);
-    expect(library.tracks.single.version, 2);
+    final track = library.tracks.single;
+    expect(track.title, 'New title');
+    expect(track.artist, 'New artist');
+    expect(track.album, isNull);
+    expect(track.fileName, 'آهنگ.mp3');
+    expect(track.year, 2026);
+    expect(track.version, 2);
     expect(library.isUpdating('s1'), isFalse);
   });
 
-  test('a metadata edit sends the version it is based on', () async {
+  test('a stale edit is a conflict carrying the latest copy', () async {
     final api = FakeTracksApi([_song]);
     final library = LibraryController(api: api, token: () => 'tok');
     await library.load();
-
-    expect(await library.updateTrackMetadata('s1', title: 'One'), isTrue);
-    // The second edit is based on the version the first one returned.
-    expect(await library.updateTrackMetadata('s1', title: 'Two'), isTrue);
-    expect(library.tracks.single.version, 3);
-
-    // A stale copy elsewhere is rejected by the server as a conflict.
-    api.tracks[0] = Track(
+    api.tracks[0] = const Track(
       id: 's1',
       title: 'Changed elsewhere',
       contentType: 'audio/mpeg',
       sizeBytes: 1000,
       version: 9,
     );
-    expect(await library.updateTrackMetadata('s1', title: 'Three'), isFalse);
-    expect(library.tracks.single.title, 'Two');
+
+    final result = await library.saveTrackMetadata(
+        's1', const TrackMetadataDraft(fileName: '', title: 'Mine'),
+        version: 1);
+
+    expect(result, isA<MetadataConflict>());
+    expect((result as MetadataConflict).latest.version, 9);
+    // The library shows the newer copy instead of the stale one.
+    expect(library.tracks.single.title, 'Changed elsewhere');
+    expect(library.isUpdating('s1'), isFalse);
   });
 
-  test('a failed metadata edit keeps the track and clears busy state',
-      () async {
-    final api = FakeTracksApi([_song])..updateError = Exception('offline');
+  test('a rejected field and a network failure are reported apart', () async {
+    final api = FakeTracksApi([_song])
+      ..updateError = const ApiException('bad',
+          statusCode: 400,
+          code: 'invalid_metadata',
+          details: {'error': 'invalid_metadata', 'field': 'fileName'});
     final library = LibraryController(api: api, token: () => 'tok');
     await library.load();
+    const draft = TrackMetadataDraft(fileName: 'a/b.mp3', title: 'T');
 
-    expect(
-      await library.updateTrackMetadata('s1', title: 'New title'),
-      isFalse,
-    );
+    final invalid = await library.saveTrackMetadata('s1', draft, version: 1);
+    expect(invalid, isA<MetadataInvalid>());
+    expect((invalid as MetadataInvalid).field, 'fileName');
 
+    api.updateError = Exception('offline');
+    expect(await library.saveTrackMetadata('s1', draft, version: 1),
+        isA<MetadataSaveFailed>());
     expect(library.tracks, [_song]);
     expect(library.isUpdating('s1'), isFalse);
   });
 
-  test('empty metadata titles are rejected before the API call', () async {
-    final api = FakeTracksApi([_song]);
-    final library = LibraryController(api: api, token: () => 'tok');
+  test('pending embedded tags are followed until the file is written',
+      () async {
+    final scheduled = <void Function()>[];
+    final api = FakeTracksApi([_song])
+      ..tagsAfterUpdate = const EmbeddedTags(status: EmbeddedTagStatus.pending);
+    final library = LibraryController(
+      api: api,
+      token: () => 'tok',
+      schedule: (delay, callback) {
+        scheduled.add(callback);
+        return () => scheduled.remove(callback);
+      },
+    );
     await library.load();
 
+    await library.saveTrackMetadata(
+        's1', const TrackMetadataDraft(fileName: '', title: 'New'),
+        version: 1);
     expect(
-      await library.updateTrackMetadata('s1', title: '   '),
-      isFalse,
-    );
+        library.tracks.single.embeddedTags.status, EmbeddedTagStatus.pending);
+    expect(scheduled, hasLength(1));
 
-    expect(api.calls.where((call) => call.startsWith('update:')), isEmpty);
-    expect(library.tracks, [_song]);
+    // Still pending: check again later.
+    scheduled.removeAt(0)();
+    await pumpEventQueue();
+    expect(api.calls.where((c) => c == 'get:s1'), hasLength(1));
+    expect(scheduled, hasLength(1));
+
+    // Written: the library shows it and stops asking.
+    api.tracks[0] = Track(
+      id: 's1',
+      title: 'New',
+      contentType: 'audio/mpeg',
+      sizeBytes: 1000,
+      version: 2,
+      embeddedTags:
+          const EmbeddedTags(status: EmbeddedTagStatus.written, version: 2),
+    );
+    scheduled.removeAt(0)();
+    await pumpEventQueue();
+    expect(
+        library.tracks.single.embeddedTags.status, EmbeddedTagStatus.written);
+    expect(scheduled, isEmpty);
+  });
+
+  test('logging out stops following pending tags', () async {
+    final scheduled = <void Function()>[];
+    final api = FakeTracksApi([_song])
+      ..tagsAfterUpdate = const EmbeddedTags(status: EmbeddedTagStatus.pending);
+    final library = LibraryController(
+      api: api,
+      token: () => 'tok',
+      schedule: (delay, callback) {
+        scheduled.add(callback);
+        return () => scheduled.remove(callback);
+      },
+    );
+    await library.load();
+    await library.saveTrackMetadata(
+        's1', const TrackMetadataDraft(fileName: '', title: 'New'),
+        version: 1);
+
+    library.clear();
+
+    expect(scheduled, isEmpty);
   });
 
   test('a failed delete keeps the track and clears busy state', () async {

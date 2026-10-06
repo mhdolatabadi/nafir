@@ -87,6 +87,29 @@ void main() {
     player = PlayerController(api: api, engine: engine, token: () => 'tok');
   });
 
+  test('an edited track shows its new metadata without restarting', () async {
+    const a =
+        Track(id: 'a', title: 'A', contentType: 'audio/mpeg', sizeBytes: 1);
+    const b =
+        Track(id: 'b', title: 'B', contentType: 'audio/mpeg', sizeBytes: 1);
+    await player.playFrom([a, b], 0);
+    final loads = engine.loads.length;
+    var notified = 0;
+    player.addListener(() => notified++);
+
+    player.updateTrack(const Track(
+        id: 'a', title: 'A edited', contentType: 'audio/mpeg', sizeBytes: 1));
+    player.updateTrack(const Track(
+        id: 'b', title: 'B edited', contentType: 'audio/mpeg', sizeBytes: 1));
+    player.updateTrack(const Track(
+        id: 'x', title: 'Not queued', contentType: 'audio/mpeg', sizeBytes: 1));
+
+    expect(player.track?.title, 'A edited');
+    expect(player.upcoming.single.title, 'B edited');
+    expect(engine.loads, hasLength(loads));
+    expect(notified, 2);
+  });
+
   test('plays a track from a fresh stream link', () async {
     final seen = <PlayerStatus>[];
     player.addListener(() => seen.add(player.status));
