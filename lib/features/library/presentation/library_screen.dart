@@ -657,7 +657,7 @@ class _LibraryScreenState extends State<LibraryScreen>
     final recent = widget.recent;
     if (recent == null) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => _RecentlyPlayedScreen(
+      builder: (_) => RecentlyPlayedScreen(
         recent: recent,
         changes: _libraryChanges,
         tracks: _recentTracks,
@@ -2387,8 +2387,9 @@ class _PlayAllHeader extends StatelessWidget {
 
 /// «اخیراً پخش‌شده»: what the account played on any device, most recent
 /// first, with the library's row actions.
-class _RecentlyPlayedScreen extends StatelessWidget {
-  const _RecentlyPlayedScreen({
+class RecentlyPlayedScreen extends StatelessWidget {
+  const RecentlyPlayedScreen({
+    super.key,
     required this.recent,
     required this.changes,
     required this.tracks,
@@ -2402,6 +2403,8 @@ class _RecentlyPlayedScreen extends StatelessWidget {
   final Listenable changes;
   final List<Track> Function() tracks;
   final PlayerController player;
+
+  /// The rows, given the tracks to show.
   final Widget Function(List<Track> tracks) list;
 
   Future<void> _confirmClear(BuildContext context) async {
@@ -2538,12 +2541,16 @@ class _LibrarySearchScreenState extends State<LibrarySearchScreen> {
   void initState() {
     super.initState();
     final playlists = widget.playlists;
-    if (playlists != null) {
+    if (playlists == null) return;
+    // After the first frame: loading notifies the playlists tab, which
+    // must not rebuild while this screen is being built.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       if (playlists.status != PlaylistsStatus.loaded) playlists.load();
       if (playlists.popularStatus != PlaylistsStatus.loaded) {
         playlists.loadPopular();
       }
-    }
+    });
   }
 
   @override
