@@ -894,36 +894,71 @@ class _TrackPicker extends StatefulWidget {
 
 class _TrackPickerState extends State<_TrackPicker> {
   late final Set<String> selected = {...widget.selected};
+  String query = '';
 
   @override
   Widget build(BuildContext context) {
+    final search = query.trim().toLowerCase();
+    final tracks = widget.tracks.where((track) {
+      return '${track.title} ${track.artist ?? ''}'
+          .toLowerCase()
+          .contains(search);
+    }).toList();
     return AlertDialog(
       title: const Text('انتخاب آهنگ‌های فهرست پخش'),
       content: SizedBox(
         width: 560,
         height: 480,
-        child: widget.tracks.isEmpty
-            ? const Center(child: Text('کتابخانه خالی است.'))
-            : ListView.builder(
-                itemCount: widget.tracks.length,
-                itemBuilder: (context, index) {
-                  final track = widget.tracks[index];
-                  return CheckboxListTile(
-                    value: selected.contains(track.id),
-                    title: Text(track.title),
-                    subtitle: Text(track.artist ?? ''),
-                    onChanged: (checked) {
-                      setState(() {
-                        if (checked ?? false) {
-                          selected.add(track.id);
-                        } else {
-                          selected.remove(track.id);
-                        }
-                      });
-                    },
-                  );
-                },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              decoration: const InputDecoration(
+                labelText: 'جست‌وجوی عنوان یا هنرمند',
+                prefixIcon: Icon(NafirIcons.magnifyingGlass),
               ),
+              onChanged: (value) => setState(() => query = value),
+            ),
+            const SizedBox(height: 12),
+            Semantics(
+              liveRegion: true,
+              child: Text('${persianDigits(selected.length)} آهنگ انتخاب شده'),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: widget.tracks.isEmpty
+                  ? const Center(child: Text('کتابخانه خالی است.'))
+                  : tracks.isEmpty
+                      ? const Center(
+                          child: Text('آهنگی با این جست‌وجو پیدا نشد.'))
+                      : ListView.builder(
+                          itemCount: tracks.length,
+                          itemBuilder: (context, index) {
+                            final track = tracks[index];
+                            return CheckboxListTile(
+                              value: selected.contains(track.id),
+                              title: Text(track.title,
+                                  maxLines: 2, overflow: TextOverflow.ellipsis),
+                              subtitle: track.artist?.trim().isNotEmpty == true
+                                  ? Text(track.artist!,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis)
+                                  : null,
+                              onChanged: (checked) {
+                                setState(() {
+                                  if (checked ?? false) {
+                                    selected.add(track.id);
+                                  } else {
+                                    selected.remove(track.id);
+                                  }
+                                });
+                              },
+                            );
+                          },
+                        ),
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(
