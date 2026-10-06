@@ -56,6 +56,22 @@ class FakeTracksApi implements TracksApi {
     );
   }
 
+  /// Download links issued, by track ID.
+  final downloadLinks = <String>[];
+
+  @override
+  Future<DownloadLink> downloadLink(String token, String trackId) async {
+    calls.add('download:$trackId');
+    if (linkError != null) throw linkError!;
+    downloadLinks.add(trackId);
+    final track = tracks.firstWhere((t) => t.id == trackId);
+    return DownloadLink(
+      Uri.parse('https://music.example.com/nafir-music/$trackId?dl=1'),
+      DateTime.now().add(const Duration(hours: 1)),
+      track.fileName ?? 'track.mp3',
+    );
+  }
+
   @override
   Future<StreamLink> playlistStreamLink(
       String token, String playlistId, String trackId) async {

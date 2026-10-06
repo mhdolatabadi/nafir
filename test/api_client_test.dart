@@ -31,6 +31,30 @@ void main() {
     expect(session.user.email, 'a@example.com');
   });
 
+  test('downloadLink asks for the track download with the token', () async {
+    late http.Request sent;
+    final client = ApiClient(baseUri, httpClient: MockClient((request) async {
+      sent = request;
+      return http.Response(
+        jsonEncode({
+          'url': 'https://music.example.com/nafir-music/k?sig=1',
+          'expiresAt': '2030-01-01T00:00:00Z',
+          'fileName': 'My_Song.mp3',
+        }),
+        200,
+      );
+    }));
+
+    final link = await client.downloadLink('t0ken', 't1');
+
+    expect(sent.method, 'GET');
+    expect(sent.url.toString(),
+        'https://music.example.com/api/v1/tracks/t1/download');
+    expect(sent.headers['Authorization'], 'Bearer t0ken');
+    expect(link.url.toString(), 'https://music.example.com/nafir-music/k?sig=1');
+    expect(link.fileName, 'My_Song.mp3');
+  });
+
   test('me sends the bearer token', () async {
     late http.Request sent;
     final client = ApiClient(baseUri, httpClient: MockClient((request) async {
