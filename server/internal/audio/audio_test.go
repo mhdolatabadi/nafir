@@ -137,3 +137,26 @@ func TestDisplayFileName(t *testing.T) {
 		}
 	}
 }
+
+func TestContentDisposition(t *testing.T) {
+	for in, want := range map[string]string{
+		"song.mp3":            `attachment; filename="song.mp3"; filename*=UTF-8''song.mp3`,
+		"آهنگ من.mp3":         `attachment; filename="track.mp3"; filename*=UTF-8''%D8%A2%D9%87%D9%86%DA%AF%20%D9%85%D9%86.mp3`,
+		`My "Best" Song.flac`: `attachment; filename="My _Best_ Song.flac"; filename*=UTF-8''My%20%22Best%22%20Song.flac`,
+		"Mix آهنگ.ogg":        `attachment; filename="Mix ____.ogg"; filename*=UTF-8''Mix%20%D8%A2%D9%87%D9%86%DA%AF.ogg`,
+		"50% off;x.mp3":       `attachment; filename="50_ off;x.mp3"; filename*=UTF-8''50%25%20off%3Bx.mp3`,
+	} {
+		if got := ContentDisposition(in); got != want {
+			t.Errorf("ContentDisposition(%q)\n got %s\nwant %s", in, got, want)
+		}
+	}
+	// Whatever the name, the header stays one line of printable ASCII.
+	for _, name := range []string{"a\r\nSet-Cookie: x.mp3", "‮gpj.mp3", strings.Repeat("ب", 200) + ".mp3"} {
+		got := ContentDisposition(name)
+		for _, r := range got {
+			if r < 0x20 || r >= 0x7F {
+				t.Fatalf("ContentDisposition(%q) has %q", name, r)
+			}
+		}
+	}
+}

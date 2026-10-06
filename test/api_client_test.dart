@@ -212,6 +212,48 @@ void main() {
     expect(library.importsInProgress, 3);
   });
 
+  test('downloadLink reads the edited name and tag freshness', () async {
+    late http.Request sent;
+    final client = ApiClient(baseUri, httpClient: MockClient((request) async {
+      sent = request;
+      return http.Response(
+        jsonEncode({
+          'url': 'https://music.example.com/nafir-music/k?sig=1',
+          'expiresAt': '2026-10-06T11:00:00Z',
+          'fileName': 'آهنگ تازه.mp3',
+          'contentType': 'audio/mpeg',
+          'sizeBytes': 10,
+          'version': 4,
+          'tagsUpToDate': true,
+          'embeddedTags': {'status': 'written', 'version': 4},
+        }),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    }));
+
+    final link = await client.downloadLink('t0ken', 't1');
+
+    expect(sent.url.path, '/api/v1/tracks/t1/download');
+    expect(sent.headers['Authorization'], 'Bearer t0ken');
+    expect(link.fileName, 'آهنگ تازه.mp3');
+    expect(link.version, 4);
+    expect(link.tagsUpToDate, isTrue);
+  });
+
+  test('downloadLink reports a pending tag rewrite as a 409', () async {
+    final client = ApiClient(baseUri, httpClient: MockClient((request) async {
+      return http.Response(jsonEncode({'error': 'tags_pending'}), 409);
+    }));
+
+    expect(
+      () => client.downloadLink('t0ken', 't1'),
+      throwsA(isA<ApiException>()
+          .having((e) => e.statusCode, 'statusCode', 409)
+          .having((e) => e.code, 'code', 'tags_pending')),
+    );
+  });
+
   test('updateTrackMetadata patches editable fields', () async {
     late http.Request sent;
     final client = ApiClient(baseUri, httpClient: MockClient((request) async {
