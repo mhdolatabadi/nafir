@@ -1,3 +1,41 @@
+/// Whether the stored file itself carries a cloud track's metadata. After an
+/// edit the server rewrites the file's embedded tags in the background.
+class EmbeddedTags {
+  const EmbeddedTags({
+    this.status = EmbeddedTagStatus.original,
+    this.version,
+    this.unsupportedFields = const [],
+  });
+
+  factory EmbeddedTags.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return const EmbeddedTags();
+    return EmbeddedTags(
+      status: switch (json['status']) {
+        'pending' => EmbeddedTagStatus.pending,
+        'written' => EmbeddedTagStatus.written,
+        'failed' => EmbeddedTagStatus.failed,
+        'unsupported' => EmbeddedTagStatus.unsupported,
+        _ => EmbeddedTagStatus.original,
+      },
+      version: (json['version'] as num?)?.toInt(),
+      unsupportedFields: [
+        for (final field in json['unsupportedFields'] as List<dynamic>? ?? [])
+          field as String,
+      ],
+    );
+  }
+
+  final EmbeddedTagStatus status;
+
+  /// The metadata version written into the file, once [status] is written.
+  final int? version;
+
+  /// Fields the file's format cannot carry; edits to them stay in rhythmo.
+  final List<String> unsupportedFields;
+}
+
+enum EmbeddedTagStatus { original, pending, written, failed, unsupported }
+
 class Track {
   const Track({
     required this.id,
@@ -20,6 +58,7 @@ class Track {
     this.addedBy,
     this.viaPlaylist,
     this.version = 1,
+    this.embeddedTags = const EmbeddedTags(),
   });
 
   /// [viaPlaylist] is the collaborative playlist a track someone else added
@@ -46,6 +85,8 @@ class Track {
         addedBy: json['addedBy'] as String?,
         viaPlaylist: json['addedBy'] == null ? null : viaPlaylist,
         version: (json['version'] as num?)?.toInt() ?? 1,
+        embeddedTags: EmbeddedTags.fromJson(
+            json['embeddedTags'] as Map<String, dynamic>?),
       );
 
   final String id;
@@ -65,6 +106,35 @@ class Track {
   /// The server's metadata version; an edit must be based on the latest one
   /// or the server rejects it as a conflict.
   final int version;
+
+  /// Whether the stored file's own tags match this metadata yet.
+  final EmbeddedTags embeddedTags;
+
+  /// This track with the shared-playlist context of [other] kept, for
+  /// replacing a stale copy after the server returns fresh metadata.
+  Track keepingContextOf(Track other) => Track(
+        id: id,
+        title: title,
+        artist: artist,
+        album: album,
+        albumArtist: albumArtist,
+        composer: composer,
+        genre: genre,
+        year: year,
+        trackNumber: trackNumber,
+        discNumber: discNumber,
+        comment: comment,
+        contentType: contentType,
+        sizeBytes: sizeBytes,
+        fileName: fileName,
+        sourceUri: other.sourceUri ?? sourceUri,
+        source: source,
+        sharedVia: other.sharedVia,
+        addedBy: other.addedBy,
+        viaPlaylist: other.viaPlaylist,
+        version: version,
+        embeddedTags: embeddedTags,
+      );
 
   /// Original filename when the platform exposes it. Local uploads use this
   /// to preserve the extension for format detection.

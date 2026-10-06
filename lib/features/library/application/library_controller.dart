@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/features/library/data/track.dart';
+import 'package:nafir/features/library/data/track_metadata.dart';
 
 enum LibraryStatus { loading, error, loaded }
 
@@ -15,6 +16,17 @@ void Function() _timer(Duration delay, void Function() callback) =>
 
 /// How long to wait between checks while bot imports are in progress: soon
 /// at first, then less often, and not at all after about a quarter hour.
+/// How long to wait between checks while a track's embedded tags are being
+/// rewritten after an edit; usually done within seconds.
+const tagPollDelays = [
+  Duration(seconds: 2),
+  Duration(seconds: 4),
+  Duration(seconds: 8),
+  Duration(seconds: 15),
+  Duration(seconds: 30),
+  Duration(minutes: 1),
+];
+
 const importPollDelays = [
   Duration(seconds: 3),
   Duration(seconds: 5),
@@ -80,6 +92,12 @@ class LibraryController extends ChangeNotifier {
       _limitBytes = library.limitBytes;
       _status = LibraryStatus.loaded;
       _followImports(library.importsInProgress);
+      for (final track in _tracks) {
+        if (track.embeddedTags.status == EmbeddedTagStatus.pending &&
+            !_cancelTagPolls.containsKey(track.id)) {
+          _followTags(track.id, 0);
+        }
+      }
       return true;
     } catch (_) {
       if (generation != _generation) return false;
@@ -117,22 +135,21 @@ class LibraryController extends ChangeNotifier {
     }
   }
 
-  /// Updates the editable display metadata for an owned cloud track.
-  Future<bool> updateTrackMetadata(
-    String trackId, {
-    required String title,
-    String? artist,
-    String? album,
+  /// Saves [draft] for an owned cloud track, based on metadata [version]
+  /// (the version the editor started from). The server is the authority on
+  /// validation; a newer version on the server is a [MetadataConflict].
+  Future<MetadataSaveResult> saveTrackMetadata(
+    String trackId,
+    TrackMetadataDraft draft, {
+    required int version,
   }) async {
     final token = _token();
-    if (token == null || _updatingTrackIds.contains(trackId)) return false;
-    final current = _tracks.where((track) => track.id == trackId).firstOrNull;
-    if (current == null) return false;
-    final trimmedTitle = title.trim();
-    if (trimmedTitle.isEmpty) return false;
-    String? clean(String? value) {
-      final trimmed = value?.trim();
-      return trimmed == null || trimmed.isEmpty ? null : trimmed;
+    if (token == null || _updatingTrackIds.contains(trackId)) {
+      return const MetadataSaveFailed();
+    }
+    String? clean(String value) {
+      final trimmed = value.trim();
+      return trimmed.isEmpty ? null : trimmed;
     }
 
     _updatingTrackIds.add(trackId);
@@ -141,21 +158,83 @@ class LibraryController extends ChangeNotifier {
       final updated = await _api.updateTrackMetadata(
         token,
         trackId,
-        version: current.version,
-        title: trimmedTitle,
-        artist: clean(artist),
-        album: clean(album),
+        version: version,
+        fileName: clean(draft.fileName),
+        title: draft.title.trim(),
+        artist: clean(draft.artist),
+        album: clean(draft.album),
+        albumArtist: clean(draft.albumArtist),
+        composer: clean(draft.composer),
+        genre: clean(draft.genre),
+        year: draft.year,
+        trackNumber: draft.trackNumber,
+        discNumber: draft.discNumber,
+        comment: clean(draft.comment),
       );
-      _tracks = List.unmodifiable([
-        for (final track in _tracks) track.id == updated.id ? updated : track,
-      ]);
-      return true;
+      replaceTrack(updated);
+      return MetadataSaved(updated);
+    } on ApiException catch (error) {
+      final latest = error.details['track'];
+      if (error.statusCode == 409 && latest is Map<String, dynamic>) {
+        final track = Track.fromJson(latest);
+        replaceTrack(track);
+        return MetadataConflict(track);
+      }
+      final field = error.details['field'];
+      if (error.statusCode == 400 && field is String) {
+        return MetadataInvalid(field);
+      }
+      return const MetadataSaveFailed();
     } catch (_) {
-      return false;
+      return const MetadataSaveFailed();
     } finally {
       _updatingTrackIds.remove(trackId);
       notifyListeners();
     }
+  }
+
+  /// Shows [track] in place of the copy with the same ID, and follows its
+  /// embedded tag rewrite while the server is still writing the file.
+  void replaceTrack(Track track) {
+    final index = _tracks.indexWhere((current) => current.id == track.id);
+    if (index == -1) return;
+    _tracks = List.unmodifiable(
+        [..._tracks]..[index] = track.keepingContextOf(_tracks[index]));
+    notifyListeners();
+    if (track.embeddedTags.status == EmbeddedTagStatus.pending) {
+      _followTags(track.id, 0);
+    } else {
+      _cancelTagPolls.remove(track.id)?.call();
+    }
+  }
+
+  final Map<String, void Function()> _cancelTagPolls = {};
+
+  /// Changes when the signed-in user does, so late answers are ignored.
+  int _account = 0;
+
+  /// Checks a track again after a growing delay until its tags are no
+  /// longer pending, so the library knows when the file is up to date.
+  void _followTags(String trackId, int step) {
+    _cancelTagPolls.remove(trackId)?.call();
+    if (step >= tagPollDelays.length) return;
+    final account = _account;
+    _cancelTagPolls[trackId] = _schedule(tagPollDelays[step], () async {
+      _cancelTagPolls.remove(trackId);
+      final token = _token();
+      if (token == null || account != _account) return;
+      try {
+        final fresh = await _api.getTrack(token, trackId);
+        if (account != _account) return;
+        if (fresh.embeddedTags.status == EmbeddedTagStatus.pending) {
+          _followTags(trackId, step + 1);
+        } else {
+          replaceTrack(fresh);
+        }
+      } catch (_) {
+        if (account == _account) _followTags(trackId, step + 1);
+      }
+    });
   }
 
   /// While bot imports are in progress, loads again after a growing delay
@@ -180,12 +259,20 @@ class LibraryController extends ChangeNotifier {
   @override
   void dispose() {
     _cancelPoll?.call();
+    for (final cancel in _cancelTagPolls.values) {
+      cancel();
+    }
     super.dispose();
   }
 
   /// Forgets the previous user's tracks, for example on logout.
   void clear() {
     _cancelPoll?.call();
+    for (final cancel in _cancelTagPolls.values) {
+      cancel();
+    }
+    _cancelTagPolls.clear();
+    _account++;
     _cancelPoll = null;
     _importsInProgress = 0;
     _pollStep = 0;
