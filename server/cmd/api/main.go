@@ -272,7 +272,9 @@ func run() error {
 			History: httpapi.NewHistoryHandlers(store.NewHistory(pool), tokens, historyRate),
 			Public: httpapi.NewPublicPages(playlists, objects,
 				httpapi.AnonymousLimits{View: publicViewRate, Stream: publicStreamRate}).
-				WithContact(os.Getenv("PRIVACY_CONTACT_EMAIL")),
+				WithContact(os.Getenv("PRIVACY_CONTACT_EMAIL")).
+				WithQuota(ownerQuotaBytes).
+				WithAndroidApp(os.Getenv("ANDROID_APP_URL")),
 			Bots:        botHandlers,
 			LinkImports: httpapi.NewLinkImportHandlers(linkImports, tokens, linkImportRate),
 			Ops:         ops,

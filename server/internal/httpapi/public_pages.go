@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -16,7 +17,7 @@ import (
 	"github.com/mhdolatabadi/nafir/server/internal/store"
 )
 
-//go:embed public/*.html public/nafir.png
+//go:embed public/*.html public/nafir.png public/social.png
 var publicFiles embed.FS
 
 var publicTemplates = map[string]*template.Template{
@@ -44,13 +45,78 @@ type PublicPages struct {
 	playlists SharedPlaylistStore
 	streams   StreamPresigner
 	limits    AnonymousLimits
+	// quotaBytes is each account's cloud storage, as the front page tells it.
+	quotaBytes int64
+	// androidApp is where the Android app is installed from; the front page
+	// offers it only when set.
+	androidApp string
 	// contact is the email the privacy page gives for questions and
 	// account deletion; the page leaves it out when it is empty.
 	contact string
 }
 
 func NewPublicPages(playlists SharedPlaylistStore, streams StreamPresigner, limits AnonymousLimits) *PublicPages {
-	return &PublicPages{playlists: playlists, streams: streams, limits: limits}
+	return &PublicPages{playlists: playlists, streams: streams, limits: limits, quotaBytes: 1 << 30}
+}
+
+// WithQuota sets the per-account storage the front page mentions.
+func (p *PublicPages) WithQuota(bytes int64) *PublicPages {
+	if bytes > 0 {
+		p.quotaBytes = bytes
+	}
+	return p
+}
+
+// WithAndroidApp sets the https link the Android app is installed from,
+// such as its store page; anything else is ignored.
+func (p *PublicPages) WithAndroidApp(link string) *PublicPages {
+	link = strings.TrimSpace(link)
+	if u, err := url.Parse(link); err == nil && u.Scheme == "https" && u.Host != "" && u.User == nil {
+		p.androidApp = link
+	} else {
+		p.androidApp = ""
+	}
+	return p
+}
+
+// quotaText says bytes in Persian, in whole gigabytes or megabytes.
+func quotaText(bytes int64) string {
+	if bytes >= 1<<30 && bytes%(1<<30) == 0 {
+		return display.PersianDigits(bytes>>30) + " گیگابایت"
+	}
+	return display.PersianDigits((bytes+(1<<20)-1)>>20) + " مگابایت"
+}
+
+// publicFeature is one point of what rhythmo does, on the front page.
+type publicFeature struct {
+	Title string
+	Text  string
+}
+
+// publicQuestion is one frequently asked question, shown on the front page
+// and given to search engines as FAQ structured data.
+type publicQuestion struct {
+	Question string
+	Answer   string
+}
+
+var publicFeatures = []publicFeature{
+	{"کتابخانه‌ی ابری با کیفیت اصلی", "آهنگ‌هایت را آپلود کن؛ همان فایلی که فرستادی نگه داشته و پخش می‌شود، بدون فشرده‌سازی دوباره."},
+	{"فهرست پخش و اشتراک‌گذاری", "فهرست پخش بساز، با لینک یا به‌صورت عمومی به اشتراک بگذار، یا با دوستانت فهرست مشترک بساز."},
+	{"وب و اندروید", "در مرورگر بدون نصب گوش بده؛ در اندروید موسیقی خود گوشی را هم ببین و آهنگ‌ها را برای پخش بدون اینترنت دانلود کن."},
+	{"مشخصات درست برای هر آهنگ", "نام، خواننده و آلبوم را ویرایش کن؛ فایلی که دانلود می‌کنی همان مشخصات و نام را دارد."},
+	{"افزودن از لینک و بات", "آهنگ را با لینک یا از طریق بات‌های بله و تلگرام مستقیم به کتابخانه‌ات بفرست."},
+}
+
+func (p *PublicPages) questions() []publicQuestion {
+	return []publicQuestion{
+		{"ریتمو رایگان است؟", "بله. هر حساب " + quotaText(p.quotaBytes) + " فضای ابری برای موسیقی دارد."},
+		{"چه قالب‌هایی را می‌شود آپلود کرد؟", "MP3، M4A، AAC، FLAC، OGG، Opus، WAV و WebM."},
+		{"کیفیت آهنگ‌ها کم می‌شود؟", "نه. ریتمو فایل را همان‌طور که آپلود کرده‌ای نگه می‌دارد و پخش می‌کند."},
+		{"چه کسی فهرست‌های پخش مرا می‌بیند؟", "فقط خودت، مگر اینکه لینکش را بسازی. فهرستی که «عمومی» کنی در صفحه‌ی اول ریتمو هم نشان داده می‌شود."},
+		{"اپ اندروید هم دارد؟", "بله. ریتمو روی وب بدون نصب کار می‌کند و اپ اندروید هم دارد که موسیقی گوشی را هم نشان می‌دهد و پخش بدون اینترنت دارد."},
+		{"چطور حسابم را حذف کنم؟", "از تنظیمات اپ، «حذف حساب کاربری» را بزن. همه‌ی آهنگ‌ها و فهرست‌های پخشت برای همیشه پاک می‌شوند."},
+	}
 }
 
 func (p *PublicPages) register(mux *http.ServeMux) {
@@ -60,6 +126,7 @@ func (p *PublicPages) register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /sitemap.xml", p.handleSitemap)
 	mux.HandleFunc("GET /robots.txt", p.handleRobots)
 	mux.HandleFunc("GET /nafir.png", p.handleIcon)
+	mux.HandleFunc("GET /social.png", p.handleSocialImage)
 	mux.HandleFunc("GET /privacy", p.handlePrivacy)
 	mux.HandleFunc("GET /delete-account", p.handleDeleteAccount)
 }
@@ -140,20 +207,40 @@ func (p *PublicPages) handleHome(w http.ResponseWriter, r *http.Request) {
 			"@type": "ListItem", "position": i + 1, "url": site + "/p/" + pl.ShareToken, "name": pl.Name,
 		})
 	}
+	questions := p.questions()
+	faqJSON := make([]map[string]any, 0, len(questions))
+	for _, q := range questions {
+		faqJSON = append(faqJSON, map[string]any{
+			"@type": "Question", "name": q.Question,
+			"acceptedAnswer": map[string]any{"@type": "Answer", "text": q.Answer},
+		})
+	}
 	w.Header().Set("Cache-Control", publicPageMaxAge)
 	p.render(w, http.StatusOK, "home", struct {
 		pageMeta
-		Playlists []publicListItem
+		Features   []publicFeature
+		Questions  []publicQuestion
+		AndroidApp string
+		Playlists  []publicListItem
 	}{
 		pageMeta: pageMeta{
-			Title:       "ریتمو — فهرست‌های پخش محبوب",
-			Description: "فهرست‌های پخش محبوب کاربران ریتمو را بدون ثبت‌نام بشنو و فهرست پخش خودت را بساز.",
-			Canonical:   site + "/", Image: site + "/nafir.png", OGType: "website",
+			Title: "ریتمو — پخش‌کننده و فضای ابری موسیقی",
+			Description: "ریتمو کتابخانه‌ی موسیقی ابری توست: آهنگ‌هایت را با کیفیت اصلی آپلود کن، " +
+				"فهرست پخش بساز و روی وب و اندروید گوش بده. فهرست‌های پخش محبوب را بدون ثبت‌نام بشنو.",
+			Canonical: site + "/", Image: site + "/social.png", OGType: "website",
 			JSONLD: map[string]any{
-				"@context": "https://schema.org", "@type": "ItemList",
-				"name": "فهرست‌های پخش محبوب ریتمو", "itemListElement": listJSON,
+				"@context": "https://schema.org",
+				"@graph": []map[string]any{
+					{"@type": "WebSite", "@id": site + "/#website", "name": "ریتمو", "alternateName": "rhythmo",
+						"url": site + "/", "inLanguage": "fa"},
+					{"@type": "Organization", "@id": site + "/#organization", "name": "ریتمو", "url": site + "/",
+						"logo": site + "/nafir.png"},
+					{"@type": "ItemList", "name": "فهرست‌های پخش محبوب ریتمو", "itemListElement": listJSON},
+					{"@type": "FAQPage", "mainEntity": faqJSON},
+				},
 			},
 		},
+		Features: publicFeatures, Questions: questions, AndroidApp: p.androidApp,
 		Playlists: items,
 	})
 }
@@ -173,7 +260,7 @@ func (p *PublicPages) publicPlaylistFor(w http.ResponseWriter, r *http.Request) 
 	if errors.Is(err, store.ErrNotFound) {
 		p.render(w, http.StatusNotFound, "missing", struct{ pageMeta }{pageMeta{
 			Title: "پیدا نشد — ریتمو", Description: "این فهرست پخش عمومی نیست یا حذف شده است.",
-			Canonical: origin(r) + r.URL.Path, Image: origin(r) + "/nafir.png", OGType: "website", NoIndex: true,
+			Canonical: origin(r) + r.URL.Path, Image: origin(r) + "/social.png", OGType: "website", NoIndex: true,
 		}})
 		return store.SharedPlaylist{}, false
 	}
@@ -238,7 +325,7 @@ func (p *PublicPages) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 		pageMeta: pageMeta{
 			Title:       shared.Name + " — فهرست پخش در ریتمو",
 			Description: description,
-			Canonical:   canonical, Image: site + "/nafir.png", OGType: "music.playlist",
+			Canonical:   canonical, Image: site + "/social.png", OGType: "music.playlist",
 			JSONLD: map[string]any{
 				"@context": "https://schema.org", "@type": "MusicPlaylist",
 				"name": shared.Name, "url": canonical, "numTracks": len(shared.Tracks), "track": recordings,
@@ -340,7 +427,7 @@ func (p *PublicPages) handlePrivacy(w http.ResponseWriter, r *http.Request) {
 		pageMeta: pageMeta{
 			Title:       "حریم خصوصی — ریتمو",
 			Description: "ریتمو چه اطلاعاتی نگه می‌دارد، چه کسی آن را می‌بیند و چطور حذفش کنی.",
-			Canonical:   site + "/privacy", Image: site + "/nafir.png", OGType: "website",
+			Canonical:   site + "/privacy", Image: site + "/social.png", OGType: "website",
 		},
 		Updated: privacyUpdated,
 		Contact: p.contact,
@@ -363,11 +450,17 @@ func (p *PublicPages) handleDeleteAccount(w http.ResponseWriter, r *http.Request
 		pageMeta: pageMeta{
 			Title:       "حذف حساب کاربری — ریتمو",
 			Description: "چطور حساب ریتمو و همه‌ی موسیقی‌ها و فهرست‌های پخشت را برای همیشه حذف کنی.",
-			Canonical:   site + "/delete-account", Image: site + "/nafir.png", OGType: "website",
+			Canonical:   site + "/delete-account", Image: site + "/social.png", OGType: "website",
 		},
 		Updated: deleteAccountUpdated,
 		Contact: p.contact,
 	})
+}
+
+// handleSocialImage serves the 1200×630 card link previews show.
+func (p *PublicPages) handleSocialImage(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "public, max-age=604800")
+	http.ServeFileFS(w, r, publicFiles, "public/social.png")
 }
 
 func (p *PublicPages) handleIcon(w http.ResponseWriter, r *http.Request) {

@@ -66,6 +66,8 @@ services:
       OPS_TOKEN: ${OPS_TOKEN:-}
       # The email /privacy and /delete-account give for questions and deletion.
       PRIVACY_CONTACT_EMAIL: ${PRIVACY_CONTACT_EMAIL:-}
+      # Where the front page sends visitors to install the Android app (optional).
+      ANDROID_APP_URL: ${ANDROID_APP_URL:-}
       BOT_PUBLIC_URL: https://${NAFIR_DOMAIN}
     depends_on:
       postgres:

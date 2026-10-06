@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/json"
+	"image/png"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -39,6 +40,19 @@ func jsonLD(t *testing.T, page string) map[string]any {
 	return data
 }
 
+// graphNode returns the @graph entry of the given type, failing if absent.
+func graphNode(t *testing.T, data map[string]any, kind string) map[string]any {
+	t.Helper()
+	graph, _ := data["@graph"].([]any)
+	for _, node := range graph {
+		if n, ok := node.(map[string]any); ok && n["@type"] == kind {
+			return n
+		}
+	}
+	t.Fatalf("no %s in JSON-LD %v", kind, data)
+	return nil
+}
+
 func TestPublicFrontPageListsPublicPlaylists(t *testing.T) {
 	token := strings.Repeat("A", 22)
 	evil := `</script><script>alert(1)</script>`
@@ -65,8 +79,8 @@ func TestPublicFrontPageListsPublicPlaylists(t *testing.T) {
 	if strings.Contains(page, "<script>alert(1)") {
 		t.Fatal("a playlist name was not escaped")
 	}
-	if list := jsonLD(t, page); list["@type"] != "ItemList" {
-		t.Fatalf("JSON-LD = %v", list)
+	if list := graphNode(t, jsonLD(t, page), "ItemList"); len(list["itemListElement"].([]any)) != 1 {
+		t.Fatalf("ItemList = %v", list)
 	}
 	if response.Header().Get("Cache-Control") != publicPageMaxAge {
 		t.Fatalf("cache = %q", response.Header().Get("Cache-Control"))
@@ -241,5 +255,87 @@ func TestDeleteAccountPage(t *testing.T) {
 		if !strings.Contains(privacy, want) {
 			t.Fatalf("privacy page lacks %q", want)
 		}
+	}
+}
+
+func TestFrontPageExplainsRhythmoWithFAQ(t *testing.T) {
+	site := NewHandler(Config{Public: NewPublicPages(&sharingStore{}, fixedPresigner{}, AnonymousLimits{}).
+		WithQuota(2 << 30).WithAndroidApp("https://cafebazaar.ir/app/ir.mhdolatabadi.nafir")})
+	page := get(site, "/").Body.String()
+
+	for _, want := range []string{
+		"<title>ریتمو — پخش‌کننده و فضای ابری موسیقی</title>",
+		"<h1>ریتمو، کتابخانه‌ی موسیقی ابری تو</h1>",
+		"کتابخانه‌ی ابری با کیفیت اصلی",
+		`<h2 class="section">فهرست‌های پخش محبوب</h2>`,
+		`<h2 class="section" id="faq">پرسش‌های رایج</h2>`,
+		"بله. هر حساب ۲ گیگابایت فضای ابری برای موسیقی دارد.",
+		`href="https://cafebazaar.ir/app/ir.mhdolatabadi.nafir"`,
+		`<meta name="twitter:card" content="summary_large_image">`,
+		`<meta property="og:image" content="https://nafir.example.com/social.png">`,
+		`<meta property="og:image:width" content="1200">`,
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("front page lacks %s", want)
+		}
+	}
+	// Each feature fits on a 360 px screen: the grid never forces a column
+	// wider than the screen.
+	if !strings.Contains(page, "minmax(min(100%,250px),1fr)") {
+		t.Error("feature grid can overflow narrow screens")
+	}
+
+	data := jsonLD(t, page)
+	if site := graphNode(t, data, "WebSite"); site["url"] != "https://nafir.example.com/" || site["inLanguage"] != "fa" {
+		t.Errorf("WebSite = %v", site)
+	}
+	if org := graphNode(t, data, "Organization"); org["logo"] != "https://nafir.example.com/nafir.png" {
+		t.Errorf("Organization = %v", org)
+	}
+	faq := graphNode(t, data, "FAQPage")
+	questions, _ := faq["mainEntity"].([]any)
+	if len(questions) < 4 {
+		t.Fatalf("FAQ = %v", faq)
+	}
+	first := questions[0].(map[string]any)
+	answer := first["acceptedAnswer"].(map[string]any)
+	if first["@type"] != "Question" || answer["@type"] != "Answer" || !strings.Contains(answer["text"].(string), "۲ گیگابایت") {
+		t.Errorf("first question = %v", first)
+	}
+	// Every visible question is in the structured data, and the other way round.
+	for _, q := range questions {
+		name := q.(map[string]any)["name"].(string)
+		if !strings.Contains(page, "<h3>"+name+"</h3>") {
+			t.Errorf("structured question %q is not on the page", name)
+		}
+	}
+}
+
+func TestFrontPageOffersAndroidOnlyForAnHTTPSLink(t *testing.T) {
+	for _, link := range []string{"", "http://example.com/app.apk", "javascript:alert(1)", "https://user@example.com/"} {
+		site := NewHandler(Config{Public: NewPublicPages(&sharingStore{}, fixedPresigner{}, AnonymousLimits{}).WithAndroidApp(link)})
+		if page := get(site, "/").Body.String(); strings.Contains(page, "دریافت اپ اندروید") {
+			t.Errorf("Android button shown for %q", link)
+		}
+	}
+}
+
+func TestQuotaText(t *testing.T) {
+	for bytes, want := range map[int64]string{1 << 30: "۱ گیگابایت", 5 << 30: "۵ گیگابایت", 500 << 20: "۵۰۰ مگابایت", 1<<30 + 1: "۱۰۲۵ مگابایت"} {
+		if got := quotaText(bytes); got != want {
+			t.Errorf("quotaText(%d) = %q, want %q", bytes, got, want)
+		}
+	}
+}
+
+func TestSocialImageIsALargeCachedPNG(t *testing.T) {
+	response := get(publicSite(&sharingStore{}, AnonymousLimits{}), "/social.png")
+	if response.Code != http.StatusOK || response.Header().Get("Content-Type") != "image/png" ||
+		!strings.Contains(response.Header().Get("Cache-Control"), "max-age=604800") {
+		t.Fatalf("social.png = %d %v", response.Code, response.Header())
+	}
+	config, err := png.DecodeConfig(response.Body)
+	if err != nil || config.Width != 1200 || config.Height != 630 {
+		t.Fatalf("social.png is %dx%d (%v), want 1200x630", config.Width, config.Height, err)
 	}
 }
