@@ -123,6 +123,7 @@ func (m *memoryTracks) UpdateMetadata(_ context.Context, ownerID, trackID string
 				return store.Track{}, store.ErrVersionConflict
 			}
 			m.tracks[i].MetadataVersion++
+			m.tracks[i].TagStatus = metadata.TagStatus
 			m.tracks[i].FileName = metadata.FileName
 			m.tracks[i].Title = metadata.Title
 			m.tracks[i].Artist = metadata.Artist
@@ -680,5 +681,37 @@ func TestTrackListReportsBotImportsInProgress(t *testing.T) {
 	json.NewDecoder(response.Body).Decode(&body)
 	if response.Code != http.StatusOK || body.ImportsInProgress != 2 {
 		t.Fatalf("list = %d, importsInProgress %d", response.Code, body.ImportsInProgress)
+	}
+}
+
+type countingNotifier struct{ calls int }
+
+func (n *countingNotifier) Notify() { n.calls++ }
+
+func TestUpdateTrackMetadataQueuesEmbeddedTagRewrite(t *testing.T) {
+	tracks := &memoryTracks{tracks: []store.Track{
+		{ID: "a1", OwnerID: "alice", Status: store.TrackReady, Title: "MP3", FileName: "song.mp3", StorageKey: "users/alice/tracks/a1/song.mp3", ContentType: "audio/mpeg", MetadataVersion: 1, TagStatus: store.TagOriginal},
+		{ID: "a2", OwnerID: "alice", Status: store.TrackReady, Title: "M4A", FileName: "song.m4a", StorageKey: "users/alice/tracks/a2/song.m4a", ContentType: "audio/mp4", MetadataVersion: 1, TagStatus: store.TagOriginal},
+	}}
+	tokens, err := auth.NewTokens([]byte(strings.Repeat("k", auth.MinSecretBytes)), time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	alice, _, _ := tokens.Issue("alice")
+	notifier := &countingNotifier{}
+	handler := NewHandler(Config{Tracks: NewTrackHandlers(tracks, &fakeObjects{objects: map[string][]byte{}}, tokens, UploadLimits{}).WithTagRewrites(notifier)})
+	api := tracksAPI{handler: handler, tracks: tracks, alice: alice}
+
+	before := decode[trackResponse](t, api.get(t, "/api/v1/tracks/a1", alice))
+	if before.EmbeddedTags.Status != store.TagOriginal || len(before.EmbeddedTags.UnsupportedFields) != 0 {
+		t.Fatalf("before edit: %+v", before.EmbeddedTags)
+	}
+	mp3 := decode[trackResponse](t, api.do(t, http.MethodPatch, "/api/v1/tracks/a1", `{"version":1,"title":"New"}`, alice))
+	if mp3.EmbeddedTags.Status != store.TagPending || notifier.calls != 1 {
+		t.Fatalf("mp3 edit: %+v, %d notifications", mp3.EmbeddedTags, notifier.calls)
+	}
+	m4a := decode[trackResponse](t, api.do(t, http.MethodPatch, "/api/v1/tracks/a2", `{"version":1,"title":"New"}`, alice))
+	if m4a.EmbeddedTags.Status != store.TagUnsupported || len(m4a.EmbeddedTags.UnsupportedFields) != 10 || notifier.calls != 1 {
+		t.Fatalf("m4a edit: %+v, %d notifications", m4a.EmbeddedTags, notifier.calls)
 	}
 }

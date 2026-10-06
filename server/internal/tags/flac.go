@@ -114,7 +114,7 @@ func flacComment(blocks []flacBlock) vorbisComment {
 			}
 		}
 	}
-	return vorbisComment{vendor: "Nafir"}
+	return vorbisComment{vendor: "rhythmo"}
 }
 
 // copyFLACFrames copies the audio frames, which must start with a frame

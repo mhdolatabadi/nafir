@@ -16,6 +16,7 @@ import (
 	"github.com/mhdolatabadi/nafir/server/internal/auth"
 	"github.com/mhdolatabadi/nafir/server/internal/storage"
 	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/nafir/server/internal/tags"
 )
 
 const (
@@ -65,6 +66,20 @@ type TrackHandlers struct {
 	tokens  *auth.Tokens
 	limits  UploadLimits
 	imports ImportCounter
+	retags  TagRewriteNotifier
+}
+
+// TagRewriteNotifier starts rewriting embedded tags soon after an edit;
+// *tagwriter.Writer implements it.
+type TagRewriteNotifier interface {
+	Notify()
+}
+
+// WithTagRewrites wakes the tag writer after each metadata edit. Without it,
+// queued rewrites still run at the writer's next poll.
+func (h *TrackHandlers) WithTagRewrites(retags TagRewriteNotifier) *TrackHandlers {
+	h.retags = retags
+	return h
 }
 
 func NewTrackHandlers(tracks TrackStore, objects ObjectStore, tokens *auth.Tokens, limits UploadLimits) *TrackHandlers {
@@ -101,6 +116,18 @@ type trackResponse struct {
 	CreatedAt   time.Time `json:"createdAt"`
 	// Version is the metadata version an edit must be based on.
 	Version int64 `json:"version"`
+	// EmbeddedTags says whether the file itself carries the metadata.
+	EmbeddedTags embeddedTagsResponse `json:"embeddedTags"`
+}
+
+// embeddedTagsResponse reports the stored file's tags. Status is original,
+// pending, written, failed or unsupported; UnsupportedFields lists the fields
+// this file's format cannot embed, so the app can say so honestly.
+type embeddedTagsResponse struct {
+	Status            store.TagStatus `json:"status"`
+	Version           *int64          `json:"version"`
+	Error             *string         `json:"error"`
+	UnsupportedFields []string        `json:"unsupportedFields"`
 }
 
 func toTrackResponse(t store.Track) trackResponse {
@@ -110,6 +137,10 @@ func toTrackResponse(t store.Track) trackResponse {
 		DiscNumber: t.DiscNumber, Comment: t.Comment, DurationMS: t.DurationMS,
 		FileName: t.FileName, ContentType: t.ContentType, SizeBytes: t.SizeBytes,
 		Source: t.Source, CreatedAt: t.CreatedAt.UTC(), Version: t.MetadataVersion,
+		EmbeddedTags: embeddedTagsResponse{
+			Status: t.TagStatus, Version: t.TagVersion, Error: t.TagError,
+			UnsupportedFields: tags.UnsupportedFields(t.FileName),
+		},
 	}
 }
 
@@ -252,6 +283,10 @@ func (h *TrackHandlers) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, metadataErrorResponse{Error: "invalid_metadata", Field: field})
 		return
 	}
+	metadata.TagStatus = store.TagUnsupported
+	if tags.Supported(metadata.FileName) {
+		metadata.TagStatus = store.TagPending
+	}
 	updated, err := h.tracks.UpdateMetadata(r.Context(), track.OwnerID, track.ID, version, metadata)
 	if errors.Is(err, store.ErrVersionConflict) {
 		h.writeConflict(w, r, track)
@@ -264,6 +299,9 @@ func (h *TrackHandlers) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		internalError(w, "update track metadata", err)
 		return
+	}
+	if h.retags != nil && updated.TagStatus == store.TagPending {
+		h.retags.Notify()
 	}
 	writeJSON(w, http.StatusOK, toTrackResponse(updated))
 }
@@ -528,6 +566,13 @@ func (h *TrackHandlers) handleDelete(w http.ResponseWriter, r *http.Request) {
 	if err := h.storage.Remove(r.Context(), track.StorageKey); err != nil {
 		internalError(w, "remove object", err)
 		return
+	}
+	// A tag rewrite in flight may have uploaded its replacement already.
+	if track.PendingStorageKey != nil {
+		if err := h.storage.Remove(r.Context(), *track.PendingStorageKey); err != nil {
+			internalError(w, "remove pending object", err)
+			return
+		}
 	}
 	if err := h.tracks.Delete(r.Context(), track.OwnerID, track.ID); err != nil && !errors.Is(err, store.ErrNotFound) {
 		internalError(w, "delete track", err)
