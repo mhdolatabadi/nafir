@@ -10,13 +10,18 @@ import 'package:nafir/features/playlists/data/playlist.dart';
 import 'package:nafir/features/upload/data/upload_models.dart';
 
 class ApiException implements Exception {
-  const ApiException(this.message, {this.statusCode, this.code});
+  const ApiException(this.message,
+      {this.statusCode, this.code, this.details = const {}});
 
   final String message;
   final int? statusCode;
 
   /// Machine-readable error from the API body, for example `email_taken`.
   final String? code;
+
+  /// The rest of the error body, for example the invalid `field`, or the
+  /// latest `track` on a version conflict.
+  final Map<String, dynamic> details;
 
   bool get isUnauthorized => statusCode == 401;
 
@@ -34,21 +39,44 @@ abstract interface class AuthApi {
   Future<void> deleteAccount(String token, String password);
 }
 
+/// A short-lived URL that saves one cloud track as a file under its edited
+/// name; the server sends `Content-Disposition` with [fileName].
+class DownloadLink {
+  const DownloadLink({
+    required this.url,
+    required this.expiresAt,
+    required this.fileName,
+    required this.version,
+    required this.tagsUpToDate,
+  });
+
+  factory DownloadLink.fromJson(Map<String, dynamic> json) => DownloadLink(
+        url: Uri.parse(json['url'] as String),
+        expiresAt: DateTime.parse(json['expiresAt'] as String),
+        fileName: json['fileName'] as String,
+        version: (json['version'] as num).toInt(),
+        tagsUpToDate: json['tagsUpToDate'] == true,
+      );
+
+  final Uri url;
+  final DateTime expiresAt;
+  final String fileName;
+
+  /// The track's metadata version the file is for; a saved copy for another
+  /// version is out of date.
+  final int version;
+
+  /// False when the file's embedded tags cannot match the saved metadata
+  /// (its format has no tag writer, or rewriting failed).
+  final bool tagsUpToDate;
+}
+
 /// A short-lived URL for playing one track.
 class StreamLink {
   const StreamLink(this.url, this.expiresAt);
 
   final Uri url;
   final DateTime expiresAt;
-}
-
-/// A short-lived link that saves a track's original file as [fileName].
-class DownloadLink {
-  const DownloadLink(this.url, this.expiresAt, this.fileName);
-
-  final Uri url;
-  final DateTime expiresAt;
-  final String fileName;
 }
 
 class TrackLibrary {
@@ -71,8 +99,12 @@ abstract interface class TracksApi {
   Future<TrackLibrary> listTracks(String token);
   Future<StreamLink> streamLink(String token, String trackId);
 
-  /// Like [streamLink], but storage answers with Content-Disposition:
-  /// attachment, so browsers save the file instead of playing it.
+  /// One of the user's own cloud tracks, as the server has it now.
+  Future<Track> getTrack(String token, String trackId);
+
+  /// A link to save a cloud track. While an edit's embedded tags are still
+  /// being written this fails with HTTP 409 `tags_pending`; try again a few
+  /// seconds later rather than saving the file with old tags.
   Future<DownloadLink> downloadLink(String token, String trackId);
   Future<UploadTicket> createUpload(
       String token, String fileName, int sizeBytes);
@@ -252,13 +284,11 @@ class ApiClient
   }
 
   @override
-  Future<StreamLink> streamLink(String token, String trackId) async {
-    final body =
-        await _send('GET', '/api/v1/tracks/$trackId/stream', token: token);
-    return StreamLink(
-      Uri.parse(body['url'] as String),
-      DateTime.parse(body['expiresAt'] as String),
-    );
+  Future<Track> getTrack(String token, String trackId) async {
+    final body = await _send(
+        'GET', '/api/v1/tracks/${Uri.encodeComponent(trackId)}',
+        token: token);
+    return Track.fromJson(body);
   }
 
   @override
@@ -266,10 +296,16 @@ class ApiClient
     final body = await _send(
         'GET', '/api/v1/tracks/${Uri.encodeComponent(trackId)}/download',
         token: token);
-    return DownloadLink(
+    return DownloadLink.fromJson(body);
+  }
+
+  @override
+  Future<StreamLink> streamLink(String token, String trackId) async {
+    final body =
+        await _send('GET', '/api/v1/tracks/$trackId/stream', token: token);
+    return StreamLink(
       Uri.parse(body['url'] as String),
       DateTime.parse(body['expiresAt'] as String),
-      body['fileName'] as String,
     );
   }
 
@@ -565,6 +601,7 @@ class ApiClient
         'Server returned HTTP ${response.statusCode}.',
         statusCode: response.statusCode,
         code: code is String ? code : null,
+        details: decoded ?? const {},
       );
     }
     if (!expectBody) return const {};

@@ -51,39 +51,6 @@ func TestPresignGetSignsForThePublicOrigin(t *testing.T) {
 	}
 }
 
-func TestPresignDownloadAsksForAnAttachment(t *testing.T) {
-	s := newTestStorage(t, 15*time.Minute)
-
-	signed, _, err := s.PresignDownload(context.Background(), "users/u1/tracks/t1/song.mp3", "My_Song.mp3")
-	if err != nil {
-		t.Fatal(err)
-	}
-	parsed, err := url.Parse(signed)
-	if err != nil {
-		t.Fatal(err)
-	}
-	query := parsed.Query()
-	if query.Get("response-content-disposition") != `attachment; filename="My_Song.mp3"; filename*=UTF-8''My_Song.mp3` ||
-		query.Get("X-Amz-Signature") == "" {
-		t.Fatalf("download URL is not a signed attachment: %s", signed)
-	}
-}
-
-func TestAttachmentDisposition(t *testing.T) {
-	for in, want := range map[string]string{
-		"song.mp3":        `attachment; filename="song.mp3"; filename*=UTF-8''song.mp3`,
-		"a\"b\\c.mp3":     `attachment; filename="a_b_c.mp3"; filename*=UTF-8''a%22b%5Cc.mp3`,
-		"آهنگ.mp3":        `attachment; filename="____.mp3"; filename*=UTF-8''%D8%A2%D9%87%D9%86%DA%AF.mp3`,
-		"..":              `attachment; filename="track"; filename*=UTF-8''..`,
-		"a b=c@d.mp3":     `attachment; filename="a b=c@d.mp3"; filename*=UTF-8''a%20b%3Dc%40d.mp3`,
-		"line\nbreak.mp3": `attachment; filename="line_break.mp3"; filename*=UTF-8''line%0Abreak.mp3`,
-	} {
-		if got := AttachmentDisposition(in); got != want {
-			t.Errorf("AttachmentDisposition(%q) = %s, want %s", in, got, want)
-		}
-	}
-}
-
 func TestNewRejectsBadConfig(t *testing.T) {
 	base := Config{
 		Endpoint: "minio:9000", PublicURL: "https://music.example.com",
@@ -131,5 +98,23 @@ func TestPresignUploadPinsKeyTypeAndSize(t *testing.T) {
 	}
 	if !upload.ExpiresAt.After(time.Now()) {
 		t.Fatalf("upload already expired: %v", upload.ExpiresAt)
+	}
+}
+
+func TestPresignDownloadSignsTheSaveAsHeaders(t *testing.T) {
+	s := newTestStorage(t, 15*time.Minute)
+	disposition := `attachment; filename="track.mp3"; filename*=UTF-8''%D8%A2.mp3`
+	signed, _, err := s.PresignDownload(context.Background(), "users/u1/tracks/t1/v2-1/track.mp3", disposition, "audio/mpeg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := url.Parse(signed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	query := parsed.Query()
+	if query.Get("response-content-disposition") != disposition || query.Get("response-content-type") != "audio/mpeg" ||
+		query.Get("response-cache-control") != "private, no-cache" || query.Get("X-Amz-Signature") == "" {
+		t.Fatalf("download URL does not carry the signed headers: %s", signed)
 	}
 }

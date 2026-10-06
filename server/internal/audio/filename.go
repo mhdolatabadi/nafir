@@ -2,6 +2,7 @@ package audio
 
 import (
 	"errors"
+	"fmt"
 	"path"
 	"strings"
 	"unicode"
@@ -104,4 +105,44 @@ func unsafeFileNameRune(r rune) bool {
 		return true
 	}
 	return false
+}
+
+// ContentDisposition is an RFC 6266 attachment header for a download saved as
+// name: a quoted ASCII fallback for old clients plus the exact UTF-8 name as
+// an RFC 5987 filename* parameter, which current browsers prefer.
+func ContentDisposition(name string) string {
+	ext := path.Ext(name)
+	fallback := strings.Map(func(r rune) rune {
+		if r < 0x20 || r >= 0x7F || r == '"' || r == '\\' || r == '%' || unsafeFileNameRune(r) {
+			return '_'
+		}
+		return r
+	}, strings.TrimSuffix(name, ext))
+	if strings.Trim(fallback, "_ ") == "" {
+		fallback = "track"
+	}
+	fallback += strings.Map(func(r rune) rune {
+		if r < 0x20 || r >= 0x7F || r == '"' || r == '\\' {
+			return -1
+		}
+		return r
+	}, ext)
+	var encoded strings.Builder
+	for _, b := range []byte(name) {
+		if isAttrChar(b) {
+			encoded.WriteByte(b)
+		} else {
+			fmt.Fprintf(&encoded, "%%%02X", b)
+		}
+	}
+	return `attachment; filename="` + fallback + `"; filename*=UTF-8''` + encoded.String()
+}
+
+// isAttrChar reports whether RFC 5987 allows b unencoded in a value.
+func isAttrChar(b byte) bool {
+	switch {
+	case b >= 'a' && b <= 'z', b >= 'A' && b <= 'Z', b >= '0' && b <= '9':
+		return true
+	}
+	return strings.IndexByte("!#$&+-.^_`|~", b) >= 0
 }

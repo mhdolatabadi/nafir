@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:nafir/core/api/api_client.dart';
+import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/playlists/data/playlist.dart';
 
 enum PlaylistsStatus { loading, loaded, error }
@@ -184,6 +185,24 @@ class PlaylistsController extends ChangeNotifier {
     } catch (_) {
       return SaveSharedResult.failed;
     }
+  }
+
+  /// Shows edited metadata for [track] in every loaded playlist.
+  void updateTrack(Track track) {
+    if (!playlists.any((p) => p.tracks.any((item) => item.id == track.id))) {
+      return;
+    }
+    playlists = [
+      for (final playlist in playlists)
+        if (playlist.tracks.any((item) => item.id == track.id))
+          playlist.withTracks([
+            for (final item in playlist.tracks)
+              item.id == track.id ? track.keepingContextOf(item) : item,
+          ])
+        else
+          playlist,
+    ];
+    notifyListeners();
   }
 
   Future<Playlist?> loadPlaylist(String id) async {

@@ -16,6 +16,7 @@ import (
 	"github.com/mhdolatabadi/nafir/server/internal/auth"
 	"github.com/mhdolatabadi/nafir/server/internal/storage"
 	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/nafir/server/internal/tags"
 )
 
 const (
@@ -42,7 +43,7 @@ type TrackStore interface {
 // ObjectStore is the object storage the track endpoints use; *storage.Storage implements it.
 type ObjectStore interface {
 	PresignGet(ctx context.Context, key string) (string, time.Time, error)
-	PresignDownload(ctx context.Context, key, fileName string) (string, time.Time, error)
+	PresignDownload(ctx context.Context, key, disposition, contentType string) (string, time.Time, error)
 	PresignUpload(ctx context.Context, key, contentType string, sizeBytes int64) (storage.Upload, error)
 	Size(ctx context.Context, key string) (int64, error)
 	Head(ctx context.Context, key string, n int64) ([]byte, error)
@@ -66,6 +67,20 @@ type TrackHandlers struct {
 	tokens  *auth.Tokens
 	limits  UploadLimits
 	imports ImportCounter
+	retags  TagRewriteNotifier
+}
+
+// TagRewriteNotifier starts rewriting embedded tags soon after an edit;
+// *tagwriter.Writer implements it.
+type TagRewriteNotifier interface {
+	Notify()
+}
+
+// WithTagRewrites wakes the tag writer after each metadata edit. Without it,
+// queued rewrites still run at the writer's next poll.
+func (h *TrackHandlers) WithTagRewrites(retags TagRewriteNotifier) *TrackHandlers {
+	h.retags = retags
+	return h
 }
 
 func NewTrackHandlers(tracks TrackStore, objects ObjectStore, tokens *auth.Tokens, limits UploadLimits) *TrackHandlers {
@@ -103,6 +118,18 @@ type trackResponse struct {
 	CreatedAt   time.Time `json:"createdAt"`
 	// Version is the metadata version an edit must be based on.
 	Version int64 `json:"version"`
+	// EmbeddedTags says whether the file itself carries the metadata.
+	EmbeddedTags embeddedTagsResponse `json:"embeddedTags"`
+}
+
+// embeddedTagsResponse reports the stored file's tags. Status is original,
+// pending, written, failed or unsupported; UnsupportedFields lists the fields
+// this file's format cannot embed, so the app can say so honestly.
+type embeddedTagsResponse struct {
+	Status            store.TagStatus `json:"status"`
+	Version           *int64          `json:"version"`
+	Error             *string         `json:"error"`
+	UnsupportedFields []string        `json:"unsupportedFields"`
 }
 
 func toTrackResponse(t store.Track) trackResponse {
@@ -112,6 +139,10 @@ func toTrackResponse(t store.Track) trackResponse {
 		DiscNumber: t.DiscNumber, Comment: t.Comment, DurationMS: t.DurationMS,
 		FileName: t.FileName, ContentType: t.ContentType, SizeBytes: t.SizeBytes,
 		Source: t.Source, CreatedAt: t.CreatedAt.UTC(), Version: t.MetadataVersion,
+		EmbeddedTags: embeddedTagsResponse{
+			Status: t.TagStatus, Version: t.TagVersion, Error: t.TagError,
+			UnsupportedFields: tags.UnsupportedFields(t.FileName),
+		},
 	}
 }
 
@@ -218,6 +249,55 @@ func (h *TrackHandlers) handleStream(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, streamResponse{URL: url, ExpiresAt: expiresAt.UTC()})
 }
 
+type downloadResponse struct {
+	// URL downloads the file; storage answers with Content-Disposition set
+	// to FileName, so a browser saves it under the edited name.
+	URL         string    `json:"url"`
+	ExpiresAt   time.Time `json:"expiresAt"`
+	FileName    string    `json:"fileName"`
+	ContentType string    `json:"contentType"`
+	SizeBytes   int64     `json:"sizeBytes"`
+	// Version is the metadata version the file was served for; a client
+	// caching downloads should treat a different track version as stale.
+	Version int64 `json:"version"`
+	// TagsUpToDate is false when the file's embedded tags cannot match the
+	// saved metadata: its format has no writer, or rewriting it failed.
+	TagsUpToDate bool                 `json:"tagsUpToDate"`
+	EmbeddedTags embeddedTagsResponse `json:"embeddedTags"`
+}
+
+// handleDownload hands out a short-lived link that saves the track's current
+// object under its edited file name. While an edit's tag rewrite is still
+// running the object holds the old tags, so the answer is 409 tags_pending
+// with Retry-After instead of stale bytes. Every rewrite has its own object
+// key, so a cached response for an older version can never be served for
+// the new one.
+func (h *TrackHandlers) handleDownload(w http.ResponseWriter, r *http.Request) {
+	track, ok := h.readyTrack(w, r)
+	if !ok {
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	if track.TagStatus == store.TagPending {
+		w.Header().Set("Retry-After", "5")
+		writeJSON(w, http.StatusConflict, conflictResponse{Error: "tags_pending", Track: toTrackResponse(track)})
+		return
+	}
+	url, expiresAt, err := h.storage.PresignDownload(r.Context(), track.StorageKey,
+		audio.ContentDisposition(track.FileName), track.ContentType)
+	if err != nil {
+		internalError(w, "presign download", err)
+		return
+	}
+	upToDate := track.TagStatus == store.TagOriginal ||
+		(track.TagStatus == store.TagWritten && track.TagVersion != nil && *track.TagVersion == track.MetadataVersion)
+	writeJSON(w, http.StatusOK, downloadResponse{
+		URL: url, ExpiresAt: expiresAt.UTC(), FileName: track.FileName, ContentType: track.ContentType,
+		SizeBytes: track.SizeBytes, Version: track.MetadataVersion, TagsUpToDate: upToDate,
+		EmbeddedTags: toTrackResponse(track).EmbeddedTags,
+	})
+}
+
 // metadataErrorResponse names the first field that failed validation so the
 // app can point at it.
 type metadataErrorResponse struct {
@@ -230,31 +310,6 @@ type metadataErrorResponse struct {
 type conflictResponse struct {
 	Error string        `json:"error"`
 	Track trackResponse `json:"track"`
-}
-
-type downloadResponse struct {
-	URL       string    `json:"url"`
-	ExpiresAt time.Time `json:"expiresAt"`
-	// FileName is what the file is saved as: the track's (possibly edited)
-	// safe filename.
-	FileName string `json:"fileName"`
-}
-
-// handleDownload is handleStream for saving a copy: the short-lived URL
-// answers with Content-Disposition: attachment, and the bytes are the
-// stored original, never transcoded.
-func (h *TrackHandlers) handleDownload(w http.ResponseWriter, r *http.Request) {
-	track, ok := h.readyTrack(w, r)
-	if !ok {
-		return
-	}
-	url, expiresAt, err := h.storage.PresignDownload(r.Context(), track.StorageKey, track.FileName)
-	if err != nil {
-		internalError(w, "presign download", err)
-		return
-	}
-	w.Header().Set("Cache-Control", "no-store")
-	writeJSON(w, http.StatusOK, downloadResponse{URL: url, ExpiresAt: expiresAt.UTC(), FileName: track.FileName})
 }
 
 func (h *TrackHandlers) handleUpdate(w http.ResponseWriter, r *http.Request) {
@@ -279,6 +334,10 @@ func (h *TrackHandlers) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, metadataErrorResponse{Error: "invalid_metadata", Field: field})
 		return
 	}
+	metadata.TagStatus = store.TagUnsupported
+	if tags.Supported(metadata.FileName) {
+		metadata.TagStatus = store.TagPending
+	}
 	updated, err := h.tracks.UpdateMetadata(r.Context(), track.OwnerID, track.ID, version, metadata)
 	if errors.Is(err, store.ErrVersionConflict) {
 		h.writeConflict(w, r, track)
@@ -291,6 +350,9 @@ func (h *TrackHandlers) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		internalError(w, "update track metadata", err)
 		return
+	}
+	if h.retags != nil && updated.TagStatus == store.TagPending {
+		h.retags.Notify()
 	}
 	writeJSON(w, http.StatusOK, toTrackResponse(updated))
 }
@@ -555,6 +617,13 @@ func (h *TrackHandlers) handleDelete(w http.ResponseWriter, r *http.Request) {
 	if err := h.storage.Remove(r.Context(), track.StorageKey); err != nil {
 		internalError(w, "remove object", err)
 		return
+	}
+	// A tag rewrite in flight may have uploaded its replacement already.
+	if track.PendingStorageKey != nil {
+		if err := h.storage.Remove(r.Context(), *track.PendingStorageKey); err != nil {
+			internalError(w, "remove pending object", err)
+			return
+		}
 	}
 	if err := h.tracks.Delete(r.Context(), track.OwnerID, track.ID); err != nil && !errors.Is(err, store.ErrNotFound) {
 		internalError(w, "delete track", err)
