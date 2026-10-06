@@ -19,6 +19,7 @@
 <meta name="twitter:title" content="{{.Title}}">
 <meta name="twitter:description" content="{{.Description}}">
 <meta name="twitter:image" content="{{.Image}}">
+{{block "head" .}}{{end}}
 {{if .JSONLD}}<script type="application/ld+json">{{.JSONLD}}</script>{{end}}
 <style>
 :root{--bg:#070810;--surface:#121522;--strong:#191d2d;--text:#f3f4f8;--muted:#b4b8c7;--primary:#ff626a;--border:#ffffff26}

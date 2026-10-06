@@ -243,3 +243,93 @@ func TestDeleteAccountPage(t *testing.T) {
 		}
 	}
 }
+
+func TestPublicPagesUseTheConfiguredSiteOrigin(t *testing.T) {
+	token := strings.Repeat("A", 22)
+	data := &sharingStore{token: &token, public: true, name: "mix", tracks: []store.Track{{ID: "t1", Title: "song"}}}
+	site := NewHandler(Config{Public: NewPublicPages(data, fixedPresigner{}, AnonymousLimits{}).
+		WithSite("https://rhythmo.ir/")})
+
+	// The request arrives under another host, as through an IP or an old domain.
+	for path, want := range map[string]string{
+		"/":               `<link rel="canonical" href="https://rhythmo.ir/">`,
+		"/p/" + token:     `<link rel="canonical" href="https://rhythmo.ir/p/` + token + `">`,
+		"/privacy":        `<meta property="og:image" content="https://rhythmo.ir/nafir.png">`,
+		"/sitemap.xml":    `<loc>https://rhythmo.ir/p/` + token + `</loc>`,
+		"/robots.txt":     `Sitemap: https://rhythmo.ir/sitemap.xml`,
+		"/delete-account": `<link rel="canonical" href="https://rhythmo.ir/delete-account">`,
+	} {
+		body := get(site, path).Body.String()
+		if !strings.Contains(body, want) || strings.Contains(body, "nafir.example.com") {
+			t.Errorf("%s does not use the site origin:\n%s", path, body)
+		}
+	}
+}
+
+func TestWithSiteIgnoresAnythingButAnOrigin(t *testing.T) {
+	for _, bad := range []string{"", "rhythmo.ir", "ftp://rhythmo.ir", "https://rhythmo.ir/app", "https://u@rhythmo.ir", "https://rhythmo.ir?x=1"} {
+		if got := (&PublicPages{}).WithSite(bad).site; got != "" {
+			t.Errorf("WithSite(%q) = %q, want the request host", bad, got)
+		}
+	}
+	if got := (&PublicPages{}).WithSite(" http://localhost:8080/ ").site; got != "http://localhost:8080" {
+		t.Errorf("WithSite kept %q", got)
+	}
+}
+
+func TestSitemapListsTheStaticPages(t *testing.T) {
+	body := get(publicSite(&sharingStore{}, AnonymousLimits{}), "/sitemap.xml").Body.String()
+	for _, want := range []string{
+		"<loc>https://nafir.example.com/</loc>",
+		"<loc>https://nafir.example.com/privacy</loc>",
+		"<loc>https://nafir.example.com/delete-account</loc>",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("sitemap lacks %s:\n%s", want, body)
+		}
+	}
+}
+
+func TestUnknownPathsAreABrandedNoIndexPage(t *testing.T) {
+	site := publicSite(&sharingStore{}, AnonymousLimits{})
+
+	response := get(site, "/no/such/page")
+	body := response.Body.String()
+	if response.Code != http.StatusNotFound || !strings.HasPrefix(response.Header().Get("Content-Type"), "text/html") {
+		t.Fatalf("unknown page = %d %s", response.Code, response.Header().Get("Content-Type"))
+	}
+	for _, want := range []string{`<meta name="robots" content="noindex">`, "این صفحه پیدا نشد", `href="/"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("404 page lacks %s", want)
+		}
+	}
+
+	// API clients keep getting JSON.
+	api := get(site, "/api/v1/no-such-endpoint")
+	if api.Code != http.StatusNotFound || !strings.Contains(api.Body.String(), `"error":"not_found"`) {
+		t.Fatalf("unknown API path = %d %s", api.Code, api.Body.String())
+	}
+}
+
+func TestFrontPageCarriesSearchConsoleVerification(t *testing.T) {
+	plain := get(publicSite(&sharingStore{}, AnonymousLimits{}), "/").Body.String()
+	if strings.Contains(plain, "site-verification") || strings.Contains(plain, "msvalidate") {
+		t.Fatal("verification tags without tokens")
+	}
+
+	site := NewHandler(Config{Public: NewPublicPages(&sharingStore{}, fixedPresigner{}, AnonymousLimits{}).
+		WithVerification(" g-token\"><x ", "b-token")})
+	home := get(site, "/").Body.String()
+	for _, want := range []string{
+		`<meta name="google-site-verification" content="g-token&#34;&gt;&lt;x">`,
+		`<meta name="msvalidate.01" content="b-token">`,
+	} {
+		if !strings.Contains(home, want) {
+			t.Errorf("front page lacks %s:\n%s", want, home)
+		}
+	}
+	// Only the front page needs them.
+	if privacy := get(site, "/privacy").Body.String(); strings.Contains(privacy, "b-token") {
+		t.Error("verification tags leak onto other pages")
+	}
+}
