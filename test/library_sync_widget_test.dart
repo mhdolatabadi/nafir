@@ -83,7 +83,7 @@ void main() {
       ])),
     );
 
-    expect(find.text('3 آهنگ'), findsOneWidget);
+    expect(find.text('۳ آهنگ'), findsOneWidget);
     expect(find.text('Both'), findsOneWidget);
     expect(
         find.descendant(
@@ -132,7 +132,7 @@ void main() {
     await tester.pump();
 
     expect(find.byTooltip('در حال آپلود'), findsOneWidget);
-    expect(find.textContaining('در حال آپلود 50٪'), findsOneWidget);
+    expect(find.textContaining('در حال آپلود ۵۰٪'), findsOneWidget);
 
     await _openMenu(tester, 'Song');
     await tester.tap(find.text('لغو آپلود'));
@@ -258,7 +258,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
     }
     expect(find.byTooltip('در حال آپلود'), findsOneWidget);
-    expect(find.textContaining('در حال آپلود 50٪'), findsOneWidget);
+    expect(find.textContaining('در حال آپلود ۵۰٪'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     final lastTitle = find.text('Device track with a very long Latin title 11');
@@ -310,7 +310,7 @@ void main() {
       await tester.pump();
 
       expect(find.byTooltip('در حال دانلود'), findsOneWidget);
-      expect(find.textContaining('در حال دانلود 50٪'), findsOneWidget);
+      expect(find.textContaining('در حال دانلود ۵۰٪'), findsOneWidget);
 
       await _openMenu(tester, 'Server song');
       await tester.tap(find.text('لغو دانلود'));
@@ -433,7 +433,7 @@ void main() {
       }
 
       expect(find.byTooltip('در حال دانلود'), findsOneWidget);
-      expect(find.textContaining('در حال دانلود 50٪'), findsOneWidget);
+      expect(find.textContaining('در حال دانلود ۵۰٪'), findsOneWidget);
       final lastRow = tester.getRect(_row(last));
       final miniPlayerTop = tester.getTopLeft(find.byTooltip('توقف')).dy - 16;
       expect(lastRow.bottom, lessThan(miniPlayerTop));

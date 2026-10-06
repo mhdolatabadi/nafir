@@ -7,8 +7,8 @@
 <ol class="list">
 {{range .Playlists}}<li><a class="row" href="/p/{{.ShareToken}}">
 <span class="art">{{template "notes"}}</span>
-<span class="grow"><span class="title">{{.Name}}</span><span class="sub"><bdi>{{.Owner}}</bdi> · {{.TrackCount}} آهنگ</span></span>
-<span class="likes" aria-label="{{.LikeCount}} پسند">{{template "heart"}} {{.LikeCount}}</span>
+<span class="grow"><span class="title">{{.Name}}</span><span class="sub"><bdi>{{.Owner}}</bdi> · {{digits .TrackCount}} آهنگ</span></span>
+<span class="likes" aria-label="{{digits .LikeCount}} پسند">{{template "heart"}} {{digits .LikeCount}}</span>
 </a></li>
 {{end}}</ol>
 {{else}}

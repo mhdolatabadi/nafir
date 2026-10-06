@@ -1,3 +1,4 @@
+import 'package:nafir/core/persian_digits.dart';
 import 'package:flutter/material.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:flutter/services.dart';
@@ -174,7 +175,7 @@ class _CollabSheetState extends State<_CollabSheet> {
                     style: TextStyle(color: theme.colorScheme.error)),
               ),
             const SizedBox(height: 20),
-            Text('اعضا (${_members.length})',
+            Text('اعضا (${persianDigits(_members.length)})',
                 style: theme.textTheme.titleSmall),
             const SizedBox(height: 4),
             if (_members.isEmpty)

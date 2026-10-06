@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/mhdolatabadi/nafir/server/internal/bot"
+	"github.com/mhdolatabadi/nafir/server/internal/display"
 	"github.com/mhdolatabadi/nafir/server/internal/store"
 )
 
@@ -19,11 +20,11 @@ import (
 var publicFiles embed.FS
 
 var publicTemplates = map[string]*template.Template{
-	"home":     template.Must(template.ParseFS(publicFiles, "public/layout.html", "public/home.html")),
-	"playlist": template.Must(template.ParseFS(publicFiles, "public/layout.html", "public/playlist.html")),
-	"missing":  template.Must(template.ParseFS(publicFiles, "public/layout.html", "public/missing.html")),
-	"privacy":  template.Must(template.ParseFS(publicFiles, "public/layout.html", "public/privacy.html")),
-	"delete":   template.Must(template.ParseFS(publicFiles, "public/layout.html", "public/delete_account.html")),
+	"home":     template.Must(template.New("layout.html").Funcs(template.FuncMap{"digits": display.PersianDigits}).ParseFS(publicFiles, "public/layout.html", "public/home.html")),
+	"playlist": template.Must(template.New("layout.html").Funcs(template.FuncMap{"digits": display.PersianDigits}).ParseFS(publicFiles, "public/layout.html", "public/playlist.html")),
+	"missing":  template.Must(template.New("layout.html").Funcs(template.FuncMap{"digits": display.PersianDigits}).ParseFS(publicFiles, "public/layout.html", "public/missing.html")),
+	"privacy":  template.Must(template.New("layout.html").Funcs(template.FuncMap{"digits": display.PersianDigits}).ParseFS(publicFiles, "public/layout.html", "public/privacy.html")),
+	"delete":   template.Must(template.New("layout.html").Funcs(template.FuncMap{"digits": display.PersianDigits}).ParseFS(publicFiles, "public/layout.html", "public/delete_account.html")),
 }
 
 const (
@@ -223,7 +224,7 @@ func (p *PublicPages) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 		}
 		recordings = append(recordings, recording)
 	}
-	description := fmt.Sprintf("فهرست پخش «%s» با %d آهنگ در ریتمو", shared.Name, len(shared.Tracks))
+	description := fmt.Sprintf("فهرست پخش «%s» با %s آهنگ در ریتمو", shared.Name, display.PersianDigits(len(shared.Tracks)))
 	if len(artists) > 0 {
 		description += "، از " + strings.Join(artists, "، ")
 	}
