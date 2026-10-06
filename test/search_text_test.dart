@@ -21,6 +21,19 @@ void main() {
     expect(normalizeForSearch('track ٣'), 'track 3');
   });
 
+  test('joined and spaced Persian spellings match in either direction', () {
+    expect(matchesSearch('میخواهم', ['می خواهم']), isTrue);
+    expect(matchesSearch('می خواهم', ['می‌خواهم']), isTrue);
+    expect(matchesSearch('دلآرام', ['دل آرام']), isTrue);
+    expect(matchesSearch('دلآرام', ['دل', 'آرام']), isFalse);
+  });
+
+  test('copied Unicode whitespace separates query words', () {
+    expect(normalizeForSearch('one\u202ftwo\r\nthree\u3000four'),
+        'one two three four');
+    expect(matchesSearch('آهنگ\u2009۱۲', ['آهنگ 12']), isTrue);
+  });
+
   test('every query word must appear in some field', () {
     final fields = ['كتاب‌ها', 'Shajarian', null, 'song.MP3'];
     expect(matchesSearch('کتابها', fields), isTrue);
