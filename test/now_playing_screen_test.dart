@@ -30,6 +30,13 @@ const _tracks = [
       sizeBytes: 1),
 ];
 
+// Playback has a continuous background animation; advance finite transitions.
+Future<void> advanceUi(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 600));
+  await tester.pump();
+}
+
 void main() {
   late PlayerController player;
   late MemoryFavoritesStore store;
@@ -77,7 +84,7 @@ void main() {
       ),
     ));
     await tester.tap(find.text('open'));
-    await tester.pumpAndSettle();
+    await advanceUi(tester);
   }
 
   testWidgets('shows the track, its artist and times', (tester) async {
@@ -86,8 +93,8 @@ void main() {
     expect(find.byType(NowPlayingScreen), findsOneWidget);
     expect(find.text(_tracks[0].title), findsOneWidget);
     expect(find.text('Artist A'), findsOneWidget);
-    expect(find.text('0:00'), findsOneWidget);
-    expect(find.text('3:00'), findsOneWidget);
+    expect(find.text('۰:۰۰'), findsOneWidget);
+    expect(find.text('۳:۰۰'), findsOneWidget);
     expect(find.byType(Slider), findsOneWidget);
   });
 
@@ -95,30 +102,30 @@ void main() {
     await open(tester);
 
     await tester.tap(find.byTooltip('توقف'));
-    await tester.pumpAndSettle();
+    await advanceUi(tester);
     expect(player.status, PlayerStatus.paused);
     await tester.tap(find.byTooltip('پخش'));
-    await tester.pumpAndSettle();
+    await advanceUi(tester);
     expect(player.status, PlayerStatus.playing);
 
     await tester.tap(find.byTooltip('بعدی'));
-    await tester.pumpAndSettle();
+    await advanceUi(tester);
     expect(player.track?.id, 'b');
     expect(find.text('Second'), findsOneWidget);
     expect(find.text('روی سرور'), findsOneWidget,
         reason: 'no artist: say where it plays from');
 
     await tester.tap(find.byTooltip('قبلی'));
-    await tester.pumpAndSettle();
+    await advanceUi(tester);
     expect(player.track?.id, 'a');
 
     await tester.tap(find.byTooltip('پخش تصادفی'));
-    await tester.pumpAndSettle();
+    await advanceUi(tester);
     expect(player.shuffle, isTrue);
     expect(find.byTooltip('پخش تصادفی: روشن'), findsOneWidget);
 
     await tester.tap(find.byTooltip('تکرار: خاموش'));
-    await tester.pumpAndSettle();
+    await advanceUi(tester);
     expect(player.repeat, QueueRepeat.all);
     expect(find.byTooltip('تکرار: همه'), findsOneWidget);
   });
@@ -128,14 +135,14 @@ void main() {
 
     expect(find.byIcon(NafirIcons.heart), findsOneWidget);
     await tester.tap(find.byTooltip('پسندیدن'));
-    await tester.pumpAndSettle();
+    await advanceUi(tester);
 
     expect(find.byIcon(NafirIcons.heartFill), findsOneWidget);
     expect(find.byTooltip('برداشتن از پسندیده‌ها'), findsOneWidget);
     expect(store.ids, {'a'});
 
     await tester.tap(find.byTooltip('برداشتن از پسندیده‌ها'));
-    await tester.pumpAndSettle();
+    await advanceUi(tester);
     expect(store.ids, isEmpty);
   });
 
@@ -143,8 +150,8 @@ void main() {
       (tester) async {
     await open(tester);
 
-    await tester.tap(find.text('صف پخش · 2'));
-    await tester.pumpAndSettle();
+    await tester.tap(find.text('صف پخش · ۲'));
+    await advanceUi(tester);
 
     final sheet = find.byType(QueueSheet);
     expect(sheet, findsOneWidget);
@@ -154,7 +161,7 @@ void main() {
         findsOneWidget);
 
     await tester.tap(find.descendant(of: sheet, matching: find.text('Third')));
-    await tester.pumpAndSettle();
+    await advanceUi(tester);
 
     expect(player.track?.id, 'c');
     expect(player.status, PlayerStatus.playing);
@@ -167,31 +174,31 @@ void main() {
     await open(tester);
 
     await tester.tap(find.byTooltip('جزئیات آهنگ'));
-    await tester.pumpAndSettle();
+    await advanceUi(tester);
 
     expect(find.text('Album'), findsOneWidget);
     expect(find.text('a.mp3'), findsOneWidget);
-    expect(find.text('2 کیلوبایت'), findsOneWidget);
+    expect(find.text('۲ کیلوبایت'), findsOneWidget);
   });
 
   testWidgets('swiping down closes; a short drag springs back', (tester) async {
     await open(tester);
 
     await tester.drag(find.byType(NowPlayingScreen), const Offset(0, 60));
-    await tester.pumpAndSettle();
+    await advanceUi(tester);
     expect(find.byType(NowPlayingScreen), findsOneWidget);
     expect(tester.getTopLeft(find.byType(NowPlayingScreen)).dy, 0);
 
     await tester.fling(
         find.byType(NowPlayingScreen), const Offset(0, 400), 1500);
-    await tester.pumpAndSettle();
+    await advanceUi(tester);
     expect(find.byType(NowPlayingScreen), findsNothing);
   });
 
   testWidgets('the close button closes', (tester) async {
     await open(tester);
     await tester.tap(find.byTooltip('بستن'));
-    await tester.pumpAndSettle();
+    await advanceUi(tester);
     expect(find.byType(NowPlayingScreen), findsNothing);
   });
 
@@ -233,7 +240,7 @@ void main() {
           screen.contains(rect.topLeft) && rect.right <= screen.right, isTrue,
           reason: '$tooltip is on screen');
     }
-    final queue = tester.getRect(find.text('صف پخش · 2'));
+    final queue = tester.getRect(find.text('صف پخش · ۲'));
     expect(queue.bottom, lessThanOrEqualTo(640 - 34),
         reason: 'the bottom row clears the gesture bar');
     final title = tester.getRect(find.text(_tracks[0].title));
@@ -241,8 +248,8 @@ void main() {
     expect(title.left, greaterThanOrEqualTo(0));
 
     // The queue sheet also fits, and its last row clears the inset.
-    await tester.tap(find.text('صف پخش · 2'));
-    await tester.pumpAndSettle();
+    await tester.tap(find.text('صف پخش · ۲'));
+    await advanceUi(tester);
     expect(tester.takeException(), isNull);
     expect(
         tester.getRect(find.text('Third')).bottom, lessThanOrEqualTo(640 - 34));

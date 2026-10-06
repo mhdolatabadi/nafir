@@ -11,7 +11,7 @@ const untitledTrack = 'آهنگ بی‌نام';
 /// Connects the system's media controls (notification, lock screen, headset
 /// buttons and, on the web, the browser's MediaSession) to [PlayerController].
 class NafirAudioHandler extends BaseAudioHandler with SeekHandler {
-  /// [artwork] is the Nafir logo the system shows for every track, since
+  /// [artwork] is the rhythmo logo the system shows for every track, since
   /// tracks carry no cover art yet; see [resolveNotificationArtwork].
   NafirAudioHandler({this.artwork});
 
@@ -114,7 +114,7 @@ class NafirAudioHandler extends BaseAudioHandler with SeekHandler {
       id: track.id,
       title: title,
       artist: subtitle,
-      album: album ?? 'نفیر',
+      album: album ?? 'ریتمو',
       duration: duration,
       artUri: artwork,
       displayTitle: title,
@@ -123,7 +123,7 @@ class NafirAudioHandler extends BaseAudioHandler with SeekHandler {
           ? 'پخش از فایل‌های دستگاه'
           : switch (track.importedFrom) {
               final from? => 'واردشده از $from',
-              null => 'پخش از کتابخانهٔ نفیر',
+              null => 'پخش از کتابخانهٔ ریتمو',
             },
       extras: {
         'source': track.source ?? (track.isLocal ? 'device' : 'upload'),

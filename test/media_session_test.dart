@@ -45,7 +45,7 @@ void main() {
     expect(item.artUri, _artwork);
     expect(item.displayTitle, 'First');
     expect(item.displaySubtitle, 'Artist');
-    expect(item.displayDescription, 'پخش از کتابخانهٔ نفیر');
+    expect(item.displayDescription, 'پخش از کتابخانهٔ ریتمو');
     expect(item.extras?['location'], 'server');
   });
 
@@ -141,8 +141,8 @@ void main() {
 
     final item = handler.mediaItem.value!;
     expect(item.artist, 'روی سرور');
-    expect(item.album, 'نفیر');
-    expect(item.artUri, _artwork, reason: 'the Nafir logo is the fallback');
+    expect(item.album, 'ریتمو');
+    expect(item.artUri, _artwork, reason: 'the rhythmo logo is the fallback');
   });
 
   test(

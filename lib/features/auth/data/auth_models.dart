@@ -1,11 +1,22 @@
 class AuthUser {
-  const AuthUser({required this.id, required this.email});
+  const AuthUser({
+    required this.id,
+    required this.email,
+    this.verified = false,
+    this.isAdmin = false,
+  });
 
-  factory AuthUser.fromJson(Map<String, dynamic> json) =>
-      AuthUser(id: json['id'] as String, email: json['email'] as String);
+  factory AuthUser.fromJson(Map<String, dynamic> json) => AuthUser(
+        id: json['id'] as String,
+        email: json['email'] as String,
+        verified: json['verified'] == true,
+        isAdmin: json['isAdmin'] == true,
+      );
 
   final String id;
   final String email;
+  final bool verified;
+  final bool isAdmin;
 }
 
 class AuthSession {

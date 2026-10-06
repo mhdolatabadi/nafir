@@ -66,6 +66,7 @@ type AuthHandlers struct {
 	// dummyHash is compared against when an email is unknown, so a login for a
 	// missing account takes as long as one with a wrong password.
 	dummyHash string
+	admins    map[string]bool
 }
 
 func NewAuthHandlers(users UserStore, passwords auth.Passwords, tokens *auth.Tokens, limiters AuthRateLimiters) (*AuthHandlers, error) {
@@ -97,8 +98,10 @@ type credentials struct {
 }
 
 type userResponse struct {
-	ID    string `json:"id"`
-	Email string `json:"email"`
+	ID       string `json:"id"`
+	Email    string `json:"email"`
+	Verified bool   `json:"verified"`
+	IsAdmin  bool   `json:"isAdmin"`
 }
 
 type sessionResponse struct {
@@ -191,7 +194,7 @@ func (h *AuthHandlers) handleMe(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "find user", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, userResponse{ID: user.ID, Email: user.Email})
+	writeJSON(w, http.StatusOK, h.userResponse(user))
 }
 
 // handleDeleteAccount deletes the caller's account after checking their
@@ -282,8 +285,26 @@ func (h *AuthHandlers) writeSession(w http.ResponseWriter, status int, user stor
 	writeJSON(w, status, sessionResponse{
 		Token:     token,
 		ExpiresAt: expiresAt.UTC(),
-		User:      userResponse{ID: user.ID, Email: user.Email},
+		User:      h.userResponse(user),
 	})
+}
+
+// WithAdmins configures the operator-managed allowlist. No client can set roles.
+func (h *AuthHandlers) WithAdmins(emails []string) *AuthHandlers {
+	h.admins = make(map[string]bool)
+	for _, email := range emails {
+		if normalized, ok := normalizeEmail(email); ok {
+			h.admins[normalized] = true
+		}
+	}
+	return h
+}
+
+func (h *AuthHandlers) userResponse(user store.User) userResponse {
+	return userResponse{
+		ID: user.ID, Email: user.Email, Verified: user.Verified,
+		IsAdmin: h.admins[user.Email],
+	}
 }
 
 func decodeCredentials(w http.ResponseWriter, r *http.Request) (credentials, bool) {

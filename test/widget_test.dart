@@ -125,6 +125,18 @@ class FakeLinkImportsApi implements LinkImportsApi {
   List<LinkImport> recent = [];
 
   @override
+  Future<List<LinkImportCandidate>> previewLink(
+      String token, String url) async {
+    if (refuseWith case final code?) {
+      throw ApiException(code, statusCode: 422, code: code);
+    }
+    return [
+      LinkImportCandidate(
+          url: url, fileName: 'Artist - Song.mp3', site: 'music.example.ir'),
+    ];
+  }
+
+  @override
   Future<LinkImport> importFromLink(String token, String url) async {
     submitted.add(url);
     if (refuseWith case final code?) {
@@ -165,7 +177,7 @@ void main() {
   ) async {
     await _pumpApp(tester, tokenStore: MemoryTokenStore());
 
-    expect(find.text('ورود به نفیر'), findsOneWidget);
+    expect(find.text('ورود به ریتمو'), findsOneWidget);
   });
 
   group('guest', () {
@@ -181,12 +193,12 @@ void main() {
           tracks: tracks,
           playlists: guestPlaylists());
 
-      expect(find.text('Playlistهای محبوب'), findsOneWidget);
+      expect(find.text('فهرست‌های پخش محبوب'), findsOneWidget);
       expect(find.text('loved'), findsOneWidget);
       expect(find.text('ورود / ثبت‌نام'), findsOneWidget);
 
       // Liking needs an account; the guest is offered sign-in instead.
-      await tester.tap(find.text('5'));
+      await tester.tap(find.text('۵'));
       await tester.pumpAndSettle();
       expect(find.text('برای پسندیدن وارد حسابت شو.'), findsOneWidget);
 
@@ -213,10 +225,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(SnackBarAction, 'ورود'));
       await tester.pumpAndSettle();
-      expect(find.text('ورود به نفیر'), findsOneWidget);
+      expect(find.text('ورود به ریتمو'), findsOneWidget);
 
       await _submit(tester, 'listener@example.com', 'correct horse');
-      expect(find.text('ورود به نفیر'), findsNothing);
+      expect(find.text('ورود به ریتمو'), findsNothing);
       expect(find.text('Friend mix'), findsNothing);
       expect(find.widgetWithText(Tab, 'آهنگ‌ها'), findsOneWidget);
       expect(await tokens.read(), 'valid-token');
@@ -304,7 +316,7 @@ void main() {
     final tokens = MemoryTokenStore('expired-token');
     await _pumpApp(tester, tokenStore: tokens);
 
-    expect(find.text('ورود به نفیر'), findsOneWidget);
+    expect(find.text('ورود به ریتمو'), findsOneWidget);
     expect(await tokens.read(), isNull);
   });
 
@@ -331,7 +343,7 @@ void main() {
     await tester.tap(find.byIcon(NafirIcons.signOut));
     await tester.pumpAndSettle();
 
-    expect(find.text('ورود به نفیر'), findsOneWidget);
+    expect(find.text('ورود به ریتمو'), findsOneWidget);
     expect(await tokens.read(), isNull);
   });
 
@@ -387,7 +399,7 @@ void main() {
     expect(await tokens.read(), isNull);
     expect(
         find.text('حساب کاربری‌ات و همه‌ی اطلاعاتش حذف شد.'), findsOneWidget);
-    expect(find.text('Playlistهای محبوب'), findsOneWidget);
+    expect(find.text('فهرست‌های پخش محبوب'), findsOneWidget);
     expect(find.text('حذف حساب کاربری'), findsNothing);
     expect(find.widgetWithText(Tab, 'آهنگ‌ها'), findsNothing);
   });
@@ -474,9 +486,9 @@ void main() {
 
     expect(find.text('Uploaded earlier'), findsOneWidget);
     expect(find.text('Artist'), findsOneWidget);
-    expect(find.textContaining('3.0 مگابایت'), findsWidgets);
+    expect(find.textContaining('۳.۰ مگابایت'), findsWidgets);
     // Storage use lives in the account screen, not above the tracks.
-    expect(find.textContaining('از 5.0 گیگابایت'), findsNothing);
+    expect(find.textContaining('از ۵.۰ گیگابایت'), findsNothing);
     expect(find.text('کتابخانهٔ شما خالی است'), findsNothing);
   });
 
@@ -505,7 +517,7 @@ void main() {
     await tester.tap(find.text('تنظیمات').last);
     await tester.pumpAndSettle();
     expect(find.text('فضای ابری'), findsOneWidget);
-    expect(find.textContaining('از 5.0 گیگابایت'), findsOneWidget);
+    expect(find.textContaining('از ۵.۰ گیگابایت'), findsOneWidget);
     expect(
         find.bySemanticsLabel(RegExp('^فضای ابری مصرف‌شده')), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -533,18 +545,18 @@ void main() {
       ]),
     );
 
-    expect(find.text('2 آهنگ'), findsOneWidget);
+    expect(find.text('۲ آهنگ'), findsOneWidget);
     await tester.enterText(find.byType(SearchBar), 'missing');
     await tester.pumpAndSettle();
 
-    expect(find.text('0 از 2 آهنگ'), findsOneWidget);
+    expect(find.text('۰ از ۲ آهنگ'), findsOneWidget);
     expect(find.text('نتیجه‌ای پیدا نشد'), findsOneWidget);
     await tester.ensureVisible(find.text('پاک کردن جست‌وجو'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('پاک کردن جست‌وجو'));
     await tester.pumpAndSettle();
 
-    expect(find.text('2 آهنگ'), findsOneWidget);
+    expect(find.text('۲ آهنگ'), findsOneWidget);
     expect(find.text('First song'), findsOneWidget);
   });
 
@@ -619,7 +631,7 @@ void main() {
     // Artist first, the size after it on the same line.
     expect(
         find.text('Artist with a really long name number 0'), findsOneWidget);
-    expect(find.text(' · 3.0 مگابایت'), findsWidgets);
+    expect(find.text(' · ۳.۰ مگابایت'), findsWidgets);
     expect(find.byTooltip('روی سرور'), findsWidgets);
   });
 
@@ -644,7 +656,7 @@ void main() {
       expect(find.text('افزودن از لینک'), findsWidgets);
 
       // An empty link is caught before asking the server.
-      await tester.tap(find.widgetWithText(FilledButton, 'افزودن'));
+      await tester.tap(find.widgetWithText(FilledButton, 'بررسی لینک'));
       await tester.pumpAndSettle();
       expect(find.text('لینک صفحه‌ی آهنگ یا فایل را بچسبان.'), findsOneWidget);
       expect(api.submitted, isEmpty);
@@ -652,13 +664,17 @@ void main() {
       api.refuseWith = 'no_audio';
       await tester.enterText(
           find.byType(TextField), ' https://music.example.ir/song/1 ');
-      await tester.tap(find.widgetWithText(FilledButton, 'افزودن'));
+      await tester.tap(find.widgetWithText(FilledButton, 'بررسی لینک'));
       await tester.pumpAndSettle();
       expect(find.textContaining('در این صفحه فایل صوتی پیدا نشد'),
           findsOneWidget);
 
       api.refuseWith = null;
-      await tester.tap(find.widgetWithText(FilledButton, 'افزودن'));
+      await tester.tap(find.widgetWithText(FilledButton, 'بررسی لینک'));
+      await tester.pumpAndSettle();
+      expect(find.text('Artist - Song.mp3'), findsOneWidget);
+      await tester
+          .tap(find.widgetWithText(FilledButton, 'افزودن انتخاب‌شده‌ها'));
       await tester.pumpAndSettle();
       expect(api.submitted.last, 'https://music.example.ir/song/1');
       expect(find.byType(AlertDialog), findsNothing);
@@ -671,7 +687,10 @@ void main() {
       await tester.tap(find.byTooltip('افزودن از لینک'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'https://x.ir/a.mp3');
-      await tester.tap(find.widgetWithText(FilledButton, 'افزودن'));
+      await tester.tap(find.widgetWithText(FilledButton, 'بررسی لینک'));
+      await tester.pumpAndSettle();
+      await tester
+          .tap(find.widgetWithText(FilledButton, 'افزودن انتخاب‌شده‌ها'));
       await tester.pumpAndSettle();
 
       api.recent = const [
@@ -744,14 +763,14 @@ void main() {
     testWidgets('switch between tracks, playlists, albums and artists',
         (tester) async {
       await pumpPhone(tester);
-      for (final tab in ['آهنگ‌ها', 'Playlistها', 'آلبوم‌ها', 'هنرمندان']) {
+      for (final tab in ['آهنگ‌ها', 'فهرست‌های پخش', 'آلبوم‌ها', 'هنرمندان']) {
         expect(find.widgetWithText(Tab, tab), findsOneWidget);
       }
       expect(find.text('افزودن موسیقی'), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(Tab, 'Playlistها'));
+      await tester.tap(find.widgetWithText(Tab, 'فهرست‌های پخش'));
       await tester.pumpAndSettle();
-      expect(find.text('Playlist جدید'), findsOneWidget);
+      expect(find.text('فهرست پخش جدید'), findsOneWidget);
       expect(find.text('mix'), findsWidgets);
       // Adding music belongs to the tracks tab only.
       expect(find.text('افزودن موسیقی'), findsNothing);
@@ -759,7 +778,7 @@ void main() {
       await tester.tap(find.widgetWithText(Tab, 'آلبوم‌ها'));
       await tester.pumpAndSettle();
       expect(find.text('Opera'), findsOneWidget);
-      expect(find.text('Queen · 15 آهنگ'), findsOneWidget);
+      expect(find.text('Queen · ۱۵ آهنگ'), findsOneWidget);
       expect(find.text('نامشخص'), findsOneWidget);
 
       await tester.tap(find.widgetWithText(Tab, 'هنرمندان'));
@@ -768,7 +787,7 @@ void main() {
       // An artist opens their page, which plays all of their tracks.
       await tester.tap(find.text('فرهاد'));
       await tester.pumpAndSettle();
-      expect(find.text('15 آهنگ'), findsOneWidget);
+      expect(find.text('۱۵ آهنگ'), findsOneWidget);
       expect(find.text('Track number 1'), findsOneWidget);
       await tester.tap(find.text('پخش همه'));
       await tester.pumpAndSettle();
@@ -900,6 +919,41 @@ void main() {
     expect(find.text('«Song to delete» حذف شد.'), findsOneWidget);
   });
 
+  testWidgets('adding a track can create a playlist from the picker', (
+    tester,
+  ) async {
+    final tracks = FakeTracksApi(const [
+      Track(id: 's1', title: 'Song', contentType: 'audio/mpeg', sizeBytes: 1),
+    ]);
+    final playlists = FakePlaylistsApi()..userPlaylists = [];
+
+    await _pumpApp(
+      tester,
+      tokenStore: MemoryTokenStore('valid-token'),
+      tracks: tracks,
+      playlists: playlists,
+    );
+
+    await tester.tap(find.byTooltip('اقدامات آهنگ'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('افزودن به فهرست پخش'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('فهرست پخش جدید'), findsOneWidget);
+    final nameField = find.byWidgetPredicate(
+      (widget) =>
+          widget is TextField &&
+          widget.decoration?.labelText == 'نام فهرست پخش',
+    );
+    await tester.enterText(nameField, 'Road songs');
+    await tester.tap(find.text('ساخت'));
+    await tester.pumpAndSettle();
+
+    expect(playlists.createdNames, ['Road songs']);
+    expect(playlists.replacedWith, ['s1']);
+    expect(find.text('آهنگ به فهرست پخش اضافه شد.'), findsOneWidget);
+  });
+
   testWidgets('a failed list load offers a retry', (tester) async {
     final tracks = FakeTracksApi(const [
       Track(id: 's1', title: 'Song', contentType: 'audio/mpeg', sizeBytes: 1),
@@ -976,7 +1030,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byTooltip('توقف'), findsOneWidget);
-    expect(find.text('3:00'), findsOneWidget);
+    expect(find.text('۳:۰۰'), findsOneWidget);
     expect(find.text('Song'), findsWidgets);
     // The playing row says so with an icon and in words, not color alone.
     expect(
@@ -1189,8 +1243,8 @@ void main() {
     double x(String tooltip) => tester.getCenter(find.byTooltip(tooltip)).dx;
     expect(x('قبلی'), lessThan(x('توقف')));
     expect(x('توقف'), lessThan(x('بعدی')));
-    expect(tester.getCenter(find.text('0:00')).dx,
-        lessThan(tester.getCenter(find.text('3:00')).dx),
+    expect(tester.getCenter(find.text('۰:۰۰')).dx,
+        lessThan(tester.getCenter(find.text('۳:۰۰')).dx),
         reason: 'elapsed time on the left, duration on the right');
   });
 
@@ -1202,7 +1256,7 @@ void main() {
 
     await tester.tap(find.byTooltip('تنظیمات'));
     await tester.pumpAndSettle();
-    expect(find.text('حجم کش: 3.0 مگابایت'), findsOneWidget);
+    expect(find.text('حجم کش: ۳.۰ مگابایت'), findsOneWidget);
 
     // Cancelling keeps everything.
     await tester.tap(find.text('پاک کردن کش'));
@@ -1217,7 +1271,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(cache.files, isEmpty);
-    expect(find.text('حجم کش: 0 کیلوبایت'), findsOneWidget);
+    expect(find.text('حجم کش: ۰ کیلوبایت'), findsOneWidget);
     expect(find.text('کش پاک شد.'), findsOneWidget);
     final button = tester.widget<OutlinedButton>(
         find.widgetWithText(OutlinedButton, 'پاک کردن کش'));
@@ -1324,8 +1378,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(bots.sent, ['bale/s1']);
-    expect(
-        find.text('بات نفیر «Song» را در بله برایت می‌فرستد.'), findsOneWidget);
+    expect(find.text('بات ریتمو «Song» را در بله برایت می‌فرستد.'),
+        findsOneWidget);
   });
 
   testWidgets('without a linked bot the track menu offers no sending', (

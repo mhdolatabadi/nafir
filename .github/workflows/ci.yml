@@ -27,7 +27,7 @@ jobs:
       - run: flutter build web --release --no-web-resources-cdn --base-href /app/ --dart-define=API_BASE_URL=https://music.example.com
       - name: Build Android debug APK
         # The APK is meant to be installed, so it talks to the real server.
-        run: flutter build apk --debug --dart-define=API_BASE_URL=${{ vars.NAFIR_API_BASE_URL || 'https://nafir.mhdolatabadi.ir' }}
+        run: flutter build apk --debug --dart-define=API_BASE_URL=${{ vars.NAFIR_API_BASE_URL || 'https://rhythmo.ir' }}
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
@@ -121,8 +121,15 @@ jobs:
           assert "encode " not in media
           assert "reverse_proxy minio:9000" in media
 
-          # The app lives under /app/; old share links redirect there.
+          # Store/legal pages stay outside /app and are rendered by the API.
+          public_legal = config.split("handle @publicLegal {", 1)[1].split("}", 1)[0]
+          assert "@publicLegal path /privacy /delete-account" in config
+          assert "reverse_proxy api:8080" in public_legal
+          assert "reverse_proxy web:80" not in public_legal
+          # The app lives under /app/; old share and collab links redirect there.
           assert "handle /app/* {" in config
+          assert "@legacyShare" in config and "@legacyCollab" in config
+          assert "query shared=*" in config and "query collab=*" in config
           assert "redir * /app/?{query} 302" in config
           # The public pages (and their rate limits) need the client IP.
           fallback = config.rsplit("handle {", 1)[1]
@@ -148,7 +155,12 @@ jobs:
           front = Path("deploy/front-proxy.nginx.conf").read_text()
           for route in ("location /api/", "location /nafir-music", "location /app/", "location / {"):
               assert route in front, route
+          for route in ("location = /privacy", "location = /delete-account"):
+              block = front.split(route, 1)[1].split("}", 1)[0]
+              assert "nafir-api:8080" in block
+              assert "nafir-web:80" not in block
           assert "nafir-web:80" in front.split("location /app/", 1)[1].split("}", 1)[0]
+          assert "$arg_collab" in front and "$arg_shared" in front
           assert "nafir-api:8080" in front.rsplit("location / {", 1)[1]
           assert "X-Nafir-Client-IP" in front.rsplit("location / {", 1)[1]
           assert "gzip off" in front.split("location /nafir-music", 1)[1].split("}", 1)[0]
@@ -160,4 +172,9 @@ jobs:
           docker run --rm \
             -v "$PWD/front-test.conf:/etc/nginx/conf.d/default.conf:ro" \
             -v "$PWD/deploy/front-proxy.nginx.conf:/etc/nginx/nafir.conf:ro" \
+            nginx:1.27-alpine nginx -t
+          printf 'server {\n listen 80;\n include /etc/nginx/legacy.conf;\n}\n' > legacy-test.conf
+          docker run --rm \
+            -v "$PWD/legacy-test.conf:/etc/nginx/conf.d/default.conf:ro" \
+            -v "$PWD/deploy/legacy-domain.nginx.conf:/etc/nginx/legacy.conf:ro" \
             nginx:1.27-alpine nginx -t

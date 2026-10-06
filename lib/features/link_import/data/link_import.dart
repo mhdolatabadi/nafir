@@ -41,7 +41,32 @@ class LinkImport {
 
 enum LinkImportState { queued, downloading, done, failed }
 
+class LinkImportCandidate {
+  const LinkImportCandidate({
+    required this.url,
+    required this.fileName,
+    required this.site,
+    this.sizeBytes = 0,
+  });
+
+  factory LinkImportCandidate.fromJson(Map<String, dynamic> json) =>
+      LinkImportCandidate(
+        url: json['url'] as String,
+        fileName: json['fileName'] as String,
+        site: json['site'] as String? ?? '',
+        sizeBytes: json['sizeBytes'] as int? ?? 0,
+      );
+
+  final String url;
+  final String fileName;
+  final String site;
+  final int sizeBytes;
+}
+
 abstract interface class LinkImportsApi {
+  /// Lists the audio files a link leads to, without starting imports.
+  Future<List<LinkImportCandidate>> previewLink(String token, String url);
+
   /// Starts importing the audio a link leads to.
   Future<LinkImport> importFromLink(String token, String url);
 
@@ -52,7 +77,7 @@ abstract interface class LinkImportsApi {
 /// What a refused link or a failed import means, in Persian.
 String linkImportMessage(String? code) => switch (code) {
       'invalid_url' => 'این لینک معتبر نیست. یک لینک http یا https بچسبان.',
-      'blocked_url' => 'نفیر اجازه ندارد به نشانی این لینک وصل شود.',
+      'blocked_url' => 'ریتمو اجازه ندارد به نشانی این لینک وصل شود.',
       'unreachable' =>
         'صفحه باز نشد. لینک را بررسی کن یا کمی بعد دوباره امتحان کن.',
       'no_audio' =>

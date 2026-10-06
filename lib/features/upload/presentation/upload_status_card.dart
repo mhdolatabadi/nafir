@@ -1,3 +1,4 @@
+import 'package:nafir/core/persian_digits.dart';
 import 'package:flutter/material.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/core/widgets/glass_surface.dart';
@@ -33,7 +34,7 @@ class UploadStatusCard extends StatelessWidget {
       builder: (context, _) {
         final name = controller.fileName ?? '';
         final step = controller.batchTotal > 1
-            ? 'فایل ${controller.batchIndex} از ${controller.batchTotal} — '
+            ? 'فایل ${persianDigits(controller.batchIndex)} از ${persianDigits(controller.batchTotal)} — '
             : '';
         final (String label, double? progress, bool closable) =
             switch (controller.phase) {
@@ -41,22 +42,22 @@ class UploadStatusCard extends StatelessWidget {
           UploadPhase.reading => ('در حال خواندن فایل…', null, false),
           UploadPhase.preparing => ('$stepآماده‌سازی «$name»…', null, false),
           UploadPhase.uploading => (
-              '$stepدر حال آپلود «$name» — ${(controller.progress * 100).round()}٪',
+              '$stepدر حال آپلود «$name» — ${persianDigits((controller.progress * 100).round())}٪',
               controller.progress,
               false,
             ),
           UploadPhase.verifying => ('$stepدر حال بررسی «$name»…', null, false),
           UploadPhase.done => (
               controller.batchTotal > 1
-                  ? '${controller.batchCompleted} فایل به کتابخانه اضافه شد.'
+                  ? '${persianDigits(controller.batchCompleted)} فایل به کتابخانه اضافه شد.'
                   : '«${controller.uploaded?.title ?? name}» به کتابخانه اضافه شد.',
               1.0,
               true,
             ),
           UploadPhase.failed => (
               controller.batchTotal > 1
-                  ? '${controller.batchCompleted} از ${controller.batchTotal} فایل آپلود شد؛ '
-                      '${controller.batchFailed} فایل ناموفق بود. دوباره انتخاب و تلاش کن.'
+                  ? '${persianDigits(controller.batchCompleted)} از ${persianDigits(controller.batchTotal)} فایل آپلود شد؛ '
+                      '${persianDigits(controller.batchFailed)} فایل ناموفق بود. دوباره انتخاب و تلاش کن.'
                   : errorMessage(controller.error!),
               0.0,
               true,

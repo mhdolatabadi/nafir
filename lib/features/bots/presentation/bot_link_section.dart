@@ -1,3 +1,4 @@
+import 'package:nafir/core/persian_digits.dart';
 import 'package:flutter/material.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:flutter/services.dart';
@@ -48,7 +49,7 @@ class _BotLinkSectionState extends State<BotLinkSection> {
             ListTile(
               title: const Text('اتصال به بات'),
               subtitle: Text(
-                'آهنگ‌ها را در $names برای بات نفیر بفرستید تا مستقیم به '
+                'آهنگ‌ها را در $names برای بات ریتمو بفرستید تا مستقیم به '
                 'کتابخانه‌تان اضافه شوند. برای اتصال، کد بگیرید و برای بات بفرستید.',
               ),
             ),
@@ -130,12 +131,12 @@ class _CodeCard extends StatelessWidget {
             for (final bot in bots)
               Text(
                 bot.username == null
-                    ? 'این کد را در ${bot.name} برای بات نفیر بفرستید.'
+                    ? 'این کد را در ${bot.name} برای بات ریتمو بفرستید.'
                     : 'این کد را در ${bot.name} برای @${bot.username} بفرستید.',
                 textAlign: TextAlign.center,
               ),
             Text(
-              'تا ساعت $until معتبر است و فقط یک بار کار می‌کند.',
+              'تا ساعت ${persianDigits(until)} معتبر است و فقط یک بار کار می‌کند.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,
             ),

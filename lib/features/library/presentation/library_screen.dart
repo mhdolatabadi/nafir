@@ -1,3 +1,4 @@
+import 'package:nafir/core/persian_digits.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -31,6 +32,8 @@ class LibraryScreen extends StatefulWidget {
   const LibraryScreen({
     super.key,
     required this.email,
+    this.verified = false,
+    this.onAdmin,
     required this.onLogout,
     this.onDeleteAccount,
     required this.library,
@@ -46,6 +49,8 @@ class LibraryScreen extends StatefulWidget {
   });
 
   final String email;
+  final bool verified;
+  final VoidCallback? onAdmin;
   final VoidCallback onLogout;
 
   /// Deletes the account after checking [password]; null hides the option.
@@ -71,7 +76,7 @@ class _LibraryScreenState extends State<LibraryScreen>
     with SingleTickerProviderStateMixin {
   UploadPhase _lastPhase = UploadPhase.idle;
 
-  /// «آهنگ‌ها», «Playlistها» when available, «آلبوم‌ها» and «هنرمندان».
+  /// «آهنگ‌ها», «فهرست‌های پخش» when available, «آلبوم‌ها» and «هنرمندان».
   late final TabController _tabs = TabController(
     length: widget.playlists == null ? 3 : 4,
     vsync: this,
@@ -222,7 +227,7 @@ class _LibraryScreenState extends State<LibraryScreen>
       DeviceDeleteResult.deleted => '«${track.title}» از دستگاه حذف شد.',
       DeviceDeleteResult.declined => null,
       DeviceDeleteResult.permissionDenied =>
-        'نفیر اجازهٔ تغییر حافظهٔ دستگاه را ندارد.',
+        'ریتمو اجازهٔ تغییر حافظهٔ دستگاه را ندارد.',
       DeviceDeleteResult.failed => 'حذف از دستگاه ناموفق بود.',
     };
     if (result == DeviceDeleteResult.deleted && !synced) {
@@ -259,9 +264,9 @@ class _LibraryScreenState extends State<LibraryScreen>
         icon: const Icon(NafirIcons.trash),
         title: Text('حذف «${track.title}»؟'),
         content: Text(locationOf(track) == TrackLocation.synced
-            ? 'نسخهٔ سرور برای همیشه از فضای ابری و Playlistها حذف می‌شود؛ '
+            ? 'نسخهٔ سرور برای همیشه از فضای ابری و فهرست‌های پخش حذف می‌شود؛ '
                 'فایل روی دستگاه می‌ماند.'
-            : 'این آهنگ برای همیشه از فضای ابری و Playlistها حذف می‌شود. '
+            : 'این آهنگ برای همیشه از فضای ابری و فهرست‌های پخش حذف می‌شود. '
                 'این کار قابل بازگشت نیست.'),
         actions: [
           TextButton(
@@ -322,7 +327,7 @@ class _LibraryScreenState extends State<LibraryScreen>
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(switch (result) {
         BotSendResult.queued =>
-          'بات نفیر «${track.title}» را در ${bot.name} برایت می‌فرستد.',
+          'بات ریتمو «${track.title}» را در ${bot.name} برایت می‌فرستد.',
         BotSendResult.notLinked =>
           'گفتگوی ${bot.name} دیگر به حسابت وصل نیست. از تنظیمات دوباره وصلش کن.',
         BotSendResult.tooLarge =>
@@ -353,9 +358,21 @@ class _LibraryScreenState extends State<LibraryScreen>
       ];
 
   List<Widget> _accountActions(BuildContext context) {
-    if (MediaQuery.sizeOf(context).width >= 720) {
+    final wideActions = widget.onAdmin == null ? 720 : 960;
+    if (MediaQuery.sizeOf(context).width >= wideActions) {
       return [
         _AccountChip(email: widget.email),
+        if (widget.verified)
+          const Tooltip(
+            message: 'حساب تأییدشده',
+            child: Icon(NafirIcons.checkCircle),
+          ),
+        if (widget.onAdmin != null)
+          TextButton.icon(
+            onPressed: widget.onAdmin,
+            icon: const Icon(NafirIcons.usersFill),
+            label: const Text('مدیریت حساب‌ها'),
+          ),
         const SizedBox(width: 8),
         Tooltip(
           message: 'تنظیمات',
@@ -385,6 +402,8 @@ class _LibraryScreenState extends State<LibraryScreen>
           switch (action) {
             case _HeaderAction.settings:
               _openSettings();
+            case _HeaderAction.admin:
+              widget.onAdmin?.call();
             case _HeaderAction.logout:
               widget.onLogout();
           }
@@ -398,6 +417,20 @@ class _LibraryScreenState extends State<LibraryScreen>
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          if (widget.verified)
+            const PopupMenuItem<_HeaderAction>(
+              enabled: false,
+              child: Text('حساب تأییدشده'),
+            ),
+          if (widget.onAdmin != null)
+            const PopupMenuItem(
+              value: _HeaderAction.admin,
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(NafirIcons.usersFill),
+                title: Text('مدیریت حساب‌ها'),
+              ),
+            ),
           const PopupMenuDivider(),
           const PopupMenuItem(
             value: _HeaderAction.settings,
@@ -443,7 +476,7 @@ class _LibraryScreenState extends State<LibraryScreen>
           ?.copyWith(fontWeight: FontWeight.w500),
       tabs: [
         const Tab(text: 'آهنگ‌ها'),
-        if (widget.playlists != null) const Tab(text: 'Playlistها'),
+        if (widget.playlists != null) const Tab(text: 'فهرست‌های پخش'),
         const Tab(text: 'آلبوم‌ها'),
         const Tab(text: 'هنرمندان'),
       ],
@@ -624,7 +657,7 @@ class _LibraryScreenState extends State<LibraryScreen>
       );
 }
 
-enum _HeaderAction { settings, logout }
+enum _HeaderAction { settings, logout, admin }
 
 enum _TrackAction {
   addToPlaylist,
@@ -672,7 +705,7 @@ class _CollapsingTitle extends StatelessWidget {
                   _NafirMark(size: 32),
                   SizedBox(width: 10),
                   Text(
-                    'نفیر',
+                    'ریتمو',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
                   ),
                 ],
@@ -698,7 +731,7 @@ class _CollapsingTitle extends StatelessWidget {
                     const SizedBox(width: 14),
                     Flexible(
                       child: Text(
-                        'نفیر',
+                        'ریتمو',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.headlineMedium
@@ -716,7 +749,7 @@ class _CollapsingTitle extends StatelessWidget {
   }
 }
 
-/// The Nafir logo mark: the horn's sound wave on the brand gradient.
+/// The rhythmo logo mark: the horn's sound wave on the brand gradient.
 class _NafirMark extends StatelessWidget {
   const _NafirMark({this.size = 44});
 
@@ -773,7 +806,7 @@ class _NafirBrand extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'نفیر',
+                          'ریتمو',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w700,
@@ -791,7 +824,7 @@ class _NafirBrand extends StatelessWidget {
                       ],
                     )
                   : const Text(
-                      'نفیر',
+                      'ریتمو',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -945,7 +978,7 @@ class _GroupList extends StatelessWidget {
                 ),
               ),
               subtitle: Text(
-                '${group.tracks.length} آهنگ',
+                '${persianDigits(group.tracks.length)} آهنگ',
                 style: theme.textTheme.bodySmall
                     ?.copyWith(color: colors.onSurfaceVariant),
               ),
@@ -1025,7 +1058,7 @@ class _AlbumCard extends StatelessWidget {
           Text(
             [
               if (group.artist case final artist?) artist,
-              '${group.tracks.length} آهنگ'
+              '${persianDigits(group.tracks.length)} آهنگ'
             ].join(' · '),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -1111,7 +1144,7 @@ class _TrackGroupScreen extends StatelessWidget {
                                     [
                                       if (group.artist case final artist?)
                                         artist,
-                                      '${groupTracks.length} آهنگ',
+                                      '${persianDigits(groupTracks.length)} آهنگ',
                                     ].join(' · '),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -1211,6 +1244,8 @@ class _TrackList extends StatefulWidget {
 }
 
 class _TrackListState extends State<_TrackList> {
+  static const _createPlaylistAction = '__create_playlist__';
+
   final TextEditingController _search = TextEditingController();
   String _query = '';
 
@@ -1301,7 +1336,7 @@ class _TrackListState extends State<_TrackList> {
             'ویرایش اطلاعات آهنگ'),
         if (widget.playlists != null)
           item(_TrackAction.addToPlaylist, NafirIcons.listPlus,
-              'افزودن به Playlist'),
+              'افزودن به فهرست پخش'),
         for (final bot in widget.linkedBots)
           PopupMenuItem(
             value: (_TrackAction.sendToBot, bot),
@@ -1361,54 +1396,103 @@ class _TrackListState extends State<_TrackList> {
     final loaded = await controller.load();
     if (!context.mounted) return;
     if (!loaded) {
-      _message(context, 'دریافت Playlistها ناموفق بود.');
+      _message(context, 'دریافت فهرست‌های پخش ناموفق بود.');
       return;
     }
-    if (controller.playlists.isEmpty) {
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Playlistی نداری'),
-          content: const Text('اول از بخش Playlistها یک Playlist بساز.'),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('متوجه شدم'),
+
+    var playlistId = controller.playlists.isEmpty
+        ? await _createPlaylist(context, controller)
+        : await showDialog<String>(
+            context: context,
+            builder: (context) => SimpleDialog(
+              title: const Text('افزودن به فهرست پخش'),
+              children: [
+                SimpleDialogOption(
+                  onPressed: () =>
+                      Navigator.pop(context, _createPlaylistAction),
+                  child: const ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(NafirIcons.plus),
+                    title: Text('فهرست پخش جدید'),
+                  ),
+                ),
+                const Divider(height: 1),
+                for (final playlist in controller.playlists)
+                  SimpleDialogOption(
+                    onPressed: () => Navigator.pop(context, playlist.id),
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(NafirIcons.playlist),
+                      title: Text(playlist.name),
+                      subtitle: Text(
+                          '${persianDigits(playlist.displayTrackCount)} قطعه موسیقی'),
+                    ),
+                  ),
+              ],
             ),
-          ],
-        ),
-      );
-      return;
+          );
+
+    if (!context.mounted || playlistId == null) return;
+    if (playlistId == _createPlaylistAction) {
+      playlistId = await _createPlaylist(context, controller);
+      if (!context.mounted || playlistId == null) return;
     }
-    final playlistId = await showDialog<String>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        title: const Text('افزودن به Playlist'),
-        children: [
-          for (final playlist in controller.playlists)
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, playlist.id),
-              child: ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(NafirIcons.playlist),
-                title: Text(playlist.name),
-                subtitle: Text('${playlist.trackCount} قطعه موسیقی'),
-              ),
-            ),
-        ],
-      ),
-    );
-    if (playlistId == null) return;
+
     final result = await controller.addTrack(playlistId, track.id);
     if (!context.mounted) return;
     switch (result) {
       case AddTrackResult.added:
-        _message(context, 'آهنگ به Playlist اضافه شد.');
+        _message(context, 'آهنگ به فهرست پخش اضافه شد.');
       case AddTrackResult.alreadyPresent:
-        _message(context, 'این آهنگ از قبل در Playlist است.');
+        _message(context, 'این آهنگ از قبل در فهرست پخش است.');
       case AddTrackResult.failure:
-        _message(context, 'افزودن آهنگ به Playlist ناموفق بود.');
+        _message(context, 'افزودن آهنگ به فهرست پخش ناموفق بود.');
     }
+  }
+
+  Future<String?> _createPlaylist(
+    BuildContext context,
+    PlaylistsController controller,
+  ) async {
+    final nameController = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('فهرست پخش جدید'),
+        content: TextField(
+          controller: nameController,
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          decoration: const InputDecoration(labelText: 'نام فهرست پخش'),
+          onSubmitted: (value) {
+            final name = value.trim();
+            if (name.isNotEmpty) Navigator.pop(context, name);
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final name = nameController.text.trim();
+              if (name.isNotEmpty) Navigator.pop(context, name);
+            },
+            child: const Text('ساخت'),
+          ),
+        ],
+      ),
+    );
+    if (!context.mounted || name == null) return null;
+
+    final playlist = await controller.create(name);
+    if (!context.mounted) return null;
+    if (playlist == null) {
+      _message(context, 'ساخت فهرست پخش ناموفق بود.');
+      return null;
+    }
+    return playlist.id;
   }
 
   void _message(BuildContext context, String text) {
@@ -1560,7 +1644,9 @@ class _TrackListHeader extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              filtered ? '$shown از $total آهنگ' : '$total آهنگ',
+              filtered
+                  ? '${persianDigits(shown)} از ${persianDigits(total)} آهنگ'
+                  : '${persianDigits(total)} آهنگ',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.labelLarge
@@ -1661,7 +1747,7 @@ class _TrackRow extends StatelessWidget {
         SyncOperation(:final phase, :final progress) => Text(
             phase == SyncPhase.queued
                 ? 'در صف آپلود · ${formatSize(track.sizeBytes)}'
-                : 'در حال آپلود ${(progress * 100).round()}٪ · '
+                : 'در حال آپلود ${persianDigits((progress * 100).round())}٪ · '
                     '${formatSize(track.sizeBytes)}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -2010,7 +2096,7 @@ class _ImportsInProgress extends StatelessWidget {
             child: Text(
               count == 1
                   ? 'یک فایل در حال اضافه شدن است…'
-                  : '$count فایل در حال اضافه شدن است…',
+                  : '${persianDigits(count)} فایل در حال اضافه شدن است…',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
@@ -2096,7 +2182,7 @@ class _EmptyLibrary extends StatelessWidget {
           icon: NafirIcons.musicNotes,
           title: 'کتابخانهٔ شما خالی است',
           message:
-              'با «افزودن موسیقی» آهنگ آپلود کن یا اجازه بده نفیر آهنگ‌های دستگاه را هم همین‌جا نشان بدهد.',
+              'با «افزودن موسیقی» آهنگ آپلود کن یا اجازه بده ریتمو آهنگ‌های دستگاه را هم همین‌جا نشان بدهد.',
         ),
       ],
     );

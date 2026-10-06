@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/mhdolatabadi/nafir/server/internal/bot"
+	"github.com/mhdolatabadi/nafir/server/internal/display"
 	"github.com/mhdolatabadi/nafir/server/internal/store"
 )
 
@@ -19,11 +20,11 @@ import (
 var publicFiles embed.FS
 
 var publicTemplates = map[string]*template.Template{
-	"home":     template.Must(template.ParseFS(publicFiles, "public/layout.html", "public/home.html")),
-	"playlist": template.Must(template.ParseFS(publicFiles, "public/layout.html", "public/playlist.html")),
-	"missing":  template.Must(template.ParseFS(publicFiles, "public/layout.html", "public/missing.html")),
-	"privacy":  template.Must(template.ParseFS(publicFiles, "public/layout.html", "public/privacy.html")),
-	"delete":   template.Must(template.ParseFS(publicFiles, "public/layout.html", "public/delete_account.html")),
+	"home":     template.Must(template.New("layout.html").Funcs(template.FuncMap{"digits": display.PersianDigits}).ParseFS(publicFiles, "public/layout.html", "public/home.html")),
+	"playlist": template.Must(template.New("layout.html").Funcs(template.FuncMap{"digits": display.PersianDigits}).ParseFS(publicFiles, "public/layout.html", "public/playlist.html")),
+	"missing":  template.Must(template.New("layout.html").Funcs(template.FuncMap{"digits": display.PersianDigits}).ParseFS(publicFiles, "public/layout.html", "public/missing.html")),
+	"privacy":  template.Must(template.New("layout.html").Funcs(template.FuncMap{"digits": display.PersianDigits}).ParseFS(publicFiles, "public/layout.html", "public/privacy.html")),
+	"delete":   template.Must(template.New("layout.html").Funcs(template.FuncMap{"digits": display.PersianDigits}).ParseFS(publicFiles, "public/layout.html", "public/delete_account.html")),
 }
 
 const (
@@ -35,7 +36,7 @@ const (
 	publicPageMaxAge = "public, max-age=60"
 )
 
-// PublicPages serves the public, search-engine-friendly side of Nafir as
+// PublicPages serves the public, search-engine-friendly side of rhythmo as
 // plain HTML: the most-liked public playlists at /, one public playlist at
 // /p/{token}, with sitemap.xml and robots.txt. Visitors need no account;
 // link-only and private playlists are never shown.
@@ -145,12 +146,12 @@ func (p *PublicPages) handleHome(w http.ResponseWriter, r *http.Request) {
 		Playlists []publicListItem
 	}{
 		pageMeta: pageMeta{
-			Title:       "نفیر — Playlistهای محبوب",
-			Description: "Playlistهای محبوب کاربران نفیر را بدون ثبت‌نام بشنو و Playlist خودت را بساز.",
+			Title:       "ریتمو — فهرست‌های پخش محبوب",
+			Description: "فهرست‌های پخش محبوب کاربران ریتمو را بدون ثبت‌نام بشنو و فهرست پخش خودت را بساز.",
 			Canonical:   site + "/", Image: site + "/nafir.png", OGType: "website",
 			JSONLD: map[string]any{
 				"@context": "https://schema.org", "@type": "ItemList",
-				"name": "Playlistهای محبوب نفیر", "itemListElement": listJSON,
+				"name": "فهرست‌های پخش محبوب ریتمو", "itemListElement": listJSON,
 			},
 		},
 		Playlists: items,
@@ -171,7 +172,7 @@ func (p *PublicPages) publicPlaylistFor(w http.ResponseWriter, r *http.Request) 
 	}
 	if errors.Is(err, store.ErrNotFound) {
 		p.render(w, http.StatusNotFound, "missing", struct{ pageMeta }{pageMeta{
-			Title: "پیدا نشد — نفیر", Description: "این Playlist عمومی نیست یا حذف شده است.",
+			Title: "پیدا نشد — ریتمو", Description: "این فهرست پخش عمومی نیست یا حذف شده است.",
 			Canonical: origin(r) + r.URL.Path, Image: origin(r) + "/nafir.png", OGType: "website", NoIndex: true,
 		}})
 		return store.SharedPlaylist{}, false
@@ -223,7 +224,7 @@ func (p *PublicPages) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 		}
 		recordings = append(recordings, recording)
 	}
-	description := fmt.Sprintf("Playlist «%s» با %d آهنگ در نفیر", shared.Name, len(shared.Tracks))
+	description := fmt.Sprintf("فهرست پخش «%s» با %s آهنگ در ریتمو", shared.Name, display.PersianDigits(len(shared.Tracks)))
 	if len(artists) > 0 {
 		description += "، از " + strings.Join(artists, "، ")
 	}
@@ -235,7 +236,7 @@ func (p *PublicPages) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 		Playlist publicPlaylist
 	}{
 		pageMeta: pageMeta{
-			Title:       shared.Name + " — Playlist در نفیر",
+			Title:       shared.Name + " — فهرست پخش در ریتمو",
 			Description: description,
 			Canonical:   canonical, Image: site + "/nafir.png", OGType: "music.playlist",
 			JSONLD: map[string]any{
@@ -337,8 +338,8 @@ func (p *PublicPages) handlePrivacy(w http.ResponseWriter, r *http.Request) {
 		Contact string
 	}{
 		pageMeta: pageMeta{
-			Title:       "حریم خصوصی — نفیر",
-			Description: "نفیر چه اطلاعاتی نگه می‌دارد، چه کسی آن را می‌بیند و چطور حذفش کنی.",
+			Title:       "حریم خصوصی — ریتمو",
+			Description: "ریتمو چه اطلاعاتی نگه می‌دارد، چه کسی آن را می‌بیند و چطور حذفش کنی.",
 			Canonical:   site + "/privacy", Image: site + "/nafir.png", OGType: "website",
 		},
 		Updated: privacyUpdated,
@@ -360,8 +361,8 @@ func (p *PublicPages) handleDeleteAccount(w http.ResponseWriter, r *http.Request
 		Contact string
 	}{
 		pageMeta: pageMeta{
-			Title:       "حذف حساب کاربری — نفیر",
-			Description: "چطور حساب نفیر و همه‌ی موسیقی‌ها و Playlistهایت را برای همیشه حذف کنی.",
+			Title:       "حذف حساب کاربری — ریتمو",
+			Description: "چطور حساب ریتمو و همه‌ی موسیقی‌ها و فهرست‌های پخشت را برای همیشه حذف کنی.",
 			Canonical:   site + "/delete-account", Image: site + "/nafir.png", OGType: "website",
 		},
 		Updated: deleteAccountUpdated,
