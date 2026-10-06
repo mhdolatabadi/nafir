@@ -272,6 +272,16 @@ class PlayerController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Shows edited metadata for a queued or playing track without
+  /// interrupting playback; the audio itself does not change.
+  void updateTrack(Track track) {
+    final queued = _queue?.replace(track) ?? false;
+    final current = _track;
+    final playing = current != null && current.id == track.id;
+    if (playing) _track = track.keepingContextOf(current);
+    if (queued || playing) notifyListeners();
+  }
+
   /// Stops playback and forgets the track, for example on logout.
   Future<void> stop() async {
     _request++;

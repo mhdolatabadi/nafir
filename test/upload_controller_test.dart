@@ -45,6 +45,15 @@ class FakeTracksApi implements TracksApi {
   int links = 0;
   Object? linkError;
 
+  /// The embedded tag state the server reports right after an edit.
+  EmbeddedTags tagsAfterUpdate = const EmbeddedTags();
+
+  @override
+  Future<Track> getTrack(String token, String trackId) async {
+    calls.add('get:$trackId');
+    return tracks.firstWhere((track) => track.id == trackId);
+  }
+
   @override
   Future<StreamLink> streamLink(String token, String trackId) async {
     calls.add('stream:$trackId');
@@ -66,9 +75,11 @@ class FakeTracksApi implements TracksApi {
     downloadLinks.add(trackId);
     final track = tracks.firstWhere((t) => t.id == trackId);
     return DownloadLink(
-      Uri.parse('https://music.example.com/nafir-music/$trackId?dl=1'),
-      DateTime.now().add(const Duration(hours: 1)),
-      track.fileName ?? 'track.mp3',
+      url: Uri.parse('https://music.example.com/nafir-music/$trackId?dl=1'),
+      expiresAt: DateTime.now().add(const Duration(hours: 1)),
+      fileName: track.fileName ?? 'track.mp3',
+      version: track.version,
+      tagsUpToDate: true,
     );
   }
 
@@ -145,10 +156,22 @@ class FakeTracksApi implements TracksApi {
     }
     final current = tracks[index];
     if (current.version != version) {
-      throw const ApiException(
+      throw ApiException(
         'conflict',
         statusCode: 409,
         code: 'version_conflict',
+        details: {
+          'error': 'version_conflict',
+          'track': {
+            'id': current.id,
+            'title': current.title,
+            'artist': current.artist,
+            'contentType': current.contentType,
+            'sizeBytes': current.sizeBytes,
+            'fileName': current.fileName,
+            'version': current.version,
+          },
+        },
       );
     }
     final updated = Track(
@@ -170,6 +193,7 @@ class FakeTracksApi implements TracksApi {
       source: current.source,
       sharedVia: current.sharedVia,
       version: current.version + 1,
+      embeddedTags: tagsAfterUpdate,
     );
     tracks[index] = updated;
     return updated;

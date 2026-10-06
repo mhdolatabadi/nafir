@@ -111,11 +111,8 @@ func (h *History) Recent(ctx context.Context, userID string, limit int) ([]Histo
 	entries := []HistoryEntry{}
 	for rows.Next() {
 		var e HistoryEntry
-		t := &e.Track
-		if err := rows.Scan(&t.ID, &t.OwnerID, &t.Status, &t.Title, &t.Artist, &t.Album, &t.AlbumArtist,
-			&t.Composer, &t.Genre, &t.Year, &t.TrackNumber, &t.DiscNumber, &t.Comment, &t.DurationMS,
-			&t.FileName, &t.StorageKey, &t.ContentType, &t.SizeBytes, &t.Source, &t.CreatedAt,
-			&t.MetadataVersion, &e.PlaylistID, &e.OwnerEmail, &e.PlayedAt); err != nil {
+		dest := append(trackDestinations(&e.Track), &e.PlaylistID, &e.OwnerEmail, &e.PlayedAt)
+		if err := rows.Scan(dest...); err != nil {
 			return nil, err
 		}
 		entries = append(entries, e)

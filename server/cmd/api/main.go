@@ -21,6 +21,7 @@ import (
 	"github.com/mhdolatabadi/nafir/server/internal/linkimport"
 	"github.com/mhdolatabadi/nafir/server/internal/storage"
 	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/nafir/server/internal/tagwriter"
 )
 
 const (
@@ -33,6 +34,7 @@ const (
 	defaultCleanupEvery  = 10 * time.Minute
 	defaultCleanupBatch  = 100
 	maxRateLimitKeys     = 10_000
+	defaultTagWorkers    = 1
 	storageStartupWindow = time.Minute
 )
 
@@ -78,6 +80,10 @@ func run() error {
 		return err
 	}
 	ownerQuotaBytes, err := positiveInt64Env("STORAGE_QUOTA_BYTES", defaultOwnerQuota)
+	if err != nil {
+		return err
+	}
+	tagWorkers, err := positiveIntEnv("TAG_REWRITE_WORKERS", defaultTagWorkers)
 	if err != nil {
 		return err
 	}
@@ -200,6 +206,12 @@ func run() error {
 	})
 
 	tracks := store.NewTracks(pool)
+	// Rewrites embedded tags after metadata edits. A replaced object stays
+	// readable for one stream URL lifetime so playback under way can finish.
+	retags := tagwriter.New(tracks, objects, tagwriter.Config{
+		Workers: tagWorkers, TempDir: os.Getenv("TAG_REWRITE_TMPDIR"),
+		Grace: streamURLTTL + time.Minute, MaxOwnerBytes: ownerQuotaBytes,
+	})
 	playlists := store.NewPlaylists(pool)
 	bots := store.NewBots(pool)
 	webhooks, botHandlers, botMonitor, err := setupBots(ctx, botDeps{
@@ -253,7 +265,7 @@ func run() error {
 				MaxPending: maxPending, Enabled: uploadsEnabled,
 				ReservationUserRate: reservationUserRate, ReservationIPRate: reservationIPRate,
 				CompletionUserRate: completionUserRate, CompletionIPRate: completionIPRate,
-			}).WithImports(bots),
+			}).WithImports(bots).WithTagRewrites(retags),
 			Playlists: httpapi.NewPlaylistHandlers(playlists, tokens).WithSharing(playlists, objects, httpapi.SavePolicy{
 				Objects: objects, MaxOwnerBytes: ownerQuotaBytes, Enabled: uploadsEnabled,
 			}).WithAnonymous(httpapi.AnonymousLimits{View: publicViewRate, Stream: publicStreamRate}),
@@ -272,6 +284,7 @@ func run() error {
 		IdleTimeout:       60 * time.Second,
 	}
 
+	go retags.Run(ctx)
 	go cleanPendingUploads(ctx, tracks, objects, pendingTTL, cleanupEvery, cleanupBatch)
 	go purgeDeletedAccounts(ctx, users, objects, cleanupEvery, cleanupBatch)
 

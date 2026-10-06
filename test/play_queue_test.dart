@@ -102,4 +102,19 @@ void main() {
     expect(queue.previous().id, 'd');
     expect(() => queue.skipTo(5), throwsRangeError);
   });
+
+  test('replace swaps in fresh metadata without moving the queue', () {
+    final queue = PlayQueue(_tracks, start: 1);
+    final renamed = Track(
+        id: 'c', title: 'C renamed', contentType: 'audio/mpeg', sizeBytes: 1);
+
+    expect(queue.replace(renamed), isTrue);
+    expect(queue.current.id, 'b');
+    expect(_ids(queue.upcoming), ['c', 'd', 'e']);
+    expect(queue.upcoming.first.title, 'C renamed');
+    expect(
+        queue.replace(Track(
+            id: 'zz', title: 'zz', contentType: 'audio/mpeg', sizeBytes: 1)),
+        isFalse);
+  });
 }

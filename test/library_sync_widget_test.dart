@@ -113,6 +113,39 @@ void main() {
     expect(find.text('ویرایش اطلاعات آهنگ'), findsNothing);
   });
 
+  testWidgets('editing from the menu saves and shows the new title',
+      (tester) async {
+    final tracks = FakeTracksApi([
+      const Track(
+          id: 't1',
+          title: 'Old title',
+          contentType: 'audio/mpeg',
+          sizeBytes: 100,
+          fileName: 'old.mp3'),
+    ]);
+    await _pump(tester,
+        tracks: tracks,
+        device: FakeLocalAudioLibrary(
+            const LocalAudioResult(LocalAudioStatus.loaded, [])));
+
+    await _openMenu(tester, 'Old title');
+    await tester.tap(find.text('ویرایش اطلاعات آهنگ'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.descendant(
+            of: find.byKey(const ValueKey('title')),
+            matching: find.byType(EditableText)),
+        'New title');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('save')));
+    await tester.pumpAndSettle();
+
+    expect(tracks.calls, contains('update:t1'));
+    expect(find.byKey(const ValueKey('save')), findsNothing);
+    expect(find.text('New title'), findsOneWidget);
+    expect(find.text('Old title'), findsNothing);
+  });
+
   testWidgets('uploading from the menu shows progress, cancels, then syncs',
       (tester) async {
     final uploader = FakeUploader()..stall = true;

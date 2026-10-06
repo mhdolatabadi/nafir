@@ -18,6 +18,7 @@ import 'package:nafir/features/library/application/track_groups.dart';
 import 'package:nafir/features/library/application/track_sort.dart';
 import 'package:nafir/features/library/application/local_audio_controller.dart';
 import 'package:nafir/features/library/data/track.dart';
+import 'package:nafir/features/library/presentation/track_metadata_editor.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/presentation/mini_player.dart';
 import 'package:nafir/features/playlists/presentation/shared_playlist_screen.dart';
@@ -255,22 +256,27 @@ class _LibraryScreenState extends State<LibraryScreen>
   }
 
   Future<void> _editTrackMetadata(Track track) async {
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (context) => _TrackMetadataDialog(
-        track: track,
-        onSave: (title, artist, album) => widget.library.updateTrackMetadata(
-          track.id,
-          title: title,
-          artist: artist,
-          album: album,
-        ),
-      ),
+    final saved = await showTrackMetadataEditor(
+      context,
+      track: track,
+      onSave: (draft, version) =>
+          widget.library.saveTrackMetadata(track.id, draft, version: version),
     );
-    if (!mounted || saved != true) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('اطلاعات «${track.title}» به‌روزرسانی شد.')),
-    );
+    if (saved == null) return;
+    // The library already shows the saved copy; bring the player queue and
+    // loaded playlists up to date too.
+    widget.player.updateTrack(saved);
+    widget.playlists?.updateTrack(saved);
+    if (!mounted) return;
+    final message = switch (saved.embeddedTags.status) {
+      EmbeddedTagStatus.pending =>
+        'ذخیره شد؛ اطلاعات تا چند لحظهٔ دیگر در خود فایل هم نوشته می‌شود.',
+      EmbeddedTagStatus.unsupported =>
+        'ذخیره شد؛ این قالب فایل برچسب داخلی قابل ویرایش ندارد.',
+      _ => 'اطلاعات «${saved.title}» ذخیره شد.',
+    };
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _confirmDeleteTrack(Track track) async {
@@ -1981,136 +1987,6 @@ class _TrackArtwork extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _TrackMetadataDialog extends StatefulWidget {
-  const _TrackMetadataDialog({
-    required this.track,
-    required this.onSave,
-  });
-
-  final Track track;
-  final Future<bool> Function(String title, String? artist, String? album)
-      onSave;
-
-  @override
-  State<_TrackMetadataDialog> createState() => _TrackMetadataDialogState();
-}
-
-class _TrackMetadataDialogState extends State<_TrackMetadataDialog> {
-  late final TextEditingController _title =
-      TextEditingController(text: widget.track.title);
-  late final TextEditingController _artist =
-      TextEditingController(text: widget.track.artist ?? '');
-  late final TextEditingController _album =
-      TextEditingController(text: widget.track.album ?? '');
-  bool _saving = false;
-  String? _error;
-
-  @override
-  void dispose() {
-    _title.dispose();
-    _artist.dispose();
-    _album.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    final title = _title.text.trim();
-    if (title.isEmpty) {
-      setState(() => _error = 'عنوان آهنگ نباید خالی باشد.');
-      return;
-    }
-    setState(() {
-      _saving = true;
-      _error = null;
-    });
-    final ok = await widget.onSave(title, _artist.text, _album.text);
-    if (!mounted) return;
-    if (ok) {
-      Navigator.pop(context, true);
-      return;
-    }
-    setState(() {
-      _saving = false;
-      _error = 'ذخیرهٔ اطلاعات ناموفق بود. دوباره تلاش کن.';
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      icon: const Icon(NafirIcons.notePencil),
-      title: const Text('ویرایش اطلاعات آهنگ'),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _title,
-              enabled: !_saving,
-              autofocus: true,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'عنوان',
-                prefixIcon: Icon(NafirIcons.musicNote),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _artist,
-              enabled: !_saving,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'خواننده',
-                prefixIcon: Icon(NafirIcons.user),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _album,
-              enabled: !_saving,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) {
-                if (!_saving) _save();
-              },
-              decoration: const InputDecoration(
-                labelText: 'آلبوم',
-                prefixIcon: Icon(NafirIcons.vinylRecord),
-              ),
-            ),
-            if (_error case final error?) ...[
-              const SizedBox(height: 12),
-              Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: Text(
-                  error,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _saving ? null : () => Navigator.pop(context, false),
-          child: const Text('انصراف'),
-        ),
-        FilledButton.icon(
-          onPressed: _saving ? null : _save,
-          icon: _saving
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(NafirIcons.check),
-          label: const Text('ذخیره'),
-        ),
-      ],
     );
   }
 }
