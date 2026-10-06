@@ -24,6 +24,7 @@ const theirs = Track(
 const extra = Track(
     id: 'extra',
     title: 'Another of mine',
+    artist: 'Example Artist',
     contentType: 'audio/mpeg',
     sizeBytes: 1);
 
@@ -224,7 +225,27 @@ void main() {
     // Picking tracks keeps the ones others added.
     await tester.tap(find.text('مدیریت آهنگ‌ها'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Another of mine'));
+    final picker = find.byType(AlertDialog);
+    Finder pickerText(String text) =>
+        find.descendant(of: picker, matching: find.text(text));
+    expect(pickerText('۱ آهنگ انتخاب شده'), findsOneWidget);
+    final search = find.widgetWithText(TextField, 'جست‌وجوی عنوان یا هنرمند');
+    await tester.enterText(search, 'example artist');
+    await tester.pump();
+    expect(pickerText('Another of mine'), findsOneWidget);
+    await tester.enterText(search, 'ANOTHER');
+    await tester.pump();
+    expect(pickerText('My song'), findsNothing);
+    await tester.tap(pickerText('Another of mine'));
+    await tester.pump();
+    expect(pickerText('۲ آهنگ انتخاب شده'), findsOneWidget);
+    await tester.enterText(search, 'no matching song');
+    await tester.pump();
+    expect(pickerText('آهنگی با این جست‌وجو پیدا نشد.'), findsOneWidget);
+    await tester.enterText(search, '');
+    await tester.pump();
+    expect(pickerText('My song'), findsOneWidget);
+    expect(pickerText('۲ آهنگ انتخاب شده'), findsOneWidget);
     await tester.tap(find.text('ذخیره'));
     await tester.pumpAndSettle();
     expect(api.replacedWith, ['theirs', 'mine', 'extra']);
@@ -318,6 +339,15 @@ void main() {
           .first);
       expect(size.width, greaterThanOrEqualTo(48), reason: tooltip);
     }
+
+    await tester.tap(find.text('مدیریت آهنگ‌ها'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    final dialog = tester.getRect(find.byType(AlertDialog));
+    expect(dialog.left, greaterThanOrEqualTo(0));
+    expect(dialog.right, lessThanOrEqualTo(360));
+    await tester.tap(find.text('انصراف'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('دعوت دوستان و مدیریت اعضا'));
     await tester.pumpAndSettle();
