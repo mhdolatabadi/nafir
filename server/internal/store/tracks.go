@@ -152,12 +152,18 @@ func qualifyColumns(table string, names []string) string {
 
 func scanTrack(row pgx.Row) (Track, error) {
 	var t Track
-	err := row.Scan(&t.ID, &t.OwnerID, &t.Status, &t.Title, &t.Artist, &t.Album, &t.AlbumArtist,
+	err := row.Scan(trackDestinations(&t)...)
+	return t, err
+}
+
+// trackDestinations are where scanTrack reads trackColumnNames into, for a
+// query that selects more columns after them.
+func trackDestinations(t *Track) []any {
+	return []any{&t.ID, &t.OwnerID, &t.Status, &t.Title, &t.Artist, &t.Album, &t.AlbumArtist,
 		&t.Composer, &t.Genre, &t.Year, &t.TrackNumber, &t.DiscNumber, &t.Comment, &t.DurationMS,
 		&t.FileName, &t.StorageKey, &t.ContentType, &t.SizeBytes, &t.Source, &t.CreatedAt,
 		&t.MetadataVersion, &t.TagStatus, &t.TagVersion, &t.TagError, &t.TagAttempts,
-		&t.PendingStorageKey)
-	return t, err
+		&t.PendingStorageKey}
 }
 
 // ReservePending atomically checks the owner's total reserved bytes and active

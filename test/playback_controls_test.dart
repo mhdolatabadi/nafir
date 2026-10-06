@@ -325,6 +325,26 @@ void main() {
       player.dispose();
     });
 
+    test('a track reached gaplessly still counts as a listen', () async {
+      final listened = <String>[];
+      final player = PlayerController(
+        api: api,
+        engine: engine,
+        token: () => 'tok',
+        settingsStore: store,
+        onListened: (track) => listened.add(track.id),
+      );
+      await player.playFrom(_abc, 0);
+      engine.positionCtl.add(const Duration(minutes: 2, seconds: 45));
+      await pumpEventQueue();
+      engine.advance();
+      for (var second = 1; second <= 31; second++) {
+        engine.positionCtl.add(Duration(seconds: second));
+      }
+      expect(listened, ['b']);
+      player.dispose();
+    });
+
     test('nothing is buffered at the end of the queue or on repeat-one',
         () async {
       final player = controller();
