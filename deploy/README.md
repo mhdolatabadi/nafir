@@ -141,6 +141,65 @@ container answers such requests with a redirect to `/app/`, but the public
 pages only appear once `/` goes to the API. Roll back by restoring the
 previous nginx file and reloading.
 
+## Moving to a new domain
+
+Production moved from `nafir.mhdolatabadi.ir` to `rhythmo.ir` (#180). For a
+move like that:
+
+1. Set `NAFIR_DOMAIN=rhythmo.ir` in `deploy/.env` and deploy. Presigned audio
+   links, the web origin and the bot webhooks follow it; the bots register
+   their new webhook on start.
+2. Give the new domain the routes in `deploy/front-proxy.nginx.conf`.
+3. Keep the old domain's certificate and add `deploy/legacy-domain.nginx.conf`
+   to its server block: the API keeps answering there for apps built with the
+   old address, and every page redirects permanently to the new domain.
+4. Release a new Android build. Release builds take the API address from the
+   `NAFIR_API_BASE_URL` repository variable, or `https://rhythmo.ir` when it
+   is not set.
+5. Retire the old domain only once installed apps have updated.
+
+## Storage, quotas and abuse controls
+
+Every way music gets in (app uploads, bot imports and link imports) goes
+through one reservation that holds a per-account lock, so concurrent
+requests can't get past these limits:
+
+| Limit | Variable | Default |
+| --- | --- | --- |
+| File size | `MAX_UPLOAD_BYTES` | 200 MiB |
+| Storage per account (ready + pending) | `STORAGE_QUOTA_BYTES` | 1 GiB |
+| Unfinished uploads per account | `MAX_PENDING_UPLOADS` | 3 |
+| Upload reservations per account / per IP | `UPLOAD_RESERVATION_USER_RATE_*` / `UPLOAD_RESERVATION_IP_RATE_*` | 120 / 240 per 10 min |
+| Registrations / logins per IP | `REGISTER_RATE_*` / `LOGIN_RATE_*` | 5 per hour / 30 per 15 min |
+| Link imports per account | `LINK_IMPORT_USER_RATE_*` | 20 per 10 min |
+
+Refused requests get `413 quota_exceeded`, `429 rate_limited` (with
+`Retry-After`) or `429 too_many_pending_uploads`. Uploads that are never
+finished expire after `PENDING_UPLOAD_TTL` (2h), and a cleaner removes their
+rows and objects every `PENDING_CLEANUP_INTERVAL` (10m).
+
+### Watching disk space
+
+MinIO and Postgres share the server's disk. Check it after deploys and when
+usage grows:
+
+```sh
+df -h /var/lib/docker
+docker system df -v | grep -E 'deploy_(minio|postgres)-data'
+```
+
+- **Above 70% full:** look at who is growing (`SELECT owner_id, sum(size_bytes) FROM tracks GROUP BY 1 ORDER BY 2 DESC LIMIT 10;`) and plan more disk or a lower quota.
+- **Above 85% full:** stop new uploads (below) until there is room.
+- **Above 95% full:** Postgres and MinIO may fail writes; act immediately.
+
+### Emergency: stop new music coming in
+
+Set `UPLOADS_ENABLED=false` in `deploy/.env` and run `./deploy.sh`. App
+uploads, bot imports and link imports are then refused with
+`503 uploads_disabled`, while existing tracks keep playing and nothing is
+deleted. To slow down signups instead, lower `REGISTER_RATE_REQUESTS`.
+Undo by setting it back to `true` and deploying again.
+
 ## Bale and Telegram bots
 
 People can send audio to rhythmo's Bale or Telegram bot and it lands in their

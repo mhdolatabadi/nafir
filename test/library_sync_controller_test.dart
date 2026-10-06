@@ -6,6 +6,7 @@ import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/features/library/application/library_sync_controller.dart';
 import 'package:nafir/features/library/data/local_audio_upload.dart';
 import 'package:nafir/features/library/data/track.dart';
+import 'package:nafir/features/library/data/track_download.dart';
 import 'package:nafir/features/upload/application/upload_controller.dart';
 import 'package:nafir/features/upload/data/upload_models.dart';
 
@@ -32,6 +33,40 @@ class FakeUploadSource implements LocalAudioUploadSource {
   }
 }
 
+/// Saves downloads "to the device": reports half, then all, of the bytes.
+/// With [stall] it waits halfway until cancelled; [error] makes it fail.
+class FakeTrackDownloader implements TrackDownloader {
+  FakeTrackDownloader({this.savesToDevice = true});
+
+  @override
+  final bool savesToDevice;
+  bool stall = false;
+  Object? error;
+  final saved = <String>[];
+
+  /// Called with each saved file, to add it to the fake device's music.
+  void Function(DownloadLink link)? onSaved;
+
+  @override
+  Future<void> download(
+    DownloadLink link, {
+    required String contentType,
+    required int sizeBytes,
+    required void Function(int received, int total) onProgress,
+    required Future<void> cancelled,
+  }) async {
+    onProgress(sizeBytes ~/ 2, sizeBytes);
+    if (stall) {
+      await cancelled;
+      throw const DownloadCancelled();
+    }
+    if (error != null) throw error!;
+    onProgress(sizeBytes, sizeBytes);
+    saved.add(link.fileName);
+    onSaved?.call(link);
+  }
+}
+
 Track device(int id, {String fileName = 'song.mp3'}) => Track(
       id: 'device:$id',
       title: 'Device $id',
@@ -48,6 +83,8 @@ void main() {
   late UploadController uploads;
   late LibrarySyncController sync;
   late int refreshed;
+  late int rescanned;
+  late FakeTrackDownloader downloader;
   late List<SyncOperation> finished;
 
   setUp(() {
@@ -57,10 +94,15 @@ void main() {
     uploads =
         UploadController(api: api, uploader: uploader, token: () => 'token');
     refreshed = 0;
+    rescanned = 0;
     sync = LibrarySyncController(
       uploads: uploads,
       uploadSource: source,
       onUploaded: () async => refreshed++,
+      api: api,
+      token: () => 'token',
+      downloader: downloader = FakeTrackDownloader(),
+      onDownloaded: () async => rescanned++,
     );
     finished = [];
     sync.finished.listen(finished.add);
@@ -211,5 +253,152 @@ void main() {
     sync.clear();
     await settle();
     expect(sync.operations, isEmpty);
+  });
+
+  group('downloads', () {
+    const cloud = Track(
+      id: 's1',
+      title: 'Server song',
+      contentType: 'audio/mpeg',
+      sizeBytes: 10,
+      fileName: 'Server_song.mp3',
+    );
+
+    setUp(() => api.tracks.add(cloud));
+
+    test('downloads the original under its filename, then rescans the device',
+        () async {
+      final seen = <(SyncPhase, double)?>[];
+      sync.addListener(() {
+        final op = sync.operationFor(cloud.id);
+        seen.add(op == null ? null : (op.phase, op.progress));
+      });
+
+      sync.download(cloud);
+      expect(sync.operationFor(cloud.id)!.kind, SyncKind.download);
+      await settle();
+
+      expect(api.downloadLinks, [cloud.id]);
+      expect(downloader.saved, ['Server_song.mp3']);
+      expect(rescanned, 1);
+      expect(sync.operationFor(cloud.id), isNull);
+      expect(
+          seen,
+          containsAllInOrder([
+            (SyncPhase.queued, 0.0),
+            (SyncPhase.running, 0.0),
+            (SyncPhase.running, 0.5),
+            (SyncPhase.running, 1.0),
+            null,
+          ]));
+      expect(finished.single.kind, SyncKind.download);
+      expect(finished.single.error, isNull);
+    });
+
+    test('a cancelled download leaves nothing and can start again', () async {
+      downloader.stall = true;
+      sync.download(cloud);
+      await settle();
+      expect(sync.operationFor(cloud.id)!.progress, 0.5);
+      expect(sync.canCancel(cloud.id), isTrue);
+
+      sync.cancel(cloud.id);
+      await settle();
+      expect(sync.operationFor(cloud.id), isNull);
+      expect(downloader.saved, isEmpty);
+      expect(finished, isEmpty);
+
+      downloader.stall = false;
+      sync.download(cloud);
+      await settle();
+      expect(downloader.saved, ['Server_song.mp3']);
+    });
+
+    test('failures explain themselves and can be retried', () async {
+      for (final (failure, error) in const [
+        (DownloadFailure.storageFull, SyncError.storageFull),
+        (DownloadFailure.offline, SyncError.offline),
+        (DownloadFailure.permission, SyncError.permission),
+        (DownloadFailure.incomplete, SyncError.incomplete),
+        (DownloadFailure.duplicate, SyncError.duplicate),
+      ]) {
+        downloader.error = DownloadException(failure);
+        sync.download(cloud);
+        await settle();
+        expect(sync.operationFor(cloud.id)!.error, error, reason: '$failure');
+        expect(syncErrorMessage(error), isNotEmpty);
+        sync.dismiss(cloud.id);
+      }
+
+      downloader.error = null;
+      sync.download(cloud);
+      await settle();
+      downloader.error = const DownloadException(DownloadFailure.offline);
+      // Already saved, so nothing failed; retry a fresh failure instead.
+      sync.download(cloud);
+      await settle();
+      expect(sync.operationFor(cloud.id)!.phase, SyncPhase.failed);
+      downloader.error = null;
+      sync.retry(cloud.id);
+      await settle();
+      expect(sync.operationFor(cloud.id), isNull);
+      expect(downloader.saved, hasLength(2));
+    });
+
+    test('without a connection the link fails as offline', () async {
+      api.linkError = Exception('SocketException');
+
+      sync.download(cloud);
+      await settle();
+
+      expect(sync.operationFor(cloud.id)!.error, SyncError.offline);
+      expect(downloader.saved, isEmpty);
+    });
+
+    test('a track already on the device is not downloaded twice', () async {
+      sync.download(cloud.withDeviceCopy(Uri.parse('content://media/1')));
+      await settle();
+
+      expect(sync.operationFor(cloud.id)!.error, SyncError.duplicate);
+      expect(api.downloadLinks, isEmpty);
+    });
+
+    test('one download at a time, alongside an upload', () async {
+      api.tracks.add(const Track(
+          id: 's2', title: 'Second', contentType: 'audio/mpeg', sizeBytes: 8));
+      downloader.stall = true;
+      uploader.stall = true;
+      sync.download(cloud);
+      sync.download(api.tracks.last);
+      sync.upload(device(1));
+      await settle();
+
+      expect(sync.operationFor('s1')!.phase, SyncPhase.running);
+      expect(sync.operationFor('s2')!.phase, SyncPhase.queued);
+      expect(sync.operationFor('device:1')!.phase, SyncPhase.running);
+
+      sync.clear();
+      await settle();
+      expect(sync.operations, isEmpty);
+    });
+
+    test('on the web the browser saves it; no device rescan', () async {
+      final web = LibrarySyncController(
+        uploads: uploads,
+        uploadSource: source,
+        onUploaded: () async {},
+        api: api,
+        token: () => 'token',
+        downloader: FakeTrackDownloader(savesToDevice: false),
+        onDownloaded: () async => rescanned++,
+      );
+      expect(web.downloadsToDevice, isFalse);
+
+      web.download(cloud);
+      await settle();
+
+      expect(web.operationFor(cloud.id), isNull);
+      expect(rescanned, 0);
+    });
   });
 }

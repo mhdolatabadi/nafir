@@ -1,6 +1,10 @@
 package bot
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/mhdolatabadi/nafir/server/internal/display"
+)
 
 // Everything the bots say, in one place.
 const (
@@ -35,7 +39,7 @@ func msgRefused(reason string, maxMB int64) string {
 	case ReasonUnsupported:
 		return "این فایل پشتیبانی نمی‌شود. فایل صوتی mp3، m4a، aac، flac، ogg، opus، wav یا webm بفرستید."
 	case ReasonTooLarge:
-		return fmt.Sprintf("حجم فایل بیشتر از %d مگابایت است و از طریق ربات قابل دریافت نیست.", maxMB)
+		return fmt.Sprintf("حجم فایل بیشتر از %s مگابایت است و از طریق ربات قابل دریافت نیست.", display.PersianDigits(maxMB))
 	case ReasonQuota:
 		return "فضای کتابخانهٔ شما پر است. برای افزودن آهنگ تازه، چند آهنگ را از کتابخانه حذف کنید."
 	case ReasonPending:
@@ -54,5 +58,5 @@ func msgSendFailed(title string) string {
 }
 
 func msgSendTooLarge(title string, maxMB int64) string {
-	return fmt.Sprintf("«%s» بیشتر از %d مگابایت است و ربات نمی‌تواند آن را بفرستد.", title, maxMB)
+	return fmt.Sprintf("«%s» بیشتر از %s مگابایت است و ربات نمی‌تواند آن را بفرستد.", title, display.PersianDigits(maxMB))
 }

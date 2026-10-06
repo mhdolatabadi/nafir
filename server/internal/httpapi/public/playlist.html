@@ -1,7 +1,7 @@
 {{define "content"}}
 <section class="hero">
 <h1>{{.Playlist.Name}}</h1>
-<p class="meta"><bdi>{{.Playlist.Owner}}</bdi> · {{.Playlist.TrackCount}} آهنگ · {{template "heart"}} {{.Playlist.LikeCount}} پسند</p>
+<p class="meta"><bdi>{{.Playlist.Owner}}</bdi> · {{digits .Playlist.TrackCount}} آهنگ · {{template "heart"}} {{digits .Playlist.LikeCount}} پسند</p>
 <p style="margin-top:16px"><a class="button" href="/app/?shared={{.Playlist.ShareToken}}">باز کردن در اپ ریتمو</a></p>
 </section>
 {{if .Playlist.Tracks}}

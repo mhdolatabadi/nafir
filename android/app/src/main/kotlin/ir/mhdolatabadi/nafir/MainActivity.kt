@@ -4,10 +4,13 @@ import android.Manifest
 import android.app.Activity
 import android.app.RecoverableSecurityException
 import android.content.ContentUris
+import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.media.MediaScannerConnection
 import android.os.Build
+import android.os.Environment
 import android.provider.MediaStore
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -15,6 +18,7 @@ import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
+import java.io.IOException
 
 // Shares the Flutter engine with audio_service's background playback service,
 // so music keeps playing and responds to media controls with the app closed.
@@ -23,6 +27,9 @@ class MainActivity : AudioServiceActivity() {
     private val permissionRequest = 4102
     private val writePermissionRequest = 4103
     private val deleteRequest = 4104
+
+    /// Where downloaded tracks are saved, relative to shared storage.
+    private val musicFolder = "${Environment.DIRECTORY_MUSIC}/rhythmo"
     private var pendingResult: MethodChannel.Result? = null
 
     /// Waiting for the storage write permission (Android 9 and older).
@@ -45,6 +52,12 @@ class MainActivity : AudioServiceActivity() {
                     result,
                 )
                 "deleteAudio" -> handleDeleteAudio(call.argument<String>("uri"), result)
+                "saveAudio" -> handleSaveAudio(
+                    call.argument<String>("path"),
+                    call.argument<String>("fileName"),
+                    call.argument<String>("mimeType"),
+                    result,
+                )
                 else -> result.notImplemented()
             }
         }
@@ -91,6 +104,118 @@ class MainActivity : AudioServiceActivity() {
             result.success(output.absolutePath)
         } catch (error: Exception) {
             result.error("READ_FAILED", error.message, null)
+        }
+    }
+
+    /// Adds a downloaded file to the device's music (Music/rhythmo), where
+    /// queryAudio finds it, copying it as is. Runs off the main thread and
+    /// answers with the new file's uri; a file with the same name and size
+    /// already there is reported as DUPLICATE and left untouched.
+    private fun handleSaveAudio(
+        path: String?,
+        fileName: String?,
+        mimeType: String?,
+        result: MethodChannel.Result,
+    ) {
+        if (path == null || fileName == null) {
+            result.error("INVALID_ARGUMENT", "Path and filename are required.", null)
+            return
+        }
+        if (pendingWrite != null) {
+            result.error("BUSY", "Another storage request is active.", null)
+            return
+        }
+        val name = File(fileName).name.ifBlank { "track" }
+        val type = mimeType ?: "audio/*"
+        withWritePermission { granted ->
+            if (!granted) {
+                result.error("PERMISSION_DENIED", "Storage access was denied.", null)
+                return@withWritePermission
+            }
+            Thread {
+                try {
+                    saveAudio(File(path), name, type) { uri ->
+                        runOnUiThread { result.success(uri) }
+                    }
+                } catch (error: DuplicateAudio) {
+                    runOnUiThread { result.error("DUPLICATE", "Already saved.", null) }
+                } catch (error: Exception) {
+                    val code = if (error.message?.contains("ENOSPC") == true ||
+                        error.message?.contains("No space left") == true
+                    ) "NO_SPACE" else "SAVE_FAILED"
+                    runOnUiThread { result.error(code, error.message, null) }
+                }
+            }.start()
+        }
+    }
+
+    private class DuplicateAudio : Exception()
+
+    private fun saveAudio(source: File, name: String, type: String, done: (String) -> Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val collection = MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            contentResolver.query(
+                collection,
+                arrayOf(MediaStore.Audio.Media.SIZE),
+                "${MediaStore.Audio.Media.RELATIVE_PATH}=? AND ${MediaStore.Audio.Media.DISPLAY_NAME}=?",
+                arrayOf("$musicFolder/", name),
+                null,
+            )?.use { cursor ->
+                while (cursor.moveToNext()) {
+                    if (cursor.getLong(0) == source.length()) throw DuplicateAudio()
+                }
+            }
+            val values = ContentValues().apply {
+                put(MediaStore.Audio.Media.DISPLAY_NAME, name)
+                put(MediaStore.Audio.Media.MIME_TYPE, type)
+                put(MediaStore.Audio.Media.RELATIVE_PATH, musicFolder)
+                put(MediaStore.Audio.Media.IS_PENDING, 1)
+            }
+            // Android renames the file when another one has the same name.
+            val uri = contentResolver.insert(collection, values)
+                ?: throw IOException("Could not create the audio file.")
+            try {
+                val output = contentResolver.openOutputStream(uri)
+                    ?: throw IOException("Could not open the audio file.")
+                output.use { out -> source.inputStream().use { it.copyTo(out) } }
+                contentResolver.update(
+                    uri,
+                    ContentValues().apply { put(MediaStore.Audio.Media.IS_PENDING, 0) },
+                    null,
+                    null,
+                )
+            } catch (error: Exception) {
+                contentResolver.delete(uri, null, null)
+                throw error
+            }
+            done(uri.toString())
+        } else {
+            @Suppress("DEPRECATION")
+            val directory = File(
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC),
+                musicFolder.substringAfter('/'),
+            )
+            if (!directory.exists() && !directory.mkdirs()) {
+                throw IOException("Could not create $directory.")
+            }
+            var target = File(directory, name)
+            if (target.exists() && target.length() == source.length()) throw DuplicateAudio()
+            var copy = 1
+            while (target.exists()) {
+                target = File(directory, "${name.substringBeforeLast('.')} ($copy)" +
+                    (if (name.contains('.')) ".${name.substringAfterLast('.')}" else ""))
+                copy++
+            }
+            try {
+                source.copyTo(target)
+            } catch (error: Exception) {
+                target.delete()
+                throw error
+            }
+            // Answer once the media scanner indexed it, so a refresh finds it.
+            MediaScannerConnection.scanFile(this, arrayOf(target.absolutePath), arrayOf(type)) { _, uri ->
+                done((uri ?: Uri.fromFile(target)).toString())
+            }
         }
     }
 

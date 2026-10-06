@@ -305,6 +305,38 @@ func TestOwnTrackAndStreamURL(t *testing.T) {
 	}
 }
 
+func TestDownloadURLSavesTheFileUnderItsName(t *testing.T) {
+	tracks := sampleTracks()
+	tracks.tracks = append(tracks.tracks, store.Track{
+		ID: "p1", OwnerID: "alice", Status: store.TrackPending, Title: "Pending",
+		FileName: "pending.mp3", StorageKey: "users/alice/tracks/p1/pending.mp3", ContentType: "audio/mpeg",
+	})
+	api := newTracksAPI(t, tracks)
+
+	response := api.get(t, "/api/v1/tracks/a1/download", api.alice)
+	if response.Code != http.StatusOK {
+		t.Fatalf("download: expected 200, got %d", response.Code)
+	}
+	if response.Header().Get("Cache-Control") != "no-store" {
+		t.Fatal("download URLs must not be cached")
+	}
+	download := decode[downloadResponse](t, response)
+	if download.FileName != "song.mp3" || !download.ExpiresAt.After(time.Now()) {
+		t.Fatalf("unexpected download response %+v", download)
+	}
+	parsed, err := url.Parse(download.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(parsed.Path, "users/alice/tracks/a1/") ||
+		parsed.Query().Get("response-content-disposition") != `attachment; filename="song.mp3"; filename*=UTF-8''song.mp3` {
+		t.Fatalf("download URL does not save as the filename: %s", download.URL)
+	}
+
+	// Unfinished uploads have nothing to download.
+	expectError(t, api.get(t, "/api/v1/tracks/p1/download", api.alice), http.StatusNotFound, "not_found")
+}
+
 func TestUpdateTrackMetadata(t *testing.T) {
 	artist := "Old artist"
 	album := "Old album"
@@ -472,6 +504,7 @@ func TestTracksRequireAuthentication(t *testing.T) {
 		{http.MethodGet, "/api/v1/tracks"},
 		{http.MethodGet, "/api/v1/tracks/a1"},
 		{http.MethodGet, "/api/v1/tracks/a1/stream"},
+		{http.MethodGet, "/api/v1/tracks/a1/download"},
 		{http.MethodPatch, "/api/v1/tracks/a1"},
 		{http.MethodPost, "/api/v1/tracks/uploads"},
 		{http.MethodPost, "/api/v1/tracks/a1/complete"},

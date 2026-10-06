@@ -182,6 +182,7 @@ class Track {
         sharedVia: sharedVia,
         addedBy: addedBy,
         viaPlaylist: viaPlaylist,
+        version: version,
       );
 
   /// The messenger a bot imported this track from, for people; null for

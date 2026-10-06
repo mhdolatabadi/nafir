@@ -55,17 +55,6 @@ class FakeTracksApi implements TracksApi {
   }
 
   @override
-  Future<DownloadLink> downloadLink(String token, String trackId) async =>
-      DownloadLink(
-        url: Uri.parse('https://example.com/$trackId?download'),
-        expiresAt: DateTime.now().add(const Duration(hours: 1)),
-        fileName: tracks.firstWhere((track) => track.id == trackId).fileName ??
-            '$trackId.mp3',
-        version: 1,
-        tagsUpToDate: true,
-      );
-
-  @override
   Future<StreamLink> streamLink(String token, String trackId) async {
     calls.add('stream:$trackId');
     if (linkError != null) throw linkError!;
@@ -73,6 +62,24 @@ class FakeTracksApi implements TracksApi {
     return StreamLink(
       Uri.parse('https://music.example.com/nafir-music/$trackId?sig=$links'),
       DateTime.now().add(const Duration(hours: 1)),
+    );
+  }
+
+  /// Download links issued, by track ID.
+  final downloadLinks = <String>[];
+
+  @override
+  Future<DownloadLink> downloadLink(String token, String trackId) async {
+    calls.add('download:$trackId');
+    if (linkError != null) throw linkError!;
+    downloadLinks.add(trackId);
+    final track = tracks.firstWhere((t) => t.id == trackId);
+    return DownloadLink(
+      url: Uri.parse('https://music.example.com/nafir-music/$trackId?dl=1'),
+      expiresAt: DateTime.now().add(const Duration(hours: 1)),
+      fileName: track.fileName ?? 'track.mp3',
+      version: track.version,
+      tagsUpToDate: true,
     );
   }
 

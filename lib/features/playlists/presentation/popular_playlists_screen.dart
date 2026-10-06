@@ -1,4 +1,8 @@
+import 'package:nafir/core/persian_digits.dart';
 import 'package:flutter/material.dart';
+import 'package:nafir/app/app_configuration.dart';
+import 'package:nafir/core/links/open_link.dart';
+import 'package:nafir/core/links/site_page.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/features/auth/presentation/sign_in_prompt.dart';
@@ -18,6 +22,8 @@ class PopularPlaylistsScreen extends StatefulWidget {
     this.onSaved,
     this.onSignIn,
     this.openShareToken,
+    this.siteUri = AppConfiguration.sitePage,
+    this.openLink = openExternalLink,
   });
 
   final PlaylistsController controller;
@@ -32,6 +38,11 @@ class PopularPlaylistsScreen extends StatefulWidget {
 
   /// A shared playlist link the app was opened with, shown on top at once.
   final String? openShareToken;
+
+  /// Where the guest's privacy policy link points.
+  final SitePageResolver siteUri;
+
+  final LinkOpener openLink;
 
   @override
   State<PopularPlaylistsScreen> createState() => _PopularPlaylistsScreenState();
@@ -90,6 +101,14 @@ class _PopularPlaylistsScreenState extends State<PopularPlaylistsScreen> {
       appBar: AppBar(
         title: const Text('فهرست‌های پخش محبوب'),
         actions: [
+          // Readable before signing up, as the stores expect.
+          if (widget.onSignIn != null && !controller.signedIn)
+            IconButton(
+              onPressed: () => openSitePage(context, '/privacy',
+                  siteUri: widget.siteUri, openLink: widget.openLink),
+              tooltip: 'حریم خصوصی',
+              icon: const Icon(NafirIcons.shieldCheck),
+            ),
           if (widget.onSignIn != null && !controller.signedIn)
             Padding(
               padding: const EdgeInsetsDirectional.only(end: 12),
@@ -214,7 +233,7 @@ class _PopularRow extends StatelessWidget {
         subtitle: Text(
           [
             playlist.isOwner ? 'فهرست پخش خودت' : playlist.owner,
-            '${playlist.trackCount} آهنگ',
+            '${persianDigits(playlist.trackCount)} آهنگ',
           ].join(' · '),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,

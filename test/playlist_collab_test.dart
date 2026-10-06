@@ -260,7 +260,7 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    expect(find.text('اعضا (1)'), findsOneWidget);
+    expect(find.text('اعضا (۱)'), findsOneWidget);
     await tester.tap(find.text('ساخت لینک دعوت'));
     await tester.pumpAndSettle();
     expect(find.text('${'C' * 21}1'), findsOneWidget);

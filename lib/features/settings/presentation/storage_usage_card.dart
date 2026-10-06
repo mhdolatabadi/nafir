@@ -1,3 +1,4 @@
+import 'package:nafir/core/persian_digits.dart';
 import 'package:flutter/material.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/core/format_size.dart';
@@ -40,7 +41,7 @@ class StorageUsageCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       child: Semantics(
         label: 'فضای ابری مصرف‌شده',
-        value: known ? '$percent درصد' : null,
+        value: known ? '${persianDigits(percent)} درصد' : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
