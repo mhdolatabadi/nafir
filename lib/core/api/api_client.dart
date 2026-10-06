@@ -42,6 +42,15 @@ class StreamLink {
   final DateTime expiresAt;
 }
 
+/// A short-lived link that saves a track's original file as [fileName].
+class DownloadLink {
+  const DownloadLink(this.url, this.expiresAt, this.fileName);
+
+  final Uri url;
+  final DateTime expiresAt;
+  final String fileName;
+}
+
 class TrackLibrary {
   const TrackLibrary({
     required this.tracks,
@@ -61,6 +70,10 @@ class TrackLibrary {
 abstract interface class TracksApi {
   Future<TrackLibrary> listTracks(String token);
   Future<StreamLink> streamLink(String token, String trackId);
+
+  /// Like [streamLink], but storage answers with Content-Disposition:
+  /// attachment, so browsers save the file instead of playing it.
+  Future<DownloadLink> downloadLink(String token, String trackId);
   Future<UploadTicket> createUpload(
       String token, String fileName, int sizeBytes);
   Future<Track> completeUpload(String token, String trackId);
@@ -245,6 +258,18 @@ class ApiClient
     return StreamLink(
       Uri.parse(body['url'] as String),
       DateTime.parse(body['expiresAt'] as String),
+    );
+  }
+
+  @override
+  Future<DownloadLink> downloadLink(String token, String trackId) async {
+    final body = await _send(
+        'GET', '/api/v1/tracks/${Uri.encodeComponent(trackId)}/download',
+        token: token);
+    return DownloadLink(
+      Uri.parse(body['url'] as String),
+      DateTime.parse(body['expiresAt'] as String),
+      body['fileName'] as String,
     );
   }
 

@@ -9,7 +9,8 @@
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32"/>
-    <!-- Android 9 and older: removing a track from the device. Newer
+    <!-- Android 9 and older: saving downloads to and removing tracks from
+         the device's music. Newer
          versions use MediaStore, which needs no storage permission. -->
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"

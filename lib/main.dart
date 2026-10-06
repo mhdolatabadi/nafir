@@ -17,6 +17,7 @@ import 'package:nafir/features/library/application/library_sync_controller.dart'
 import 'package:nafir/features/library/application/local_audio_controller.dart';
 import 'package:nafir/features/library/data/local_audio_library.dart';
 import 'package:nafir/features/library/data/local_audio_upload.dart';
+import 'package:nafir/features/library/data/track_download.dart';
 import 'package:nafir/features/player/application/favorite_tracks.dart';
 import 'package:nafir/features/player/application/media_session.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
@@ -50,6 +51,7 @@ class NafirApp extends StatefulWidget {
     this.audioCache,
     this.localAudioLibrary,
     this.localAudioUpload,
+    this.trackDownloader,
     this.favoritesStore,
     this.mediaSession,
   });
@@ -69,6 +71,7 @@ class NafirApp extends StatefulWidget {
   final AudioCache? audioCache;
   final LocalAudioLibrary? localAudioLibrary;
   final LocalAudioUploadSource? localAudioUpload;
+  final TrackDownloader? trackDownloader;
   final FavoritesStore? favoritesStore;
 
   /// System media controls; null in tests and where they are unavailable.
@@ -148,6 +151,11 @@ class _NafirAppState extends State<NafirApp> {
           onUploaded: () async {
             await _library?.load();
           },
+          api: _tracksApi!,
+          token: () => _auth?.token,
+          downloader: widget.trackDownloader ?? createTrackDownloader(),
+          // A saved download appears among the device's music.
+          onDownloaded: _localAudio.load,
         );
 
   late final CacheController _cache = CacheController(

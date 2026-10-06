@@ -84,6 +84,19 @@ void main() {
     ]);
   });
 
+  test('a synced track keeps the server metadata version for editing', () {
+    const edited = Track(
+        id: 't1',
+        title: 'Song',
+        contentType: 'audio/mpeg',
+        sizeBytes: 100,
+        version: 4);
+
+    final synced = mergeLibrary([edited], [device(1, title: 'Song')]);
+
+    expect(synced.single.track.version, 4);
+  });
+
   test('locationOf tells device, server and synced tracks apart', () {
     expect(locationOf(cloud('t1')), TrackLocation.server);
     expect(locationOf(device(1)), TrackLocation.device);

@@ -42,6 +42,7 @@ type TrackStore interface {
 // ObjectStore is the object storage the track endpoints use; *storage.Storage implements it.
 type ObjectStore interface {
 	PresignGet(ctx context.Context, key string) (string, time.Time, error)
+	PresignDownload(ctx context.Context, key, fileName string) (string, time.Time, error)
 	PresignUpload(ctx context.Context, key, contentType string, sizeBytes int64) (storage.Upload, error)
 	Size(ctx context.Context, key string) (int64, error)
 	Head(ctx context.Context, key string, n int64) ([]byte, error)
@@ -79,6 +80,7 @@ func (h *TrackHandlers) register(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /api/v1/tracks/{id}", h.handleDelete)
 	mux.HandleFunc("POST /api/v1/tracks/{id}/complete", h.handleComplete)
 	mux.HandleFunc("GET /api/v1/tracks/{id}/stream", h.handleStream)
+	mux.HandleFunc("GET /api/v1/tracks/{id}/download", h.handleDownload)
 }
 
 type trackResponse struct {
@@ -228,6 +230,31 @@ type metadataErrorResponse struct {
 type conflictResponse struct {
 	Error string        `json:"error"`
 	Track trackResponse `json:"track"`
+}
+
+type downloadResponse struct {
+	URL       string    `json:"url"`
+	ExpiresAt time.Time `json:"expiresAt"`
+	// FileName is what the file is saved as: the track's (possibly edited)
+	// safe filename.
+	FileName string `json:"fileName"`
+}
+
+// handleDownload is handleStream for saving a copy: the short-lived URL
+// answers with Content-Disposition: attachment, and the bytes are the
+// stored original, never transcoded.
+func (h *TrackHandlers) handleDownload(w http.ResponseWriter, r *http.Request) {
+	track, ok := h.readyTrack(w, r)
+	if !ok {
+		return
+	}
+	url, expiresAt, err := h.storage.PresignDownload(r.Context(), track.StorageKey, track.FileName)
+	if err != nil {
+		internalError(w, "presign download", err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, downloadResponse{URL: url, ExpiresAt: expiresAt.UTC(), FileName: track.FileName})
 }
 
 func (h *TrackHandlers) handleUpdate(w http.ResponseWriter, r *http.Request) {
