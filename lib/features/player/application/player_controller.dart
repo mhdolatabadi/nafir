@@ -21,6 +21,17 @@ enum PlayerStatus {
 /// "Previous" restarts the current track once it has played this long.
 const restartThreshold = Duration(seconds: 3);
 
+/// A play counts as a real listen, for the recently played history, after
+/// this long, or after half of a shorter track.
+const meaningfulListen = Duration(seconds: 30);
+
+/// How long [duration] must play to count as a listen.
+Duration listenThreshold(Duration? duration) {
+  if (duration == null || duration <= Duration.zero) return meaningfulListen;
+  final half = duration ~/ 2;
+  return half < meaningfulListen ? half : meaningfulListen;
+}
+
 /// Plays a queue of tracks, one at a time, from short-lived stream URLs.
 class PlayerController extends ChangeNotifier {
   PlayerController({
@@ -29,6 +40,7 @@ class PlayerController extends ChangeNotifier {
     required String? Function() token,
     Random? random,
     FavoriteTracks? favorites,
+    this.onListened,
   })  : _api = api,
         _engine = engine,
         _token = token,
@@ -36,6 +48,7 @@ class PlayerController extends ChangeNotifier {
         favorites = favorites ?? FavoriteTracks() {
     _subscriptions = [
       engine.position.listen((value) {
+        _countHeard(value - _position);
         _position = value;
         notifyListeners();
       }),
@@ -63,6 +76,17 @@ class PlayerController extends ChangeNotifier {
 
   /// The tracks the listener liked, shown on the now-playing screen.
   final FavoriteTracks favorites;
+
+  /// Called once each time a track has played long enough to count, see
+  /// [listenThreshold].
+  final void Function(Track track)? onListened;
+
+  /// Whether the current play of the track has been counted.
+  bool _listened = false;
+
+  /// How much of the current play was heard; seeking past music does not
+  /// count towards it.
+  Duration _heard = Duration.zero;
 
   PlayQueue? _queue;
   bool _shuffle = false;
@@ -155,6 +179,8 @@ class PlayerController extends ChangeNotifier {
     _position = Duration.zero;
     _duration = null;
     _retriedLink = false;
+    _listened = false;
+    _heard = Duration.zero;
     _advancing = false;
     _loading = true;
     _setStatus(PlayerStatus.loading);
@@ -183,6 +209,8 @@ class PlayerController extends ChangeNotifier {
       _setStatus(PlayerStatus.completed);
     } else if (next.id == _track?.id && _repeat == QueueRepeat.one) {
       _advancing = false;
+      _listened = false;
+      _heard = Duration.zero;
       await _engine.seek(Duration.zero);
       _engine.play();
     } else {
@@ -294,6 +322,20 @@ class PlayerController extends ChangeNotifier {
     } catch (_) {
       if (request == _request) _setStatus(PlayerStatus.error);
     }
+  }
+
+  /// Position updates arrive a fraction of a second apart while playing;
+  /// a bigger jump is a seek.
+  static const _maxStep = Duration(seconds: 2);
+
+  void _countHeard(Duration step) {
+    final track = _track;
+    if (_listened || track == null || _loading) return;
+    if (step <= Duration.zero || step > _maxStep) return;
+    _heard += step;
+    if (_heard < listenThreshold(_duration)) return;
+    _listened = true;
+    onListened?.call(track);
   }
 
   void _refreshStatus() {
