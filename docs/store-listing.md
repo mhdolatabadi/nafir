@@ -121,3 +121,36 @@ Also needed:
 10. [ ] Install the store build on a real phone. Android's app info should name the store as the installer, playback should continue in the background, and Settings → «حذف حساب کاربری» should open.
 
 Android's "unknown source" warning on a sideloaded APK is an OS prompt and does **not** mean the build is a debug build. Check the signature instead (step 6).
+
+## Submitting to Cafe Bazaar from CI
+
+The first version is uploaded by hand in the Pishkhan panel. After that,
+`.github/workflows/android-release.yml` can submit each signed release
+itself with `scripts/publish-cafebazaar.sh`. The script reuses or creates an
+unsubmitted release through the Pishkhan API, uploads the production-signed
+APK and submits it for review with a short Persian and English changelog.
+
+Setup, once:
+
+1. In the Pishkhan panel, create an API key for the app and store it as the
+   `CAFEBAZAAR_API_SECRET` repository secret. It stays in GitHub secrets
+   only; the script sends it in a header and never prints it.
+2. Optional repository variables:
+   - `CAFEBAZAAR_AUTO_PUBLISH`: `true` publishes as soon as Bazaar approves;
+     the default `false` leaves the final publish click in the panel.
+   - `CAFEBAZAAR_ROLLOUT_PERCENT`: staged rollout, 1 to 100 (default 100).
+   - `CAFEBAZAAR_PUBLISH_EVERY_RELEASE`: `true` submits every release made
+     from `main`. By default a release goes to Bazaar only when the Android
+     release workflow is run by hand with «cafebazaar» ticked, so not every
+     merge lands in Bazaar's review queue.
+
+Each submission needs a higher version code than the last one; the workflow
+uses the run number, which always grows. If Bazaar refuses a package, the
+step fails with Bazaar's message and the GitHub Release is unaffected. To
+roll back, upload the previous release's APK in the panel or stop the
+staged rollout there.
+
+`scripts/test-publish-cafebazaar.sh` runs the script against a fake API in
+CI. The API calls follow Bazaar's Pishkhan release endpoints
+(`api.pishkhan.cafebazaar.ir/v1/apps/releases/…`); if Bazaar changes them,
+that test still passes, so check the first real run's log.
