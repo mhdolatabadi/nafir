@@ -16,9 +16,20 @@ class FakeAudioEngine implements AudioEngine {
   final playingCtl = StreamController<bool>.broadcast(sync: true);
   final stateCtl = StreamController<EngineState>.broadcast(sync: true);
   final errorCtl = StreamController<Object>.broadcast(sync: true);
+  final advancedCtl = StreamController<String>.broadcast(sync: true);
   final loads = <(String, Uri, Duration)>[];
   final calls = <String>[];
   Object? loadError;
+
+  /// Tracks handed to [preload], by id; null entries are [clearPreload]s.
+  final preloads = <String?>[];
+  final volumes = <double>[];
+  double speed = 1;
+  Duration crossfade = Duration.zero;
+  bool crossfadeSupported = true;
+
+  /// The track preloaded now, if any.
+  String? get preloaded => preloads.isEmpty ? null : preloads.last;
 
   @override
   Stream<Duration> get position => positionCtl.stream;
@@ -30,11 +41,16 @@ class FakeAudioEngine implements AudioEngine {
   Stream<EngineState> get state => stateCtl.stream;
   @override
   Stream<Object> get errors => errorCtl.stream;
+  @override
+  Stream<String> get advanced => advancedCtl.stream;
+  @override
+  bool get supportsCrossfade => crossfadeSupported;
 
   @override
   Future<void> load(Track track, Uri url,
       {Duration start = Duration.zero}) async {
     loads.add((track.id, url, start));
+    if (preloaded != null) preloads.add(null);
     if (loadError != null) throw loadError!;
     stateCtl.add(EngineState.ready);
     durationCtl.add(const Duration(minutes: 3));
@@ -65,6 +81,33 @@ class FakeAudioEngine implements AudioEngine {
     calls.add('stop');
     playingCtl.add(false);
     stateCtl.add(EngineState.idle);
+  }
+
+  @override
+  Future<void> preload(Track track, Uri url) async => preloads.add(track.id);
+
+  @override
+  Future<void> clearPreload() async {
+    if (preloaded != null) preloads.add(null);
+  }
+
+  @override
+  Future<void> setSpeed(double speed) async => this.speed = speed;
+
+  @override
+  Future<void> setVolume(double volume) async => volumes.add(volume);
+
+  @override
+  Future<void> setCrossfade(Duration crossfade) async =>
+      this.crossfade = crossfade;
+
+  /// Moves on to the preloaded track by itself, as gapless playback does.
+  void advance() {
+    final id = preloaded!;
+    preloads.add(null);
+    advancedCtl.add(id);
+    durationCtl.add(const Duration(minutes: 4));
+    positionCtl.add(Duration.zero);
   }
 
   @override

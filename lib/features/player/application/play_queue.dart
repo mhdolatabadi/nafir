@@ -85,6 +85,14 @@ class PlayQueue {
     return current;
   }
 
+  /// What [next] would return, without moving the queue.
+  Track? peekNext({bool auto = false}) {
+    if (auto && repeat == QueueRepeat.one) return current;
+    if (_position < _order.length - 1) return _tracks[_order[_position + 1]];
+    if (repeat == QueueRepeat.off) return null;
+    return _tracks[_order.first];
+  }
+
   /// The track before the current one; at the start it wraps only when
   /// repeating the whole queue, otherwise it stays on the first track.
   /// Removes a track while preserving the current position and play order.
