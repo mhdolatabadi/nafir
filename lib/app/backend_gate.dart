@@ -57,7 +57,7 @@ class _ConfigurationRequiredScreen extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.all(24),
           child: Text(
-            'برای اجرای Nafir، آدرس سرور را با '
+            'برای اجرای rhythmo، آدرس سرور را با '
             '--dart-define=API_BASE_URL=https://music.example.com تنظیم کن.',
             textAlign: TextAlign.center,
           ),

@@ -16,13 +16,29 @@
     reverse_proxy minio:9000
   }
 
-  # Share links from before the app moved to /app keep working.
+  # Share and collaboration links from before the app moved to /app keep working.
   @legacyShare {
     path /
     query shared=*
   }
   handle @legacyShare {
     redir * /app/?{query} 302
+  }
+  @legacyCollab {
+    path /
+    query collab=*
+  }
+  handle @legacyCollab {
+    redir * /app/?{query} 302
+  }
+
+  # Store and support pages must stay outside the Flutter app.
+  @publicLegal path /privacy /delete-account
+  handle @publicLegal {
+    encode zstd gzip
+    reverse_proxy api:8080 {
+      header_up X-Nafir-Client-IP {remote_host}
+    }
   }
 
   # The Flutter web app.
@@ -35,7 +51,7 @@
   }
 
   # Everything else is the public site the API renders: the front page,
-  # /p/{token} playlist pages, sitemap.xml and robots.txt. The client IP
+  # /p/{token} playlist pages, sitemap.xml, robots.txt and static public assets. The client IP
   # header feeds the per-visitor rate limits.
   handle {
     encode zstd gzip

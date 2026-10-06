@@ -93,8 +93,8 @@ func TestPublicPlaylistPage(t *testing.T) {
 		t.Fatalf("playlist page = %d", response.Code)
 	}
 	for _, want := range []string{
-		`<title>Road trip — Playlist در نفیر</title>`,
-		`<meta name="description" content="Playlist «Road trip» با 2 آهنگ در نفیر`,
+		`<title>Road trip — فهرست پخش در ریتمو</title>`,
+		`<meta name="description" content="فهرست پخش «Road trip» با 2 آهنگ در ریتمو`,
 		`<link rel="canonical" href="https://nafir.example.com/p/` + token + `">`,
 		`<meta property="og:type" content="music.playlist">`,
 		`src="/p/` + token + `/t/t1"`,
@@ -192,7 +192,7 @@ func TestPrivacyPage(t *testing.T) {
 	}
 
 	body := page(NewPublicPages(data, fixedPresigner{}, AnonymousLimits{}).WithContact("privacy@example.com"))
-	for _, want := range []string{"حریم خصوصی نفیر", "bcrypt", `href="mailto:privacy@example.com"`, `<link rel="canonical" href="https://nafir.example.com/privacy">`} {
+	for _, want := range []string{"حریم خصوصی ریتمو", "bcrypt", `href="mailto:privacy@example.com"`, `<link rel="canonical" href="https://nafir.example.com/privacy">`} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("privacy page lacks %q", want)
 		}
@@ -220,7 +220,7 @@ func TestDeleteAccountPage(t *testing.T) {
 
 	body := page(NewPublicPages(data, fixedPresigner{}, AnonymousLimits{}).WithContact("privacy@example.com"))
 	for _, want := range []string{
-		"حذف حساب کاربری نفیر",
+		"حذف حساب کاربری ریتمو",
 		"تنظیمات",
 		`href="mailto:privacy@example.com?subject=%D8%AD%D8%B0%D9%81%20%D8%AD%D8%B3%D8%A7%D8%A8%20%D9%86%D9%81%DB%8C%D8%B1"`,
 		`<link rel="canonical" href="https://nafir.example.com/delete-account">`,

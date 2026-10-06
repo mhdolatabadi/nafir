@@ -131,11 +131,11 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                 ),
                 const _Removed(
                   icon: NafirIcons.playlist,
-                  text: 'Playlistهایت، با لینک‌های اشتراک و پسندهایشان',
+                  text: 'فهرست‌های پخشت، با لینک‌های اشتراک و پسندهایشان',
                 ),
                 const _Removed(
                   icon: NafirIcons.musicNotesMinus,
-                  text: 'عضویتت در Playlistهای مشترک و آهنگ‌هایی که به آن‌ها '
+                  text: 'عضویتت در فهرست‌های پخش مشترک و آهنگ‌هایی که به آن‌ها '
                       'اضافه کرده‌ای',
                 ),
                 const _Removed(

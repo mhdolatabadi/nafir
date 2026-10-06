@@ -66,6 +66,45 @@ func (f *Fetcher) Resolve(ctx context.Context, u *url.URL) (Candidate, error) {
 	return Candidate{URL: best, FileName: name}, nil
 }
 
+// ResolveAll finds every supported audio file a link leads to. A link to an
+// audio file is that file; a web page is searched for all audio links it names.
+func (f *Fetcher) ResolveAll(ctx context.Context, u *url.URL) ([]Candidate, error) {
+	ctx, cancel := context.WithTimeout(ctx, pageTimeout)
+	defer cancel()
+	resp, err := f.get(ctx, u)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	final := resp.Request.URL
+	mediaType, _, _ := mime.ParseMediaType(resp.Header.Get("Content-Type"))
+
+	if name, ok := audioFileName(final, mediaType); ok {
+		size := resp.ContentLength
+		if size < 0 {
+			size = 0
+		}
+		return []Candidate{{URL: final, FileName: name, SizeBytes: size}}, nil
+	}
+	if mediaType != "text/html" && mediaType != "application/xhtml+xml" {
+		return nil, ErrUnsupported
+	}
+	page, err := io.ReadAll(io.LimitReader(resp.Body, maxPageBytes))
+	if err != nil {
+		return nil, ErrUnreachable
+	}
+	links := findLinks(final, string(page))
+	if len(links) == 0 {
+		return nil, ErrNoAudio
+	}
+	candidates := make([]Candidate, 0, len(links))
+	for _, l := range links {
+		name, _ := audioFileName(l.url, "")
+		candidates = append(candidates, Candidate{URL: l.url, FileName: name})
+	}
+	return candidates, nil
+}
+
 // audioFileName names the file at u, if it is supported audio: by the
 // extension in its path, or else by its content type.
 func audioFileName(u *url.URL, mediaType string) (string, bool) {

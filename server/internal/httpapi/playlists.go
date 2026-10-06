@@ -98,8 +98,12 @@ type playlistTrackResponse struct {
 // members see who else is in the playlist, not their full address.
 func toPlaylistResponse(playlist store.Playlist, viewerID string, includeTracks bool) playlistResponse {
 	isOwner := playlist.OwnerID == viewerID
+	trackCount := playlist.TrackCount
+	if len(playlist.Tracks) > trackCount {
+		trackCount = len(playlist.Tracks)
+	}
 	response := playlistResponse{
-		ID: playlist.ID, Name: playlist.Name, TrackCount: len(playlist.Tracks), IsOwner: isOwner,
+		ID: playlist.ID, Name: playlist.Name, TrackCount: trackCount, IsOwner: isOwner,
 		Public: playlist.IsPublic, CreatedAt: playlist.CreatedAt.UTC(), UpdatedAt: playlist.UpdatedAt.UTC(),
 	}
 	if isOwner {

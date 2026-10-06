@@ -125,6 +125,18 @@ class FakeLinkImportsApi implements LinkImportsApi {
   List<LinkImport> recent = [];
 
   @override
+  Future<List<LinkImportCandidate>> previewLink(
+      String token, String url) async {
+    if (refuseWith case final code?) {
+      throw ApiException(code, statusCode: 422, code: code);
+    }
+    return [
+      LinkImportCandidate(
+          url: url, fileName: 'Artist - Song.mp3', site: 'music.example.ir'),
+    ];
+  }
+
+  @override
   Future<LinkImport> importFromLink(String token, String url) async {
     submitted.add(url);
     if (refuseWith case final code?) {
@@ -165,7 +177,7 @@ void main() {
   ) async {
     await _pumpApp(tester, tokenStore: MemoryTokenStore());
 
-    expect(find.text('ورود به نفیر'), findsOneWidget);
+    expect(find.text('ورود به ریتمو'), findsOneWidget);
   });
 
   group('guest', () {
@@ -181,7 +193,7 @@ void main() {
           tracks: tracks,
           playlists: guestPlaylists());
 
-      expect(find.text('Playlistهای محبوب'), findsOneWidget);
+      expect(find.text('فهرست‌های پخش محبوب'), findsOneWidget);
       expect(find.text('loved'), findsOneWidget);
       expect(find.text('ورود / ثبت‌نام'), findsOneWidget);
 
@@ -213,10 +225,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(SnackBarAction, 'ورود'));
       await tester.pumpAndSettle();
-      expect(find.text('ورود به نفیر'), findsOneWidget);
+      expect(find.text('ورود به ریتمو'), findsOneWidget);
 
       await _submit(tester, 'listener@example.com', 'correct horse');
-      expect(find.text('ورود به نفیر'), findsNothing);
+      expect(find.text('ورود به ریتمو'), findsNothing);
       expect(find.text('Friend mix'), findsNothing);
       expect(find.widgetWithText(Tab, 'آهنگ‌ها'), findsOneWidget);
       expect(await tokens.read(), 'valid-token');
@@ -304,7 +316,7 @@ void main() {
     final tokens = MemoryTokenStore('expired-token');
     await _pumpApp(tester, tokenStore: tokens);
 
-    expect(find.text('ورود به نفیر'), findsOneWidget);
+    expect(find.text('ورود به ریتمو'), findsOneWidget);
     expect(await tokens.read(), isNull);
   });
 
@@ -331,7 +343,7 @@ void main() {
     await tester.tap(find.byIcon(NafirIcons.signOut));
     await tester.pumpAndSettle();
 
-    expect(find.text('ورود به نفیر'), findsOneWidget);
+    expect(find.text('ورود به ریتمو'), findsOneWidget);
     expect(await tokens.read(), isNull);
   });
 
@@ -387,7 +399,7 @@ void main() {
     expect(await tokens.read(), isNull);
     expect(
         find.text('حساب کاربری‌ات و همه‌ی اطلاعاتش حذف شد.'), findsOneWidget);
-    expect(find.text('Playlistهای محبوب'), findsOneWidget);
+    expect(find.text('فهرست‌های پخش محبوب'), findsOneWidget);
     expect(find.text('حذف حساب کاربری'), findsNothing);
     expect(find.widgetWithText(Tab, 'آهنگ‌ها'), findsNothing);
   });
@@ -644,7 +656,7 @@ void main() {
       expect(find.text('افزودن از لینک'), findsWidgets);
 
       // An empty link is caught before asking the server.
-      await tester.tap(find.widgetWithText(FilledButton, 'افزودن'));
+      await tester.tap(find.widgetWithText(FilledButton, 'بررسی لینک'));
       await tester.pumpAndSettle();
       expect(find.text('لینک صفحه‌ی آهنگ یا فایل را بچسبان.'), findsOneWidget);
       expect(api.submitted, isEmpty);
@@ -652,13 +664,17 @@ void main() {
       api.refuseWith = 'no_audio';
       await tester.enterText(
           find.byType(TextField), ' https://music.example.ir/song/1 ');
-      await tester.tap(find.widgetWithText(FilledButton, 'افزودن'));
+      await tester.tap(find.widgetWithText(FilledButton, 'بررسی لینک'));
       await tester.pumpAndSettle();
       expect(find.textContaining('در این صفحه فایل صوتی پیدا نشد'),
           findsOneWidget);
 
       api.refuseWith = null;
-      await tester.tap(find.widgetWithText(FilledButton, 'افزودن'));
+      await tester.tap(find.widgetWithText(FilledButton, 'بررسی لینک'));
+      await tester.pumpAndSettle();
+      expect(find.text('Artist - Song.mp3'), findsOneWidget);
+      await tester
+          .tap(find.widgetWithText(FilledButton, 'افزودن انتخاب‌شده‌ها'));
       await tester.pumpAndSettle();
       expect(api.submitted.last, 'https://music.example.ir/song/1');
       expect(find.byType(AlertDialog), findsNothing);
@@ -671,7 +687,10 @@ void main() {
       await tester.tap(find.byTooltip('افزودن از لینک'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'https://x.ir/a.mp3');
-      await tester.tap(find.widgetWithText(FilledButton, 'افزودن'));
+      await tester.tap(find.widgetWithText(FilledButton, 'بررسی لینک'));
+      await tester.pumpAndSettle();
+      await tester
+          .tap(find.widgetWithText(FilledButton, 'افزودن انتخاب‌شده‌ها'));
       await tester.pumpAndSettle();
 
       api.recent = const [
@@ -744,14 +763,14 @@ void main() {
     testWidgets('switch between tracks, playlists, albums and artists',
         (tester) async {
       await pumpPhone(tester);
-      for (final tab in ['آهنگ‌ها', 'Playlistها', 'آلبوم‌ها', 'هنرمندان']) {
+      for (final tab in ['آهنگ‌ها', 'فهرست‌های پخش', 'آلبوم‌ها', 'هنرمندان']) {
         expect(find.widgetWithText(Tab, tab), findsOneWidget);
       }
       expect(find.text('افزودن موسیقی'), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(Tab, 'Playlistها'));
+      await tester.tap(find.widgetWithText(Tab, 'فهرست‌های پخش'));
       await tester.pumpAndSettle();
-      expect(find.text('Playlist جدید'), findsOneWidget);
+      expect(find.text('فهرست پخش جدید'), findsOneWidget);
       expect(find.text('mix'), findsWidgets);
       // Adding music belongs to the tracks tab only.
       expect(find.text('افزودن موسیقی'), findsNothing);
@@ -898,6 +917,41 @@ void main() {
     expect(tracks.deleted, ['s1']);
     expect(find.text('Song to delete'), findsNothing);
     expect(find.text('«Song to delete» حذف شد.'), findsOneWidget);
+  });
+
+  testWidgets('adding a track can create a playlist from the picker', (
+    tester,
+  ) async {
+    final tracks = FakeTracksApi(const [
+      Track(id: 's1', title: 'Song', contentType: 'audio/mpeg', sizeBytes: 1),
+    ]);
+    final playlists = FakePlaylistsApi()..userPlaylists = [];
+
+    await _pumpApp(
+      tester,
+      tokenStore: MemoryTokenStore('valid-token'),
+      tracks: tracks,
+      playlists: playlists,
+    );
+
+    await tester.tap(find.byTooltip('اقدامات آهنگ'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('افزودن به فهرست پخش'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('فهرست پخش جدید'), findsOneWidget);
+    final nameField = find.byWidgetPredicate(
+      (widget) =>
+          widget is TextField &&
+          widget.decoration?.labelText == 'نام فهرست پخش',
+    );
+    await tester.enterText(nameField, 'Road songs');
+    await tester.tap(find.text('ساخت'));
+    await tester.pumpAndSettle();
+
+    expect(playlists.createdNames, ['Road songs']);
+    expect(playlists.replacedWith, ['s1']);
+    expect(find.text('آهنگ به فهرست پخش اضافه شد.'), findsOneWidget);
   });
 
   testWidgets('a failed list load offers a retry', (tester) async {
@@ -1324,8 +1378,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(bots.sent, ['bale/s1']);
-    expect(
-        find.text('بات نفیر «Song» را در بله برایت می‌فرستد.'), findsOneWidget);
+    expect(find.text('بات ریتمو «Song» را در بله برایت می‌فرستد.'),
+        findsOneWidget);
   });
 
   testWidgets('without a linked bot the track menu offers no sending', (

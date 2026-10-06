@@ -85,7 +85,7 @@ class NowPlayingScreen extends StatefulWidget {
 }
 
 class _NowPlayingScreenState extends State<NowPlayingScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   double? _seekMs;
 
   /// How far the screen has been dragged down to close it.
@@ -94,6 +94,10 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
     vsync: this,
     duration: const Duration(milliseconds: 220),
   )..addListener(() => setState(() => _drag = _settleFrom * _settle.value));
+  late final AnimationController _ambient = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 6),
+  );
   double _settleFrom = 0;
   bool _closing = false;
 
@@ -102,6 +106,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
   @override
   void dispose() {
     _settle.dispose();
+    _ambient.dispose();
     super.dispose();
   }
 
@@ -162,6 +167,13 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
           return const SizedBox.shrink();
         }
         final tint = trackTint(track);
+        final moving = _player.status == PlayerStatus.playing &&
+            !MediaQuery.disableAnimationsOf(context);
+        if (moving && !_ambient.isAnimating) {
+          _ambient.repeat();
+        } else if (!moving && _ambient.isAnimating) {
+          _ambient.stop();
+        }
         return Transform.translate(
           offset: Offset(0, _drag),
           child: GestureDetector(
@@ -177,23 +189,40 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                   stops: const [0, 0.78],
                 ),
               ),
-              child: Material(
-                type: MaterialType.transparency,
-                child: SafeArea(
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints:
-                          const BoxConstraints(maxWidth: nowPlayingMaxWidth),
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
-                        child: LayoutBuilder(
-                          builder: (context, constraints) =>
-                              _layout(context, constraints, track, tint),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: RepaintBoundary(
+                        child: CustomPaint(
+                          painter: _PlaybackBackdropPainter(
+                            animation: _ambient,
+                            tint: tint,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
+                  Material(
+                    type: MaterialType.transparency,
+                    child: SafeArea(
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                              maxWidth: nowPlayingMaxWidth),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
+                            child: LayoutBuilder(
+                              builder: (context, constraints) =>
+                                  _layout(context, constraints, track, tint),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -266,6 +295,51 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
   }
 }
 
+/// Soft musical waves behind the player; repainting does not rebuild controls.
+class _PlaybackBackdropPainter extends CustomPainter {
+  _PlaybackBackdropPainter({required this.animation, required this.tint})
+      : super(repaint: animation);
+
+  final Animation<double> animation;
+  final Color tint;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final phase = animation.value * 2 * pi;
+    final glow = Paint()
+      ..color = Color.lerp(tint, Colors.white, 0.35)!.withValues(alpha: 0.09);
+    canvas.drawCircle(
+      Offset(size.width * (0.25 + 0.08 * sin(phase)),
+          size.height * (0.35 + 0.04 * cos(phase))),
+      size.width * 0.52,
+      glow,
+    );
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..color = Colors.white.withValues(alpha: 0.045)
+      ..strokeWidth = 2;
+    for (var band = 0; band < 5; band++) {
+      final path = Path();
+      final baseline = size.height * (0.48 + band * 0.065);
+      for (var step = 0; step <= 80; step++) {
+        final x = size.width * step / 80;
+        final y = baseline +
+            sin(step / 80 * 2 * pi + phase + band * 0.7) * size.height * 0.035;
+        if (step == 0) {
+          path.moveTo(x, y);
+        } else {
+          path.lineTo(x, y);
+        }
+      }
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _PlaybackBackdropPainter oldDelegate) =>
+      oldDelegate.tint != tint || oldDelegate.animation != animation;
+}
+
 class _Header extends StatelessWidget {
   const _Header({required this.onClose});
 
@@ -300,7 +374,7 @@ class _Header extends StatelessWidget {
 }
 
 /// The large square artwork. It eases back a little while paused, the
-/// screen's one motion; with reduced motion it simply changes size.
+/// artwork motion; with reduced motion it simply changes size.
 class NowPlayingArtwork extends StatelessWidget {
   const NowPlayingArtwork({
     super.key,

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/features/link_import/application/link_import_controller.dart';
 import 'package:nafir/features/link_import/data/link_import.dart';
 
 /// Asks for a link to a song page or an audio file and starts importing
-/// it. Returns the message to show once it is queued, or null if closed.
+/// selected files. Returns the message to show once queued, or null if closed.
 Future<String?> showLinkImportDialog(
   BuildContext context, {
   required LinkImportController controller,
@@ -27,6 +28,8 @@ class _LinkImportDialog extends StatefulWidget {
 class _LinkImportDialogState extends State<_LinkImportDialog> {
   final _field = TextEditingController();
   String? _error;
+  List<LinkImportCandidate>? _candidates;
+  final Set<int> _selected = {};
 
   @override
   void dispose() {
@@ -41,17 +44,47 @@ class _LinkImportDialogState extends State<_LinkImportDialog> {
     setState(() {
       _field.text = text;
       _error = null;
+      _candidates = null;
+      _selected.clear();
     });
   }
 
-  Future<void> _submit() async {
+  Future<void> _scan() async {
     final url = _field.text.trim();
     if (url.isEmpty) {
       setState(() => _error = 'لینک صفحه‌ی آهنگ یا فایل را بچسبان.');
       return;
     }
     setState(() => _error = null);
-    final result = await widget.controller.submit(url);
+    try {
+      final candidates = await widget.controller.preview(url);
+      if (!mounted) return;
+      setState(() {
+        _candidates = candidates;
+        _selected
+          ..clear()
+          ..addAll(List<int>.generate(candidates.length, (i) => i));
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _error = linkImportMessage(e.code));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = linkImportMessage(null));
+    }
+  }
+
+  Future<void> _submitSelected() async {
+    final candidates = _candidates;
+    if (candidates == null) {
+      await _scan();
+      return;
+    }
+    final selected = [
+      for (final i in _selected)
+        if (i >= 0 && i < candidates.length) candidates[i],
+    ];
+    final result = await widget.controller.submitCandidates(selected);
     if (!mounted) return;
     if (result.queued) {
       Navigator.pop(context, result.message);
@@ -60,44 +93,110 @@ class _LinkImportDialogState extends State<_LinkImportDialog> {
     }
   }
 
+  void _toggle(int index, bool? value) {
+    setState(() {
+      if (value ?? false) {
+        _selected.add(index);
+      } else {
+        _selected.remove(index);
+      }
+      _error = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: widget.controller,
       builder: (context, _) {
         final busy = widget.controller.submitting;
+        final candidates = _candidates;
+        final hasCandidates = candidates != null;
         return AlertDialog(
           title: const Text('افزودن از لینک'),
           content: SizedBox(
-            width: 480,
+            width: 520,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
-                    'لینک صفحه‌ی آهنگ در سایت موسیقی، یا لینک مستقیم فایل را بچسبان. نفیر بهترین کیفیت را پیدا می‌کند و به کتابخانه‌ات اضافه می‌کند.'),
+                Text(hasCandidates
+                    ? 'فایل‌های صوتی پیدا شده را انتخاب کن.'
+                    : 'لینک صفحه‌ی آهنگ در سایت موسیقی، یا لینک مستقیم فایل را بچسبان.'),
                 const SizedBox(height: 16),
                 TextField(
                   controller: _field,
-                  autofocus: true,
-                  enabled: !busy,
+                  autofocus: !hasCandidates,
+                  enabled: !busy && !hasCandidates,
                   keyboardType: TextInputType.url,
                   textDirection: TextDirection.ltr,
                   textInputAction: TextInputAction.go,
-                  onSubmitted: (_) => _submit(),
+                  onChanged: (_) {
+                    if (_candidates == null) return;
+                    setState(() {
+                      _candidates = null;
+                      _selected.clear();
+                    });
+                  },
+                  onSubmitted: (_) =>
+                      hasCandidates ? _submitSelected() : _scan(),
                   decoration: InputDecoration(
                     labelText: 'لینک',
                     hintText: 'https://',
                     hintTextDirection: TextDirection.ltr,
                     errorText: _error,
                     errorMaxLines: 3,
-                    suffixIcon: IconButton(
-                      tooltip: 'چسباندن',
-                      onPressed: busy ? null : _paste,
-                      icon: const Icon(NafirIcons.copy),
-                    ),
+                    suffixIcon: hasCandidates
+                        ? IconButton(
+                            tooltip: 'تغییر لینک',
+                            onPressed: busy
+                                ? null
+                                : () => setState(() {
+                                      _candidates = null;
+                                      _selected.clear();
+                                      _error = null;
+                                    }),
+                            icon: const Icon(NafirIcons.pencilSimple),
+                          )
+                        : IconButton(
+                            tooltip: 'چسباندن',
+                            onPressed: busy ? null : _paste,
+                            icon: const Icon(NafirIcons.copy),
+                          ),
                   ),
                 ),
+                if (candidates != null) ...[
+                  const SizedBox(height: 12),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 280),
+                    child: Scrollbar(
+                      thumbVisibility: candidates.length > 4,
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: candidates.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final candidate = candidates[index];
+                          final subtitle = candidate.site.isEmpty
+                              ? candidate.url
+                              : candidate.site;
+                          return CheckboxListTile(
+                            value: _selected.contains(index),
+                            onChanged: busy ? null : (v) => _toggle(index, v),
+                            title: Text(candidate.fileName,
+                                maxLines: 1, overflow: TextOverflow.ellipsis),
+                            subtitle: Text(subtitle,
+                                textDirection: TextDirection.ltr,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                            controlAffinity: ListTileControlAffinity.leading,
+                            contentPadding: EdgeInsets.zero,
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -107,14 +206,22 @@ class _LinkImportDialogState extends State<_LinkImportDialog> {
               child: const Text('انصراف'),
             ),
             FilledButton.icon(
-              onPressed: busy ? null : _submit,
+              onPressed: busy
+                  ? null
+                  : hasCandidates
+                      ? _submitSelected
+                      : _scan,
               icon: busy
                   ? const SizedBox.square(
                       dimension: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(NafirIcons.link),
-              label: Text(busy ? 'در حال بررسی…' : 'افزودن'),
+                  : Icon(hasCandidates ? NafirIcons.check : NafirIcons.link),
+              label: Text(busy
+                  ? 'در حال بررسی…'
+                  : hasCandidates
+                      ? 'افزودن انتخاب‌شده‌ها'
+                      : 'بررسی لینک'),
             ),
           ],
         );
