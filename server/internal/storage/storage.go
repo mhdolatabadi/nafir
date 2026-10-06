@@ -109,6 +109,23 @@ func (s *Storage) PresignGet(ctx context.Context, key string) (string, time.Time
 	return signed.String(), expiresAt, nil
 }
 
+// PresignDownload is PresignGet for saving the object as a file: storage
+// answers with the given Content-Disposition and Content-Type, which are part
+// of the signature, and tells caches not to reuse the response.
+func (s *Storage) PresignDownload(ctx context.Context, key, disposition, contentType string) (string, time.Time, error) {
+	expiresAt := s.now().Add(s.ttl)
+	params := url.Values{
+		"response-content-disposition": {disposition},
+		"response-content-type":        {contentType},
+		"response-cache-control":       {"private, no-cache"},
+	}
+	signed, err := s.public.PresignedGetObject(ctx, s.bucket, key, s.ttl, params)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	return signed.String(), expiresAt, nil
+}
+
 // PresignUpload returns a POST policy that MinIO itself enforces: only this
 // key, only this content type, and exactly sizeBytes bytes.
 func (s *Storage) PresignUpload(ctx context.Context, key, contentType string, sizeBytes int64) (Upload, error) {

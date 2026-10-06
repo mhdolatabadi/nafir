@@ -100,3 +100,21 @@ func TestPresignUploadPinsKeyTypeAndSize(t *testing.T) {
 		t.Fatalf("upload already expired: %v", upload.ExpiresAt)
 	}
 }
+
+func TestPresignDownloadSignsTheSaveAsHeaders(t *testing.T) {
+	s := newTestStorage(t, 15*time.Minute)
+	disposition := `attachment; filename="track.mp3"; filename*=UTF-8''%D8%A2.mp3`
+	signed, _, err := s.PresignDownload(context.Background(), "users/u1/tracks/t1/v2-1/track.mp3", disposition, "audio/mpeg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := url.Parse(signed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	query := parsed.Query()
+	if query.Get("response-content-disposition") != disposition || query.Get("response-content-type") != "audio/mpeg" ||
+		query.Get("response-cache-control") != "private, no-cache" || query.Get("X-Amz-Signature") == "" {
+		t.Fatalf("download URL does not carry the signed headers: %s", signed)
+	}
+}

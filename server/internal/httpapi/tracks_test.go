@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -166,6 +167,12 @@ type fakeObjects struct {
 func (f *fakeObjects) PresignGet(_ context.Context, key string) (string, time.Time, error) {
 	f.signed = append(f.signed, key)
 	return "https://music.example.com/nafir-music/" + key + "?X-Amz-Signature=sig", time.Now().Add(time.Hour), nil
+}
+
+func (f *fakeObjects) PresignDownload(_ context.Context, key, disposition, contentType string) (string, time.Time, error) {
+	f.signed = append(f.signed, key)
+	return "https://music.example.com/nafir-music/" + key + "?response-content-disposition=" + url.QueryEscape(disposition) +
+		"&response-content-type=" + url.QueryEscape(contentType) + "&X-Amz-Signature=sig", time.Now().Add(time.Hour), nil
 }
 
 func (f *fakeObjects) PresignUpload(_ context.Context, key, contentType string, size int64) (storage.Upload, error) {
@@ -440,6 +447,7 @@ func TestOtherUsersTracksAreNotFound(t *testing.T) {
 			for _, request := range []struct{ method, path, body string }{
 				{http.MethodGet, "/api/v1/tracks/b1", ""},
 				{http.MethodGet, "/api/v1/tracks/b1/stream", ""},
+				{http.MethodGet, "/api/v1/tracks/b1/download", ""},
 				{http.MethodPatch, "/api/v1/tracks/b1", `{"version":1,"title":"Stolen"}`},
 				{http.MethodPost, "/api/v1/tracks/b1/complete", ""},
 				{http.MethodDelete, "/api/v1/tracks/b1", ""},
@@ -714,4 +722,53 @@ func TestUpdateTrackMetadataQueuesEmbeddedTagRewrite(t *testing.T) {
 	if m4a.EmbeddedTags.Status != store.TagUnsupported || len(m4a.EmbeddedTags.UnsupportedFields) != 10 || notifier.calls != 1 {
 		t.Fatalf("m4a edit: %+v, %d notifications", m4a.EmbeddedTags, notifier.calls)
 	}
+}
+
+func TestDownloadUsesEditedNameAndNeverServesStaleTags(t *testing.T) {
+	written, original := int64(2), store.TagOriginal
+	tracks := &memoryTracks{tracks: []store.Track{
+		{ID: "a1", OwnerID: "alice", Status: store.TrackReady, Title: "Song", FileName: "آهنگ «تازه».mp3", StorageKey: "users/alice/tracks/a1/v2-1/track.mp3", ContentType: "audio/mpeg", SizeBytes: 9, MetadataVersion: 2, TagStatus: store.TagWritten, TagVersion: &written},
+		{ID: "a2", OwnerID: "alice", Status: store.TrackReady, Title: "Old", FileName: "old.flac", StorageKey: "users/alice/tracks/a2/old.flac", ContentType: "audio/flac", MetadataVersion: 1, TagStatus: original},
+		{ID: "a3", OwnerID: "alice", Status: store.TrackReady, Title: "M4A", FileName: "song.m4a", StorageKey: "users/alice/tracks/a3/song.m4a", ContentType: "audio/mp4", MetadataVersion: 3, TagStatus: store.TagUnsupported},
+		{ID: "p1", OwnerID: "alice", Status: store.TrackPending, Title: "Pending", FileName: "p.mp3", StorageKey: "users/alice/tracks/p1/p.mp3", ContentType: "audio/mpeg", MetadataVersion: 1},
+	}}
+	api := newTracksAPI(t, tracks)
+
+	response := api.get(t, "/api/v1/tracks/a1/download", api.alice)
+	if response.Code != http.StatusOK || response.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("download: %d %s", response.Code, response.Body.String())
+	}
+	download := decode[downloadResponse](t, response)
+	signed, err := url.Parse(download.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantDisposition := `attachment; filename="track.mp3"; filename*=UTF-8''%D8%A2%D9%87%D9%86%DA%AF%20%C2%AB%D8%AA%D8%A7%D8%B2%D9%87%C2%BB.mp3`
+	if download.FileName != "آهنگ «تازه».mp3" || !download.TagsUpToDate || download.Version != 2 ||
+		signed.Path != "/nafir-music/users/alice/tracks/a1/v2-1/track.mp3" ||
+		signed.Query().Get("response-content-disposition") != wantDisposition ||
+		signed.Query().Get("response-content-type") != "audio/mpeg" {
+		t.Fatalf("download = %+v (disposition %q)", download, signed.Query().Get("response-content-disposition"))
+	}
+
+	// An edit makes the stored file stale until its tags are rewritten.
+	if edit := api.do(t, http.MethodPatch, "/api/v1/tracks/a1", `{"version":2,"title":"Newer"}`, api.alice); edit.Code != http.StatusOK {
+		t.Fatalf("edit: %d %s", edit.Code, edit.Body.String())
+	}
+	response = api.get(t, "/api/v1/tracks/a1/download", api.alice)
+	if response.Code != http.StatusConflict || response.Header().Get("Retry-After") == "" {
+		t.Fatalf("download during rewrite: %d %s", response.Code, response.Body.String())
+	}
+	if pending := decode[conflictResponse](t, response); pending.Error != "tags_pending" || pending.Track.EmbeddedTags.Status != store.TagPending {
+		t.Fatalf("pending body = %+v", pending)
+	}
+
+	if d := decode[downloadResponse](t, api.get(t, "/api/v1/tracks/a2/download", api.alice)); !d.TagsUpToDate || d.FileName != "old.flac" {
+		t.Fatalf("never edited: %+v", d)
+	}
+	if d := decode[downloadResponse](t, api.get(t, "/api/v1/tracks/a3/download", api.alice)); d.TagsUpToDate || len(d.EmbeddedTags.UnsupportedFields) == 0 {
+		t.Fatalf("unsupported format: %+v", d)
+	}
+	expectError(t, api.get(t, "/api/v1/tracks/p1/download", api.alice), http.StatusNotFound, "not_found")
+	expectError(t, api.get(t, "/api/v1/tracks/a1/download", ""), http.StatusUnauthorized, "unauthorized")
 }
