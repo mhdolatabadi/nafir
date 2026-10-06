@@ -7,7 +7,10 @@ import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/main.dart';
 
 import 'cache_controller_test.dart' show FakeAudioCache;
-import 'library_sync_controller_test.dart' show FakeUploadSource;
+import 'package:nafir/features/library/data/track_download.dart';
+
+import 'library_sync_controller_test.dart'
+    show FakeTrackDownloader, FakeUploadSource;
 import 'local_audio_controller_test.dart' show FakeLocalAudioLibrary;
 import 'player_controller_test.dart' show FakeAudioEngine;
 import 'upload_controller_test.dart' show FakeTracksApi, FakeUploader;
@@ -28,6 +31,7 @@ Future<void> _pump(
   required FakeLocalAudioLibrary device,
   FakeUploader? uploader,
   FakeUploadSource? source,
+  FakeTrackDownloader? downloader,
 }) async {
   await tester.pumpWidget(NafirApp(
     healthCheck: () async {},
@@ -40,6 +44,7 @@ Future<void> _pump(
     picker: FakePicker(null),
     localAudioLibrary: device,
     localAudioUpload: source ?? FakeUploadSource(),
+    trackDownloader: downloader ?? FakeTrackDownloader(),
   ));
   await tester.pumpAndSettle();
 }
@@ -266,5 +271,173 @@ void main() {
     final fab = tester.getRect(find.byType(FloatingActionButton));
     expect(fab.bottom, lessThanOrEqualTo(miniPlayerTop + 16));
     expect(tester.takeException(), isNull);
+  });
+
+  group('downloads', () {
+    const cloud = Track(
+      id: 's1',
+      title: 'Server song',
+      contentType: 'audio/mpeg',
+      sizeBytes: 10,
+      fileName: 'Server_song.mp3',
+    );
+
+    /// A downloader whose saved files show up in [device]'s music.
+    FakeTrackDownloader savingInto(FakeLocalAudioLibrary device) =>
+        FakeTrackDownloader()
+          ..onSaved = (link) {
+            device.result = LocalAudioResult(LocalAudioStatus.loaded, [
+              ...device.result.tracks,
+              _device(90, 'Server song',
+                  size: cloud.sizeBytes, fileName: link.fileName),
+            ]);
+          };
+
+    testWidgets('downloading shows progress, cancels, then the row is synced',
+        (tester) async {
+      final device = FakeLocalAudioLibrary(
+          const LocalAudioResult(LocalAudioStatus.loaded, []));
+      final downloader = savingInto(device)..stall = true;
+      await _pump(tester,
+          tracks: FakeTracksApi([cloud]),
+          device: device,
+          downloader: downloader);
+
+      await _openMenu(tester, 'Server song');
+      expect(find.text('آپلود به سرور'), findsNothing);
+      await tester.tap(find.text('دانلود روی دستگاه'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byTooltip('در حال دانلود'), findsOneWidget);
+      expect(find.textContaining('در حال دانلود 50٪'), findsOneWidget);
+
+      await _openMenu(tester, 'Server song');
+      await tester.tap(find.text('لغو دانلود'));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('روی سرور'), findsOneWidget);
+      expect(downloader.saved, isEmpty);
+
+      downloader.stall = false;
+      await _openMenu(tester, 'Server song');
+      await tester.tap(find.text('دانلود روی دستگاه'));
+      await tester.pumpAndSettle();
+
+      expect(downloader.saved, ['Server_song.mp3']);
+      expect(find.text('Server song'), findsOneWidget);
+      expect(find.byTooltip('روی دستگاه و سرور'), findsOneWidget);
+      expect(
+          find.text('«Server song» روی دستگاه ذخیره شد و بدون اینترنت پخش '
+              'می‌شود.'),
+          findsOneWidget);
+
+      // Already on the device: no second download is offered.
+      await _openMenu(tester, 'Server song');
+      expect(find.text('دانلود روی دستگاه'), findsNothing);
+      expect(find.text('حذف از دستگاه'), findsOneWidget);
+    });
+
+    testWidgets('a full device explains why and can be retried',
+        (tester) async {
+      final device = FakeLocalAudioLibrary(
+          const LocalAudioResult(LocalAudioStatus.loaded, []));
+      final downloader = savingInto(device)
+        ..error = const DownloadException(DownloadFailure.storageFull);
+      await _pump(tester,
+          tracks: FakeTracksApi([cloud]),
+          device: device,
+          downloader: downloader);
+
+      await _openMenu(tester, 'Server song');
+      await tester.tap(find.text('دانلود روی دستگاه'));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('دانلود ناموفق'), findsOneWidget);
+      expect(
+          find.descendant(
+              of: _row('Server song'),
+              matching: find.textContaining('فضای خالی دستگاه')),
+          findsOneWidget);
+
+      downloader.error = null;
+      await _openMenu(tester, 'Server song');
+      await tester.tap(find.text('تلاش دوباره برای دانلود'));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('روی دستگاه و سرور'), findsOneWidget);
+    });
+
+    testWidgets('where the browser saves files, the menu says so',
+        (tester) async {
+      final downloader = FakeTrackDownloader(savesToDevice: false);
+      await _pump(tester,
+          tracks: FakeTracksApi([cloud]),
+          device: FakeLocalAudioLibrary(
+              const LocalAudioResult(LocalAudioStatus.unsupported),
+              supported: false),
+          downloader: downloader);
+
+      await _openMenu(tester, 'Server song');
+      expect(find.text('دانلود روی دستگاه'), findsNothing);
+      await tester.tap(find.text('دانلود فایل'));
+      await tester.pumpAndSettle();
+
+      expect(downloader.saved, ['Server_song.mp3']);
+      expect(
+          find.text('دانلود «Server song» در مرورگر شروع شد.'), findsOneWidget);
+      expect(find.byTooltip('روی سرور'), findsOneWidget);
+    });
+
+    testWidgets(
+        'on a 360 px phone a download in progress and the mini player never '
+        'cover the last track', (tester) async {
+      tester.view.physicalSize = const Size(360, 740);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      String title(int i) =>
+          'یک عنوان خیلی خیلی طولانی برای آهنگ سرور شمارهٔ $i Long Latin';
+      await _pump(
+        tester,
+        tracks: FakeTracksApi([
+          for (var i = 0; i < 14; i++)
+            Track(
+              id: 's$i',
+              title: title(i),
+              artist: 'Artist with a really long name $i',
+              contentType: 'audio/mpeg',
+              sizeBytes: 3 * 1024 * 1024 + i,
+            ),
+        ]),
+        device: FakeLocalAudioLibrary(
+            const LocalAudioResult(LocalAudioStatus.loaded, [])),
+        downloader: FakeTrackDownloader()..stall = true,
+      );
+
+      await tester.tap(find.text(title(0)));
+      await tester.pumpAndSettle();
+      for (var i = 0; i < 14; i++) {
+        await tester.drag(find.byType(TabBarView), const Offset(0, -300));
+        await tester.pumpAndSettle();
+      }
+      final last = title(13);
+      await _openMenu(tester, last);
+      await tester.tap(find.text('دانلود روی دستگاه'));
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      for (var i = 0; i < 4; i++) {
+        await tester.drag(find.byType(TabBarView), const Offset(0, -300));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+      }
+
+      expect(find.byTooltip('در حال دانلود'), findsOneWidget);
+      expect(find.textContaining('در حال دانلود 50٪'), findsOneWidget);
+      final lastRow = tester.getRect(_row(last));
+      final miniPlayerTop = tester.getTopLeft(find.byTooltip('توقف')).dy - 16;
+      expect(lastRow.bottom, lessThan(miniPlayerTop));
+      expect(tester.takeException(), isNull);
+    });
   });
 }

@@ -185,9 +185,14 @@ class _LibraryScreenState extends State<LibraryScreen>
     final title = operation.track.title;
     final error = operation.error;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(error == null
-          ? '«$title» روی سرور آپلود شد.'
-          : 'آپلود «$title» ناموفق بود. ${syncErrorMessage(error)}'),
+      content: Text(switch ((operation.kind, error)) {
+        (SyncKind.upload, null) => '«$title» روی سرور آپلود شد.',
+        (SyncKind.download, null) => widget.sync.downloadsToDevice
+            ? '«$title» روی دستگاه ذخیره شد و بدون اینترنت پخش می‌شود.'
+            : 'دانلود «$title» در مرورگر شروع شد.',
+        (final kind, final error?) =>
+          '${_syncVerb(kind)} «$title» ناموفق بود. ${syncErrorMessage(error)}',
+      }),
     ));
   }
 
@@ -656,12 +661,19 @@ class _LibraryScreenState extends State<LibraryScreen>
       );
 }
 
+/// «آپلود» or «دانلود», for a transfer's labels.
+String _syncVerb(SyncKind kind) => switch (kind) {
+      SyncKind.upload => 'آپلود',
+      SyncKind.download => 'دانلود',
+    };
+
 enum _HeaderAction { settings, logout, admin }
 
 enum _TrackAction {
   addToPlaylist,
   sendToBot,
   uploadToServer,
+  downloadToDevice,
   removeFromDevice,
   retrySync,
   cancelSync,
@@ -1319,17 +1331,23 @@ class _TrackListState extends State<_TrackList> {
         item(
           _TrackAction.cancelSync,
           NafirIcons.x,
-          'لغو آپلود',
+          'لغو ${_syncVerb(operation.kind)}',
           enabled: sync!.canCancel(track.id),
         ),
       if (operation != null && !operation.active) ...[
         item(_TrackAction.retrySync, NafirIcons.arrowsClockwise,
-            'تلاش دوباره برای آپلود'),
+            'تلاش دوباره برای ${_syncVerb(operation.kind)}'),
         item(_TrackAction.dismissSync, NafirIcons.x, 'بستن خطا'),
       ],
       if (sync != null && operation == null && location == TrackLocation.device)
         item(_TrackAction.uploadToServer, NafirIcons.cloudArrowUp,
             'آپلود به سرور'),
+      if (sync != null && operation == null && location == TrackLocation.server)
+        item(
+          _TrackAction.downloadToDevice,
+          NafirIcons.cloudArrowDown,
+          sync.downloadsToDevice ? 'دانلود روی دستگاه' : 'دانلود فایل',
+        ),
       if (onServer) ...[
         item(_TrackAction.editMetadata, NafirIcons.pencilSimple,
             'ویرایش اطلاعات آهنگ'),
@@ -1373,6 +1391,8 @@ class _TrackListState extends State<_TrackList> {
             widget.onEditMetadata?.call(track);
           case (_TrackAction.uploadToServer, _):
             sync?.upload(track);
+          case (_TrackAction.downloadToDevice, _):
+            sync?.download(track);
           case (_TrackAction.removeFromDevice, _):
             widget.onRemoveFromDevice?.call(track);
           case (_TrackAction.retrySync, _):
@@ -1741,10 +1761,10 @@ class _TrackRow extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: secondary?.copyWith(color: colors.error),
           ),
-        SyncOperation(:final phase, :final progress) => Text(
+        SyncOperation(:final kind, :final phase, :final progress) => Text(
             phase == SyncPhase.queued
-                ? 'در صف آپلود · ${formatSize(track.sizeBytes)}'
-                : 'در حال آپلود ${(progress * 100).round()}٪ · '
+                ? 'در صف ${_syncVerb(kind)} · ${formatSize(track.sizeBytes)}'
+                : 'در حال ${_syncVerb(kind)} ${(progress * 100).round()}٪ · '
                     '${formatSize(track.sizeBytes)}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -1771,7 +1791,7 @@ class _TrackRow extends StatelessWidget {
 }
 
 /// A rounded artwork square with a small badge saying where the track is:
-/// on the device, on the server, on both, being uploaded, or failed.
+/// on the device, on the server, on both, being transferred, or failed.
 class _TrackArtwork extends StatelessWidget {
   const _TrackArtwork({required this.track, required this.current, this.sync});
 
@@ -1784,12 +1804,14 @@ class _TrackArtwork extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final location = locationOf(track);
     final (where, Widget badge) = switch (sync) {
-      SyncOperation(phase: SyncPhase.failed) => (
-          'آپلود ناموفق',
+      SyncOperation(:final kind, phase: SyncPhase.failed) => (
+          '${_syncVerb(kind)} ناموفق',
           Icon(NafirIcons.warningCircle, size: 13, color: colors.error),
         ),
-      SyncOperation(:final phase, :final progress) => (
-          phase == SyncPhase.queued ? 'در صف آپلود' : 'در حال آپلود',
+      SyncOperation(:final kind, :final phase, :final progress) => (
+          phase == SyncPhase.queued
+              ? 'در صف ${_syncVerb(kind)}'
+              : 'در حال ${_syncVerb(kind)}',
           SizedBox.square(
             dimension: 13,
             child: CircularProgressIndicator(
