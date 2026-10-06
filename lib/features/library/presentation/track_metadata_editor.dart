@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nafir/core/widgets/glass_surface.dart';
@@ -44,6 +46,7 @@ class TrackMetadataEditor extends StatefulWidget {
 
 class _TrackMetadataEditorState extends State<TrackMetadataEditor> {
   final _form = GlobalKey<FormState>();
+  final _scroll = ScrollController();
   final _fileName = TextEditingController();
   final _title = TextEditingController();
   final _artist = TextEditingController();
@@ -95,6 +98,7 @@ class _TrackMetadataEditorState extends State<TrackMetadataEditor> {
     for (final controller in _controllers) {
       controller.dispose();
     }
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -162,6 +166,12 @@ class _TrackMetadataEditorState extends State<TrackMetadataEditor> {
         Navigator.of(context).pop(track);
       case MetadataConflict(:final latest):
         setState(() => _conflict = latest);
+        // The choice is at the top of the form.
+        if (_scroll.hasClients) {
+          unawaited(_scroll.animateTo(0,
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutCubic));
+        }
       case MetadataInvalid(:final field):
         setState(() {
           _serverErrors[field] = 'سرور این مقدار را نپذیرفت؛ آن را اصلاح کن.';
@@ -264,7 +274,6 @@ class _TrackMetadataEditorState extends State<TrackMetadataEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     return PopScope(
       canPop: _done || (!_dirty && !_saving),
@@ -281,6 +290,7 @@ class _TrackMetadataEditorState extends State<TrackMetadataEditor> {
           ),
         ),
         bottomNavigationBar: _SaveBar(
+          error: _error,
           saving: _saving,
           enabled: _dirty && !_saving && _conflict == null,
           bottomInset: bottomInset,
@@ -291,148 +301,143 @@ class _TrackMetadataEditorState extends State<TrackMetadataEditor> {
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 640),
-              child: ListView(
+              // Not a lazy list: every field must exist for the form to
+              // validate all of them.
+              child: SingleChildScrollView(
+                controller: _scroll,
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                children: [
-                  if (_conflict != null)
-                    _ConflictNotice(
-                      onUseLatest: _useLatest,
-                      onKeepMine: _keepMine,
-                    ),
-                  _TagStatusNotice(track: _base),
-                  if (_error case final error?)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Semantics(
-                        liveRegion: true,
-                        child: Text(
-                          error,
-                          style: TextStyle(color: theme.colorScheme.error),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_conflict != null)
+                      _ConflictNotice(
+                        onUseLatest: _useLatest,
+                        onKeepMine: _keepMine,
+                      ),
+                    _TagStatusNotice(track: _base),
+                    _Section(
+                      title: 'فایل',
+                      children: [
+                        _Field(
+                          key: const ValueKey('fileName'),
+                          controller: _fileName,
+                          label: 'نام فایل',
+                          helper:
+                              'نام فایل هنگام دانلود؛ با عنوان آهنگ فرق دارد. '
+                              'قالب فایل ($_extension) تغییر نمی‌کند.',
+                          suffix: _extension,
+                          enabled: !_saving,
+                          validator: _validateFileName,
                         ),
-                      ),
+                      ],
                     ),
-                  _Section(
-                    title: 'فایل',
-                    children: [
-                      _Field(
-                        key: const ValueKey('fileName'),
-                        controller: _fileName,
-                        label: 'نام فایل',
-                        helper:
-                            'نام فایل هنگام دانلود؛ با عنوان آهنگ فرق دارد. '
-                            'قالب فایل ($_extension) تغییر نمی‌کند.',
-                        suffix: _extension,
-                        enabled: !_saving,
-                        validator: _validateFileName,
-                      ),
-                    ],
-                  ),
-                  _Section(
-                    title: 'اطلاعات آهنگ',
-                    children: [
-                      _Field(
-                        key: const ValueKey('title'),
-                        controller: _title,
-                        label: 'عنوان',
-                        enabled: !_saving,
-                        validator: (v) =>
-                            _validateText('title', v, required: true),
-                      ),
-                      _Field(
-                        key: const ValueKey('artist'),
-                        controller: _artist,
-                        label: 'خواننده',
-                        enabled: !_saving,
-                        validator: (v) => _validateText('artist', v),
-                      ),
-                      _Field(
-                        key: const ValueKey('album'),
-                        controller: _album,
-                        label: 'آلبوم',
-                        enabled: !_saving,
-                        validator: (v) => _validateText('album', v),
-                      ),
-                      _Field(
-                        key: const ValueKey('albumArtist'),
-                        controller: _albumArtist,
-                        label: 'خوانندهٔ آلبوم',
-                        enabled: !_saving,
-                        validator: (v) => _validateText('albumArtist', v),
-                      ),
-                      _Field(
-                        key: const ValueKey('composer'),
-                        controller: _composer,
-                        label: 'آهنگساز',
-                        enabled: !_saving,
-                        validator: (v) => _validateText('composer', v),
-                      ),
-                      _Field(
-                        key: const ValueKey('genre'),
-                        controller: _genre,
-                        label: 'سبک',
-                        enabled: !_saving,
-                        validator: (v) => _validateText('genre', v),
-                      ),
-                    ],
-                  ),
-                  _Section(
-                    title: 'سال و شماره',
-                    children: [
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        children: [
-                          _NumberField(
-                            key: const ValueKey('year'),
-                            controller: _year,
-                            label: 'سال',
-                            maxDigits: 4,
-                            enabled: !_saving,
-                            validator: (v) =>
-                                _validateNumber('year', v, 0, 9999),
-                          ),
-                          _NumberField(
-                            key: const ValueKey('trackNumber'),
-                            controller: _trackNumber,
-                            label: 'شمارهٔ آهنگ',
-                            maxDigits: 3,
-                            enabled: !_saving,
-                            validator: (v) => _validateNumber(
-                                'trackNumber', v, 1, _maxNumber),
-                          ),
-                          _NumberField(
-                            key: const ValueKey('discNumber'),
-                            controller: _discNumber,
-                            label: 'شمارهٔ دیسک',
-                            maxDigits: 3,
-                            enabled: !_saving,
-                            validator: (v) =>
-                                _validateNumber('discNumber', v, 1, _maxNumber),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  _Section(
-                    title: 'یادداشت',
-                    children: [
-                      _Field(
-                        key: const ValueKey('comment'),
-                        controller: _comment,
-                        label: 'توضیح',
-                        maxLines: 5,
-                        maxLength: _maxComment,
-                        enabled: !_saving,
-                        validator: (v) {
-                          if ((v ?? '').trim().runes.length > _maxComment) {
-                            return 'حداکثر $_maxComment نویسه.';
-                          }
-                          return _serverError('comment');
-                        },
-                      ),
-                    ],
-                  ),
-                ],
+                    _Section(
+                      title: 'اطلاعات آهنگ',
+                      children: [
+                        _Field(
+                          key: const ValueKey('title'),
+                          controller: _title,
+                          label: 'عنوان',
+                          enabled: !_saving,
+                          validator: (v) =>
+                              _validateText('title', v, required: true),
+                        ),
+                        _Field(
+                          key: const ValueKey('artist'),
+                          controller: _artist,
+                          label: 'خواننده',
+                          enabled: !_saving,
+                          validator: (v) => _validateText('artist', v),
+                        ),
+                        _Field(
+                          key: const ValueKey('album'),
+                          controller: _album,
+                          label: 'آلبوم',
+                          enabled: !_saving,
+                          validator: (v) => _validateText('album', v),
+                        ),
+                        _Field(
+                          key: const ValueKey('albumArtist'),
+                          controller: _albumArtist,
+                          label: 'خوانندهٔ آلبوم',
+                          enabled: !_saving,
+                          validator: (v) => _validateText('albumArtist', v),
+                        ),
+                        _Field(
+                          key: const ValueKey('composer'),
+                          controller: _composer,
+                          label: 'آهنگساز',
+                          enabled: !_saving,
+                          validator: (v) => _validateText('composer', v),
+                        ),
+                        _Field(
+                          key: const ValueKey('genre'),
+                          controller: _genre,
+                          label: 'سبک',
+                          enabled: !_saving,
+                          validator: (v) => _validateText('genre', v),
+                        ),
+                      ],
+                    ),
+                    _Section(
+                      title: 'سال و شماره',
+                      children: [
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: [
+                            _NumberField(
+                              key: const ValueKey('year'),
+                              controller: _year,
+                              label: 'سال',
+                              maxDigits: 4,
+                              enabled: !_saving,
+                              validator: (v) =>
+                                  _validateNumber('year', v, 0, 9999),
+                            ),
+                            _NumberField(
+                              key: const ValueKey('trackNumber'),
+                              controller: _trackNumber,
+                              label: 'شمارهٔ آهنگ',
+                              maxDigits: 3,
+                              enabled: !_saving,
+                              validator: (v) => _validateNumber(
+                                  'trackNumber', v, 1, _maxNumber),
+                            ),
+                            _NumberField(
+                              key: const ValueKey('discNumber'),
+                              controller: _discNumber,
+                              label: 'شمارهٔ دیسک',
+                              maxDigits: 3,
+                              enabled: !_saving,
+                              validator: (v) => _validateNumber(
+                                  'discNumber', v, 1, _maxNumber),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    _Section(
+                      title: 'یادداشت',
+                      children: [
+                        _Field(
+                          key: const ValueKey('comment'),
+                          controller: _comment,
+                          label: 'توضیح',
+                          maxLines: 5,
+                          maxLength: _maxComment,
+                          enabled: !_saving,
+                          validator: (v) {
+                            if ((v ?? '').trim().runes.length > _maxComment) {
+                              return 'حداکثر $_maxComment نویسه.';
+                            }
+                            return _serverError('comment');
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -716,12 +721,15 @@ class _TagStatusNotice extends StatelessWidget {
 /// covers the last field.
 class _SaveBar extends StatelessWidget {
   const _SaveBar({
+    required this.error,
     required this.saving,
     required this.enabled,
     required this.bottomInset,
     required this.onSave,
   });
 
+  /// Why the last save failed, shown right above the button.
+  final String? error;
   final bool saving;
   final bool enabled;
   final double bottomInset;
@@ -736,22 +744,42 @@ class _SaveBar extends StatelessWidget {
           border: Border(top: BorderSide(color: NafirGlass.softBorder)),
         ),
         padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomInset),
-        child: Center(
+        // heightFactor keeps the bar as tall as the button, not the screen.
+        child: Align(
+          heightFactor: 1,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 640),
-            child: FilledButton.icon(
-              key: const ValueKey('save'),
-              onPressed: enabled ? onSave : null,
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(52),
-              ),
-              icon: saving
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(NafirIcons.check),
-              label: Text(saving ? 'در حال ذخیره…' : 'ذخیره'),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (error case final error?)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        error,
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.error),
+                      ),
+                    ),
+                  ),
+                FilledButton.icon(
+                  key: const ValueKey('save'),
+                  onPressed: enabled ? onSave : null,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                  ),
+                  icon: saving
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(NafirIcons.check),
+                  label: Text(saving ? 'در حال ذخیره…' : 'ذخیره'),
+                ),
+              ],
             ),
           ),
         ),
