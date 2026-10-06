@@ -8,6 +8,7 @@ import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/player/application/play_queue.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
+import 'package:nafir/features/player/presentation/playback_controls.dart';
 
 /// The widest the now-playing column grows on desktop.
 const nowPlayingMaxWidth = 520.0;
@@ -238,7 +239,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
     Track track,
     Color tint,
   ) {
-    final header = _Header(onClose: _close);
+    final header = _Header(player: _player, onClose: _close);
     final details = <Widget>[
       _TitleRow(
         track: track,
@@ -259,6 +260,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
       _Transport(player: _player),
       const SizedBox(height: 12),
       _BottomRow(
+        player: _player,
         upcoming: _player.upcoming.length,
         onQueue: _openQueue,
         onMore: () => _openDetails(track),
@@ -341,13 +343,18 @@ class _PlaybackBackdropPainter extends CustomPainter {
       oldDelegate.tint != tint || oldDelegate.animation != animation;
 }
 
+/// Close, the heading with the sleep timer's countdown under it, and the
+/// sleep timer button, which also balances the close button.
 class _Header extends StatelessWidget {
-  const _Header({required this.onClose});
+  const _Header({required this.player, required this.onClose});
 
+  final PlayerController player;
   final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final sleep = sleepTimerStatus(player);
     return SizedBox(
       height: 56,
       child: Row(
@@ -358,16 +365,32 @@ class _Header extends StatelessWidget {
             icon: const Icon(NafirIcons.caretDown),
           ),
           Expanded(
-            child: Text(
-              'در حال پخش',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'در حال پخش',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
+                ),
+                if (sleep != null)
+                  Text(
+                    sleep,
+                    key: const ValueKey('sleep-status'),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+              ],
             ),
           ),
-          // Balances the close button so the heading stays centered.
-          const SizedBox(width: 48),
+          SleepTimerButton(player: player),
         ],
       ),
     );
@@ -643,11 +666,13 @@ class _Transport extends StatelessWidget {
 
 class _BottomRow extends StatelessWidget {
   const _BottomRow({
+    required this.player,
     required this.upcoming,
     required this.onQueue,
     required this.onMore,
   });
 
+  final PlayerController player;
   final int upcoming;
   final VoidCallback onQueue;
   final VoidCallback onMore;
@@ -656,14 +681,25 @@ class _BottomRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        TextButton.icon(
-          style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
-          onPressed: onQueue,
-          icon: const Icon(NafirIcons.playlist),
-          label: Text(
-              upcoming == 0 ? 'صف پخش' : 'صف پخش · ${persianDigits(upcoming)}'),
+        // Gives way first on a narrow phone, so speed and details still fit.
+        Expanded(
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton.icon(
+              style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+              onPressed: onQueue,
+              icon: const Icon(NafirIcons.playlist),
+              label: Text(
+                upcoming == 0
+                    ? 'صف پخش'
+                    : 'صف پخش · ${persianDigits(upcoming)}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
         ),
-        const Spacer(),
+        SpeedButton(player: player),
         IconButton(
           tooltip: 'جزئیات آهنگ',
           onPressed: onMore,

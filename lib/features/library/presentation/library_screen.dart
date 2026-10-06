@@ -336,6 +336,7 @@ class _LibraryScreenState extends State<LibraryScreen>
             cache: widget.cache,
             botLinks: widget.botLinks,
             library: widget.library,
+            player: widget.player,
           ),
         ))
         // A chat may have been linked meanwhile; offer sending to it.
