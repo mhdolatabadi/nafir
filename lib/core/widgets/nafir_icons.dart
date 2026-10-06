@@ -17,6 +17,8 @@ abstract final class NafirIcons {
   static const IconData caretLeft = IconData(0xe138, fontFamily: 'Phosphor');
   static const IconData check = IconData(0xe182, fontFamily: 'Phosphor');
   static const IconData checkCircle = IconData(0xe184, fontFamily: 'Phosphor');
+  static const IconData clockCounterClockwise =
+      IconData(0xe1a0, fontFamily: 'Phosphor');
   static const IconData cloud = IconData(0xe1aa, fontFamily: 'Phosphor');
   static const IconData cloudArrowDown =
       IconData(0xe1ac, fontFamily: 'Phosphor');

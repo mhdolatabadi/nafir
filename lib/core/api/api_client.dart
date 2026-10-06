@@ -196,10 +196,25 @@ abstract interface class BotsApi {
   Future<void> sendTrackToBot(String token, String provider, String trackId);
 }
 
+/// The account's recently played tracks, the same on every device.
+abstract interface class HistoryApi {
+  /// Tracks the user played, most recent first, each once. Someone else's
+  /// track in a collaborative playlist comes with that playlist, to be
+  /// played through it.
+  Future<List<Track>> listHistory(String token, {int? limit});
+
+  /// Adds a play the app counted as a real listen.
+  Future<void> recordPlay(String token, String trackId, {String? playlistId});
+
+  /// Forgets everything the user played.
+  Future<void> clearHistory(String token);
+}
+
 class ApiClient
     implements
         AuthApi,
         TracksApi,
+        HistoryApi,
         PlaylistsApi,
         BotsApi,
         LinkImportsApi,
@@ -575,6 +590,37 @@ class ApiClient
       for (final json in body['imports'] as List<dynamic>)
         LinkImport.fromJson(json as Map<String, dynamic>),
     ];
+  }
+
+  @override
+  Future<List<Track>> listHistory(String token, {int? limit}) async {
+    final body = await _send('GET',
+        limit == null ? '/api/v1/history' : '/api/v1/history?limit=$limit',
+        token: token);
+    return [
+      for (final entry in body['entries'] as List<dynamic>)
+        Track.fromJson(
+          (entry as Map<String, dynamic>)['track'] as Map<String, dynamic>,
+          viaPlaylist: entry['playlistId'] as String?,
+        ),
+    ];
+  }
+
+  @override
+  Future<void> recordPlay(String token, String trackId,
+      {String? playlistId}) async {
+    await _send('POST', '/api/v1/history',
+        token: token,
+        body: {
+          'trackId': trackId,
+          if (playlistId != null) 'playlistId': playlistId,
+        },
+        expectBody: false);
+  }
+
+  @override
+  Future<void> clearHistory(String token) async {
+    await _send('DELETE', '/api/v1/history', token: token, expectBody: false);
   }
 
   Future<Map<String, dynamic>> _send(

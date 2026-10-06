@@ -1,6 +1,7 @@
 import 'package:nafir/features/admin/data/admin_account.dart';
 import 'package:nafir/features/admin/presentation/admin_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:nafir/features/history/application/recently_played_controller.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/core/widgets/app_loading_screen.dart';
@@ -28,6 +29,7 @@ class AuthGate extends StatefulWidget {
     required this.controller,
     required this.library,
     this.playlists,
+    this.recent,
     this.adminApi,
     required this.localAudio,
     required this.uploads,
@@ -44,6 +46,9 @@ class AuthGate extends StatefulWidget {
   final PlayerController player;
   final LibraryController library;
   final PlaylistsController? playlists;
+
+  /// The account's recently played tracks; null hides them.
+  final RecentlyPlayedController? recent;
   final LocalAudioController localAudio;
   final UploadController uploads;
   final LibrarySyncController sync;
@@ -97,6 +102,7 @@ class _AuthGateState extends State<AuthGate> {
     widget.player.stop();
     widget.library.clear();
     widget.playlists?.clear();
+    widget.recent?.clear();
     widget.botLinks?.clear();
     widget.linkImports?.clear();
     widget.uploads.dismiss();
@@ -166,6 +172,7 @@ class _AuthGateState extends State<AuthGate> {
                 widget.player.stop();
                 widget.library.clear();
                 widget.playlists?.clear();
+                widget.recent?.clear();
                 widget.botLinks?.clear();
                 widget.sync.clear();
                 widget.linkImports?.clear();
@@ -175,6 +182,7 @@ class _AuthGateState extends State<AuthGate> {
               onDeleteAccount: controller.deleteAccount,
               library: widget.library,
               playlists: widget.playlists,
+              recent: widget.recent,
               localAudio: widget.localAudio,
               player: widget.player,
               uploads: widget.uploads,
