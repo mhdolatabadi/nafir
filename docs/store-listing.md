@@ -5,8 +5,8 @@ Everything below is based on the code as of this document. Re-check it whenever
 permissions, data handling, or the release workflow change.
 
 - Package ID: `ir.mhdolatabadi.nafir`
-- Privacy policy URL: `https://<NAFIR_DOMAIN>/privacy` (production: `https://nafir.mhdolatabadi.ir/privacy`)
-- Account deletion URL: `https://<NAFIR_DOMAIN>/delete-account` (production: `https://nafir.mhdolatabadi.ir/delete-account`)
+- Privacy policy URL: `https://<NAFIR_DOMAIN>/privacy` (production: `https://rhythmo.ir/privacy`)
+- Account deletion URL: `https://<NAFIR_DOMAIN>/delete-account` (production: `https://rhythmo.ir/delete-account`)
 - Both pages show the contact address only when `PRIVACY_CONTACT_EMAIL` is set on the server. **Set it before submitting**, because the deletion page's email route depends on it.
 
 ## Listing text (Persian)

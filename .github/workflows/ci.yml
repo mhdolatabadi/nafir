@@ -27,7 +27,7 @@ jobs:
       - run: flutter build web --release --no-web-resources-cdn --base-href /app/ --dart-define=API_BASE_URL=https://music.example.com
       - name: Build Android debug APK
         # The APK is meant to be installed, so it talks to the real server.
-        run: flutter build apk --debug --dart-define=API_BASE_URL=${{ vars.NAFIR_API_BASE_URL || 'https://nafir.mhdolatabadi.ir' }}
+        run: flutter build apk --debug --dart-define=API_BASE_URL=${{ vars.NAFIR_API_BASE_URL || 'https://rhythmo.ir' }}
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
@@ -172,4 +172,9 @@ jobs:
           docker run --rm \
             -v "$PWD/front-test.conf:/etc/nginx/conf.d/default.conf:ro" \
             -v "$PWD/deploy/front-proxy.nginx.conf:/etc/nginx/nafir.conf:ro" \
+            nginx:1.27-alpine nginx -t
+          printf 'server {\n listen 80;\n include /etc/nginx/legacy.conf;\n}\n' > legacy-test.conf
+          docker run --rm \
+            -v "$PWD/legacy-test.conf:/etc/nginx/conf.d/default.conf:ro" \
+            -v "$PWD/deploy/legacy-domain.nginx.conf:/etc/nginx/legacy.conf:ro" \
             nginx:1.27-alpine nginx -t

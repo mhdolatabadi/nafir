@@ -85,11 +85,11 @@ jobs:
           flutter build apk --release \
             --build-name="${{ steps.version.outputs.name }}" \
             --build-number="${GITHUB_RUN_NUMBER}" \
-            --dart-define=API_BASE_URL=${{ vars.NAFIR_API_BASE_URL || 'https://nafir.mhdolatabadi.ir' }}
+            --dart-define=API_BASE_URL=${{ vars.NAFIR_API_BASE_URL || 'https://rhythmo.ir' }}
           flutter build appbundle --release \
             --build-name="${{ steps.version.outputs.name }}" \
             --build-number="${GITHUB_RUN_NUMBER}" \
-            --dart-define=API_BASE_URL=${{ vars.NAFIR_API_BASE_URL || 'https://nafir.mhdolatabadi.ir' }}
+            --dart-define=API_BASE_URL=${{ vars.NAFIR_API_BASE_URL || 'https://rhythmo.ir' }}
           mv build/app/outputs/flutter-apk/app-release.apk \
             "nafir-${{ steps.version.outputs.tag }}-android-${{ steps.signing.outputs.label }}.apk"
           mv build/app/outputs/bundle/release/app-release.aab \

@@ -141,6 +141,23 @@ container answers such requests with a redirect to `/app/`, but the public
 pages only appear once `/` goes to the API. Roll back by restoring the
 previous nginx file and reloading.
 
+## Moving to a new domain
+
+Production moved from `nafir.mhdolatabadi.ir` to `rhythmo.ir` (#180). For a
+move like that:
+
+1. Set `NAFIR_DOMAIN=rhythmo.ir` in `deploy/.env` and deploy. Presigned audio
+   links, the web origin and the bot webhooks follow it; the bots register
+   their new webhook on start.
+2. Give the new domain the routes in `deploy/front-proxy.nginx.conf`.
+3. Keep the old domain's certificate and add `deploy/legacy-domain.nginx.conf`
+   to its server block: the API keeps answering there for apps built with the
+   old address, and every page redirects permanently to the new domain.
+4. Release a new Android build. Release builds take the API address from the
+   `NAFIR_API_BASE_URL` repository variable, or `https://rhythmo.ir` when it
+   is not set.
+5. Retire the old domain only once installed apps have updated.
+
 ## Bale and Telegram bots
 
 People can send audio to rhythmo's Bale or Telegram bot and it lands in their
