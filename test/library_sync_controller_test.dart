@@ -295,6 +295,91 @@ void main() {
       expect(finished.single.error, isNull);
     });
 
+    group('while the server rewrites the tags', () {
+      late List<Duration> waits;
+      late Completer<void>? gate;
+
+      LibrarySyncController waiting({int attempts = 3}) {
+        waits = [];
+        gate = null;
+        final controller = LibrarySyncController(
+          uploads: uploads,
+          uploadSource: source,
+          onUploaded: () async {},
+          api: api,
+          token: () => 'token',
+          downloader: downloader,
+          onDownloaded: () async => rescanned++,
+          tagsPendingAttempts: attempts,
+          wait: (delay) {
+            waits.add(delay);
+            return gate?.future ?? Future<void>.value();
+          },
+        );
+        controller.finished.listen(finished.add);
+        return controller;
+      }
+
+      test('waits, shows it is preparing, then downloads', () async {
+        final sync = waiting();
+        api.tagsPending = 2;
+        final preparing = <bool>[];
+        sync.addListener(() {
+          final op = sync.operationFor(cloud.id);
+          if (op != null) preparing.add(op.preparing);
+        });
+
+        sync.download(cloud);
+        await settle();
+
+        expect(waits, [const Duration(seconds: 5), const Duration(seconds: 5)]);
+        expect(preparing, containsAllInOrder([true, false]));
+        expect(downloader.saved, ['Server_song.mp3']);
+        expect(finished.single.error, isNull);
+        expect(sync.operationFor(cloud.id), isNull);
+      });
+
+      test('gives up after a bounded number of attempts', () async {
+        final sync = waiting(attempts: 3);
+        api.tagsPending = 10;
+
+        sync.download(cloud);
+        await settle();
+
+        expect(api.calls.where((c) => c == 'download:${cloud.id}').length, 3);
+        expect(waits, hasLength(2));
+        expect(downloader.saved, isEmpty);
+        final failed = sync.operationFor(cloud.id)!;
+        expect(failed.phase, SyncPhase.failed);
+        expect(failed.error, SyncError.tagsPending);
+        expect(failed.preparing, isFalse);
+        expect(syncErrorMessage(SyncError.tagsPending), contains('آماده‌سازی'));
+
+        // Once the tags are written, retrying works.
+        api.tagsPending = 0;
+        sync.retry(cloud.id);
+        await settle();
+        expect(downloader.saved, ['Server_song.mp3']);
+      });
+
+      test('can be cancelled while it waits', () async {
+        final sync = waiting();
+        gate = Completer<void>();
+        api.tagsPending = 1;
+
+        sync.download(cloud);
+        await settle();
+        expect(sync.operationFor(cloud.id)!.preparing, isTrue);
+        expect(sync.canCancel(cloud.id), isTrue);
+
+        sync.cancel(cloud.id);
+        await settle();
+        expect(sync.operationFor(cloud.id), isNull);
+        expect(downloader.saved, isEmpty);
+        expect(api.calls.where((c) => c == 'download:${cloud.id}').length, 1);
+      });
+    });
+
     test('a cancelled download leaves nothing and can start again', () async {
       downloader.stall = true;
       sync.download(cloud);

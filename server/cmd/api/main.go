@@ -171,6 +171,11 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	// Recording a play happens at most every half a minute of listening.
+	historyRate, err := rateLimiterEnv("HISTORY_RATE", 60, 10*time.Minute)
+	if err != nil {
+		return err
+	}
 	accountDeleteRate, err := rateLimiterEnv("ACCOUNT_DELETE_RATE", 5, time.Hour)
 	if err != nil {
 		return err
@@ -264,6 +269,7 @@ func run() error {
 			Playlists: httpapi.NewPlaylistHandlers(playlists, tokens).WithSharing(playlists, objects, httpapi.SavePolicy{
 				Objects: objects, MaxOwnerBytes: ownerQuotaBytes, Enabled: uploadsEnabled,
 			}).WithAnonymous(httpapi.AnonymousLimits{View: publicViewRate, Stream: publicStreamRate}),
+			History: httpapi.NewHistoryHandlers(store.NewHistory(pool), tokens, historyRate),
 			Public: httpapi.NewPublicPages(playlists, objects,
 				httpapi.AnonymousLimits{View: publicViewRate, Stream: publicStreamRate}).
 				WithContact(os.Getenv("PRIVACY_CONTACT_EMAIL")),

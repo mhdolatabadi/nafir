@@ -68,10 +68,18 @@ class FakeTracksApi implements TracksApi {
   /// Download links issued, by track ID.
   final downloadLinks = <String>[];
 
+  /// How many more download link requests answer 409 tags_pending.
+  int tagsPending = 0;
+
   @override
   Future<DownloadLink> downloadLink(String token, String trackId) async {
     calls.add('download:$trackId');
     if (linkError != null) throw linkError!;
+    if (tagsPending > 0) {
+      tagsPending--;
+      throw const ApiException('tags pending',
+          statusCode: 409, code: 'tags_pending');
+    }
     downloadLinks.add(trackId);
     final track = tracks.firstWhere((t) => t.id == trackId);
     return DownloadLink(

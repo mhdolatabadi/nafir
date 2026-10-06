@@ -1,0 +1,32 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:nafir/core/search_text.dart';
+
+void main() {
+  test('Arabic letter forms match their Persian ones', () {
+    expect(normalizeForSearch('علي'), normalizeForSearch('علی'));
+    expect(normalizeForSearch('كوچه'), normalizeForSearch('کوچه'));
+    expect(normalizeForSearch('مدرسة'), normalizeForSearch('مدرسه'));
+    expect(normalizeForSearch('أحمد'), normalizeForSearch('احمد'));
+  });
+
+  test('ZWNJ, diacritics and tatweel are ignored', () {
+    expect(normalizeForSearch('می‌خواهم'), 'میخواهم');
+    expect(normalizeForSearch('مُحَمَّد'), 'محمد');
+    expect(normalizeForSearch('سـلام'), 'سلام');
+  });
+
+  test('case, Latin accents, digits and spacing are folded', () {
+    expect(normalizeForSearch('  Beyoncé   LIVE '), 'beyonce live');
+    expect(normalizeForSearch('آهنگ ۱۲'), 'اهنگ 12');
+    expect(normalizeForSearch('track ٣'), 'track 3');
+  });
+
+  test('every query word must appear in some field', () {
+    final fields = ['كتاب‌ها', 'Shajarian', null, 'song.MP3'];
+    expect(matchesSearch('کتابها', fields), isTrue);
+    expect(matchesSearch('shaj کتاب', fields), isTrue);
+    expect(matchesSearch('mp3', fields), isTrue);
+    expect(matchesSearch('shajarian ناظری', fields), isFalse);
+    expect(matchesSearch('   ', fields), isTrue);
+  });
+}
