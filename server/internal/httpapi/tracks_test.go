@@ -210,6 +210,8 @@ type tracksAPI struct {
 	objects *fakeObjects
 	alice   string
 	bob     string
+	// fingerprints counts wake-ups of the fingerprint worker.
+	fingerprints *countingNotifier
 }
 
 func newTracksAPI(t *testing.T, tracks *memoryTracks) tracksAPI {
@@ -229,12 +231,14 @@ func newTracksAPIWithLimits(t *testing.T, tracks *memoryTracks, limits UploadLim
 	alice, _, _ := tokens.Issue("alice")
 	bob, _, _ := tokens.Issue("bob")
 	objects := &fakeObjects{objects: map[string][]byte{}}
+	fingerprints := &countingNotifier{}
 	return tracksAPI{
-		handler: NewHandler(Config{Tracks: NewTrackHandlers(tracks, objects, tokens, limits)}),
-		tracks:  tracks,
-		objects: objects,
-		alice:   alice,
-		bob:     bob,
+		handler:      NewHandler(Config{Tracks: NewTrackHandlers(tracks, objects, tokens, limits).WithFingerprints(fingerprints)}),
+		fingerprints: fingerprints,
+		tracks:       tracks,
+		objects:      objects,
+		alice:        alice,
+		bob:          bob,
 	}
 }
 
@@ -552,6 +556,9 @@ func TestUploadLifecycle(t *testing.T) {
 	}
 	if again := api.do(t, http.MethodPost, "/api/v1/tracks/"+id+"/complete", "", api.alice); again.Code != http.StatusOK {
 		t.Fatalf("completing twice should be harmless, got %d", again.Code)
+	}
+	if api.fingerprints.calls != 1 {
+		t.Fatalf("the fingerprint worker was woken %d times, want once", api.fingerprints.calls)
 	}
 	if list := decode[trackListResponse](t, api.get(t, "/api/v1/tracks", api.alice)); len(list.Tracks) != 1 {
 		t.Fatalf("completed track not listed: %+v", list.Tracks)
