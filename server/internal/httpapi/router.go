@@ -21,6 +21,8 @@ type Config struct {
 	Bots    *BotHandlers
 	// LinkImports adds music from song pages and audio links.
 	LinkImports *LinkImportHandlers
+	// Identify recognises songs from a recorded snippet.
+	Identify *IdentifyHandlers
 	// Public serves the public HTML pages at /, /p/{token}, sitemap.xml and
 	// robots.txt.
 	Public *PublicPages
@@ -54,6 +56,9 @@ func NewHandler(config Config) http.Handler {
 	}
 	if config.LinkImports != nil {
 		config.LinkImports.register(mux)
+	}
+	if config.Identify != nil {
+		config.Identify.register(mux)
 	}
 	if config.Public != nil {
 		config.Public.register(mux)
