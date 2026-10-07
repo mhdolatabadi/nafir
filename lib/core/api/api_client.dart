@@ -37,6 +37,18 @@ abstract interface class AuthApi {
   /// Deletes the signed-in account and everything in it for good. The
   /// password is checked again; a wrong one fails with `invalid_password`.
   Future<void> deleteAccount(String token, String password);
+
+  /// Mails a new email verification code, replacing the last one, and
+  /// returns when it expires.
+  Future<DateTime> sendEmailCode(String token);
+
+  /// Confirms the account's address with the emailed [code].
+  Future<AuthUser> verifyEmail(String token, String code);
+
+  /// Corrects the address of an account that hasn't verified it yet; a new
+  /// code goes to the new address unless [codeSent] is false.
+  Future<({AuthUser user, bool codeSent})> changeEmail(
+      String token, String email);
 }
 
 /// A short-lived URL that saves one cloud track as a file under its edited
@@ -282,6 +294,30 @@ class ApiClient
   Future<void> deleteAccount(String token, String password) async {
     await _send('DELETE', '/api/v1/me',
         token: token, body: {'password': password}, expectBody: false);
+  }
+
+  @override
+  Future<DateTime> sendEmailCode(String token) async {
+    final body = await _send('POST', '/api/v1/me/email/code', token: token);
+    return DateTime.parse(body['expiresAt'] as String);
+  }
+
+  @override
+  Future<AuthUser> verifyEmail(String token, String code) async {
+    final body = await _send('POST', '/api/v1/me/email/verify',
+        token: token, body: {'code': code});
+    return AuthUser.fromJson(body);
+  }
+
+  @override
+  Future<({AuthUser user, bool codeSent})> changeEmail(
+      String token, String email) async {
+    final body = await _send('PUT', '/api/v1/me/email',
+        token: token, body: {'email': email});
+    return (
+      user: AuthUser.fromJson(body['user'] as Map<String, dynamic>),
+      codeSent: body['codeSent'] == true,
+    );
   }
 
   @override

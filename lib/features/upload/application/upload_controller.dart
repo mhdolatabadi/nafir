@@ -28,6 +28,7 @@ enum UploadError {
   quotaExceeded,
   tooManyPending,
   uploadsDisabled,
+  emailUnverified,
   network,
   unknown,
 }
@@ -211,6 +212,7 @@ class UploadController extends ChangeNotifier {
       'quota_exceeded' => UploadError.quotaExceeded,
       'too_many_pending_uploads' => UploadError.tooManyPending,
       'uploads_disabled' => UploadError.uploadsDisabled,
+      'email_unverified' => UploadError.emailUnverified,
       _ => UploadError.unknown,
     };
   }

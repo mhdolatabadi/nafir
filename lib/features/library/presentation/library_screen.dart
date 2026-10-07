@@ -7,6 +7,7 @@ import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/core/format_size.dart';
 import 'package:nafir/core/search_text.dart';
 import 'package:nafir/core/widgets/glass_surface.dart';
+import 'package:nafir/features/auth/presentation/email_verification_screen.dart';
 import 'package:nafir/features/history/application/recently_played_controller.dart';
 import 'package:nafir/features/history/presentation/recently_played_shelf.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
@@ -38,6 +39,7 @@ class LibraryScreen extends StatefulWidget {
     super.key,
     required this.email,
     this.verified = false,
+    this.onVerifyEmail,
     this.onAdmin,
     required this.onLogout,
     this.onDeleteAccount,
@@ -56,6 +58,10 @@ class LibraryScreen extends StatefulWidget {
 
   final String email;
   final bool verified;
+
+  /// Opens email verification; set while the account's email is not
+  /// verified, which shows a reminder above the tracks.
+  final VoidCallback? onVerifyEmail;
   final VoidCallback? onAdmin;
   final VoidCallback onLogout;
 
@@ -700,6 +706,8 @@ class _LibraryScreenState extends State<LibraryScreen>
           final tracks = _unifiedTracks();
           final top = Column(
             children: [
+              if (widget.onVerifyEmail case final verify?)
+                EmailVerificationBanner(onOpen: verify),
               UploadStatusCard(controller: widget.uploads),
               if (widget.linkImports case final links?)
                 LinkImportFailures(controller: links),
