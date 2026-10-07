@@ -364,3 +364,34 @@ retries them at the new one.
 - Keep MinIO and PostgreSQL on the internal Docker network; do not expose their ports.
 - Back up the named Docker volumes before upgrades.
 - The API will create private music objects and issue short-lived playback links in the next feature.
+
+## Self-hosted audio transcription
+
+LRCLIB finds existing lyrics; it does not transcribe recordings. Owners can separately
+request «استخراج متن از صدا» for their uploaded tracks. This uses a private
+faster-whisper container on the same server, defaults to Persian, and stores timed
+and plain text in PostgreSQL. Machine transcripts may contain mistakes, especially
+with chanting, backing music and crowds. Original audio is never rewritten.
+Generated text is currently available to the owner, not shared playlist visitors.
+
+Provision and measure resources before enabling: the default CPU/int8 `small` model
+container is limited to 2 CPUs and 4 GiB RAM. Quality and processing time must be
+verified against real Persian recitations; these limits are not performance guarantees.
+For mostly Arabic recordings set `TRANSCRIPTION_LANGUAGE=auto` or `ar`. A larger
+model may need increased memory in `compose.yaml`.
+
+Set a random `TRANSCRIPTION_TOKEN` of at least 32 characters in `deploy/.env`, then
+`TRANSCRIPTION_ENABLED=true`. The normal deployment script enables the optional
+Compose profile, pulls the immutable transcriber image and starts it. No port is
+published; the API streams original audio directly over the internal container
+network using the token. The initial model download needs outbound access; subsequent
+loads reuse `transcription-models`. Recordings are never sent to a third party.
+
+One job runs at a time, with at most two active jobs per owner. Limits are 200 MiB
+and 2 hours of decoded audio. Status persists through app closure. Temporary audio
+is deleted after each inference; transcripts are deleted with their track/account.
+Failed jobs can be retried. After a worker crash its lease is recovered after
+2 hours; stale workers cannot overwrite a newer result. Jobs time out after
+110 minutes. Disabling the feature leaves stored results in the database, and
+reenabling recovers the queue. To roll back, set `TRANSCRIPTION_ENABLED=false` and
+run the normal deployment workflow; do not delete the model volume or user data.

@@ -66,6 +66,15 @@ jobs:
           # 10.0.2.2 is the host from inside the emulator; nothing listens on port 9.
           script: flutter test integration_test --dart-define=API_BASE_URL=http://10.0.2.2:9
 
+  transcription:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m unittest discover -s server/transcriber -v
+
   api:
     runs-on: ubuntu-latest
     services:

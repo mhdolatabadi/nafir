@@ -199,6 +199,11 @@ abstract interface class BotsApi {
 
 /// Song lyrics, which the server looks up on LRCLIB; the app never calls
 /// LRCLIB itself.
+abstract interface class TranscriptionApi {
+  Future<Map<String, dynamic>> transcription(String token, String trackId,
+      {bool start = false});
+}
+
 abstract interface class LyricsApi {
   /// The lyrics of [track], asked for the way it is played: the user's own
   /// track, someone else's through its collaborative playlist, or through
@@ -239,6 +244,7 @@ class ApiClient
         BotsApi,
         LinkImportsApi,
         LyricsApi,
+        TranscriptionApi,
         AdminApi {
   ApiClient(this.baseUri, {http.Client? httpClient})
       : _httpClient = httpClient ?? http.Client();
@@ -643,6 +649,13 @@ class ApiClient
   Future<void> clearHistory(String token) async {
     await _send('DELETE', '/api/v1/history', token: token, expectBody: false);
   }
+
+  @override
+  Future<Map<String, dynamic>> transcription(String token, String trackId,
+          {bool start = false}) =>
+      _send(start ? 'POST' : 'GET',
+          '/api/v1/tracks/${Uri.encodeComponent(trackId)}/transcription',
+          token: token);
 
   @override
   Future<TrackLyrics> trackLyrics(String? token, Track track,

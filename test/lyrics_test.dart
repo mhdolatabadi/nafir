@@ -35,12 +35,27 @@ const _synced = '''[ar:someone]
 [00:30.00]آخرین خط آهنگ''';
 
 /// Lyrics answers by track id; counts requests.
-class FakeLyricsApi implements LyricsApi {
+class FakeLyricsApi implements LyricsApi, TranscriptionApi {
   FakeLyricsApi(this.answers);
 
   final Map<String, Object> answers;
   final requests = <String>[];
   final chosen = <int>[];
+
+  Map<String, dynamic>? extractionAnswer;
+  int extractionStarts = 0;
+  @override
+  Future<Map<String, dynamic>> transcription(String token, String trackId,
+      {bool start = false}) async {
+    if (extractionAnswer == null) {
+      throw const ApiException('disabled', code: 'transcription_disabled');
+    }
+    if (start) {
+      extractionStarts++;
+      extractionAnswer = {'state': 'queued'};
+    }
+    return extractionAnswer!;
+  }
 
   @override
   Future<TrackLyrics> trackLyrics(String? token, Track track,
@@ -180,13 +195,13 @@ void main() {
     late FakeLyricsApi api;
 
     Future<void> open(WidgetTester tester, Map<String, Object> answers,
-        {Track track = _song}) async {
+        {Track track = _song, Map<String, dynamic>? extraction}) async {
       tester.view.physicalSize = const Size(360, 640);
       tester.view.devicePixelRatio = 1;
       tester.view.padding = const FakeViewPadding(top: 24, bottom: 34);
       tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 34);
       addTearDown(tester.view.reset);
-      api = FakeLyricsApi(answers);
+      api = FakeLyricsApi(answers)..extractionAnswer = extraction;
       engine = FakeAudioEngine();
       player = PlayerController(
         api: FakeTracksApi(),
@@ -298,6 +313,53 @@ void main() {
       expect(tester.getRect(find.textContaining('متن از LRCLIB')).bottom,
           lessThanOrEqualTo(visibleBottom),
           reason: 'nothing covers the end of the lyrics');
+    });
+
+    testWidgets('owner queues transcription and sees timed Persian result',
+        (tester) async {
+      await open(tester, {
+        'song':
+            const TrackLyrics(status: LyricsStatus.notFound, canChoose: true),
+      }, extraction: {
+        'state': 'idle'
+      });
+      final button = find.text('استخراج متن از صدا');
+      expect(
+          tester
+              .getRect(find.ancestor(
+                  of: button, matching: find.byType(FilledButton)))
+              .height,
+          greaterThanOrEqualTo(48));
+      await tester.tap(button);
+      await _advance(tester);
+      expect(api.extractionStarts, 1);
+      expect(find.text('در صف استخراج متن'), findsOneWidget);
+      api.extractionAnswer = {
+        'state': 'done',
+        'plain': 'یا حسین',
+        'synced': '[00:01.00]یا حسین'
+      };
+      await tester.pump(const Duration(seconds: 15));
+      await _advance(tester);
+      expect(find.text('یا حسین'), findsOneWidget);
+      expect(
+          find.text(
+              'متن استخراج‌شده از صدا؛ ممکن است نیاز به اصلاح داشته باشد.'),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('failed extraction offers retry without losing existing text',
+        (tester) async {
+      await open(tester, {
+        'song':
+            const TrackLyrics(status: LyricsStatus.found, plain: 'متن قبلی'),
+      }, extraction: {
+        'state': 'failed'
+      });
+      expect(find.text('تلاش دوباره برای استخراج از صدا'), findsOneWidget);
+      expect(find.text('متن قبلی'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('not found says so, and the owner can search and pick',

@@ -13,6 +13,7 @@ import (
 	"github.com/mhdolatabadi/nafir/server/internal/auth"
 	"github.com/mhdolatabadi/nafir/server/internal/lyrics"
 	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/nafir/server/internal/transcription"
 )
 
 const (
@@ -52,11 +53,12 @@ type LyricsLimits struct {
 // the members of a collaborative playlist it is in, and people with the
 // link of a playlist it is shared in. Only the owner may correct a match.
 type LyricsHandlers struct {
-	service   LyricsService
-	owned     OwnedTracks
-	playlists PlayableTracks
-	tokens    *auth.Tokens
-	limits    LyricsLimits
+	Transcriptions transcription.Store
+	service        LyricsService
+	owned          OwnedTracks
+	playlists      PlayableTracks
+	tokens         *auth.Tokens
+	limits         LyricsLimits
 }
 
 func NewLyricsHandlers(service LyricsService, owned OwnedTracks, playlists PlayableTracks, tokens *auth.Tokens, limits LyricsLimits) *LyricsHandlers {
@@ -64,6 +66,8 @@ func NewLyricsHandlers(service LyricsService, owned OwnedTracks, playlists Playa
 }
 
 func (h *LyricsHandlers) register(mux *http.ServeMux) {
+	mux.HandleFunc("GET /api/v1/tracks/{id}/transcription", h.handleTranscription)
+	mux.HandleFunc("POST /api/v1/tracks/{id}/transcription", h.handleTranscription)
 	mux.HandleFunc("GET /api/v1/tracks/{id}/lyrics", h.handleOwn)
 	mux.HandleFunc("GET /api/v1/tracks/{id}/lyrics/candidates", h.handleCandidates)
 	mux.HandleFunc("PUT /api/v1/tracks/{id}/lyrics", h.handleChoose)

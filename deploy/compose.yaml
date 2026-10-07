@@ -67,6 +67,8 @@ services:
       TELEGRAM_PROXY_URL: ${TELEGRAM_PROXY_URL:-}
       BOT_WEBHOOK_SECRET: ${BOT_WEBHOOK_SECRET:-}
       OPS_TOKEN: ${OPS_TOKEN:-}
+      TRANSCRIPTION_URL: ${TRANSCRIPTION_URL:-}
+      TRANSCRIPTION_TOKEN: ${TRANSCRIPTION_TOKEN:-}
       # The email /privacy and /delete-account give for questions and deletion.
       PRIVACY_CONTACT_EMAIL: ${PRIVACY_CONTACT_EMAIL:-}
       # Where the front page sends visitors to install the Android app (optional).
@@ -81,6 +83,22 @@ services:
       minio:
         condition: service_started
     networks: [internal, edge]
+
+  transcriber:
+    profiles: [transcription]
+    image: ${NAFIR_IMAGE_REPO:-ghcr.io/mhdolatabadi/nafir}/transcriber:${NAFIR_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      TRANSCRIPTION_TOKEN: ${TRANSCRIPTION_TOKEN:-}
+      TRANSCRIPTION_MODEL: ${TRANSCRIPTION_MODEL:-small}
+      TRANSCRIPTION_LANGUAGE: ${TRANSCRIPTION_LANGUAGE:-fa}
+      TRANSCRIPTION_THREADS: ${TRANSCRIPTION_THREADS:-2}
+    volumes:
+      - transcription-models:/models
+    networks: [edge]
+    cpus: 2
+    mem_limit: 4g
+    # No published ports. Only the API uses this service.
 
   web:
     image: ${NAFIR_IMAGE_REPO:-ghcr.io/mhdolatabadi/nafir}/web:${NAFIR_IMAGE_TAG:-latest}
@@ -143,6 +161,7 @@ networks:
 # These volumes were created while the project was still called "deploy";
 # the names are pinned so the database, music and certificates carry over.
 volumes:
+  transcription-models:
   postgres-data:
     name: deploy_postgres-data
   minio-data:
