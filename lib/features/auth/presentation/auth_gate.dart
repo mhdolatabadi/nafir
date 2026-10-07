@@ -1,6 +1,7 @@
 import 'package:nafir/features/admin/data/admin_account.dart';
 import 'package:nafir/features/admin/presentation/admin_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:nafir/features/identify/application/identify_controller.dart';
 import 'package:nafir/features/history/application/recently_played_controller.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/app/app_configuration.dart';
@@ -37,6 +38,7 @@ class AuthGate extends StatefulWidget {
     required this.cache,
     this.botLinks,
     this.linkImports,
+    this.identify,
     required this.picker,
     required this.player,
   });
@@ -55,6 +57,9 @@ class AuthGate extends StatefulWidget {
   final CacheController cache;
   final BotLinkController? botLinks;
   final LinkImportController? linkImports;
+
+  /// «این آهنگ چیه؟»; null hides it.
+  final IdentifyController? identify;
   final AudioPicker picker;
 
   @override
@@ -190,6 +195,7 @@ class _AuthGateState extends State<AuthGate> {
               cache: widget.cache,
               botLinks: widget.botLinks,
               linkImports: widget.linkImports,
+              identify: widget.identify,
               picker: widget.picker,
             ),
         };
