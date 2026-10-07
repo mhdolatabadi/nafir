@@ -1,0 +1,5 @@
+# Reviewed gitleaks false positives (#213). Each line is a finding fingerprint.
+# deploy/.env.example: AUTH_TOKEN_SECRET placeholder, not a real secret.
+53ecf527351531004bc5e6a7a73dd6f6112710d0:deploy/.env.example:generic-api-key:5
+# auth_test.go: a deliberately unsigned alg=none JWT the verifier must reject.
+38803e9e3cef176f90c42315a6f718d576a2c042:server/internal/auth/auth_test.go:jwt:70
