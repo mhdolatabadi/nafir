@@ -181,45 +181,56 @@ class _Intro extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Semantics(
-          button: true,
-          label: 'شروع گوش دادن',
-          child: SizedBox.square(
-            dimension: 132,
-            child: IconButton.filled(
-              tooltip: 'شروع گوش دادن',
-              iconSize: 56,
-              style: IconButton.styleFrom(
-                shape: const CircleBorder(),
-                fixedSize: const Size.square(132),
-              ),
-              onPressed: onListen,
-              icon: const Icon(NafirIcons.microphoneStage),
+        ExcludeSemantics(
+          child: Container(
+            width: 96,
+            height: 96,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: colors.primary.withValues(alpha: 0.16),
+              border: Border.all(color: colors.primary.withValues(alpha: 0.4)),
             ),
+            child: Icon(NafirIcons.microphoneStage,
+                size: 44, color: colors.primary),
           ),
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 20),
         Text(
           'آهنگی که پخش می‌شود را بشناسید',
           textAlign: TextAlign.center,
           style:
               theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         Text(
-          'ریتمو ${persianDigits(snippetLength.inSeconds)} ثانیه از صدای '
-          'اطراف را با میکروفون ضبط می‌کند و با آهنگ‌های کتابخانهٔ شما و '
-          'فهرست‌های پخشی که به آن‌ها دسترسی دارید مقایسه می‌کند. صدای '
-          'ضبط‌شده بعد از جستجو پاک می‌شود و جایی نگه داشته نمی‌شود.',
+          'ریتمو ${persianDigits(snippetLength.inSeconds)} ثانیه با میکروفون '
+          'گوش می‌دهد و صدا را با آهنگ‌های کتابخانهٔ شما و فهرست‌های پخشی '
+          'که به آن‌ها دسترسی دارید مقایسه می‌کند.',
           textAlign: TextAlign.center,
-          style: theme.textTheme.bodyLarge?.copyWith(
+          style: theme.textTheme.bodyMedium?.copyWith(
             color: colors.onSurfaceVariant,
-            height: 1.7,
+            height: 1.6,
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(NafirIcons.shieldCheck,
+                size: 16, color: colors.onSurfaceVariant),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                'صدای ضبط‌شده بعد از جستجو پاک می‌شود.',
+                style: theme.textTheme.labelMedium
+                    ?.copyWith(color: colors.onSurfaceVariant),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
         FilledButton.icon(
-          style: FilledButton.styleFrom(minimumSize: const Size(48, 52)),
+          style: FilledButton.styleFrom(minimumSize: const Size(160, 52)),
           onPressed: onListen,
           icon: const Icon(NafirIcons.microphone),
           label: const Text('گوش بده'),

@@ -52,6 +52,9 @@ These are from `android/app/src/main/AndroidManifest.xml`.
 | `READ_MEDIA_AUDIO` (Android 13+) / `READ_EXTERNAL_STORAGE` (Android 12 and older, `maxSdkVersion=32`) | برای نمایش و پخش موسیقی‌های روی گوشی. این فایل‌ها فقط وقتی به سرور فرستاده می‌شوند که کاربر خودش بارگذاری‌شان کند. فقط به فایل‌های صوتی دسترسی داریم، نه عکس و فیلم. |
 | `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK` | برای ادامه‌ی پخش موسیقی وقتی اپ بسته یا صفحه خاموش است، و نمایش کنترل‌های پخش در اعلان و صفحه‌ی قفل. |
 | `WAKE_LOCK` | تا پخش موسیقی با خاموش شدن صفحه قطع نشود. |
+| `RECORD_AUDIO` | فقط برای «این آهنگ چیه؟»: وقتی کاربر خودش دکمه را می‌زند، ریتمو ۱۰ ثانیه صدای اطراف را ضبط می‌کند تا آهنگ در حال پخش را میان آهنگ‌های کتابخانه‌ی خودش و فهرست‌های پخش در دسترسش پیدا کند. صدای ضبط‌شده فقط برای همین جستجو به سرور فرستاده و بلافاصله پاک می‌شود؛ هیچ‌جا ذخیره نمی‌شود و در پس‌زمینه هرگز ضبطی انجام نمی‌شود. |
+
+The app asks for the microphone only when the listener taps «گوش بده» on the «این آهنگ چیه؟» screen, after a Persian explanation of what is recorded and that it is deleted. Refusing it only disables song identification. On the web the browser asks the same way through `getUserMedia`.
 
 On **Google Play**, the `FOREGROUND_SERVICE_MEDIA_PLAYBACK` type needs a foreground-service declaration under *App content → Foreground service permissions*. Choose **Media playback**, describe it as "Continues music playback the user started when the app is in the background, with media controls in the notification", and attach a short screen recording: start a track, leave the app, and control playback from the notification.
 
@@ -67,12 +70,14 @@ The answers are based on the API (`server/`), the app (`lib/`), and `pubspec.yam
 | Personal info → **User IDs** | Yes | No | Required | Account management | the account UUID, plus the Bale/Telegram chat ID when the user links a bot (optional) |
 | Audio → **Music files** | Yes | No | Optional (only what the user uploads) | App functionality | the MinIO objects under `users/<id>/` and the track metadata |
 | App activity → **Other user-generated content** | Yes | No | Optional | App functionality | playlists, likes, collaborative memberships, and edited track metadata |
+| Audio → **Voice or sound recordings** | Yes, processed ephemerally | No | Optional (only when the user taps «گوش بده») | App functionality | the «این آهنگ چیه؟» snippet: about 10 s sent to `POST /api/v1/identify`, held in a private temporary file while it is fingerprinted, then deleted. It is never stored or logged. |
 
 These are **not** collected:
 - Location (the client IP is used only in memory for rate limiting and is never stored).
 - Contacts, photos and videos, messages, calendar, health, and financial info.
 - App interactions and analytics, crash logs, diagnostics, and device or advertising IDs.
 - Music already on the device: it is read on the device to play it and leaves only when the user uploads it.
+- Microphone audio is never kept. Song identification snippets are processed ephemerally (see the table above), so in Play's form tick *Data is processed ephemerally* for **Voice or sound recordings**.
 
 **Security practices**
 - Data is encrypted in transit: yes, everything goes over HTTPS.
