@@ -64,7 +64,7 @@ func NewHandler(config Config) http.Handler {
 	for provider, handler := range config.Webhooks {
 		mux.Handle("POST /api/v1/bots/"+provider+"/webhook/{secret}", handler)
 	}
-	return cors(config.AllowedOrigin, mux)
+	return securityHeaders(cors(config.AllowedOrigin, mux))
 }
 
 func cors(allowedOrigin string, next http.Handler) http.Handler {

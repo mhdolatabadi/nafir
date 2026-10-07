@@ -13,6 +13,8 @@
   @musicStorage path /nafir-music /nafir-music/*
   handle @musicStorage {
     header Cache-Control "private, no-transform"
+    # Never let a browser sniff a stored object into something runnable.
+    header X-Content-Type-Options nosniff
     reverse_proxy minio:9000
   }
 
