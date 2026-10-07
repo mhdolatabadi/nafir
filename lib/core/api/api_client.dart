@@ -6,6 +6,7 @@ import 'package:nafir/features/auth/data/auth_models.dart';
 import 'package:nafir/features/bots/data/messenger_bot.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/link_import/data/link_import.dart';
+import 'package:nafir/features/lyrics/data/lyrics.dart';
 import 'package:nafir/features/playlists/data/playlist.dart';
 import 'package:nafir/features/upload/data/upload_models.dart';
 
@@ -196,6 +197,25 @@ abstract interface class BotsApi {
   Future<void> sendTrackToBot(String token, String provider, String trackId);
 }
 
+/// Song lyrics, which the server looks up on LRCLIB; the app never calls
+/// LRCLIB itself.
+abstract interface class LyricsApi {
+  /// The lyrics of [track], asked for the way it is played: the user's own
+  /// track, someone else's through its collaborative playlist, or through
+  /// a shared link (where [token] may be null on a public playlist).
+  /// [duration] is how long the track plays, which helps matching.
+  Future<TrackLyrics> trackLyrics(String? token, Track track,
+      {Duration? duration});
+
+  /// Other LRCLIB entries the track's owner may pick: for the track itself,
+  /// or for the free text in [query].
+  Future<List<LyricsMatch>> lyricsCandidates(String token, String trackId,
+      {String query = ''});
+
+  /// Makes LRCLIB entry [lrclibId] the lyrics of the owner's track.
+  Future<TrackLyrics> chooseLyrics(String token, String trackId, int lrclibId);
+}
+
 /// The account's recently played tracks, the same on every device.
 abstract interface class HistoryApi {
   /// Tracks the user played, most recent first, each once. Someone else's
@@ -218,6 +238,7 @@ class ApiClient
         PlaylistsApi,
         BotsApi,
         LinkImportsApi,
+        LyricsApi,
         AdminApi {
   ApiClient(this.baseUri, {http.Client? httpClient})
       : _httpClient = httpClient ?? http.Client();
@@ -621,6 +642,50 @@ class ApiClient
   @override
   Future<void> clearHistory(String token) async {
     await _send('DELETE', '/api/v1/history', token: token, expectBody: false);
+  }
+
+  @override
+  Future<TrackLyrics> trackLyrics(String? token, Track track,
+      {Duration? duration}) async {
+    final id = Uri.encodeComponent(track.id);
+    final shareToken = track.sharedVia;
+    final playlistId = track.viaPlaylist;
+    final path = shareToken != null
+        ? '/api/v1/shared-playlists/${Uri.encodeComponent(shareToken)}'
+            '/tracks/$id/lyrics'
+        : playlistId != null
+            ? '/api/v1/playlists/${Uri.encodeComponent(playlistId)}'
+                '/tracks/$id/lyrics'
+            : '/api/v1/tracks/$id/lyrics';
+    final query = duration == null || duration <= Duration.zero
+        ? ''
+        : '?durationMs=${duration.inMilliseconds}';
+    final body = await _send('GET', '$path$query', token: token);
+    return TrackLyrics.fromJson(body);
+  }
+
+  @override
+  Future<List<LyricsMatch>> lyricsCandidates(String token, String trackId,
+      {String query = ''}) async {
+    final search = query.trim().isEmpty
+        ? ''
+        : '?q=${Uri.encodeQueryComponent(query.trim())}';
+    final body = await _send('GET',
+        '/api/v1/tracks/${Uri.encodeComponent(trackId)}/lyrics/candidates$search',
+        token: token);
+    return [
+      for (final json in body['candidates'] as List<dynamic>)
+        LyricsMatch.fromJson(json as Map<String, dynamic>),
+    ];
+  }
+
+  @override
+  Future<TrackLyrics> chooseLyrics(
+      String token, String trackId, int lrclibId) async {
+    final body = await _send(
+        'PUT', '/api/v1/tracks/${Uri.encodeComponent(trackId)}/lyrics',
+        token: token, body: {'lrclibId': lrclibId});
+    return TrackLyrics.fromJson(body);
   }
 
   Future<Map<String, dynamic>> _send(
