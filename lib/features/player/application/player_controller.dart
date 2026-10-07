@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/features/library/data/track.dart';
+import 'package:nafir/features/lyrics/application/lyrics_controller.dart';
 import 'package:nafir/features/player/application/favorite_tracks.dart';
 import 'package:nafir/features/player/application/play_queue.dart';
 import 'package:nafir/features/player/application/playback_settings.dart';
@@ -51,6 +52,7 @@ class PlayerController extends ChangeNotifier {
     PlaybackSettingsStore? settingsStore,
     DateTime Function()? now,
     this.onListened,
+    this.lyrics,
   })  : _api = api,
         _engine = engine,
         _token = token,
@@ -93,6 +95,9 @@ class PlayerController extends ChangeNotifier {
 
   /// The tracks the listener liked, shown on the now-playing screen.
   final FavoriteTracks favorites;
+
+  /// Lyrics for the now-playing screen; null where there is no server.
+  final LyricsController? lyrics;
 
   /// Called once each time a track has played long enough to count, see
   /// [listenThreshold].

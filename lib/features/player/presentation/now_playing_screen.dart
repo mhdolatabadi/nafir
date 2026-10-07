@@ -6,6 +6,7 @@ import 'package:nafir/core/format_size.dart';
 import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/features/library/data/track.dart';
+import 'package:nafir/features/lyrics/presentation/lyrics_sheet.dart';
 import 'package:nafir/features/player/application/play_queue.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/presentation/playback_controls.dart';
@@ -147,6 +148,11 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
     );
   }
 
+  void _openLyrics() {
+    final lyrics = _player.lyrics;
+    if (lyrics != null) openLyrics(context, _player, lyrics);
+  }
+
   void _openDetails(Track track) {
     showModalBottomSheet<void>(
       context: context,
@@ -263,6 +269,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
         player: _player,
         upcoming: _player.upcoming.length,
         onQueue: _openQueue,
+        onLyrics: _player.lyrics == null ? null : _openLyrics,
         onMore: () => _openDetails(track),
       ),
     ];
@@ -669,12 +676,16 @@ class _BottomRow extends StatelessWidget {
     required this.player,
     required this.upcoming,
     required this.onQueue,
+    required this.onLyrics,
     required this.onMore,
   });
 
   final PlayerController player;
   final int upcoming;
   final VoidCallback onQueue;
+
+  /// Opens «متن آهنگ»; null hides the button where there is no server.
+  final VoidCallback? onLyrics;
   final VoidCallback onMore;
 
   @override
@@ -700,6 +711,12 @@ class _BottomRow extends StatelessWidget {
           ),
         ),
         SpeedButton(player: player),
+        if (onLyrics != null)
+          IconButton(
+            tooltip: 'متن آهنگ',
+            onPressed: onLyrics,
+            icon: const Icon(NafirIcons.quotes),
+          ),
         IconButton(
           tooltip: 'جزئیات آهنگ',
           onPressed: onMore,

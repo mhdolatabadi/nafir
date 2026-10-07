@@ -141,15 +141,16 @@ void main() {
     await client.saveIdentifiedSong('tok', match);
     expect(jsonDecode(sent.body), {'trackId': 't', 'playlistId': 'pl'});
     await client.saveIdentifiedSong('tok', _publicSong);
-    expect(jsonDecode(sent.body), {'trackId': 'song', 'shareToken': 'share-token'});
+    expect(jsonDecode(sent.body),
+        {'trackId': 'song', 'shareToken': 'share-token'});
 
     final notFound = ApiClient(Uri.parse('https://api.example'),
         httpClient: MockClient((_) async =>
             http.Response(jsonEncode({'status': 'not_found'}), 200)));
     expect(await notFound.identifySong('tok', _wav), isNull);
     final tooShort = ApiClient(Uri.parse('https://api.example'),
-        httpClient: MockClient((_) async => http.Response(
-            jsonEncode({'error': 'snippet_too_short'}), 422)));
+        httpClient: MockClient((_) async =>
+            http.Response(jsonEncode({'error': 'snippet_too_short'}), 422)));
     expect(
         () => tooShort.identifySong('tok', _wav),
         throwsA(isA<ApiException>()
@@ -224,7 +225,8 @@ void main() {
       await controller.cancel();
       await done;
       expect(controller.phase, IdentifyPhase.ready);
-      expect(api.snippets, hasLength(2), reason: 'a cancelled snippet is not sent');
+      expect(api.snippets, hasLength(2),
+          reason: 'a cancelled snippet is not sent');
     });
 
     test('a full library is reported when saving', () async {
@@ -251,8 +253,7 @@ void main() {
     Future<void> open(WidgetTester tester) async {
       tester.view.physicalSize = const Size(360, 640);
       tester.view.devicePixelRatio = 1;
-      tester.view.padding =
-          const FakeViewPadding(top: 24, bottom: bottomInset);
+      tester.view.padding = const FakeViewPadding(top: 24, bottom: bottomInset);
       tester.view.viewPadding =
           const FakeViewPadding(top: 24, bottom: bottomInset);
       addTearDown(tester.view.reset);
@@ -288,8 +289,7 @@ void main() {
       final rect = tester.getRect(finder);
       expect(rect.left, greaterThanOrEqualTo(0), reason: reason);
       expect(rect.right, lessThanOrEqualTo(360), reason: reason);
-      expect(rect.bottom, lessThanOrEqualTo(640 - bottomInset),
-          reason: reason);
+      expect(rect.bottom, lessThanOrEqualTo(640 - bottomInset), reason: reason);
       expect(rect.height, greaterThanOrEqualTo(48), reason: reason);
     }
 
@@ -360,8 +360,8 @@ void main() {
     testWidgets('a song of your own has nothing to add', (tester) async {
       await open(tester);
       api.answer = const SongMatch(
-        track: Track(
-            id: 'mine', title: 'مال من', contentType: 'a', sizeBytes: 1),
+        track:
+            Track(id: 'mine', title: 'مال من', contentType: 'a', sizeBytes: 1),
         confidence: 0.5,
         source: SongMatchSource.library,
       );
