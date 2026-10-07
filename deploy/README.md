@@ -168,6 +168,28 @@ The public pages (`/`, `/p/{token}`, `/privacy`, `/delete-account`) are server-r
 - After `docker compose up -d`, verify the site in each console, then submit `https://<domain>/sitemap.xml`.
 - Unknown paths answer with a 404 page that is never indexed.
 
+## Email verification
+
+New accounts confirm their address with a 6-digit code before they can
+upload, import from links, list a playlist publicly, save a shared playlist
+or use the bots. They can still sign in and listen meanwhile.
+
+Set these in `.env` to turn it on:
+
+| Variable | Meaning |
+| --- | --- |
+| `SMTP_HOST`, `SMTP_PORT` | The relay. Port 465 uses TLS from the start; other ports (587 by default) must offer STARTTLS before the password is sent. |
+| `SMTP_USERNAME`, `SMTP_PASSWORD` | The relay login; leave both empty for a relay that needs none. |
+| `MAIL_FROM` | The sender, for example `ریتمو <no-reply@music.example.com>`. |
+
+- With `SMTP_HOST` empty, verification is off. The API logs a warning at start-up and every account counts as verified, so local and development setups need no mail server.
+- Accounts that existed before migration `016_email_verification.sql` count as verified. Accounts created while verification was off are asked to verify once it is turned on.
+- A code is stored only as a keyed hash, lasts 15 minutes and allows 5 wrong attempts. Codes are never logged.
+- Sending is limited per account and per IP (`EMAIL_CODE_USER_RATE_*`, `EMAIL_CODE_IP_RATE_*`: 5 and 30 per hour), and so are code checks (`EMAIL_VERIFY_USER_RATE_*`, `EMAIL_VERIFY_IP_RATE_*`: 20 and 100 per 15 minutes).
+- An unverified user can correct a mistyped address from the app; a new code goes to the new address.
+- The admin's manual verification badge (#172) is separate and unchanged. An address in `ADMIN_EMAILS` gets admin access only once it is verified.
+- If the relay fails, sign-up still succeeds and the API logs `verification email not sent`; the user can ask for another code. To turn verification off again, empty `SMTP_HOST` and restart the API.
+
 ## Storage, quotas and abuse controls
 
 Every way music gets in (app uploads, bot imports and link imports) goes
