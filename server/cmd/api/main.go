@@ -19,6 +19,7 @@ import (
 	"github.com/mhdolatabadi/nafir/server/internal/bot"
 	"github.com/mhdolatabadi/nafir/server/internal/httpapi"
 	"github.com/mhdolatabadi/nafir/server/internal/linkimport"
+	"github.com/mhdolatabadi/nafir/server/internal/lyrics"
 	"github.com/mhdolatabadi/nafir/server/internal/storage"
 	"github.com/mhdolatabadi/nafir/server/internal/store"
 	"github.com/mhdolatabadi/nafir/server/internal/tagwriter"
@@ -243,6 +244,11 @@ func run() error {
 		}), bots, maxPending)
 	go linkImports.Resume(ctx)
 
+	lyricsHandlers, err := setupLyrics(pool, tracks, playlists, tokens)
+	if err != nil {
+		return err
+	}
+
 	var ops *httpapi.OpsHandlers
 	if opsToken := os.Getenv("OPS_TOKEN"); opsToken != "" {
 		if len(opsToken) < 32 {
@@ -279,6 +285,7 @@ func run() error {
 				WithVerification(os.Getenv("GOOGLE_SITE_VERIFICATION"), os.Getenv("BING_SITE_VERIFICATION")),
 			Bots:        botHandlers,
 			LinkImports: httpapi.NewLinkImportHandlers(linkImports, tokens, linkImportRate),
+			Lyrics:      lyricsHandlers,
 			Ops:         ops,
 			Webhooks:    webhooks,
 		}),
@@ -313,6 +320,49 @@ func run() error {
 	}
 	slog.Info("Nafir API stopped")
 	return nil
+}
+
+// setupLyrics serves lyrics from LRCLIB, unless LYRICS_ENABLED is false.
+// Found lyrics are cached for LYRICS_FOUND_TTL and misses for
+// LYRICS_NOT_FOUND_TTL; requests to LRCLIB are spaced LYRICS_UPSTREAM_INTERVAL
+// apart across all users.
+func setupLyrics(pool *pgxpool.Pool, tracks *store.Tracks, playlists *store.Playlists, tokens *auth.Tokens) (*httpapi.LyricsHandlers, error) {
+	if raw := os.Getenv("LYRICS_ENABLED"); raw != "" {
+		enabled, err := strconv.ParseBool(raw)
+		if err != nil {
+			return nil, fmt.Errorf("LYRICS_ENABLED must be true or false, got %q", raw)
+		}
+		if !enabled {
+			return nil, nil
+		}
+	}
+	foundTTL, err := positiveDurationEnv("LYRICS_FOUND_TTL", lyrics.DefaultFoundTTL)
+	if err != nil {
+		return nil, err
+	}
+	missTTL, err := positiveDurationEnv("LYRICS_NOT_FOUND_TTL", lyrics.DefaultMissTTL)
+	if err != nil {
+		return nil, err
+	}
+	interval, err := positiveDurationEnv("LYRICS_UPSTREAM_INTERVAL", 250*time.Millisecond)
+	if err != nil {
+		return nil, err
+	}
+	client, err := lyrics.NewClient(lyrics.ClientConfig{BaseURL: os.Getenv("LRCLIB_BASE_URL"), Interval: interval})
+	if err != nil {
+		return nil, fmt.Errorf("LRCLIB_BASE_URL: %w", err)
+	}
+	userRate, err := rateLimiterEnv("LYRICS_USER_RATE", 120, 10*time.Minute)
+	if err != nil {
+		return nil, err
+	}
+	ipRate, err := rateLimiterEnv("LYRICS_IP_RATE", 60, 10*time.Minute)
+	if err != nil {
+		return nil, err
+	}
+	service := lyrics.NewService(client, store.NewLyrics(pool), foundTTL, missTTL)
+	return httpapi.NewLyricsHandlers(service, tracks, playlists, tokens,
+		httpapi.LyricsLimits{User: userRate, IP: ipRate}), nil
 }
 
 // ensureBucket retries while MinIO is still starting next to the API.
