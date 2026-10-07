@@ -27,6 +27,10 @@ type UserStore interface {
 type AuthRateLimiters struct {
 	Register *RateLimiter
 	Login    *RateLimiter
+	// LoginAccount limits sign-in attempts per email, whichever IPs they come
+	// from, so guesses spread over many addresses still slow down (#215). It
+	// applies to unknown emails too, so it reveals nothing about accounts.
+	LoginAccount *RateLimiter
 }
 
 // AccountDeleter removes an account and everything it owns from the
@@ -128,6 +132,11 @@ func (h *AuthHandlers) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if auth.WeakPassword(input.Password, email) {
+		writeError(w, http.StatusBadRequest, "weak_password")
+		return
+	}
+
 	hash, err := h.passwords.Hash(input.Password)
 	if err != nil {
 		internalError(w, "hash password", err)
@@ -156,6 +165,9 @@ func (h *AuthHandlers) handleLogin(w http.ResponseWriter, r *http.Request) {
 	email, validEmail := normalizeEmail(input.Email)
 	if !validEmail || len(input.Password) > auth.MaxPasswordBytes {
 		writeError(w, http.StatusUnauthorized, "invalid_credentials")
+		return
+	}
+	if !enforceRateLimit(w, h.limiters.LoginAccount, email) {
 		return
 	}
 
