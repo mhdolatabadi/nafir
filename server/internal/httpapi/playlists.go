@@ -42,6 +42,16 @@ type PlaylistHandlers struct {
 	// anonymous is set when visitors without an account may browse public
 	// playlists.
 	anonymous *AnonymousLimits
+	// emailGate keeps unverified accounts from listing playlists publicly
+	// and from saving copies into their storage; nil allows everyone.
+	emailGate *EmailGate
+}
+
+// WithEmailGate keeps accounts with an unverified email out of what costs
+// storage or reaches other people.
+func (h *PlaylistHandlers) WithEmailGate(gate *EmailGate) *PlaylistHandlers {
+	h.emailGate = gate
+	return h
 }
 
 func NewPlaylistHandlers(playlists PlaylistStore, tokens *auth.Tokens) *PlaylistHandlers {

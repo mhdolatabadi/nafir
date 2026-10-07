@@ -18,11 +18,25 @@ var (
 const uniqueViolation = "23505"
 
 type User struct {
-	ID         string
-	Email      string
-	CreatedAt  time.Time
+	ID        string
+	Email     string
+	CreatedAt time.Time
+	// Verified is the admin's manual verification badge (#172).
 	Verified   bool
 	VerifiedAt *time.Time
+	// EmailVerifiedAt is when the owner proved they read this address; nil
+	// until then. It is independent of Verified.
+	EmailVerifiedAt *time.Time
+}
+
+// userColumns are the columns scanUser reads, in order.
+const userColumns = `id::text, email, created_at, verified, verified_at, email_verified_at`
+
+// scanUser reads userColumns, then any extra columns into extra.
+func scanUser(row pgx.Row, user *User, extra ...any) error {
+	return row.Scan(append([]any{
+		&user.ID, &user.Email, &user.CreatedAt, &user.Verified, &user.VerifiedAt, &user.EmailVerifiedAt,
+	}, extra...)...)
 }
 
 type Users struct {
@@ -35,11 +49,11 @@ func NewUsers(pool *pgxpool.Pool) *Users {
 
 func (u *Users) Create(ctx context.Context, email, passwordHash string) (User, error) {
 	var user User
-	err := u.pool.QueryRow(ctx,
+	err := scanUser(u.pool.QueryRow(ctx,
 		`INSERT INTO users (email, password_hash) VALUES ($1, $2)
-		 RETURNING id::text, email, created_at, verified, verified_at`,
+		 RETURNING `+userColumns,
 		email, passwordHash,
-	).Scan(&user.ID, &user.Email, &user.CreatedAt, &user.Verified, &user.VerifiedAt)
+	), &user)
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation {
 		return User{}, ErrEmailTaken
@@ -51,9 +65,9 @@ func (u *Users) Create(ctx context.Context, email, passwordHash string) (User, e
 func (u *Users) ByEmail(ctx context.Context, email string) (User, string, error) {
 	var user User
 	var hash string
-	err := u.pool.QueryRow(ctx,
-		`SELECT id::text, email, created_at, verified, verified_at, password_hash FROM users WHERE email = $1`, email,
-	).Scan(&user.ID, &user.Email, &user.CreatedAt, &user.Verified, &user.VerifiedAt, &hash)
+	err := scanUser(u.pool.QueryRow(ctx,
+		`SELECT `+userColumns+`, password_hash FROM users WHERE email = $1`, email,
+	), &user, &hash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, "", ErrNotFound
 	}
@@ -63,9 +77,9 @@ func (u *Users) ByEmail(ctx context.Context, email string) (User, string, error)
 func (u *Users) ByID(ctx context.Context, id string) (User, error) {
 	var user User
 	// Comparing as text avoids a cast error when a token carries a malformed ID.
-	err := u.pool.QueryRow(ctx,
-		`SELECT id::text, email, created_at, verified, verified_at FROM users WHERE id::text = $1`, id,
-	).Scan(&user.ID, &user.Email, &user.CreatedAt, &user.Verified, &user.VerifiedAt)
+	err := scanUser(u.pool.QueryRow(ctx,
+		`SELECT `+userColumns+` FROM users WHERE id::text = $1`, id,
+	), &user)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrNotFound
 	}

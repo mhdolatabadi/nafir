@@ -69,9 +69,13 @@ class BotLinkController extends ChangeNotifier {
     try {
       _code = await _api.createBotLinkCode(token);
     } on ApiException catch (e) {
-      _error = e.statusCode == 429
-          ? 'کد زیادی درخواست شده است. کمی بعد دوباره امتحان کنید.'
-          : 'دریافت کد ناموفق بود. دوباره امتحان کنید.';
+      _error = switch (e) {
+        ApiException(statusCode: 429) =>
+          'کد زیادی درخواست شده است. کمی بعد دوباره امتحان کنید.',
+        ApiException(code: 'email_unverified') =>
+          'برای اتصال بات، اول ایمیلت را تأیید کن.',
+        _ => 'دریافت کد ناموفق بود. دوباره امتحان کنید.',
+      };
     } catch (_) {
       _error = 'دریافت کد ناموفق بود. اتصال اینترنت را بررسی کنید.';
     }
