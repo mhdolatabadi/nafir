@@ -3,9 +3,14 @@
 {{end}}{{end}}
 {{define "content"}}
 <section class="hero">
-<h1>فهرست‌های پخش محبوب ریتمو</h1>
-<p>فهرست‌های پخشی که کاربران ریتمو عمومی کرده‌اند؛ بدون ثبت‌نام بشنو.</p>
+<h1>ریتمو، کتابخانه‌ی موسیقی ابری تو</h1>
+<p>آهنگ‌هایت را با کیفیت اصلی آپلود کن، فهرست پخش بساز و روی وب و اندروید گوش بده؛ فهرست‌های پخش محبوب را هم بدون ثبت‌نام بشنو.</p>
+<div class="cta"><a class="button primary" href="/app/">شروع رایگان</a>{{with .AndroidApp}}<a class="button" href="{{.}}" rel="noopener">دریافت اپ اندروید</a>{{end}}</div>
+<ul class="features">
+{{range .Features}}<li><h3>{{.Title}}</h3><p>{{.Text}}</p></li>
+{{end}}</ul>
 </section>
+<h2 class="section">فهرست‌های پخش محبوب</h2>
 {{if .Playlists}}
 <ol class="list">
 {{range .Playlists}}<li><a class="row" href="/p/{{.ShareToken}}">
@@ -17,4 +22,9 @@
 {{else}}
 <p class="empty">هنوز فهرست پخش عمومی‌ای نیست. در اپ ریتمو یک فهرست پخش بساز و هنگام اشتراک‌گذاری «عمومی» را انتخاب کن.</p>
 {{end}}
+<section class="faq" aria-labelledby="faq">
+<h2 class="section" id="faq">پرسش‌های رایج</h2>
+{{range .Questions}}<h3>{{.Question}}</h3>
+<p>{{.Answer}}</p>
+{{end}}</section>
 {{end}}
