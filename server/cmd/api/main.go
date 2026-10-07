@@ -19,11 +19,8 @@ import (
 	"github.com/mhdolatabadi/nafir/server/internal/bot"
 	"github.com/mhdolatabadi/nafir/server/internal/httpapi"
 	"github.com/mhdolatabadi/nafir/server/internal/linkimport"
-<<<<<<< HEAD
-	"github.com/mhdolatabadi/nafir/server/internal/mail"
-=======
 	"github.com/mhdolatabadi/nafir/server/internal/lyrics"
->>>>>>> origin/main
+	"github.com/mhdolatabadi/nafir/server/internal/mail"
 	"github.com/mhdolatabadi/nafir/server/internal/storage"
 	"github.com/mhdolatabadi/nafir/server/internal/store"
 	"github.com/mhdolatabadi/nafir/server/internal/tagwriter"
@@ -300,14 +297,9 @@ func run() error {
 				WithAndroidApp(os.Getenv("ANDROID_APP_URL")).
 				WithSite(os.Getenv("WEB_ORIGIN")).
 				WithVerification(os.Getenv("GOOGLE_SITE_VERIFICATION"), os.Getenv("BING_SITE_VERIFICATION")),
-<<<<<<< HEAD
 			Bots:        botHandlers.WithEmailGate(emailGate),
 			LinkImports: httpapi.NewLinkImportHandlers(linkImports, tokens, linkImportRate).WithEmailGate(emailGate),
-=======
-			Bots:        botHandlers,
-			LinkImports: httpapi.NewLinkImportHandlers(linkImports, tokens, linkImportRate),
 			Lyrics:      lyricsHandlers,
->>>>>>> origin/main
 			Ops:         ops,
 			Webhooks:    webhooks,
 		}),
@@ -344,7 +336,6 @@ func run() error {
 	return nil
 }
 
-<<<<<<< HEAD
 // setupEmailVerification turns email verification on when SMTP is
 // configured. Without SMTP_HOST it stays off, so local and development
 // setups work without a mail server, and every account counts as verified.
@@ -394,7 +385,8 @@ func setupEmailVerification(authHandlers *httpapi.AuthHandlers, users *store.Use
 	})
 	slog.Info("email verification is on", "smtp_host", host, "smtp_port", port)
 	return nil
-=======
+}
+
 // setupLyrics serves lyrics from LRCLIB, unless LYRICS_ENABLED is false.
 // Found lyrics are cached for LYRICS_FOUND_TTL and misses for
 // LYRICS_NOT_FOUND_TTL; requests to LRCLIB are spaced LYRICS_UPSTREAM_INTERVAL
@@ -436,7 +428,6 @@ func setupLyrics(pool *pgxpool.Pool, tracks *store.Tracks, playlists *store.Play
 	service := lyrics.NewService(client, store.NewLyrics(pool), foundTTL, missTTL)
 	return httpapi.NewLyricsHandlers(service, tracks, playlists, tokens,
 		httpapi.LyricsLimits{User: userRate, IP: ipRate}), nil
->>>>>>> origin/main
 }
 
 // ensureBucket retries while MinIO is still starting next to the API.
