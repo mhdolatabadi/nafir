@@ -14,7 +14,7 @@ func TestExistingAccountsCountAsEmailVerified(t *testing.T) {
 	// apply it again, as an upgrade does.
 	if _, err := pool.Exec(ctx, `DROP TABLE email_verification_codes;
 		ALTER TABLE users DROP COLUMN email_verified_at;
-		DELETE FROM schema_migrations WHERE version >= 'migrations/016';
+		DELETE FROM schema_migrations WHERE version = 'migrations/016_email_verification.sql';
 		INSERT INTO users (email, password_hash) VALUES ('old@example.com', 'hash')`); err != nil {
 		t.Fatal(err)
 	}
