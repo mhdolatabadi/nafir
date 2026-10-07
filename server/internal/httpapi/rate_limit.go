@@ -3,6 +3,7 @@ package httpapi
 import (
 	"net"
 	"net/http"
+	"net/netip"
 	"strconv"
 	"sync"
 	"time"
@@ -28,6 +29,10 @@ type RateLimiter struct {
 	maxEntries int
 	entries    map[string]rateBucket
 	now        func() time.Time
+	// openWhenFull lets new keys through once the table is full instead of
+	// refusing them, for limiters whose keys a client chooses (such as an
+	// email) and that sit behind a per-IP limiter (#215).
+	openWhenFull bool
 }
 
 func NewRateLimiter(limit RateLimit, maxEntries int) *RateLimiter {
@@ -35,6 +40,14 @@ func NewRateLimiter(limit RateLimit, maxEntries int) *RateLimiter {
 		limit: limit, maxEntries: maxEntries,
 		entries: make(map[string]rateBucket), now: time.Now,
 	}
+}
+
+// OpenWhenFull makes the limiter allow untracked keys while its table is
+// full. Use it where filling the table with made-up keys must not lock
+// everyone else out.
+func (l *RateLimiter) OpenWhenFull() *RateLimiter {
+	l.openWhenFull = true
+	return l
 }
 
 func (l *RateLimiter) Allow(key string) (bool, time.Duration) {
@@ -54,6 +67,9 @@ func (l *RateLimiter) Allow(key string) (bool, time.Duration) {
 				}
 			}
 			if len(l.entries) >= l.maxEntries {
+				if l.openWhenFull {
+					return true, 0
+				}
 				return false, l.limit.Window
 			}
 		}
@@ -82,15 +98,25 @@ func enforceRateLimit(w http.ResponseWriter, limiter *RateLimiter, key string) b
 	return false
 }
 
-// clientIP trusts only a private header overwritten by Nafir's Caddy config.
-// RemoteAddr remains the safe fallback for local development and tests.
+// clientIP is the client's identity for per-IP rate limits. It trusts only a
+// private header overwritten by Nafir's Caddy config; RemoteAddr remains the
+// safe fallback for local development and tests. An IPv6 client is limited
+// by its /64, since one host usually controls a whole /64 (#215).
 func clientIP(r *http.Request) string {
-	if value := r.Header.Get(clientIPHeader); net.ParseIP(value) != nil {
-		return value
+	if addr, err := netip.ParseAddr(r.Header.Get(clientIPHeader)); err == nil {
+		return rateLimitAddress(addr)
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err == nil && net.ParseIP(host) != nil {
-		return host
+	if addr, parseErr := netip.ParseAddr(host); err == nil && parseErr == nil {
+		return rateLimitAddress(addr)
 	}
 	return "unknown"
+}
+
+func rateLimitAddress(addr netip.Addr) string {
+	addr = addr.WithZone("").Unmap()
+	if addr.Is4() {
+		return addr.String()
+	}
+	return netip.PrefixFrom(addr, 64).Masked().String()
 }

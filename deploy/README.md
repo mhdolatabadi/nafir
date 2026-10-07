@@ -203,12 +203,17 @@ requests can't get past these limits:
 | Unfinished uploads per account | `MAX_PENDING_UPLOADS` | 3 |
 | Upload reservations per account / per IP | `UPLOAD_RESERVATION_USER_RATE_*` / `UPLOAD_RESERVATION_IP_RATE_*` | 120 / 240 per 10 min |
 | Registrations / logins per IP | `REGISTER_RATE_*` / `LOGIN_RATE_*` | 5 per hour / 30 per 15 min |
+| Login attempts per email, from any IP | `LOGIN_ACCOUNT_RATE_*` | 10 per 15 min |
 | Link imports per account | `LINK_IMPORT_USER_RATE_*` | 20 per 10 min |
 
 Refused requests get `413 quota_exceeded`, `429 rate_limited` (with
 `Retry-After`) or `429 too_many_pending_uploads`. Uploads that are never
 finished expire after `PENDING_UPLOAD_TTL` (2h), and a cleaner removes their
 rows and objects every `PENDING_CLEANUP_INTERVAL` (10m).
+
+Per-IP limits count an IPv6 client by its /64, since one host usually holds a
+whole /64. Registration also refuses the most common passwords and the
+account's own email (`400 weak_password`).
 
 ### Watching disk space
 

@@ -32,6 +32,9 @@ class FakeAuthApi implements AuthApi {
 
   @override
   Future<AuthSession> login(String email, String password) async {
+    if (email == 'locked@example.com') {
+      throw const ApiException('429', statusCode: 429, code: 'rate_limited');
+    }
     if (email != _user.email || password != 'correct horse') {
       throw const ApiException('401',
           statusCode: 401, code: 'invalid_credentials');
@@ -41,6 +44,9 @@ class FakeAuthApi implements AuthApi {
 
   @override
   Future<AuthSession> register(String email, String password) async {
+    if (password == 'password') {
+      throw const ApiException('400', statusCode: 400, code: 'weak_password');
+    }
     if (!registered.add(email)) {
       throw const ApiException('409', statusCode: 409, code: 'email_taken');
     }
@@ -303,6 +309,31 @@ void main() {
 
     await _submit(tester, 'new@example.com', 'long enough');
     expect(find.text('کتابخانهٔ شما خالی است'), findsOneWidget);
+  });
+
+  testWidgets('a common password and too many attempts are explained', (
+    tester,
+  ) async {
+    // Narrow phone: the longer messages must wrap, not overflow.
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final tokens = MemoryTokenStore();
+    await _pumpApp(tester, tokenStore: tokens);
+
+    await _submit(tester, 'locked@example.com', 'correct horse');
+    expect(find.text('تلاش‌ها زیاد بود. چند دقیقه بعد دوباره امتحان کن.'),
+        findsOneWidget);
+
+    await tester.tap(find.text('حساب نداری؟ ثبت‌نام کن'));
+    await tester.pumpAndSettle();
+    await _submit(tester, 'new@example.com', 'password');
+    expect(
+        find.text(
+            'این رمز عبور خیلی رایج یا قابل حدس است. رمز دیگری انتخاب کن.'),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+    expect(await tokens.read(), isNull);
   });
 
   testWidgets('registration rejects a short password before calling the API', (

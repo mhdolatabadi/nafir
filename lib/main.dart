@@ -19,6 +19,7 @@ import 'package:nafir/features/library/application/local_audio_controller.dart';
 import 'package:nafir/features/library/data/local_audio_library.dart';
 import 'package:nafir/features/library/data/local_audio_upload.dart';
 import 'package:nafir/features/library/data/track_download.dart';
+import 'package:nafir/features/lyrics/application/lyrics_controller.dart';
 import 'package:nafir/features/player/application/favorite_tracks.dart';
 import 'package:nafir/features/player/application/media_session.dart';
 import 'package:nafir/features/player/application/playback_settings.dart';
@@ -48,6 +49,7 @@ class NafirApp extends StatefulWidget {
     this.botsApi,
     this.linkImportsApi,
     this.historyApi,
+    this.lyricsApi,
     this.uploader,
     this.picker,
     this.audioEngine,
@@ -70,6 +72,7 @@ class NafirApp extends StatefulWidget {
   final BotsApi? botsApi;
   final LinkImportsApi? linkImportsApi;
   final HistoryApi? historyApi;
+  final LyricsApi? lyricsApi;
   final StorageUploader? uploader;
   final AudioPicker? picker;
   final AudioEngine? audioEngine;
@@ -125,6 +128,13 @@ class _NafirAppState extends State<NafirApp> {
       ? null
       : RecentlyPlayedController(api: _historyApi, token: () => _auth?.token);
 
+  late final LyricsApi? _lyricsApi = widget.lyricsApi ??
+      _apiClient ??
+      (_tracksApi is LyricsApi ? _tracksApi as LyricsApi : null);
+  late final LyricsController? _lyrics = _lyricsApi == null
+      ? null
+      : LyricsController(api: _lyricsApi, token: () => _auth?.token);
+
   late final UploadController? _uploads = _tracksApi == null
       ? null
       : UploadController(
@@ -153,6 +163,7 @@ class _NafirAppState extends State<NafirApp> {
               widget.playbackSettingsStore ?? SecurePlaybackSettingsStore(),
           // A real listen goes into the recently played history.
           onListened: (track) => _recent?.record(track),
+          lyrics: _lyrics,
         )..loadSettings());
 
   late final LocalAudioController _localAudio = LocalAudioController(
@@ -196,6 +207,7 @@ class _NafirAppState extends State<NafirApp> {
     _library?.dispose();
     _playlists?.dispose();
     _recent?.dispose();
+    _lyrics?.dispose();
     _botLinks?.dispose();
     _linkImports?.dispose();
     _localAudio.dispose();
