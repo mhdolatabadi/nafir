@@ -24,7 +24,7 @@ const theirs = Track(
 const extra = Track(
     id: 'extra',
     title: 'Another of mine',
-    artist: 'Example Artist',
+    artist: 'Example Artist · علی کوچه می خواهم ۱۲',
     contentType: 'audio/mpeg',
     sizeBytes: 1);
 
@@ -233,6 +233,10 @@ void main() {
     await tester.enterText(search, 'example artist');
     await tester.pump();
     expect(pickerText('Another of mine'), findsOneWidget);
+    await tester.enterText(search, 'علي كُوچه میخواهم ١٢');
+    await tester.pump();
+    expect(pickerText('Another of mine'), findsOneWidget);
+    expect(pickerText('My song'), findsNothing);
     await tester.enterText(search, 'ANOTHER');
     await tester.pump();
     expect(pickerText('My song'), findsNothing);

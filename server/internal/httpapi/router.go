@@ -23,6 +23,8 @@ type Config struct {
 	LinkImports *LinkImportHandlers
 	// Lyrics serves song lyrics looked up from LRCLIB.
 	Lyrics *LyricsHandlers
+	// Identify recognises songs from a recorded snippet.
+	Identify *IdentifyHandlers
 	// Public serves the public HTML pages at /, /p/{token}, sitemap.xml and
 	// robots.txt.
 	Public *PublicPages
@@ -59,6 +61,9 @@ func NewHandler(config Config) http.Handler {
 	}
 	if config.Lyrics != nil {
 		config.Lyrics.register(mux)
+	}
+	if config.Identify != nil {
+		config.Identify.register(mux)
 	}
 	if config.Public != nil {
 		config.Public.register(mux)

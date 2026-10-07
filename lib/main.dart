@@ -12,6 +12,8 @@ import 'package:nafir/features/auth/application/auth_controller.dart';
 import 'package:nafir/features/auth/data/token_store.dart';
 import 'package:nafir/features/auth/presentation/auth_gate.dart';
 import 'package:nafir/features/bots/application/bot_link_controller.dart';
+import 'package:nafir/features/identify/application/identify_controller.dart';
+import 'package:nafir/features/identify/data/snippet_recorder.dart';
 import 'package:nafir/features/history/application/recently_played_controller.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
 import 'package:nafir/features/library/application/library_sync_controller.dart';
@@ -48,6 +50,8 @@ class NafirApp extends StatefulWidget {
     this.playlistsApi,
     this.botsApi,
     this.linkImportsApi,
+    this.identifyApi,
+    this.snippetRecorder,
     this.historyApi,
     this.lyricsApi,
     this.uploader,
@@ -71,6 +75,8 @@ class NafirApp extends StatefulWidget {
   final PlaylistsApi? playlistsApi;
   final BotsApi? botsApi;
   final LinkImportsApi? linkImportsApi;
+  final IdentifyApi? identifyApi;
+  final SnippetRecorder? snippetRecorder;
   final HistoryApi? historyApi;
   final LyricsApi? lyricsApi;
   final StorageUploader? uploader;
@@ -120,6 +126,17 @@ class _NafirAppState extends State<NafirApp> {
   late final LinkImportController? _linkImports = _linkImportsApi == null
       ? null
       : LinkImportController(api: _linkImportsApi, token: () => _auth?.token);
+
+  late final IdentifyApi? _identifyApi = widget.identifyApi ?? _apiClient;
+  late final IdentifyController? _identify = _identifyApi == null
+      ? null
+      : IdentifyController(
+          api: _identifyApi,
+          recorder: widget.snippetRecorder ?? MicSnippetRecorder(),
+          token: () => _auth?.token,
+          // A song added from a playlist shows up in the library.
+          onSaved: () async => _library?.load(),
+        );
 
   late final HistoryApi? _historyApi = widget.historyApi ??
       _apiClient ??
@@ -210,6 +227,7 @@ class _NafirAppState extends State<NafirApp> {
     _lyrics?.dispose();
     _botLinks?.dispose();
     _linkImports?.dispose();
+    _identify?.dispose();
     _localAudio.dispose();
     _cache.dispose();
     super.dispose();
@@ -248,6 +266,7 @@ class _NafirAppState extends State<NafirApp> {
                   cache: _cache,
                   botLinks: _botLinks,
                   linkImports: _linkImports,
+                  identify: _identify,
                   picker: widget.picker ?? FilePickerAudioPicker(),
                 ),
         ),

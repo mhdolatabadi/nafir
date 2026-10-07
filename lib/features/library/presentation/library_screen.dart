@@ -27,6 +27,8 @@ import 'package:nafir/features/playlists/data/playlist.dart';
 import 'package:nafir/features/playlists/presentation/playlists_screen.dart';
 import 'package:nafir/features/bots/application/bot_link_controller.dart';
 import 'package:nafir/features/bots/data/messenger_bot.dart';
+import 'package:nafir/features/identify/application/identify_controller.dart';
+import 'package:nafir/features/identify/presentation/identify_screen.dart';
 import 'package:nafir/features/settings/application/cache_controller.dart';
 import 'package:nafir/features/settings/presentation/settings_screen.dart';
 import 'package:nafir/features/upload/application/upload_controller.dart';
@@ -49,6 +51,7 @@ class LibraryScreen extends StatefulWidget {
     required this.cache,
     this.botLinks,
     this.linkImports,
+    this.identify,
     required this.picker,
     required this.player,
     this.recent,
@@ -72,6 +75,9 @@ class LibraryScreen extends StatefulWidget {
 
   /// Adds music from song pages and audio links; null hides the action.
   final LinkImportController? linkImports;
+
+  /// «این آهنگ چیه؟»; null hides the action.
+  final IdentifyController? identify;
   final AudioPicker picker;
 
   /// The account's recently played tracks; null hides them.
@@ -393,8 +399,17 @@ class _LibraryScreenState extends State<LibraryScreen>
       onPressed: _openSearch,
       icon: const Icon(NafirIcons.magnifyingGlass),
     );
+    final identify = widget.identify;
+    final identifySong = identify == null
+        ? null
+        : IconButton(
+            tooltip: 'این آهنگ چیه؟',
+            onPressed: () => openIdentify(context, identify, widget.player),
+            icon: const Icon(NafirIcons.microphoneStage),
+          );
     if (MediaQuery.sizeOf(context).width >= wideActions) {
       return [
+        if (identifySong != null) identifySong,
         search,
         const SizedBox(width: 8),
         _AccountChip(email: widget.email),
@@ -431,6 +446,7 @@ class _LibraryScreenState extends State<LibraryScreen>
       ];
     }
     return [
+      if (identifySong != null) identifySong,
       search,
       PopupMenuButton<_HeaderAction>(
         tooltip: 'حساب و تنظیمات',
