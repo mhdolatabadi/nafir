@@ -26,6 +26,7 @@ dependencies:
   url_launcher: ^6.3.2
   # Starts browser downloads on the web.
   web: ^1.1.1
+  record: ^7.1.1
 
 dev_dependencies:
   flutter_test:

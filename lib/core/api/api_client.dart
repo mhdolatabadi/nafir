@@ -1,5 +1,6 @@
 import 'package:nafir/features/admin/data/admin_account.dart';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 import 'package:nafir/features/auth/data/auth_models.dart';
@@ -228,6 +229,54 @@ abstract interface class LyricsApi {
   Future<TrackLyrics> chooseLyrics(String token, String trackId, int lrclibId);
 }
 
+/// A song «این آهنگ چیه؟» recognised, among the tracks the listener may
+/// play.
+class SongMatch {
+  const SongMatch({
+    required this.track,
+    required this.confidence,
+    required this.source,
+  });
+
+  factory SongMatch.fromJson(Map<String, dynamic> json) {
+    final shareToken = json['shareToken'] as String?;
+    return SongMatch(
+      track: Track.fromJson(json['track'] as Map<String, dynamic>,
+          sharedVia: shareToken, viaPlaylist: json['playlistId'] as String?),
+      confidence: (json['confidence'] as num?)?.toDouble() ?? 0,
+      source: switch (json['source']) {
+        'playlist' => SongMatchSource.playlist,
+        'public' => SongMatchSource.public,
+        _ => SongMatchSource.library,
+      },
+    );
+  }
+
+  /// The track, ready to play through the way it was found.
+  final Track track;
+
+  /// How sure the match is, from 0 to 1.
+  final double confidence;
+  final SongMatchSource source;
+
+  /// Whether the song is someone else's and can be added to the library.
+  bool get canSave => source != SongMatchSource.library;
+}
+
+/// Where a recognised song was found: the listener's own library, a
+/// collaborative playlist they belong to, or a public playlist.
+enum SongMatchSource { library, playlist, public }
+
+/// «این آهنگ چیه؟»: recognises a recorded snippet among the songs in
+/// rhythmo the listener may play.
+abstract interface class IdentifyApi {
+  /// The best match for [wav], or null when nothing matched.
+  Future<SongMatch?> identifySong(String token, Uint8List wav);
+
+  /// Copies a song found in someone else's playlist into the library.
+  Future<Track> saveIdentifiedSong(String token, SongMatch match);
+}
+
 /// The account's recently played tracks, the same on every device.
 abstract interface class HistoryApi {
   /// Tracks the user played, most recent first, each once. Someone else's
@@ -251,6 +300,7 @@ class ApiClient
         BotsApi,
         LinkImportsApi,
         LyricsApi,
+        IdentifyApi,
         AdminApi {
   ApiClient(this.baseUri, {http.Client? httpClient})
       : _httpClient = httpClient ?? http.Client();
@@ -722,6 +772,43 @@ class ApiClient
         'PUT', '/api/v1/tracks/${Uri.encodeComponent(trackId)}/lyrics',
         token: token, body: {'lrclibId': lrclibId});
     return TrackLyrics.fromJson(body);
+  }
+
+  /// Snippets are larger than JSON calls and fingerprinting takes a moment.
+  static const _identifyTimeout = Duration(seconds: 45);
+
+  @override
+  Future<SongMatch?> identifySong(String token, Uint8List wav) async {
+    final request = http.Request('POST', baseUri.resolve('/api/v1/identify'))
+      ..headers['Authorization'] = 'Bearer $token'
+      ..headers['Content-Type'] = 'audio/wav'
+      ..bodyBytes = wav;
+    final response = await http.Response.fromStream(
+      await _httpClient.send(request).timeout(_identifyTimeout),
+    );
+    final decoded = _decode(response.body);
+    if (response.statusCode != 200 || decoded == null) {
+      final code = decoded?['error'];
+      throw ApiException(
+        'Server returned HTTP ${response.statusCode}.',
+        statusCode: response.statusCode,
+        code: code is String ? code : null,
+        details: decoded ?? const {},
+      );
+    }
+    return decoded['status'] == 'found' ? SongMatch.fromJson(decoded) : null;
+  }
+
+  @override
+  Future<Track> saveIdentifiedSong(String token, SongMatch match) async {
+    final track = match.track;
+    final body =
+        await _send('POST', '/api/v1/identify/save', token: token, body: {
+      'trackId': track.id,
+      if (track.sharedVia != null) 'shareToken': track.sharedVia,
+      if (track.sharedVia == null) 'playlistId': track.viaPlaylist,
+    });
+    return Track.fromJson(body);
   }
 
   Future<Map<String, dynamic>> _send(

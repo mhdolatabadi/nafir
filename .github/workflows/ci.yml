@@ -92,6 +92,8 @@ jobs:
         with:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
+      # fpcalc runs the song identification tests against generated audio.
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libchromaprint-tools
       - run: gofmt -w .
       - run: git diff --exit-code
       - run: go vet ./...

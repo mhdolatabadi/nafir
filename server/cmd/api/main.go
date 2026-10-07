@@ -17,6 +17,7 @@ import (
 
 	"github.com/mhdolatabadi/nafir/server/internal/auth"
 	"github.com/mhdolatabadi/nafir/server/internal/bot"
+	"github.com/mhdolatabadi/nafir/server/internal/fingerprint"
 	"github.com/mhdolatabadi/nafir/server/internal/httpapi"
 	"github.com/mhdolatabadi/nafir/server/internal/linkimport"
 	"github.com/mhdolatabadi/nafir/server/internal/lyrics"
@@ -262,6 +263,17 @@ func run() error {
 		return err
 	}
 
+	fingerprints, identifyHandlers, err := setupIdentify(pool, playlists, objects, tokens, httpapi.SavePolicy{
+		Objects: objects, MaxOwnerBytes: ownerQuotaBytes, Enabled: uploadsEnabled,
+	})
+	if err != nil {
+		return err
+	}
+	var readyTracks httpapi.TagRewriteNotifier = noFingerprints{}
+	if fingerprints != nil {
+		readyTracks = fingerprints
+	}
+
 	var ops *httpapi.OpsHandlers
 	if opsToken := os.Getenv("OPS_TOKEN"); opsToken != "" {
 		if len(opsToken) < 32 {
@@ -284,7 +296,7 @@ func run() error {
 				MaxPending: maxPending, Enabled: uploadsEnabled,
 				ReservationUserRate: reservationUserRate, ReservationIPRate: reservationIPRate,
 				CompletionUserRate: completionUserRate, CompletionIPRate: completionIPRate,
-			}).WithImports(bots).WithTagRewrites(retags).WithEmailGate(emailGate),
+			}).WithImports(bots).WithTagRewrites(retags).WithEmailGate(emailGate).WithFingerprints(readyTracks),
 			Playlists: httpapi.NewPlaylistHandlers(playlists, tokens).WithSharing(playlists, objects, httpapi.SavePolicy{
 				Objects: objects, MaxOwnerBytes: ownerQuotaBytes, Enabled: uploadsEnabled,
 			}).WithAnonymous(httpapi.AnonymousLimits{View: publicViewRate, Stream: publicStreamRate}).
@@ -300,6 +312,7 @@ func run() error {
 			Bots:        botHandlers.WithEmailGate(emailGate),
 			LinkImports: httpapi.NewLinkImportHandlers(linkImports, tokens, linkImportRate).WithEmailGate(emailGate),
 			Lyrics:      lyricsHandlers,
+			Identify:    identifyHandlers,
 			Ops:         ops,
 			Webhooks:    webhooks,
 		}),
@@ -310,6 +323,9 @@ func run() error {
 	}
 
 	go retags.Run(ctx)
+	if fingerprints != nil {
+		go fingerprints.Run(ctx)
+	}
 	go cleanPendingUploads(ctx, tracks, objects, pendingTTL, cleanupEvery, cleanupBatch)
 	go purgeDeletedAccounts(ctx, users, objects, cleanupEvery, cleanupBatch)
 
@@ -385,6 +401,58 @@ func setupEmailVerification(authHandlers *httpapi.AuthHandlers, users *store.Use
 	})
 	slog.Info("email verification is on", "smtp_host", host, "smtp_port", port)
 	return nil
+}
+
+// noFingerprints stands in for the worker when identification is off.
+type noFingerprints struct{}
+
+func (noFingerprints) Notify() {}
+
+// setupIdentify fingerprints tracks in the background and serves song
+// identification, unless IDENTIFY_ENABLED is false or fpcalc
+// (FPCALC_PATH) is missing. Snippets and track copies are read from
+// FINGERPRINT_TMPDIR while fpcalc runs.
+func setupIdentify(
+	pool *pgxpool.Pool, playlists *store.Playlists, objects *storage.Storage,
+	tokens *auth.Tokens, save httpapi.SavePolicy,
+) (*fingerprint.Worker, *httpapi.IdentifyHandlers, error) {
+	if raw := os.Getenv("IDENTIFY_ENABLED"); raw != "" {
+		enabled, err := strconv.ParseBool(raw)
+		if err != nil {
+			return nil, nil, fmt.Errorf("IDENTIFY_ENABLED must be true or false, got %q", raw)
+		}
+		if !enabled {
+			return nil, nil, nil
+		}
+	}
+	calc := fingerprint.Calculator{Path: os.Getenv("FPCALC_PATH"), MaxLength: 15 * time.Minute}
+	if !calc.Available() {
+		slog.Warn("fpcalc not found; song identification is off")
+		return nil, nil, nil
+	}
+	interval, err := positiveDurationEnv("FINGERPRINT_INTERVAL", time.Minute)
+	if err != nil {
+		return nil, nil, err
+	}
+	concurrent, err := positiveIntEnv("IDENTIFY_CONCURRENT", 2)
+	if err != nil {
+		return nil, nil, err
+	}
+	rate, err := rateLimiterEnv("IDENTIFY_USER_RATE", 20, 10*time.Minute)
+	if err != nil {
+		return nil, nil, err
+	}
+	tempDir := os.Getenv("FINGERPRINT_TMPDIR")
+	fingerprints := store.NewFingerprints(pool)
+	worker := fingerprint.NewWorker(fingerprints, objects, calc, fingerprint.WorkerConfig{
+		TempDir: tempDir, Interval: interval,
+	})
+	snippets := fingerprint.Calculator{Path: calc.Path, MaxLength: 15 * time.Second, Timeout: 30 * time.Second}
+	handlers := httpapi.NewIdentifyHandlers(httpapi.IdentifyConfig{
+		Fingerprinter: snippets, Matches: fingerprints, Playlists: playlists, Copier: fingerprints,
+		Save: save, TempDir: tempDir, Rate: rate, Concurrent: concurrent,
+	}, tokens)
+	return worker, handlers, nil
 }
 
 // setupLyrics serves lyrics from LRCLIB, unless LYRICS_ENABLED is false.
