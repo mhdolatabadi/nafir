@@ -20,8 +20,15 @@ type LinkImporter interface {
 	Recent(ctx context.Context, userID string) ([]store.BotImport, error)
 }
 
+// SpotifyImporter builds a playlist from a Spotify link's titles found in
+// the user's library.
+type SpotifyImporter interface {
+	Import(ctx context.Context, userID, rawURL string) (linkimport.SpotifyResult, error)
+}
+
 type LinkImportHandlers struct {
 	importer LinkImporter
+	spotify  SpotifyImporter
 	tokens   *auth.Tokens
 	// rate bounds how often one user may submit links: each one makes the
 	// server fetch a page.
@@ -32,7 +39,16 @@ func NewLinkImportHandlers(importer LinkImporter, tokens *auth.Tokens, rate *Rat
 	return &LinkImportHandlers{importer: importer, tokens: tokens, rate: rate}
 }
 
+// WithSpotify turns on playlists from Spotify links.
+func (h *LinkImportHandlers) WithSpotify(spotify SpotifyImporter) *LinkImportHandlers {
+	h.spotify = spotify
+	return h
+}
+
 func (h *LinkImportHandlers) register(mux *http.ServeMux) {
+	if h.spotify != nil {
+		mux.HandleFunc("POST /api/v1/imports/spotify", h.handleSpotify)
+	}
 	mux.HandleFunc("POST /api/v1/imports/link/preview", h.handlePreview)
 	mux.HandleFunc("POST /api/v1/imports/link", h.handleSubmit)
 	mux.HandleFunc("GET /api/v1/imports/link", h.handleList)
@@ -61,10 +77,14 @@ func toLinkImportResponse(i store.BotImport) linkImportResponse {
 }
 
 type linkImportCandidateResponse struct {
-	URL       string `json:"url"`
-	FileName  string `json:"fileName"`
-	Site      string `json:"site"`
-	SizeBytes int64  `json:"sizeBytes,omitempty"`
+	URL             string `json:"url"`
+	FileName        string `json:"fileName"`
+	Site            string `json:"site"`
+	SizeBytes       int64  `json:"sizeBytes,omitempty"`
+	Title           string `json:"title,omitempty"`
+	Artist          string `json:"artist,omitempty"`
+	ThumbnailURL    string `json:"thumbnailUrl,omitempty"`
+	DurationSeconds int64  `json:"durationSeconds,omitempty"`
 }
 
 func toLinkImportCandidateResponse(c linkimport.Candidate) linkImportCandidateResponse {
@@ -74,6 +94,7 @@ func toLinkImportCandidateResponse(c linkimport.Candidate) linkImportCandidateRe
 	}
 	return linkImportCandidateResponse{
 		URL: c.URL.String(), FileName: c.FileName, Site: site, SizeBytes: c.SizeBytes,
+		Title: c.Title, Artist: c.Artist, ThumbnailURL: c.Thumbnail, DurationSeconds: int64(c.Duration / time.Second),
 	}
 }
 
@@ -96,20 +117,7 @@ func (h *LinkImportHandlers) handlePreview(w http.ResponseWriter, r *http.Reques
 	}
 	candidates, err := h.importer.Preview(r.Context(), userID, input.URL)
 	switch {
-	case errors.Is(err, linkimport.ErrInvalidURL):
-		writeError(w, http.StatusBadRequest, "invalid_url")
-	case errors.Is(err, linkimport.ErrBlocked):
-		writeError(w, http.StatusBadRequest, "blocked_url")
-	case errors.Is(err, linkimport.ErrUnreachable):
-		writeError(w, http.StatusBadGateway, "unreachable")
-	case errors.Is(err, linkimport.ErrNoAudio):
-		writeError(w, http.StatusUnprocessableEntity, "no_audio")
-	case errors.Is(err, linkimport.ErrUnsupported):
-		writeError(w, http.StatusUnsupportedMediaType, "unsupported_format")
-	case errors.Is(err, linkimport.ErrTooLarge):
-		writeError(w, http.StatusRequestEntityTooLarge, "too_large")
-	case errors.Is(err, linkimport.ErrDisabled):
-		writeError(w, http.StatusServiceUnavailable, "uploads_disabled")
+	case writeLinkImportError(w, err):
 	case err != nil:
 		internalError(w, "preview link import", err)
 	default:
@@ -141,6 +149,18 @@ func (h *LinkImportHandlers) handleSubmit(w http.ResponseWriter, r *http.Request
 	}
 	job, err := h.importer.Submit(r.Context(), userID, input.URL)
 	switch {
+	case writeLinkImportError(w, err):
+	case err != nil:
+		internalError(w, "import from link", err)
+	default:
+		writeJSON(w, http.StatusAccepted, toLinkImportResponse(job))
+	}
+}
+
+// writeLinkImportError answers a refused link and reports whether err was
+// one. Any other error is left to the caller.
+func writeLinkImportError(w http.ResponseWriter, err error) bool {
+	switch {
 	case errors.Is(err, linkimport.ErrInvalidURL):
 		writeError(w, http.StatusBadRequest, "invalid_url")
 	case errors.Is(err, linkimport.ErrBlocked):
@@ -149,6 +169,12 @@ func (h *LinkImportHandlers) handleSubmit(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusBadGateway, "unreachable")
 	case errors.Is(err, linkimport.ErrNoAudio):
 		writeError(w, http.StatusUnprocessableEntity, "no_audio")
+	case errors.Is(err, linkimport.ErrNoTracks):
+		writeError(w, http.StatusUnprocessableEntity, "no_tracks")
+	case errors.Is(err, linkimport.ErrTooLong):
+		writeError(w, http.StatusUnprocessableEntity, "too_long")
+	case errors.Is(err, linkimport.ErrMetadataOnly):
+		writeError(w, http.StatusUnprocessableEntity, "metadata_only")
 	case errors.Is(err, linkimport.ErrUnsupported):
 		writeError(w, http.StatusUnsupportedMediaType, "unsupported_format")
 	case errors.Is(err, linkimport.ErrTooLarge):
@@ -159,11 +185,10 @@ func (h *LinkImportHandlers) handleSubmit(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusTooManyRequests, "too_many_imports")
 	case errors.Is(err, linkimport.ErrDisabled):
 		writeError(w, http.StatusServiceUnavailable, "uploads_disabled")
-	case err != nil:
-		internalError(w, "import from link", err)
 	default:
-		writeJSON(w, http.StatusAccepted, toLinkImportResponse(job))
+		return false
 	}
+	return true
 }
 
 func (h *LinkImportHandlers) handleList(w http.ResponseWriter, r *http.Request) {
@@ -182,4 +207,65 @@ func (h *LinkImportHandlers) handleList(w http.ResponseWriter, r *http.Request) 
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, map[string]any{"imports": response})
+}
+
+type spotifyItemResponse struct {
+	Title   string   `json:"title"`
+	Artists []string `json:"artists"`
+	TrackID string   `json:"trackId,omitempty"`
+}
+
+func toSpotifyItemResponse(item linkimport.SpotifyItem, trackID string) spotifyItemResponse {
+	artists := item.Artists
+	if artists == nil {
+		artists = []string{}
+	}
+	return spotifyItemResponse{Title: item.Title, Artists: artists, TrackID: trackID}
+}
+
+// handleSpotify matches a Spotify link's titles against the library and
+// makes a playlist of the ones found. Nothing is downloaded from Spotify.
+func (h *LinkImportHandlers) handleSpotify(w http.ResponseWriter, r *http.Request) {
+	userID, ok := authenticate(h.tokens, w, r)
+	if !ok {
+		return
+	}
+	if h.rate != nil && !enforceRateLimit(w, h.rate, userID) {
+		return
+	}
+	var input struct {
+		URL string `json:"url"`
+	}
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8<<10))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&input); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	result, err := h.spotify.Import(r.Context(), userID, input.URL)
+	switch {
+	case writeLinkImportError(w, err):
+		return
+	case err != nil:
+		internalError(w, "import spotify link", err)
+		return
+	}
+	matched := make([]spotifyItemResponse, 0, len(result.Matched))
+	for _, m := range result.Matched {
+		matched = append(matched, toSpotifyItemResponse(m.Item, m.TrackID))
+	}
+	missing := make([]spotifyItemResponse, 0, len(result.Missing))
+	for _, item := range result.Missing {
+		missing = append(missing, toSpotifyItemResponse(item, ""))
+	}
+	response := map[string]any{"name": result.Name, "matched": matched, "missing": missing}
+	if result.Playlist != nil {
+		response["playlistId"] = result.Playlist.ID
+	}
+	status := http.StatusOK
+	if result.Playlist != nil {
+		status = http.StatusCreated
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, status, response)
 }

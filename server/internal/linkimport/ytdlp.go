@@ -322,8 +322,9 @@ func (y *YTDLP) Open(ctx context.Context, link SocialLink, plan MediaPlan, maxBy
 		args = append(args, "--extract-audio", "--audio-format", format)
 	}
 	args = append(args, "--", link.URL.String())
-	_, stderr, err := y.run(ctx, dir, y.config.DownloadTimeout, args)
-	if strings.Contains(strings.ToLower(string(stderr)), "max-filesize") {
+	stdout, stderr, err := y.run(ctx, dir, y.config.DownloadTimeout, args)
+	// yt-dlp reports a refused size on stdout and still exits cleanly.
+	if strings.Contains(string(stdout), "larger than max-filesize") || strings.Contains(string(stderr), "larger than max-filesize") {
 		return nil, 0, bot.ErrFileTooLarge
 	}
 	if err != nil {

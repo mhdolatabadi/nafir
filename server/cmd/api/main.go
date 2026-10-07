@@ -241,6 +241,13 @@ func run() error {
 			Enabled: uploadsEnabled, MaxFileBytes: maxUploadBytes,
 			MaxOwnerBytes: ownerQuotaBytes, MaxPending: maxPending,
 		}), bots, maxPending)
+	media, err := setupYTDLP()
+	if err != nil {
+		return err
+	}
+	if media != nil {
+		linkImports.WithMedia(media)
+	}
 	go linkImports.Resume(ctx)
 
 	var ops *httpapi.OpsHandlers
@@ -275,10 +282,11 @@ func run() error {
 				WithContact(os.Getenv("PRIVACY_CONTACT_EMAIL")).
 				WithSite(os.Getenv("WEB_ORIGIN")).
 				WithVerification(os.Getenv("GOOGLE_SITE_VERIFICATION"), os.Getenv("BING_SITE_VERIFICATION")),
-			Bots:        botHandlers,
-			LinkImports: httpapi.NewLinkImportHandlers(linkImports, tokens, linkImportRate),
-			Ops:         ops,
-			Webhooks:    webhooks,
+			Bots: botHandlers,
+			LinkImports: httpapi.NewLinkImportHandlers(linkImports, tokens, linkImportRate).WithSpotify(
+				linkimport.NewSpotifyImporter(linkimport.NewSpotifyReader(linkFetcher), tracks, playlists)),
+			Ops:      ops,
+			Webhooks: webhooks,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
