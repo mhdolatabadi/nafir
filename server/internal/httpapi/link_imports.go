@@ -26,6 +26,16 @@ type LinkImportHandlers struct {
 	// rate bounds how often one user may submit links: each one makes the
 	// server fetch a page.
 	rate *RateLimiter
+	// emailGate keeps unverified accounts from importing into their
+	// storage; nil allows everyone.
+	emailGate *EmailGate
+}
+
+// WithEmailGate keeps accounts with an unverified email out of what costs
+// storage or reaches other people.
+func (h *LinkImportHandlers) WithEmailGate(gate *EmailGate) *LinkImportHandlers {
+	h.emailGate = gate
+	return h
 }
 
 func NewLinkImportHandlers(importer LinkImporter, tokens *auth.Tokens, rate *RateLimiter) *LinkImportHandlers {
@@ -85,6 +95,9 @@ func (h *LinkImportHandlers) handlePreview(w http.ResponseWriter, r *http.Reques
 	if h.rate != nil && !enforceRateLimit(w, h.rate, userID) {
 		return
 	}
+	if !h.emailGate.allow(w, r, userID) {
+		return
+	}
 	var input struct {
 		URL string `json:"url"`
 	}
@@ -128,6 +141,9 @@ func (h *LinkImportHandlers) handleSubmit(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if h.rate != nil && !enforceRateLimit(w, h.rate, userID) {
+		return
+	}
+	if !h.emailGate.allow(w, r, userID) {
 		return
 	}
 	var input struct {

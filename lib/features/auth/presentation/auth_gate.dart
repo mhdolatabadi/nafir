@@ -7,6 +7,7 @@ import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/core/widgets/app_loading_screen.dart';
 import 'package:nafir/features/auth/application/auth_controller.dart';
+import 'package:nafir/features/auth/presentation/email_verification_screen.dart';
 import 'package:nafir/features/auth/presentation/sign_in_prompt.dart';
 import 'package:nafir/features/auth/presentation/sign_in_screen.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
@@ -157,6 +158,12 @@ class _AuthGateState extends State<AuthGate> {
           AuthStatus.signedIn => LibraryScreen(
               email: controller.user!.email,
               verified: controller.user!.verified,
+              onVerifyEmail: controller.user!.emailVerified
+                  ? null
+                  : () => Navigator.of(context).push(MaterialPageRoute<void>(
+                        builder: (_) =>
+                            EmailVerificationScreen(controller: controller),
+                      )),
               onAdmin: controller.user!.isAdmin && widget.adminApi != null
                   ? () async {
                       await Navigator.of(context).push(MaterialPageRoute<void>(
