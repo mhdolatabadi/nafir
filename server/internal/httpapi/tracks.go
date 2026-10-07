@@ -68,6 +68,8 @@ type TrackHandlers struct {
 	limits  UploadLimits
 	imports ImportCounter
 	retags  TagRewriteNotifier
+	// fingerprints is woken when a track becomes ready.
+	fingerprints TagRewriteNotifier
 }
 
 // TagRewriteNotifier starts rewriting embedded tags soon after an edit;
@@ -80,6 +82,13 @@ type TagRewriteNotifier interface {
 // queued rewrites still run at the writer's next poll.
 func (h *TrackHandlers) WithTagRewrites(retags TagRewriteNotifier) *TrackHandlers {
 	h.retags = retags
+	return h
+}
+
+// WithFingerprints wakes the fingerprint worker when an upload completes,
+// so a new track can be identified right away.
+func (h *TrackHandlers) WithFingerprints(fingerprints TagRewriteNotifier) *TrackHandlers {
+	h.fingerprints = fingerprints
 	return h
 }
 
@@ -604,6 +613,9 @@ func (h *TrackHandlers) handleComplete(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		internalError(w, "mark track ready", err)
 		return
+	}
+	if h.fingerprints != nil {
+		h.fingerprints.Notify()
 	}
 	writeJSON(w, http.StatusOK, toTrackResponse(ready))
 }

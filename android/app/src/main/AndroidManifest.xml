@@ -18,6 +18,9 @@
     <!-- Background playback (audio_service): keep playing with the screen
          off and show the media notification and lock-screen controls. -->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <!-- «این آهنگ چیه؟»: a few seconds of microphone audio to identify a
+         song, recorded only while the listener asks for it. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
 
