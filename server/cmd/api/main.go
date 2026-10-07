@@ -279,6 +279,8 @@ func run() error {
 			Public: httpapi.NewPublicPages(playlists, objects,
 				httpapi.AnonymousLimits{View: publicViewRate, Stream: publicStreamRate}).
 				WithContact(os.Getenv("PRIVACY_CONTACT_EMAIL")).
+				WithQuota(ownerQuotaBytes).
+				WithAndroidApp(os.Getenv("ANDROID_APP_URL")).
 				WithSite(os.Getenv("WEB_ORIGIN")).
 				WithVerification(os.Getenv("GOOGLE_SITE_VERIFICATION"), os.Getenv("BING_SITE_VERIFICATION")),
 			Bots:        botHandlers.WithEmailGate(emailGate),
