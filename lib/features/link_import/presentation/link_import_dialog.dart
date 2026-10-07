@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nafir/core/api/api_client.dart';
+import 'package:nafir/core/format_size.dart';
+import 'package:nafir/core/persian_digits.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/features/link_import/application/link_import_controller.dart';
 import 'package:nafir/features/link_import/data/link_import.dart';
 
-/// Asks for a link to a song page or an audio file and starts importing
-/// selected files. Returns the message to show once queued, or null if closed.
+/// Asks for a link to a song page, an audio file or a YouTube or Instagram
+/// video and starts importing selected files; a Spotify link becomes a
+/// playlist of the titles already in the library. Returns the message to show
+/// once done, or null if closed.
 Future<String?> showLinkImportDialog(
   BuildContext context, {
   required LinkImportController controller,
@@ -30,6 +34,7 @@ class _LinkImportDialogState extends State<_LinkImportDialog> {
   String? _error;
   List<LinkImportCandidate>? _candidates;
   final Set<int> _selected = {};
+  SpotifyImportResult? _spotify;
 
   @override
   void dispose() {
@@ -57,6 +62,12 @@ class _LinkImportDialogState extends State<_LinkImportDialog> {
     }
     setState(() => _error = null);
     try {
+      if (isSpotifyLink(url)) {
+        final result = await widget.controller.importSpotify(url);
+        if (!mounted) return;
+        setState(() => _spotify = result);
+        return;
+      }
       final candidates = await widget.controller.preview(url);
       if (!mounted) return;
       setState(() {
@@ -93,6 +104,11 @@ class _LinkImportDialogState extends State<_LinkImportDialog> {
     }
   }
 
+  String _spotifyMessage(SpotifyImportResult result) => result.playlistId ==
+          null
+      ? 'هیچ‌کدام از آهنگ‌های این لینک در کتابخانه‌ات نبود.'
+      : 'فهرست پخش «${result.name}» با ${persianDigits(result.matched.length)} آهنگ ساخته شد.';
+
   void _toggle(int index, bool? value) {
     setState(() {
       if (value ?? false) {
@@ -110,6 +126,12 @@ class _LinkImportDialogState extends State<_LinkImportDialog> {
       listenable: widget.controller,
       builder: (context, _) {
         final busy = widget.controller.submitting;
+        if (_spotify case final result?) {
+          return _SpotifyResultDialog(
+            result: result,
+            message: _spotifyMessage(result),
+          );
+        }
         final candidates = _candidates;
         final hasCandidates = candidates != null;
         return AlertDialog(
@@ -122,7 +144,7 @@ class _LinkImportDialogState extends State<_LinkImportDialog> {
               children: [
                 Text(hasCandidates
                     ? 'فایل‌های صوتی پیدا شده را انتخاب کن.'
-                    : 'لینک صفحه‌ی آهنگ در سایت موسیقی، یا لینک مستقیم فایل را بچسبان.'),
+                    : 'لینک صفحه‌ی آهنگ، فایل صوتی، ویدیوی یوتیوب یا اینستاگرام را بچسبان. از لینک اسپاتیفای، آهنگ‌هایی که در کتابخانه داری در یک فهرست پخش جمع می‌شوند.'),
                 const SizedBox(height: 16),
                 TextField(
                   controller: _field,
@@ -177,18 +199,38 @@ class _LinkImportDialogState extends State<_LinkImportDialog> {
                         separatorBuilder: (_, __) => const Divider(height: 1),
                         itemBuilder: (context, index) {
                           final candidate = candidates[index];
-                          final subtitle = candidate.site.isEmpty
+                          final source = candidate.site.isEmpty
                               ? candidate.url
                               : candidate.site;
+                          final details = [
+                            if (candidate.durationSeconds > 0)
+                              _formatDuration(candidate.durationSeconds),
+                            if (candidate.sizeBytes > 0)
+                              formatSize(candidate.sizeBytes),
+                          ].join(' · ');
                           return CheckboxListTile(
                             value: _selected.contains(index),
                             onChanged: busy ? null : (v) => _toggle(index, v),
-                            title: Text(candidate.fileName,
+                            secondary: candidate.thumbnailUrl == null
+                                ? null
+                                : _Thumbnail(url: candidate.thumbnailUrl!),
+                            title: Text(candidate.displayTitle,
                                 maxLines: 1, overflow: TextOverflow.ellipsis),
-                            subtitle: Text(subtitle,
-                                textDirection: TextDirection.ltr,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis),
+                            // The artist first; the site or size support it.
+                            subtitle: candidate.artist == null
+                                ? Text(
+                                    details.isEmpty
+                                        ? source
+                                        : '$source · $details',
+                                    textDirection: TextDirection.ltr,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis)
+                                : Text(
+                                    details.isEmpty
+                                        ? candidate.artist!
+                                        : '${candidate.artist!} · $details',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis),
                             controlAffinity: ListTileControlAffinity.leading,
                             contentPadding: EdgeInsets.zero,
                           );
@@ -226,6 +268,106 @@ class _LinkImportDialogState extends State<_LinkImportDialog> {
           ],
         );
       },
+    );
+  }
+}
+
+String _formatDuration(int seconds) {
+  final minutes = seconds ~/ 60;
+  final rest = (seconds % 60).toString().padLeft(2, '0');
+  return persianDigits('$minutes:$rest');
+}
+
+/// A video's preview image, or a note icon if it can't be loaded.
+class _Thumbnail extends StatelessWidget {
+  const _Thumbnail({required this.url});
+
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox.square(
+        dimension: 48,
+        child: Image.network(
+          url,
+          fit: BoxFit.cover,
+          excludeFromSemantics: true,
+          errorBuilder: (_, __, ___) => ColoredBox(
+            color: scheme.surfaceContainerHighest,
+            child: Icon(NafirIcons.musicNote, color: scheme.onSurfaceVariant),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// What a Spotify link turned into, with the titles that weren't found.
+class _SpotifyResultDialog extends StatelessWidget {
+  const _SpotifyResultDialog({required this.result, required this.message});
+
+  final SpotifyImportResult result;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final missing = result.missing;
+    return AlertDialog(
+      title: const Text('فهرست پخش از اسپاتیفای'),
+      content: SizedBox(
+        width: 520,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(message),
+            if (missing.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text(
+                '${persianDigits(missing.length)} آهنگ در کتابخانه‌ات پیدا نشد:',
+                style: theme.textTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 280),
+                child: Scrollbar(
+                  thumbVisibility: missing.length > 5,
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: missing.length,
+                    itemBuilder: (context, index) {
+                      final item = missing[index];
+                      return ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(NafirIcons.musicNote,
+                            color: theme.colorScheme.onSurfaceVariant),
+                        title: Text(item.title,
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                        subtitle: item.artists.isEmpty
+                            ? null
+                            : Text(item.artists.join('، '),
+                                maxLines: 1, overflow: TextOverflow.ellipsis),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        FilledButton.icon(
+          onPressed: () => Navigator.pop(context, message),
+          icon: const Icon(NafirIcons.check),
+          label: const Text('تمام'),
+        ),
+      ],
     );
   }
 }

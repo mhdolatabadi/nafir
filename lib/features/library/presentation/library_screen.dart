@@ -109,8 +109,12 @@ class _LibraryScreenState extends State<LibraryScreen>
     if (message == null || !mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
-    // Shows the import in progress and follows it until it is done.
-    await widget.library.load();
+    // Shows the import in progress and follows it until it is done, and a
+    // playlist a Spotify link made.
+    await Future.wait([
+      widget.library.load(),
+      if (widget.playlists case final playlists?) playlists.load(),
+    ]);
   }
 
   void _onTabChanged() {

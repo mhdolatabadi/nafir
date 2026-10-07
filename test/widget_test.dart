@@ -130,10 +130,49 @@ class FakeLinkImportsApi implements LinkImportsApi {
     if (refuseWith case final code?) {
       throw ApiException(code, statusCode: 422, code: code);
     }
+    if (url.contains('youtu')) {
+      return [
+        LinkImportCandidate(
+          url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          fileName: 'song.m4a',
+          site: 'www.youtube.com',
+          title:
+              'یک عنوان خیلی خیلی طولانی برای ویدیو که در صفحه‌ی باریک جا نمی‌شود',
+          artist: 'Singer',
+          thumbnailUrl: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hq.jpg',
+          durationSeconds: 215,
+          sizeBytes: 3400000,
+        ),
+      ];
+    }
     return [
       LinkImportCandidate(
           url: url, fileName: 'Artist - Song.mp3', site: 'music.example.ir'),
     ];
+  }
+
+  final spotifyLinks = <String>[];
+
+  @override
+  Future<SpotifyImportResult> importSpotify(String token, String url) async {
+    spotifyLinks.add(url);
+    if (refuseWith case final code?) {
+      throw ApiException(code, statusCode: 422, code: code);
+    }
+    return const SpotifyImportResult(
+      name: 'Road Trip',
+      playlistId: 'pl1',
+      matched: [
+        SpotifyTitle(title: 'Hello', artists: ['Adele'])
+      ],
+      missing: [
+        SpotifyTitle(
+            title:
+                'A very long missing Spotify title that cannot fit on a narrow phone screen',
+            artists: ['Somebody', 'Somebody Else']),
+        SpotifyTitle(title: 'آهنگ پیدا نشده'),
+      ],
+    );
   }
 
   @override
@@ -710,6 +749,76 @@ void main() {
       await tester.tap(find.byTooltip('بستن'));
       await tester.pumpAndSettle();
       expect(find.text('افزودن از لینک ناموفق بود'), findsNothing);
+    });
+
+    testWidgets('a video link shows its title and artist on a narrow phone',
+        (tester) async {
+      final api = await pumpWithLinks(tester, size: const Size(360, 740));
+      await tester.tap(find.byTooltip('افزودن از لینک'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+          find.byType(TextField), 'https://youtu.be/dQw4w9WgXcQ');
+      await tester.tap(find.widgetWithText(FilledButton, 'بررسی لینک'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.textContaining('یک عنوان خیلی خیلی طولانی'), findsOneWidget);
+      expect(find.textContaining('Singer · ۳:۳۵'), findsOneWidget);
+      final dialog = tester.getRect(find.byType(AlertDialog));
+      expect(dialog.left, greaterThanOrEqualTo(0));
+      expect(dialog.right, lessThanOrEqualTo(360));
+      final tile = tester.getRect(find.byType(CheckboxListTile));
+      expect(tile.right, lessThanOrEqualTo(dialog.right));
+
+      await tester
+          .tap(find.widgetWithText(FilledButton, 'افزودن انتخاب‌شده‌ها'));
+      await tester.pumpAndSettle();
+      expect(
+          api.submitted.single, 'https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+    });
+
+    testWidgets('a Spotify link builds a playlist and lists missing titles',
+        (tester) async {
+      final api = await pumpWithLinks(tester, size: const Size(360, 740));
+      await tester.tap(find.byTooltip('افزودن از لینک'));
+      await tester.pumpAndSettle();
+      const link = 'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M';
+      await tester.enterText(find.byType(TextField), link);
+      await tester.tap(find.widgetWithText(FilledButton, 'بررسی لینک'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      // Nothing is downloaded: it never reaches the link import.
+      expect(api.spotifyLinks, [link]);
+      expect(api.submitted, isEmpty);
+      expect(find.text('فهرست پخش «Road Trip» با ۱ آهنگ ساخته شد.'),
+          findsOneWidget);
+      expect(find.text('۲ آهنگ در کتابخانه‌ات پیدا نشد:'), findsOneWidget);
+      expect(find.text('Somebody، Somebody Else'), findsOneWidget);
+      expect(find.text('آهنگ پیدا نشده'), findsOneWidget);
+      final dialog = tester.getRect(find.byType(AlertDialog));
+      expect(dialog.left, greaterThanOrEqualTo(0));
+      expect(dialog.right, lessThanOrEqualTo(360));
+      final done = tester.getRect(find.widgetWithText(FilledButton, 'تمام'));
+      expect(done.bottom, lessThanOrEqualTo(dialog.bottom));
+
+      await tester.tap(find.widgetWithText(FilledButton, 'تمام'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.text('فهرست پخش «Road Trip» با ۱ آهنگ ساخته شد.'),
+          findsOneWidget);
+    });
+
+    testWidgets('a Spotify link that names no tracks is explained',
+        (tester) async {
+      final api = await pumpWithLinks(tester);
+      api.refuseWith = 'no_tracks';
+      await tester.tap(find.byTooltip('افزودن از لینک'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField),
+          'https://open.spotify.com/album/1111111111111111111111');
+      await tester.tap(find.widgetWithText(FilledButton, 'بررسی لینک'));
+      await tester.pumpAndSettle();
+      expect(
+          find.text('در این لینک اسپاتیفای آهنگی پیدا نشد.'), findsOneWidget);
     });
 
     testWidgets('the link action and dialog fit a narrow phone',
