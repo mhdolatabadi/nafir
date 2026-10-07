@@ -78,3 +78,33 @@ func TestShortSecretIsRejected(t *testing.T) {
 		t.Fatal("expected an error for a short secret")
 	}
 }
+
+func TestWeakPasswords(t *testing.T) {
+	for _, password := range []string{
+		"password", "PASSWORD", "12345678", "qwertyuiop", "iloveyou", " 123456789 ",
+		"aaaaaaaa", "۱۱۱۱۱۱۱۱", "sara.k@example.com", "SARA.K", "sara.k",
+	} {
+		if !WeakPassword(password, "sara.k@example.com") {
+			t.Errorf("%q should be weak", password)
+		}
+	}
+	for _, password := range []string{"correct horse battery", "Tq7#vL2m", "ریتموی من ۱۴۰۵", "aaaaaaab"} {
+		if WeakPassword(password, "sara.k@example.com") {
+			t.Errorf("%q should be accepted", password)
+		}
+	}
+	if WeakPassword("", "") {
+		t.Error("an empty password is the length rule's job")
+	}
+}
+
+func TestCommonPasswordListIsLoaded(t *testing.T) {
+	if len(commonPasswords) < 2000 {
+		t.Fatalf("only %d common passwords loaded", len(commonPasswords))
+	}
+	for password := range commonPasswords {
+		if len(password) < MinPasswordLength || password != strings.ToLower(password) {
+			t.Fatalf("list entry %q is not a lower-cased password of %d+ characters", password, MinPasswordLength)
+		}
+	}
+}

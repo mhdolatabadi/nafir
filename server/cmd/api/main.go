@@ -147,6 +147,10 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	loginAccountRate, err := rateLimiterEnv("LOGIN_ACCOUNT_RATE", 10, 15*time.Minute)
+	if err != nil {
+		return err
+	}
 	reservationUserRate, err := rateLimiterEnv("UPLOAD_RESERVATION_USER_RATE", 120, 10*time.Minute)
 	if err != nil {
 		return err
@@ -184,7 +188,11 @@ func run() error {
 	users := store.NewUsers(pool)
 	authHandlers, err := httpapi.NewAuthHandlers(
 		users, auth.Passwords{Cost: 12}, tokens,
-		httpapi.AuthRateLimiters{Register: registerRate, Login: loginRate},
+		httpapi.AuthRateLimiters{
+			Register: registerRate, Login: loginRate,
+			// Keys are emails a client picks; the per-IP limit still applies.
+			LoginAccount: loginAccountRate.OpenWhenFull(),
+		},
 	)
 	if err != nil {
 		return err
