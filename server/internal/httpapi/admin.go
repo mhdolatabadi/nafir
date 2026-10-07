@@ -48,7 +48,7 @@ func (h *AdminHandlers) authorize(w http.ResponseWriter, r *http.Request) (strin
 		internalError(w, "authorize admin", err)
 		return "", false
 	}
-	if !h.auth.admins[user.Email] {
+	if !h.auth.isAdmin(user) {
 		writeError(w, http.StatusForbidden, "admin_required")
 		return "", false
 	}

@@ -68,6 +68,16 @@ type TrackHandlers struct {
 	limits  UploadLimits
 	imports ImportCounter
 	retags  TagRewriteNotifier
+	// emailGate refuses uploads from accounts that haven't verified their
+	// email; nil allows everyone.
+	emailGate *EmailGate
+}
+
+// WithEmailGate keeps accounts with an unverified email out of what costs
+// storage or reaches other people.
+func (h *TrackHandlers) WithEmailGate(gate *EmailGate) *TrackHandlers {
+	h.emailGate = gate
+	return h
 }
 
 // TagRewriteNotifier starts rewriting embedded tags soon after an edit;
@@ -500,6 +510,9 @@ func (h *TrackHandlers) handleCreateUpload(w http.ResponseWriter, r *http.Reques
 	}
 	if !enforceRateLimit(w, h.limits.ReservationUserRate, userID) ||
 		!enforceRateLimit(w, h.limits.ReservationIPRate, clientIP(r)) {
+		return
+	}
+	if !h.emailGate.allow(w, r, userID) {
 		return
 	}
 	var input createUploadRequest

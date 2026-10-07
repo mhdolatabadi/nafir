@@ -11,7 +11,7 @@ import (
 // including percent and underscore characters.
 func (u *Users) ListAccounts(ctx context.Context, query string, offset, limit int) ([]User, bool, error) {
 	rows, err := u.pool.Query(ctx,
-		`SELECT id::text, email, created_at, verified, verified_at
+		`SELECT `+userColumns+`
 		 FROM users WHERE strpos(lower(email), lower($1)) > 0
 		 ORDER BY created_at DESC, id DESC LIMIT $2 OFFSET $3`,
 		query, limit+1, offset)
@@ -22,7 +22,7 @@ func (u *Users) ListAccounts(ctx context.Context, query string, offset, limit in
 	users := make([]User, 0)
 	for rows.Next() {
 		var user User
-		if err := rows.Scan(&user.ID, &user.Email, &user.CreatedAt, &user.Verified, &user.VerifiedAt); err != nil {
+		if err := scanUser(rows, &user); err != nil {
 			return nil, false, err
 		}
 		users = append(users, user)
@@ -41,24 +41,24 @@ func (u *Users) ListAccounts(ctx context.Context, query string, offset, limit in
 func (u *Users) SetVerification(ctx context.Context, id, actorID string, verified bool) (User, error) {
 	var user User
 	err := pgx.BeginFunc(ctx, u.pool, func(tx pgx.Tx) error {
-		err := tx.QueryRow(ctx,
-			`SELECT id::text, email, created_at, verified, verified_at
+		err := scanUser(tx.QueryRow(ctx,
+			`SELECT `+userColumns+`
 			 FROM users WHERE id::text = $1 FOR UPDATE`, id,
-		).Scan(&user.ID, &user.Email, &user.CreatedAt, &user.Verified, &user.VerifiedAt)
+		), &user)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}
 		if err != nil || user.Verified == verified {
 			return err
 		}
-		err = tx.QueryRow(ctx,
+		err = scanUser(tx.QueryRow(ctx,
 			`UPDATE users SET verified = $2,
 			 verified_at = CASE WHEN $2 THEN now() ELSE NULL END,
 			 verified_by = CASE WHEN $2 THEN $3::uuid ELSE NULL END
 			 WHERE id::text = $1
-			 RETURNING id::text, email, created_at, verified, verified_at`,
+			 RETURNING `+userColumns,
 			id, verified, actorID,
-		).Scan(&user.ID, &user.Email, &user.CreatedAt, &user.Verified, &user.VerifiedAt)
+		), &user)
 		if err != nil {
 			return err
 		}

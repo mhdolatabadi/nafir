@@ -19,6 +19,7 @@ import (
 	"github.com/mhdolatabadi/nafir/server/internal/bot"
 	"github.com/mhdolatabadi/nafir/server/internal/httpapi"
 	"github.com/mhdolatabadi/nafir/server/internal/linkimport"
+	"github.com/mhdolatabadi/nafir/server/internal/mail"
 	"github.com/mhdolatabadi/nafir/server/internal/storage"
 	"github.com/mhdolatabadi/nafir/server/internal/store"
 	"github.com/mhdolatabadi/nafir/server/internal/tagwriter"
@@ -199,6 +200,10 @@ func run() error {
 		}
 	}
 	authHandlers.WithAdmins(adminEmails)
+	if err := setupEmailVerification(authHandlers, users); err != nil {
+		return err
+	}
+	emailGate := authHandlers.EmailGate()
 	// Uploads handed out before an account is deleted may still land until
 	// pending reservations expire, so the purge job sweeps until then.
 	authHandlers.WithAccountDeletion(httpapi.AccountDeletion{
@@ -265,18 +270,19 @@ func run() error {
 				MaxPending: maxPending, Enabled: uploadsEnabled,
 				ReservationUserRate: reservationUserRate, ReservationIPRate: reservationIPRate,
 				CompletionUserRate: completionUserRate, CompletionIPRate: completionIPRate,
-			}).WithImports(bots).WithTagRewrites(retags),
+			}).WithImports(bots).WithTagRewrites(retags).WithEmailGate(emailGate),
 			Playlists: httpapi.NewPlaylistHandlers(playlists, tokens).WithSharing(playlists, objects, httpapi.SavePolicy{
 				Objects: objects, MaxOwnerBytes: ownerQuotaBytes, Enabled: uploadsEnabled,
-			}).WithAnonymous(httpapi.AnonymousLimits{View: publicViewRate, Stream: publicStreamRate}),
+			}).WithAnonymous(httpapi.AnonymousLimits{View: publicViewRate, Stream: publicStreamRate}).
+				WithEmailGate(emailGate),
 			History: httpapi.NewHistoryHandlers(store.NewHistory(pool), tokens, historyRate),
 			Public: httpapi.NewPublicPages(playlists, objects,
 				httpapi.AnonymousLimits{View: publicViewRate, Stream: publicStreamRate}).
 				WithContact(os.Getenv("PRIVACY_CONTACT_EMAIL")).
 				WithSite(os.Getenv("WEB_ORIGIN")).
 				WithVerification(os.Getenv("GOOGLE_SITE_VERIFICATION"), os.Getenv("BING_SITE_VERIFICATION")),
-			Bots:        botHandlers,
-			LinkImports: httpapi.NewLinkImportHandlers(linkImports, tokens, linkImportRate),
+			Bots:        botHandlers.WithEmailGate(emailGate),
+			LinkImports: httpapi.NewLinkImportHandlers(linkImports, tokens, linkImportRate).WithEmailGate(emailGate),
 			Ops:         ops,
 			Webhooks:    webhooks,
 		}),
@@ -310,6 +316,57 @@ func run() error {
 		return fmt.Errorf("graceful shutdown: %w", err)
 	}
 	slog.Info("Nafir API stopped")
+	return nil
+}
+
+// setupEmailVerification turns email verification on when SMTP is
+// configured. Without SMTP_HOST it stays off, so local and development
+// setups work without a mail server, and every account counts as verified.
+func setupEmailVerification(authHandlers *httpapi.AuthHandlers, users *store.Users) error {
+	host := strings.TrimSpace(os.Getenv("SMTP_HOST"))
+	if host == "" {
+		slog.Warn("SMTP_HOST is not set: email verification is off and new accounts are not asked to verify their address")
+		return nil
+	}
+	port, err := positiveIntEnv("SMTP_PORT", 587)
+	if err != nil {
+		return err
+	}
+	sender, err := mail.NewSMTP(mail.Config{
+		Host: host, Port: port,
+		Username: os.Getenv("SMTP_USERNAME"), Password: os.Getenv("SMTP_PASSWORD"),
+		From: os.Getenv("MAIL_FROM"),
+	})
+	if err != nil {
+		return fmt.Errorf("SMTP: %w", err)
+	}
+	codes, err := auth.NewEmailCodes([]byte(os.Getenv("AUTH_TOKEN_SECRET")))
+	if err != nil {
+		return fmt.Errorf("AUTH_TOKEN_SECRET: %w", err)
+	}
+	// Many people can share one IP address behind carrier NAT, so the
+	// per-IP limits are looser than the per-account ones.
+	limits := map[string]*httpapi.RateLimiter{}
+	for _, limit := range []struct {
+		prefix   string
+		requests int
+		window   time.Duration
+	}{
+		{"EMAIL_CODE_USER_RATE", 5, time.Hour},
+		{"EMAIL_CODE_IP_RATE", 30, time.Hour},
+		{"EMAIL_VERIFY_USER_RATE", 20, 15 * time.Minute},
+		{"EMAIL_VERIFY_IP_RATE", 100, 15 * time.Minute},
+	} {
+		if limits[limit.prefix], err = rateLimiterEnv(limit.prefix, limit.requests, limit.window); err != nil {
+			return err
+		}
+	}
+	authHandlers.WithEmailVerification(httpapi.EmailVerification{
+		Store: users, Mailer: sender, Codes: codes,
+		SendUserRate: limits["EMAIL_CODE_USER_RATE"], SendIPRate: limits["EMAIL_CODE_IP_RATE"],
+		ConfirmUserRate: limits["EMAIL_VERIFY_USER_RATE"], ConfirmIPRate: limits["EMAIL_VERIFY_IP_RATE"],
+	})
+	slog.Info("email verification is on", "smtp_host", host, "smtp_port", port)
 	return nil
 }
 

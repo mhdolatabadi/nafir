@@ -110,6 +110,9 @@ func (h *PlaylistHandlers) handleSaveShared(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusServiceUnavailable, "uploads_disabled")
 		return
 	}
+	if !h.emailGate.allow(w, r, userID) {
+		return
+	}
 	saved, err := h.shared.SaveShared(r.Context(), userID, token, h.save.MaxOwnerBytes, h.save.Objects)
 	switch {
 	case errors.Is(err, store.ErrNotFound):
@@ -147,6 +150,11 @@ func (h *PlaylistHandlers) handleShare(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "invalid_json")
 			return
 		}
+	}
+	// Link-only sharing stays open; listing for everyone needs a verified
+	// email.
+	if request.Public != nil && *request.Public && !h.emailGate.allow(w, r, userID) {
+		return
 	}
 	for range 3 {
 		token, err := newShareToken()

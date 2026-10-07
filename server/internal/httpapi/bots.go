@@ -42,6 +42,15 @@ type BotHandlers struct {
 	bots     []Bot
 	rate     *RateLimiter
 	sendRate *RateLimiter
+	// emailGate keeps unverified accounts from the bots; nil allows everyone.
+	emailGate *EmailGate
+}
+
+// WithEmailGate keeps accounts with an unverified email out of what costs
+// storage or reaches other people.
+func (h *BotHandlers) WithEmailGate(gate *EmailGate) *BotHandlers {
+	h.emailGate = gate
+	return h
 }
 
 // NewBotHandlers serves the bot endpoints. With no bots configured, the list
@@ -116,7 +125,7 @@ func (h *BotHandlers) handleLinkCode(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "no_bots")
 		return
 	}
-	if !enforceRateLimit(w, h.rate, userID) {
+	if !enforceRateLimit(w, h.rate, userID) || !h.emailGate.allow(w, r, userID) {
 		return
 	}
 	code, expiresAt, err := h.linker.NewCode(r.Context(), userID)
@@ -146,7 +155,7 @@ func (h *BotHandlers) handleSend(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "no_bots")
 		return
 	}
-	if !enforceRateLimit(w, h.sendRate, userID) {
+	if !enforceRateLimit(w, h.sendRate, userID) || !h.emailGate.allow(w, r, userID) {
 		return
 	}
 	var input sendRequest
