@@ -72,3 +72,33 @@ func TestUsers(t *testing.T) {
 		}
 	}
 }
+
+func TestRevokeSessionsMovesTheEpochOn(t *testing.T) {
+	ctx := context.Background()
+	users := NewUsers(newTestPool(t))
+	created, err := users.Create(ctx, "epoch@example.com", "hash")
+	if err != nil || created.SessionEpoch != 0 {
+		t.Fatalf("Create = %+v, %v", created, err)
+	}
+	revoked, err := users.RevokeSessions(ctx, created.ID)
+	if err != nil || revoked.SessionEpoch != 1 || revoked.Email != created.Email {
+		t.Fatalf("RevokeSessions = %+v, %v", revoked, err)
+	}
+	if epoch, err := users.SessionEpoch(ctx, created.ID); err != nil || epoch != 1 {
+		t.Fatalf("SessionEpoch = %d, %v", epoch, err)
+	}
+	if byEmail, _, _ := users.ByEmail(ctx, created.Email); byEmail.SessionEpoch != 1 {
+		t.Fatalf("ByEmail epoch = %d", byEmail.SessionEpoch)
+	}
+	if byID, _ := users.ByID(ctx, created.ID); byID.SessionEpoch != 1 {
+		t.Fatalf("ByID epoch = %d", byID.SessionEpoch)
+	}
+	for _, id := range []string{"00000000-0000-0000-0000-000000000000", "not-a-uuid"} {
+		if _, err := users.SessionEpoch(ctx, id); !errors.Is(err, ErrNotFound) {
+			t.Fatalf("SessionEpoch(%q) = %v", id, err)
+		}
+		if _, err := users.RevokeSessions(ctx, id); !errors.Is(err, ErrNotFound) {
+			t.Fatalf("RevokeSessions(%q) = %v", id, err)
+		}
+	}
+}

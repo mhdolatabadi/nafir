@@ -23,6 +23,8 @@ type User struct {
 	CreatedAt  time.Time
 	Verified   bool
 	VerifiedAt *time.Time
+	// SessionEpoch is the epoch new access tokens are issued in (#216).
+	SessionEpoch int64
 }
 
 type Users struct {
@@ -37,9 +39,9 @@ func (u *Users) Create(ctx context.Context, email, passwordHash string) (User, e
 	var user User
 	err := u.pool.QueryRow(ctx,
 		`INSERT INTO users (email, password_hash) VALUES ($1, $2)
-		 RETURNING id::text, email, created_at, verified, verified_at`,
+		 RETURNING id::text, email, created_at, verified, verified_at, session_epoch`,
 		email, passwordHash,
-	).Scan(&user.ID, &user.Email, &user.CreatedAt, &user.Verified, &user.VerifiedAt)
+	).Scan(&user.ID, &user.Email, &user.CreatedAt, &user.Verified, &user.VerifiedAt, &user.SessionEpoch)
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation {
 		return User{}, ErrEmailTaken
@@ -52,8 +54,8 @@ func (u *Users) ByEmail(ctx context.Context, email string) (User, string, error)
 	var user User
 	var hash string
 	err := u.pool.QueryRow(ctx,
-		`SELECT id::text, email, created_at, verified, verified_at, password_hash FROM users WHERE email = $1`, email,
-	).Scan(&user.ID, &user.Email, &user.CreatedAt, &user.Verified, &user.VerifiedAt, &hash)
+		`SELECT id::text, email, created_at, verified, verified_at, session_epoch, password_hash FROM users WHERE email = $1`, email,
+	).Scan(&user.ID, &user.Email, &user.CreatedAt, &user.Verified, &user.VerifiedAt, &user.SessionEpoch, &hash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, "", ErrNotFound
 	}
@@ -64,8 +66,32 @@ func (u *Users) ByID(ctx context.Context, id string) (User, error) {
 	var user User
 	// Comparing as text avoids a cast error when a token carries a malformed ID.
 	err := u.pool.QueryRow(ctx,
-		`SELECT id::text, email, created_at, verified, verified_at FROM users WHERE id::text = $1`, id,
-	).Scan(&user.ID, &user.Email, &user.CreatedAt, &user.Verified, &user.VerifiedAt)
+		`SELECT id::text, email, created_at, verified, verified_at, session_epoch FROM users WHERE id::text = $1`, id,
+	).Scan(&user.ID, &user.Email, &user.CreatedAt, &user.Verified, &user.VerifiedAt, &user.SessionEpoch)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return User{}, ErrNotFound
+	}
+	return user, err
+}
+
+// SessionEpoch returns the epoch the account's valid tokens carry.
+func (u *Users) SessionEpoch(ctx context.Context, id string) (int64, error) {
+	var epoch int64
+	err := u.pool.QueryRow(ctx, `SELECT session_epoch FROM users WHERE id::text = $1`, id).Scan(&epoch)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, ErrNotFound
+	}
+	return epoch, err
+}
+
+// RevokeSessions moves the account to a new session epoch, which ends every
+// token issued so far, and returns the account with the new epoch.
+func (u *Users) RevokeSessions(ctx context.Context, id string) (User, error) {
+	var user User
+	err := u.pool.QueryRow(ctx,
+		`UPDATE users SET session_epoch = session_epoch + 1 WHERE id::text = $1
+		 RETURNING id::text, email, created_at, verified, verified_at, session_epoch`, id,
+	).Scan(&user.ID, &user.Email, &user.CreatedAt, &user.Verified, &user.VerifiedAt, &user.SessionEpoch)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrNotFound
 	}
