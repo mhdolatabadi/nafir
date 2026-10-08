@@ -1,25 +1,27 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:nafir/core/design/tokens.dart';
 
-/// Shared visual language for Nafir's dark, glass-inspired surfaces.
+/// The glass colours under their original names. New code reads
+/// [NafirColors] from lib/core/design/tokens.dart instead.
 abstract final class NafirGlass {
-  static const background = Color(0xFF070810);
-  static const surface = Color(0xFF121522);
-  static const surfaceStrong = Color(0xFF191D2D);
-  static const primary = Color(0xFFFF626A);
-  static const secondary = Color(0xFF8D7CFF);
-  static const border = Color(0x33FFFFFF);
-  static const softBorder = Color(0x1FFFFFFF);
-  static const shadow = Color(0x73000000);
+  static const background = NafirColors.background;
+  static const surface = NafirColors.surface;
+  static const surfaceStrong = NafirColors.surfaceStrong;
+  static const primary = NafirColors.primary;
+  static const secondary = NafirColors.secondary;
+  static const border = NafirColors.border;
+  static const softBorder = NafirColors.softBorder;
+  static const shadow = NafirColors.shadow;
 
   static const backgroundGradient = LinearGradient(
     begin: Alignment.topRight,
     end: Alignment.bottomLeft,
     colors: [
-      Color(0xFF17101D),
-      Color(0xFF090B14),
-      Color(0xFF070810),
+      NafirColors.ambientTop,
+      NafirColors.ambientMiddle,
+      NafirColors.background,
     ],
     stops: [0, 0.48, 1],
   );
@@ -57,7 +59,7 @@ class _AmbientLightState extends State<_AmbientLight>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1400),
+    duration: NafirMotion.arrival,
   )..forward();
 
   late final Animation<double> _drift = CurvedAnimation(
@@ -73,6 +75,11 @@ class _AmbientLightState extends State<_AmbientLight>
 
   @override
   Widget build(BuildContext context) {
+    // With reduced motion the light is simply in place.
+    if (MediaQuery.maybeDisableAnimationsOf(context) == true &&
+        _controller.isAnimating) {
+      _controller.value = 1;
+    }
     return RepaintBoundary(
       child: AnimatedBuilder(
         animation: _drift,
@@ -107,7 +114,7 @@ class _AmbientLightState extends State<_AmbientLight>
                 start: 30 + (value * 36),
                 child: _Glow(
                   size: 260,
-                  color: Colors.white.withValues(alpha: 0.045),
+                  color: NafirColors.highlight.withValues(alpha: 0.045),
                 ),
               ),
             ],
@@ -152,6 +159,19 @@ class GlassSurface extends StatelessWidget {
     this.shadow = true,
   });
 
+  /// A surface at one of the glass levels in [NafirGlassLevel].
+  GlassSurface.level(
+    NafirGlassLevel level, {
+    super.key,
+    required this.child,
+    this.padding,
+    this.margin,
+    this.radius = NafirRadii.xl,
+    this.tint,
+  })  : blur = level.blur,
+        borderColor = level.border,
+        shadow = level.shadow;
+
   final Widget child;
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;
@@ -172,17 +192,17 @@ class GlassSurface extends StatelessWidget {
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
           colors: [
-            (tint ?? Colors.white).withValues(alpha: 0.16),
-            Colors.white.withValues(alpha: 0.055),
-            NafirGlass.surface.withValues(alpha: 0.72),
+            (tint ?? NafirColors.highlight).withValues(alpha: 0.16),
+            NafirColors.highlight.withValues(alpha: 0.055),
+            NafirColors.surface.withValues(alpha: 0.72),
           ],
           stops: const [0, 0.45, 1],
         ),
-        border: Border.all(color: borderColor ?? NafirGlass.border),
+        border: Border.all(color: borderColor ?? NafirColors.border),
         boxShadow: shadow
             ? const [
                 BoxShadow(
-                  color: NafirGlass.shadow,
+                  color: NafirColors.shadow,
                   offset: Offset(0, 12),
                   blurRadius: 32,
                 ),
