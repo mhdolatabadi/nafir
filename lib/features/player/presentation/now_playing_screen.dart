@@ -2,6 +2,7 @@ import 'package:nafir/core/persian_digits.dart';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:nafir/core/design/tokens.dart';
 import 'package:nafir/core/format_size.dart';
 import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
@@ -57,17 +58,8 @@ String formatPlaybackTime(Duration value) {
   return persianDigits('$minutes:$seconds');
 }
 
-/// A dark, saturated color picked from the track's id, standing in for
-/// cover art until tracks have it. Every hue stays dark enough for light
-/// text on top of it.
-Color trackTint(Track track) {
-  // FNV-1a, so a track keeps its color across launches.
-  var hash = 0x811c9dc5;
-  for (final unit in track.id.codeUnits) {
-    hash = ((hash ^ unit) * 0x01000193) & 0xffffffff;
-  }
-  return HSLColor.fromAHSL(1, (hash % 360).toDouble(), 0.42, 0.2).toColor();
-}
+/// The track's artwork colour, see [artworkTint].
+Color trackTint(Track track) => artworkTint(track.id);
 
 /// WCAG contrast ratio between two opaque colors.
 double contrastRatio(Color a, Color b) {

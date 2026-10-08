@@ -303,7 +303,7 @@ abstract final class NafirTheme {
           color: colors.onInverseSurface,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        waitDuration: const Duration(milliseconds: 500),
+        waitDuration: NafirMotion.tooltipWait,
       ),
     );
   }

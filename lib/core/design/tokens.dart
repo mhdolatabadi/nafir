@@ -120,6 +120,9 @@ abstract final class NafirMotion {
   /// The now-playing backdrop's slow drift, repeated while music plays.
   static const ambient = Duration(seconds: 6);
 
+  /// How long a pointer rests before a tooltip shows.
+  static const tooltipWait = Duration(milliseconds: 500);
+
   static const Curve standard = Curves.easeOutCubic;
   static const Curve emphasized = Curves.easeOutQuart;
   static const Curve exit = Curves.easeInCubic;
@@ -137,8 +140,8 @@ abstract final class NafirType {
   static const family = 'Vazirmatn';
 
   static TextTheme apply(TextTheme base) {
-    TextStyle? style(TextStyle? s, double size, FontWeight weight,
-            double height) =>
+    TextStyle? style(
+            TextStyle? s, double size, FontWeight weight, double height) =>
         s?.copyWith(
           fontFamily: family,
           fontSize: size,

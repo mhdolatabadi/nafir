@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/core/links/open_link.dart';
@@ -6,6 +7,7 @@ import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/core/format_size.dart';
 import 'package:nafir/features/bots/application/bot_link_controller.dart';
 import 'package:nafir/features/bots/presentation/bot_link_section.dart';
+import 'package:nafir/features/debug/presentation/design_gallery.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/settings/presentation/crossfade_setting.dart';
@@ -192,6 +194,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               trailing: const Icon(NafirIcons.caretLeft, size: 20),
               onTap: () => _openDeleteAccount(email, delete),
+            ),
+          // Debug builds only: every token and component on one page.
+          if (kDebugMode)
+            ListTile(
+              leading: const Icon(NafirIcons.gauge),
+              title: const Text('سامانهٔ طراحی'),
+              subtitle: const Text('فقط در نسخهٔ آزمایشی'),
+              trailing: const Icon(NafirIcons.caretLeft, size: 20),
+              onTap: () => openDesignGallery(context),
             ),
         ],
       ),
