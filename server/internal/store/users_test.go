@@ -23,7 +23,9 @@ func newTestPool(t *testing.T) *pgxpool.Pool {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	if _, err := pool.Exec(ctx, "DROP TABLE IF EXISTS track_lyrics, play_history, account_verification_audit, account_deletions, bot_track_files, bot_imports, bot_updates, bot_link_codes, bot_chats, playlist_likes, playlist_members, playlist_tracks, playlists, tracks, users, storage_garbage, schema_migrations CASCADE"); err != nil {
+	// Dropping the schema removes every table, including ones later
+	// migrations add, so this never needs a list kept up to date.
+	if _, err := pool.Exec(ctx, "DROP SCHEMA public CASCADE; CREATE SCHEMA public"); err != nil {
 		t.Fatal(err)
 	}
 	if err := Migrate(ctx, pool); err != nil {

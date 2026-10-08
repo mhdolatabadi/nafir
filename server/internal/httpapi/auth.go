@@ -78,6 +78,8 @@ type AuthHandlers struct {
 	admins    map[string]bool
 	revoker   SessionRevoker
 	sessions  *auth.Sessions
+	// verification is nil when email verification is off.
+	verification *EmailVerification
 }
 
 func NewAuthHandlers(users UserStore, passwords auth.Passwords, tokens *auth.Tokens, limiters AuthRateLimiters) (*AuthHandlers, error) {
@@ -95,6 +97,7 @@ func (h *AuthHandlers) register(mux *http.ServeMux) {
 	if h.deletion.Accounts != nil && h.deletion.Objects != nil {
 		mux.HandleFunc("DELETE /api/v1/me", h.handleDeleteAccount)
 	}
+	h.registerEmailVerification(mux)
 	if h.revoker != nil {
 		mux.HandleFunc("POST /api/v1/auth/sessions/revoke", h.handleRevokeSessions)
 	}
@@ -145,10 +148,14 @@ type credentials struct {
 }
 
 type userResponse struct {
-	ID       string `json:"id"`
-	Email    string `json:"email"`
-	Verified bool   `json:"verified"`
-	IsAdmin  bool   `json:"isAdmin"`
+	ID    string `json:"id"`
+	Email string `json:"email"`
+	// Verified is the admin's manual badge; EmailVerified says whether the
+	// account proved its address, and is always true while email
+	// verification is off.
+	Verified      bool `json:"verified"`
+	EmailVerified bool `json:"emailVerified"`
+	IsAdmin       bool `json:"isAdmin"`
 }
 
 type sessionResponse struct {
@@ -194,6 +201,7 @@ func (h *AuthHandlers) handleRegister(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "create user", err)
 		return
 	}
+	h.afterRegister(r.Context(), user)
 	h.writeSession(w, http.StatusCreated, user)
 }
 
@@ -362,8 +370,14 @@ func (h *AuthHandlers) WithAdmins(emails []string) *AuthHandlers {
 func (h *AuthHandlers) userResponse(user store.User) userResponse {
 	return userResponse{
 		ID: user.ID, Email: user.Email, Verified: user.Verified,
-		IsAdmin: h.admins[user.Email],
+		EmailVerified: h.emailVerified(user), IsAdmin: h.isAdmin(user),
 	}
+}
+
+// isAdmin needs the address to be verified too, so someone who registers an
+// allowlisted address that no account holds any more can't become an admin.
+func (h *AuthHandlers) isAdmin(user store.User) bool {
+	return h.admins[user.Email] && h.emailVerified(user)
 }
 
 func decodeCredentials(w http.ResponseWriter, r *http.Request) (credentials, bool) {

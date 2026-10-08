@@ -65,6 +65,31 @@ class AuthController extends ChangeNotifier {
     await _start(_api.revokeSessions(token));
   }
 
+  /// Mails a new verification code and returns when it expires.
+  Future<DateTime> sendEmailCode() => _api.sendEmailCode(_requireToken());
+
+  /// Confirms the email address; throws, still unverified, on a wrong code.
+  Future<void> verifyEmail(String code) async {
+    final token = _requireToken();
+    final user = await _api.verifyEmail(token, code);
+    if (this.token == token) _set(AuthStatus.signedIn, user);
+  }
+
+  /// Corrects an unverified address. Returns whether a code was mailed to
+  /// the new one.
+  Future<bool> changeEmail(String email) async {
+    final token = _requireToken();
+    final result = await _api.changeEmail(token, email.trim());
+    if (this.token == token) _set(AuthStatus.signedIn, result.user);
+    return result.codeSent;
+  }
+
+  String _requireToken() {
+    final token = this.token;
+    if (token == null) throw StateError('Not signed in.');
+    return token;
+  }
+
   Future<void> refreshUser() async {
     final currentToken = token;
     if (currentToken == null) return;

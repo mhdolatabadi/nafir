@@ -1,3 +1,4 @@
+import 'package:nafir/core/search_text.dart';
 import 'package:nafir/core/persian_digits.dart';
 import 'package:flutter/material.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
@@ -898,12 +899,9 @@ class _TrackPickerState extends State<_TrackPicker> {
 
   @override
   Widget build(BuildContext context) {
-    final search = query.trim().toLowerCase();
-    final tracks = widget.tracks.where((track) {
-      return '${track.title} ${track.artist ?? ''}'
-          .toLowerCase()
-          .contains(search);
-    }).toList();
+    final tracks = widget.tracks
+        .where((track) => matchesSearch(query, [track.title, track.artist]))
+        .toList();
     return AlertDialog(
       title: const Text('انتخاب آهنگ‌های فهرست پخش'),
       content: SizedBox(

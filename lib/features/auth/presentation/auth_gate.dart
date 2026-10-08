@@ -1,11 +1,13 @@
 import 'package:nafir/features/admin/data/admin_account.dart';
 import 'package:nafir/features/admin/presentation/admin_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:nafir/features/identify/application/identify_controller.dart';
 import 'package:nafir/features/history/application/recently_played_controller.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/core/widgets/app_loading_screen.dart';
 import 'package:nafir/features/auth/application/auth_controller.dart';
+import 'package:nafir/features/auth/presentation/email_verification_screen.dart';
 import 'package:nafir/features/auth/presentation/sign_in_prompt.dart';
 import 'package:nafir/features/auth/presentation/sign_in_screen.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
@@ -37,6 +39,7 @@ class AuthGate extends StatefulWidget {
     required this.cache,
     this.botLinks,
     this.linkImports,
+    this.identify,
     required this.picker,
     required this.player,
   });
@@ -55,6 +58,9 @@ class AuthGate extends StatefulWidget {
   final CacheController cache;
   final BotLinkController? botLinks;
   final LinkImportController? linkImports;
+
+  /// «این آهنگ چیه؟»; null hides it.
+  final IdentifyController? identify;
   final AudioPicker picker;
 
   @override
@@ -152,6 +158,12 @@ class _AuthGateState extends State<AuthGate> {
           AuthStatus.signedIn => LibraryScreen(
               email: controller.user!.email,
               verified: controller.user!.verified,
+              onVerifyEmail: controller.user!.emailVerified
+                  ? null
+                  : () => Navigator.of(context).push(MaterialPageRoute<void>(
+                        builder: (_) =>
+                            EmailVerificationScreen(controller: controller),
+                      )),
               onAdmin: controller.user!.isAdmin && widget.adminApi != null
                   ? () async {
                       await Navigator.of(context).push(MaterialPageRoute<void>(
@@ -191,6 +203,7 @@ class _AuthGateState extends State<AuthGate> {
               cache: widget.cache,
               botLinks: widget.botLinks,
               linkImports: widget.linkImports,
+              identify: widget.identify,
               picker: widget.picker,
             ),
         };

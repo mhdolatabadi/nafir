@@ -68,6 +68,18 @@ type TrackHandlers struct {
 	limits  UploadLimits
 	imports ImportCounter
 	retags  TagRewriteNotifier
+	// emailGate refuses uploads from accounts that haven't verified their
+	// email; nil allows everyone.
+	emailGate *EmailGate
+	// fingerprints is woken when a track becomes ready.
+	fingerprints TagRewriteNotifier
+}
+
+// WithEmailGate keeps accounts with an unverified email out of what costs
+// storage or reaches other people.
+func (h *TrackHandlers) WithEmailGate(gate *EmailGate) *TrackHandlers {
+	h.emailGate = gate
+	return h
 }
 
 // TagRewriteNotifier starts rewriting embedded tags soon after an edit;
@@ -80,6 +92,13 @@ type TagRewriteNotifier interface {
 // queued rewrites still run at the writer's next poll.
 func (h *TrackHandlers) WithTagRewrites(retags TagRewriteNotifier) *TrackHandlers {
 	h.retags = retags
+	return h
+}
+
+// WithFingerprints wakes the fingerprint worker when an upload completes,
+// so a new track can be identified right away.
+func (h *TrackHandlers) WithFingerprints(fingerprints TagRewriteNotifier) *TrackHandlers {
+	h.fingerprints = fingerprints
 	return h
 }
 
@@ -502,6 +521,9 @@ func (h *TrackHandlers) handleCreateUpload(w http.ResponseWriter, r *http.Reques
 		!enforceRateLimit(w, h.limits.ReservationIPRate, clientIP(r)) {
 		return
 	}
+	if !h.emailGate.allow(w, r, userID) {
+		return
+	}
 	var input createUploadRequest
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxTrackBodyBytes))
 	decoder.DisallowUnknownFields()
@@ -604,6 +626,9 @@ func (h *TrackHandlers) handleComplete(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		internalError(w, "mark track ready", err)
 		return
+	}
+	if h.fingerprints != nil {
+		h.fingerprints.Notify()
 	}
 	writeJSON(w, http.StatusOK, toTrackResponse(ready))
 }

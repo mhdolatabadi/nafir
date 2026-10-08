@@ -85,6 +85,19 @@ class FakeAuthApi implements AuthApi {
     }
     deleted.add(token);
   }
+
+  @override
+  Future<DateTime> sendEmailCode(String token) async =>
+      DateTime.now().add(const Duration(minutes: 15));
+
+  @override
+  Future<AuthUser> verifyEmail(String token, String code) async =>
+      throw const ApiException('404', statusCode: 404);
+
+  @override
+  Future<({AuthUser user, bool codeSent})> changeEmail(
+          String token, String email) async =>
+      throw const ApiException('404', statusCode: 404);
 }
 
 class FakePicker implements AudioPicker {

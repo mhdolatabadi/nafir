@@ -22,6 +22,8 @@ class UploadStatusCard extends StatelessWidget {
           'چند آپلود هنوز در حال تکمیل است. کمی بعد دوباره تلاش کن.',
         UploadError.uploadsDisabled =>
           'آپلود موقتاً غیرفعال است؛ پخش آهنگ‌های موجود همچنان در دسترس است.',
+        UploadError.emailUnverified =>
+          'برای آپلود، اول ایمیلت را تأیید کن. پخش آهنگ‌ها همین حالا هم کار می‌کند.',
         UploadError.network =>
           'ارسال فایل ناموفق بود. اتصال را بررسی کن و دوباره تلاش کن.',
         UploadError.unknown => 'آپلود ناموفق بود. دوباره تلاش کن.',

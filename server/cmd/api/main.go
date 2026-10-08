@@ -17,9 +17,11 @@ import (
 
 	"github.com/mhdolatabadi/nafir/server/internal/auth"
 	"github.com/mhdolatabadi/nafir/server/internal/bot"
+	"github.com/mhdolatabadi/nafir/server/internal/fingerprint"
 	"github.com/mhdolatabadi/nafir/server/internal/httpapi"
 	"github.com/mhdolatabadi/nafir/server/internal/linkimport"
 	"github.com/mhdolatabadi/nafir/server/internal/lyrics"
+	"github.com/mhdolatabadi/nafir/server/internal/mail"
 	"github.com/mhdolatabadi/nafir/server/internal/storage"
 	"github.com/mhdolatabadi/nafir/server/internal/store"
 	"github.com/mhdolatabadi/nafir/server/internal/tagwriter"
@@ -221,6 +223,10 @@ func run() error {
 	}
 	authHandlers.WithAdmins(adminEmails)
 	authHandlers.WithSessionRevocation(users, sessions)
+	if err := setupEmailVerification(authHandlers, users); err != nil {
+		return err
+	}
+	emailGate := authHandlers.EmailGate()
 	// Uploads handed out before an account is deleted may still land until
 	// pending reservations expire, so the purge job sweeps until then.
 	authHandlers.WithAccountDeletion(httpapi.AccountDeletion{
@@ -270,6 +276,17 @@ func run() error {
 		return err
 	}
 
+	fingerprints, identifyHandlers, err := setupIdentify(pool, playlists, objects, tokens, httpapi.SavePolicy{
+		Objects: objects, MaxOwnerBytes: ownerQuotaBytes, Enabled: uploadsEnabled,
+	})
+	if err != nil {
+		return err
+	}
+	var readyTracks httpapi.TagRewriteNotifier = noFingerprints{}
+	if fingerprints != nil {
+		readyTracks = fingerprints
+	}
+
 	var ops *httpapi.OpsHandlers
 	if opsToken := os.Getenv("OPS_TOKEN"); opsToken != "" {
 		if len(opsToken) < 32 {
@@ -292,10 +309,11 @@ func run() error {
 				MaxPending: maxPending, Enabled: uploadsEnabled,
 				ReservationUserRate: reservationUserRate, ReservationIPRate: reservationIPRate,
 				CompletionUserRate: completionUserRate, CompletionIPRate: completionIPRate,
-			}).WithImports(bots).WithTagRewrites(retags),
+			}).WithImports(bots).WithTagRewrites(retags).WithEmailGate(emailGate).WithFingerprints(readyTracks),
 			Playlists: httpapi.NewPlaylistHandlers(playlists, tokens).WithSharing(playlists, objects, httpapi.SavePolicy{
 				Objects: objects, MaxOwnerBytes: ownerQuotaBytes, Enabled: uploadsEnabled,
-			}).WithAnonymous(httpapi.AnonymousLimits{View: publicViewRate, Stream: publicStreamRate}),
+			}).WithAnonymous(httpapi.AnonymousLimits{View: publicViewRate, Stream: publicStreamRate}).
+				WithEmailGate(emailGate),
 			History: httpapi.NewHistoryHandlers(store.NewHistory(pool), tokens, historyRate),
 			Public: httpapi.NewPublicPages(playlists, objects,
 				httpapi.AnonymousLimits{View: publicViewRate, Stream: publicStreamRate}).
@@ -304,9 +322,10 @@ func run() error {
 				WithAndroidApp(os.Getenv("ANDROID_APP_URL")).
 				WithSite(os.Getenv("WEB_ORIGIN")).
 				WithVerification(os.Getenv("GOOGLE_SITE_VERIFICATION"), os.Getenv("BING_SITE_VERIFICATION")),
-			Bots:        botHandlers,
-			LinkImports: httpapi.NewLinkImportHandlers(linkImports, tokens, linkImportRate),
+			Bots:        botHandlers.WithEmailGate(emailGate),
+			LinkImports: httpapi.NewLinkImportHandlers(linkImports, tokens, linkImportRate).WithEmailGate(emailGate),
 			Lyrics:      lyricsHandlers,
+			Identify:    identifyHandlers,
 			Ops:         ops,
 			Webhooks:    webhooks,
 		}),
@@ -317,6 +336,9 @@ func run() error {
 	}
 
 	go retags.Run(ctx)
+	if fingerprints != nil {
+		go fingerprints.Run(ctx)
+	}
 	go cleanPendingUploads(ctx, tracks, objects, pendingTTL, cleanupEvery, cleanupBatch)
 	go purgeDeletedAccounts(ctx, users, objects, cleanupEvery, cleanupBatch)
 
@@ -341,6 +363,109 @@ func run() error {
 	}
 	slog.Info("Nafir API stopped")
 	return nil
+}
+
+// setupEmailVerification turns email verification on when SMTP is
+// configured. Without SMTP_HOST it stays off, so local and development
+// setups work without a mail server, and every account counts as verified.
+func setupEmailVerification(authHandlers *httpapi.AuthHandlers, users *store.Users) error {
+	host := strings.TrimSpace(os.Getenv("SMTP_HOST"))
+	if host == "" {
+		slog.Warn("SMTP_HOST is not set: email verification is off and new accounts are not asked to verify their address")
+		return nil
+	}
+	port, err := positiveIntEnv("SMTP_PORT", 587)
+	if err != nil {
+		return err
+	}
+	sender, err := mail.NewSMTP(mail.Config{
+		Host: host, Port: port,
+		Username: os.Getenv("SMTP_USERNAME"), Password: os.Getenv("SMTP_PASSWORD"),
+		From: os.Getenv("MAIL_FROM"),
+	})
+	if err != nil {
+		return fmt.Errorf("SMTP: %w", err)
+	}
+	codes, err := auth.NewEmailCodes([]byte(os.Getenv("AUTH_TOKEN_SECRET")))
+	if err != nil {
+		return fmt.Errorf("AUTH_TOKEN_SECRET: %w", err)
+	}
+	// Many people can share one IP address behind carrier NAT, so the
+	// per-IP limits are looser than the per-account ones.
+	limits := map[string]*httpapi.RateLimiter{}
+	for _, limit := range []struct {
+		prefix   string
+		requests int
+		window   time.Duration
+	}{
+		{"EMAIL_CODE_USER_RATE", 5, time.Hour},
+		{"EMAIL_CODE_IP_RATE", 30, time.Hour},
+		{"EMAIL_VERIFY_USER_RATE", 20, 15 * time.Minute},
+		{"EMAIL_VERIFY_IP_RATE", 100, 15 * time.Minute},
+	} {
+		if limits[limit.prefix], err = rateLimiterEnv(limit.prefix, limit.requests, limit.window); err != nil {
+			return err
+		}
+	}
+	authHandlers.WithEmailVerification(httpapi.EmailVerification{
+		Store: users, Mailer: sender, Codes: codes,
+		SendUserRate: limits["EMAIL_CODE_USER_RATE"], SendIPRate: limits["EMAIL_CODE_IP_RATE"],
+		ConfirmUserRate: limits["EMAIL_VERIFY_USER_RATE"], ConfirmIPRate: limits["EMAIL_VERIFY_IP_RATE"],
+	})
+	slog.Info("email verification is on", "smtp_host", host, "smtp_port", port)
+	return nil
+}
+
+// noFingerprints stands in for the worker when identification is off.
+type noFingerprints struct{}
+
+func (noFingerprints) Notify() {}
+
+// setupIdentify fingerprints tracks in the background and serves song
+// identification, unless IDENTIFY_ENABLED is false or fpcalc
+// (FPCALC_PATH) is missing. Snippets and track copies are read from
+// FINGERPRINT_TMPDIR while fpcalc runs.
+func setupIdentify(
+	pool *pgxpool.Pool, playlists *store.Playlists, objects *storage.Storage,
+	tokens *auth.Tokens, save httpapi.SavePolicy,
+) (*fingerprint.Worker, *httpapi.IdentifyHandlers, error) {
+	if raw := os.Getenv("IDENTIFY_ENABLED"); raw != "" {
+		enabled, err := strconv.ParseBool(raw)
+		if err != nil {
+			return nil, nil, fmt.Errorf("IDENTIFY_ENABLED must be true or false, got %q", raw)
+		}
+		if !enabled {
+			return nil, nil, nil
+		}
+	}
+	calc := fingerprint.Calculator{Path: os.Getenv("FPCALC_PATH"), MaxLength: 15 * time.Minute}
+	if !calc.Available() {
+		slog.Warn("fpcalc not found; song identification is off")
+		return nil, nil, nil
+	}
+	interval, err := positiveDurationEnv("FINGERPRINT_INTERVAL", time.Minute)
+	if err != nil {
+		return nil, nil, err
+	}
+	concurrent, err := positiveIntEnv("IDENTIFY_CONCURRENT", 2)
+	if err != nil {
+		return nil, nil, err
+	}
+	rate, err := rateLimiterEnv("IDENTIFY_USER_RATE", 20, 10*time.Minute)
+	if err != nil {
+		return nil, nil, err
+	}
+	tempDir := os.Getenv("FINGERPRINT_TMPDIR")
+	fingerprints := store.NewFingerprints(pool)
+	worker := fingerprint.NewWorker(fingerprints, objects, calc, fingerprint.WorkerConfig{
+		TempDir: tempDir, Interval: interval,
+	})
+	snippets := fingerprint.Calculator{Path: calc.Path, MaxLength: 15 * time.Second, Timeout: 30 * time.Second}
+	handlers := httpapi.NewIdentifyHandlers(httpapi.IdentifyConfig{
+		Fingerprinter: snippets, Matches: fingerprints, Playlists: playlists, Copier: fingerprints,
+		Save: save, TempDir: tempDir, Rate: rate, Concurrent: concurrent,
+	}, tokens)
+	return worker, handlers, nil
 }
 
 // setupLyrics serves lyrics from LRCLIB, unless LYRICS_ENABLED is false.

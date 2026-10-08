@@ -47,6 +47,11 @@ abstract final class NafirIcons {
       IconData(0xe30c, fontFamily: 'Phosphor');
   static const IconData magnifyingGlassMinus =
       IconData(0xe30e, fontFamily: 'Phosphor');
+  static const IconData microphone = IconData(0xe326, fontFamily: 'Phosphor');
+  static const IconData microphoneSlash =
+      IconData(0xe328, fontFamily: 'Phosphor');
+  static const IconData microphoneStage =
+      IconData(0xe75c, fontFamily: 'Phosphor');
   static const IconData moonStars = IconData(0xe58e, fontFamily: 'Phosphor');
   static const IconData musicNote = IconData(0xe33c, fontFamily: 'Phosphor');
   static const IconData musicNotes = IconData(0xe340, fontFamily: 'Phosphor');
@@ -83,6 +88,8 @@ abstract final class NafirIcons {
   static const IconData users = IconData(0xe4d6, fontFamily: 'Phosphor');
   static const IconData userPlus = IconData(0xe4d0, fontFamily: 'Phosphor');
   static const IconData userMinus = IconData(0xe4ce, fontFamily: 'Phosphor');
+  static const IconData envelopeSimple =
+      IconData(0xe218, fontFamily: 'Phosphor');
   static const IconData minusCircle = IconData(0xe32c, fontFamily: 'Phosphor');
   static const IconData usersFill =
       IconData(0xe4d6, fontFamily: 'PhosphorFill');
