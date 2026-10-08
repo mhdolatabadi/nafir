@@ -38,6 +38,10 @@ abstract interface class AuthApi {
   /// Deletes the signed-in account and everything in it for good. The
   /// password is checked again; a wrong one fails with `invalid_password`.
   Future<void> deleteAccount(String token, String password);
+
+  /// Ends every session of the account, on every device, and returns a new
+  /// session so this device stays signed in.
+  Future<AuthSession> revokeSessions(String token);
 }
 
 /// A short-lived URL that saves one cloud track as a file under its edited
@@ -303,6 +307,13 @@ class ApiClient
   Future<void> deleteAccount(String token, String password) async {
     await _send('DELETE', '/api/v1/me',
         token: token, body: {'password': password}, expectBody: false);
+  }
+
+  @override
+  Future<AuthSession> revokeSessions(String token) async {
+    final body =
+        await _send('POST', '/api/v1/auth/sessions/revoke', token: token);
+    return AuthSession.fromJson(body);
   }
 
   @override

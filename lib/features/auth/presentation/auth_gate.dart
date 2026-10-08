@@ -180,6 +180,7 @@ class _AuthGateState extends State<AuthGate> {
                 controller.logout();
               },
               onDeleteAccount: controller.deleteAccount,
+              onSignOutEverywhere: controller.signOutEverywhere,
               library: widget.library,
               playlists: widget.playlists,
               recent: widget.recent,

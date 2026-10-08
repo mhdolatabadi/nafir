@@ -54,6 +54,17 @@ class FakeAuthApi implements AuthApi {
         token: validToken, user: AuthUser(id: 'u2', email: email));
   }
 
+  final revoked = <String>[];
+
+  @override
+  Future<AuthSession> revokeSessions(String token) async {
+    if (token != validToken) {
+      throw const ApiException('401', statusCode: 401, code: 'unauthorized');
+    }
+    revoked.add(token);
+    return const AuthSession(token: 'rotated-token', user: _user);
+  }
+
   @override
   Future<AuthUser> me(String token) async {
     if (meError != null) throw meError!;
@@ -399,6 +410,9 @@ void main() {
     await tester.scrollUntilVisible(find.text('حذف حساب کاربری'), 200,
         scrollable: find.byType(Scrollable).first);
     expect(find.text('حریم خصوصی'), findsOneWidget);
+    // Built is not the same as on screen; bring the tile fully into view.
+    await tester.ensureVisible(find.text('حذف حساب کاربری'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('حذف حساب کاربری'));
     await tester.pumpAndSettle();
 
