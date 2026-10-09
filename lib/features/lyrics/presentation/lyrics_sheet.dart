@@ -66,6 +66,11 @@ class _LyricsViewState extends State<LyricsView> {
   Object? _error;
   bool _loading = false;
   int _request = 0;
+  Timer? _extractionPoll;
+  String? _extractionState;
+  bool _startingExtraction = false;
+  bool _generated = false;
+  String? _extractionError;
 
   PlayerController get _player => widget.player;
 
@@ -78,6 +83,7 @@ class _LyricsViewState extends State<LyricsView> {
 
   @override
   void dispose() {
+    _extractionPoll?.cancel();
     _player.removeListener(_onPlayer);
     super.dispose();
   }
@@ -87,6 +93,10 @@ class _LyricsViewState extends State<LyricsView> {
     if (track == null || identical(track, _track) || track.id == _track?.id) {
       return;
     }
+    _extractionPoll?.cancel();
+    _extractionState = null;
+    _extractionError = null;
+    _generated = false;
     _track = track;
     _load();
   }
@@ -101,6 +111,33 @@ class _LyricsViewState extends State<LyricsView> {
       _error = null;
       _loading = cached == null && widget.lyrics.unavailable(track) == null;
     });
+    try {
+      final extraction = await widget.lyrics.extraction(track);
+      if (!mounted || request != _request) return;
+      setState(() => _extractionState = extraction?['state'] as String?);
+      if (_extractionState == 'queued' || _extractionState == 'processing') {
+        setState(() => _loading = false);
+        _extractionPoll?.cancel();
+        _extractionPoll = Timer(const Duration(seconds: 15), _load);
+        return;
+      }
+      if (_extractionState == 'done') {
+        setState(() {
+          _result = TrackLyrics.fromJson({...extraction!, 'status': 'found'});
+          _generated = true;
+          _loading = false;
+        });
+        return;
+      }
+    } catch (_) {
+      // A transient status failure must not prevent existing lyrics from loading.
+      if (!mounted || request != _request) return;
+      if (_extractionState == 'queued' || _extractionState == 'processing') {
+        _extractionPoll?.cancel();
+        _extractionPoll = Timer(const Duration(seconds: 15), _load);
+        return;
+      }
+    }
     if (!_loading) return;
     try {
       final result =
@@ -118,6 +155,35 @@ class _LyricsViewState extends State<LyricsView> {
       });
     }
   }
+
+  Future<void> _extract() async {
+    final track = _track;
+    if (track == null || _startingExtraction) return;
+    setState(() {
+      _startingExtraction = true;
+      _extractionError = null;
+    });
+    try {
+      await widget.lyrics.extraction(track, start: true);
+      if (!mounted || _track?.id != track.id) return;
+      await _load();
+    } catch (error) {
+      if (!mounted || _track?.id != track.id) return;
+      setState(() => _extractionError = error is ApiException &&
+              error.code == 'transcription_busy'
+          ? 'صف پردازش پر است؛ پس از پایان فایل‌های قبلی دوباره امتحان کنید.'
+          : 'استخراج شروع نشد؛ دوباره امتحان کنید.');
+    } finally {
+      if (mounted) setState(() => _startingExtraction = false);
+    }
+  }
+
+  Widget get _source => _generated
+      ? const Padding(
+          padding: EdgeInsets.all(16),
+          child: Text(
+              'متن استخراج‌شده از صدا؛ ممکن است نیاز به اصلاح داشته باشد.'))
+      : LyricsSource(match: _result?.match);
 
   Future<void> _choose() async {
     final track = _track;
@@ -179,6 +245,27 @@ class _LyricsViewState extends State<LyricsView> {
             ],
           ),
         ),
+        if (_extractionState != null &&
+            _extractionState != 'done' &&
+            _extractionState != 'queued' &&
+            _extractionState != 'processing')
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            child: FilledButton.tonalIcon(
+              style: FilledButton.styleFrom(minimumSize: const Size(48, 48)),
+              onPressed: _startingExtraction ? null : _extract,
+              icon: const Icon(NafirIcons.quotes),
+              label: Text(_startingExtraction
+                  ? 'در حال ثبت درخواست'
+                  : _extractionState == 'failed'
+                      ? 'تلاش دوباره برای استخراج از صدا'
+                      : 'استخراج متن از صدا'),
+            ),
+          ),
+        if (_extractionError != null)
+          Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(_extractionError!, semanticsLabel: _extractionError)),
         Expanded(child: _body(context, track, result)),
       ],
     );
@@ -186,6 +273,15 @@ class _LyricsViewState extends State<LyricsView> {
 
   Widget _body(BuildContext context, Track? track, TrackLyrics? result) {
     if (track == null) return const SizedBox.shrink();
+    if (_extractionState == 'queued' || _extractionState == 'processing') {
+      return LyricsMessage(
+        icon: NafirIcons.quotes,
+        title: _extractionState == 'queued'
+            ? 'در صف استخراج متن'
+            : 'در حال تبدیل صدا به متن',
+        detail: 'می‌توانید این صفحه را ببندید؛ پردازش روی سرور ادامه دارد.',
+      );
+    }
     switch (widget.lyrics.unavailable(track)) {
       case LyricsUnavailable.deviceOnly:
         return const LyricsMessage(
@@ -254,12 +350,12 @@ class _LyricsViewState extends State<LyricsView> {
             key: ValueKey(track.id),
             lines: result.lines,
             player: _player,
-            footer: LyricsSource(match: result.match),
+            footer: _source,
           );
         }
         return PlainLyrics(
           text: result.text,
-          footer: LyricsSource(match: result.match),
+          footer: _source,
         );
     }
   }

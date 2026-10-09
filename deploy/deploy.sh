@@ -21,7 +21,15 @@ git checkout --detach "$revision"
 # Images are tagged with the exact source commit. Pull everything before
 # changing running containers, so a missing image leaves production untouched.
 export NAFIR_IMAGE_TAG="$(git rev-parse HEAD)"
-docker compose pull api web
+compose_args=()
+if grep -qE '^TRANSCRIPTION_ENABLED=true$' .env; then
+  compose_args=(--profile transcription)
+  export TRANSCRIPTION_URL=http://transcriber:8090
+fi
+docker compose "${compose_args[@]}" pull api web
+if [[ ${#compose_args[@]} -gt 0 ]]; then
+  docker compose "${compose_args[@]}" pull transcriber
+fi
 
 # One-time move from the old project name ("deploy", from this folder) to
 # "nafir": remove this checkout's old containers so the new ones can take
@@ -35,7 +43,7 @@ if [[ -n "$old_containers" ]]; then
   docker rm -f $old_containers
 fi
 
-docker compose up -d --no-build --remove-orphans
+docker compose "${compose_args[@]}" up -d --no-build --remove-orphans
 docker image prune -f
 
 domain="$(grep -E '^NAFIR_DOMAIN=' .env | cut -d= -f2-)"

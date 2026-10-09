@@ -21,6 +21,9 @@ jobs:
           - name: api
             context: server
             dockerfile: server/Dockerfile
+          - name: transcriber
+            context: server/transcriber
+            dockerfile: server/transcriber/Dockerfile
           - name: web
             context: .
             dockerfile: deploy/Dockerfile.web

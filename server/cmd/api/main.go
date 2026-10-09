@@ -25,6 +25,7 @@ import (
 	"github.com/mhdolatabadi/nafir/server/internal/storage"
 	"github.com/mhdolatabadi/nafir/server/internal/store"
 	"github.com/mhdolatabadi/nafir/server/internal/tagwriter"
+	"github.com/mhdolatabadi/nafir/server/internal/transcription"
 )
 
 const (
@@ -274,6 +275,19 @@ func run() error {
 	lyricsHandlers, err := setupLyrics(pool, tracks, playlists, tokens)
 	if err != nil {
 		return err
+	}
+
+	if endpoint := os.Getenv("TRANSCRIPTION_URL"); endpoint != "" {
+		if lyricsHandlers == nil {
+			return errors.New("transcription requires lyrics enabled")
+		}
+		jobs := store.NewTranscriptions(pool)
+		worker, err := transcription.New(jobs, objects, endpoint, os.Getenv("TRANSCRIPTION_TOKEN"))
+		if err != nil {
+			return err
+		}
+		lyricsHandlers.Transcriptions = jobs
+		go worker.Run(ctx)
 	}
 
 	fingerprints, identifyHandlers, err := setupIdentify(pool, playlists, objects, tokens, httpapi.SavePolicy{
