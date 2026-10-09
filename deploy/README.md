@@ -205,6 +205,8 @@ requests can't get past these limits:
 | Registrations / logins per IP | `REGISTER_RATE_*` / `LOGIN_RATE_*` | 5 per hour / 30 per 15 min |
 | Login attempts per email, from any IP | `LOGIN_ACCOUNT_RATE_*` | 10 per 15 min |
 | Link imports per account | `LINK_IMPORT_USER_RATE_*` | 20 per 10 min |
+| YouTube/Instagram video length | `YTDLP_MAX_DURATION` | 30m |
+| yt-dlp processes at once (server-wide) | `YTDLP_MAX_CONCURRENT` | 2 |
 
 Refused requests get `413 quota_exceeded`, `429 rate_limited` (with
 `Retry-After`) or `429 too_many_pending_uploads`. Uploads that are never
@@ -214,6 +216,34 @@ rows and objects every `PENDING_CLEANUP_INTERVAL` (10m).
 Per-IP limits count an IPv6 client by its /64, since one host usually holds a
 whole /64. Registration also refuses the most common passwords and the
 account's own email (`400 weak_password`).
+
+### YouTube, Instagram and Spotify links
+
+Link imports also accept a YouTube video or Shorts link and an Instagram reel
+or post link. The API runs `yt-dlp` with fixed arguments (never through a
+shell) on a link rebuilt from the video ID, keeps the best audio-only stream
+as is, or copies the audio out of the video with ffmpeg without re-encoding.
+Size, duration, quota and rate limits apply as for any other import, and the
+download's temporary directory is removed whether it succeeds or fails.
+
+- `yt-dlp` is pinned by version and hash in `server/ytdlp-requirements.txt`
+  and installed with Python, ffmpeg and Node.js (for YouTube's JavaScript
+  challenges) into the API image.
+- **Updating yt-dlp:** when YouTube or Instagram imports start failing with
+  `unreachable`, bump `yt-dlp` (and the `yt-dlp-ejs` version its `default`
+  extra names) in that file with the wheels' sha256 from PyPI, open a PR, and
+  after CI and the deploy, smoke-test one YouTube and one Instagram link:
+  `docker compose exec api yt-dlp --version`.
+- `YTDLP_PROXY_URL` (optional, `http://`, `https://`, `socks5://` or
+  `socks5h://`) sends yt-dlp's traffic through a proxy for servers that
+  can't reach the sites. It may hold credentials: keep it in `.env` only.
+- No cookies are used, and none may be committed. Set `YTDLP_ENABLED=false`
+  to turn these imports off.
+
+A Spotify track, album or playlist link is never downloaded. The API reads
+the public embed page (through the same public-address checks as other
+link fetches), finds each title in the user's library, and makes a playlist
+of the matches; the app lists the titles it didn't find.
 
 ### Watching disk space
 

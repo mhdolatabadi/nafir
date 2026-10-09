@@ -17,6 +17,8 @@ const ProviderName = "link"
 type Provider struct {
 	fetcher  *Fetcher
 	maxBytes int64
+	// media downloads YouTube and Instagram imports; nil turns them off.
+	media *YTDLP
 }
 
 var _ bot.Provider = (*Provider)(nil)
@@ -37,6 +39,12 @@ func (p *Provider) SendAudio(context.Context, string, bot.OutgoingAudio) (string
 // is spooled to a temporary file first, bounded by the size limit, which
 // is removed when the body is closed.
 func (p *Provider) Open(ctx context.Context, fileID string) (io.ReadCloser, int64, error) {
+	if link, plan, ok := parseMediaFileID(fileID); ok {
+		if p.media == nil {
+			return nil, 0, ErrUnsupported
+		}
+		return p.media.Open(ctx, link, plan, p.maxBytes)
+	}
 	u, err := ParseURL(fileID)
 	if err != nil {
 		return nil, 0, err

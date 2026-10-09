@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"log/slog"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/mhdolatabadi/nafir/server/internal/bot"
@@ -31,6 +33,7 @@ type ImportStore interface {
 type Service struct {
 	fetcher   *Fetcher
 	provider  *Provider
+	media     *YTDLP
 	importer  *bot.Importer
 	imports   ImportStore
 	maxActive int
@@ -46,6 +49,39 @@ func NewService(fetcher *Fetcher, provider *Provider, importer *bot.Importer, im
 	}
 }
 
+// WithMedia turns on imports from YouTube and Instagram through yt-dlp.
+func (s *Service) WithMedia(media *YTDLP) *Service {
+	s.media = media
+	s.provider.media = media
+	return s
+}
+
+// probeSocial reads a YouTube or Instagram link's metadata. handled is false
+// for links on other sites; Spotify links are ErrMetadataOnly.
+func (s *Service) probeSocial(ctx context.Context, u *url.URL) (Candidate, string, bool, error) {
+	link, ok, err := DetectSocial(u)
+	if !ok {
+		return Candidate{}, "", false, nil
+	}
+	if err != nil {
+		return Candidate{}, "", true, err
+	}
+	if link.Site == SiteSpotify {
+		return Candidate{}, "", true, ErrMetadataOnly
+	}
+	if s.media == nil {
+		return Candidate{}, "", true, ErrUnsupported
+	}
+	info, err := s.media.Probe(ctx, link)
+	if err != nil {
+		return Candidate{}, "", true, err
+	}
+	return Candidate{
+		URL: link.URL, FileName: info.FileName(), SizeBytes: info.SizeBytes,
+		Title: info.Title, Artist: info.Artist, Thumbnail: info.Thumbnail, Duration: info.Duration,
+	}, info.Plan.fileID(link), true, nil
+}
+
 // Preview lists the supported audio files a link leads to without queueing an
 // import. Files the current upload policy refuses are left out.
 func (s *Service) Preview(ctx context.Context, userID, rawURL string) ([]Candidate, error) {
@@ -53,8 +89,13 @@ func (s *Service) Preview(ctx context.Context, userID, rawURL string) ([]Candida
 	if err != nil {
 		return nil, err
 	}
-	candidates, err := s.fetcher.ResolveAll(ctx, u)
-	if err != nil {
+	var candidates []Candidate
+	if social, _, handled, err := s.probeSocial(ctx, u); handled {
+		if err != nil {
+			return nil, err
+		}
+		candidates = []Candidate{social}
+	} else if candidates, err = s.fetcher.ResolveAll(ctx, u); err != nil {
 		return nil, err
 	}
 	result := make([]Candidate, 0, len(candidates))
@@ -92,9 +133,15 @@ func (s *Service) Submit(ctx context.Context, userID, rawURL string) (store.BotI
 	if active >= s.maxActive {
 		return store.BotImport{}, ErrTooMany
 	}
-	candidate, err := s.fetcher.Resolve(ctx, u)
+	candidate, fileID, handled, err := s.probeSocial(ctx, u)
+	if !handled {
+		candidate, err = s.fetcher.Resolve(ctx, u)
+	}
 	if err != nil {
 		return store.BotImport{}, err
+	}
+	if fileID == "" {
+		fileID = candidate.URL.String()
 	}
 	switch s.importer.Check(s.provider, bot.File{Name: candidate.FileName, SizeBytes: candidate.SizeBytes}) {
 	case "":
@@ -105,8 +152,7 @@ func (s *Service) Submit(ctx context.Context, userID, rawURL string) (store.BotI
 	default:
 		return store.BotImport{}, ErrUnsupported
 	}
-	fileURL := candidate.URL.String()
-	if dup, err := s.imports.ActiveImportFor(ctx, userID, ProviderName, fileURL); err != nil {
+	if dup, err := s.imports.ActiveImportFor(ctx, userID, ProviderName, fileID); err != nil {
 		return store.BotImport{}, err
 	} else if dup {
 		return store.BotImport{}, ErrDuplicate
@@ -117,7 +163,8 @@ func (s *Service) Submit(ctx context.Context, userID, rawURL string) (store.BotI
 	}
 	job, err := s.imports.AddImport(ctx, store.BotImport{
 		Provider: ProviderName, ChatID: userID, MessageID: hex.EncodeToString(id), UserID: userID,
-		FileID: fileURL, FileName: candidate.FileName, SizeBytes: candidate.SizeBytes,
+		FileID: fileID, FileName: candidate.FileName, SizeBytes: candidate.SizeBytes,
+		Title: nonEmpty(candidate.Title), Artist: nonEmpty(candidate.Artist),
 	})
 	if err != nil {
 		return store.BotImport{}, err
@@ -152,4 +199,11 @@ func (s *Service) Resume(ctx context.Context) {
 // Recent lists the user's latest link imports, newest first.
 func (s *Service) Recent(ctx context.Context, userID string) ([]store.BotImport, error) {
 	return s.imports.RecentImports(ctx, userID, ProviderName, 20)
+}
+
+func nonEmpty(s string) *string {
+	if s = strings.TrimSpace(s); s == "" {
+		return nil
+	}
+	return &s
 }

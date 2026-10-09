@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/mhdolatabadi/nafir/server/internal/audio"
 	"golang.org/x/net/html"
@@ -21,6 +22,11 @@ type Candidate struct {
 	FileName string
 	// SizeBytes is the file's size when it is already known, else 0.
 	SizeBytes int64
+	// Title, Artist, Thumbnail and Duration come from a video's metadata.
+	Title     string
+	Artist    string
+	Thumbnail string
+	Duration  time.Duration
 }
 
 var extensionsByType = map[string]string{

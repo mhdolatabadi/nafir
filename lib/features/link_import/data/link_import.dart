@@ -47,6 +47,10 @@ class LinkImportCandidate {
     required this.fileName,
     required this.site,
     this.sizeBytes = 0,
+    this.title,
+    this.artist,
+    this.thumbnailUrl,
+    this.durationSeconds = 0,
   });
 
   factory LinkImportCandidate.fromJson(Map<String, dynamic> json) =>
@@ -55,12 +59,82 @@ class LinkImportCandidate {
         fileName: json['fileName'] as String,
         site: json['site'] as String? ?? '',
         sizeBytes: json['sizeBytes'] as int? ?? 0,
+        title: _nonEmpty(json['title']),
+        artist: _nonEmpty(json['artist']),
+        thumbnailUrl: _nonEmpty(json['thumbnailUrl']),
+        durationSeconds: json['durationSeconds'] as int? ?? 0,
       );
 
   final String url;
   final String fileName;
   final String site;
   final int sizeBytes;
+
+  /// A video's title, artist (or channel) and preview image, when the link
+  /// is a YouTube or Instagram one.
+  final String? title;
+  final String? artist;
+  final String? thumbnailUrl;
+  final int durationSeconds;
+
+  String get displayTitle => title ?? fileName;
+}
+
+String? _nonEmpty(Object? value) =>
+    value is String && value.trim().isNotEmpty ? value : null;
+
+/// A title on a Spotify track, album or playlist.
+class SpotifyTitle {
+  const SpotifyTitle({required this.title, this.artists = const []});
+
+  factory SpotifyTitle.fromJson(Map<String, dynamic> json) => SpotifyTitle(
+        title: json['title'] as String,
+        artists: [
+          for (final artist in json['artists'] as List<dynamic>? ?? const [])
+            artist as String,
+        ],
+      );
+
+  final String title;
+  final List<String> artists;
+}
+
+/// What a Spotify link turned into: a playlist of the titles already in the
+/// library (none if nothing matched), and the titles that weren't found.
+class SpotifyImportResult {
+  const SpotifyImportResult({
+    required this.name,
+    required this.matched,
+    required this.missing,
+    this.playlistId,
+  });
+
+  factory SpotifyImportResult.fromJson(Map<String, dynamic> json) =>
+      SpotifyImportResult(
+        name: json['name'] as String? ?? '',
+        playlistId: json['playlistId'] as String?,
+        matched: [
+          for (final item in json['matched'] as List<dynamic>? ?? const [])
+            SpotifyTitle.fromJson(item as Map<String, dynamic>),
+        ],
+        missing: [
+          for (final item in json['missing'] as List<dynamic>? ?? const [])
+            SpotifyTitle.fromJson(item as Map<String, dynamic>),
+        ],
+      );
+
+  final String name;
+  final String? playlistId;
+  final List<SpotifyTitle> matched;
+  final List<SpotifyTitle> missing;
+}
+
+/// Spotify links are matched against the library instead of downloaded.
+bool isSpotifyLink(String url) {
+  final uri = Uri.tryParse(url.trim());
+  return uri != null &&
+      (uri.scheme == 'https' || uri.scheme == 'http') &&
+      uri.host.toLowerCase() == 'open.spotify.com';
 }
 
 abstract interface class LinkImportsApi {
@@ -72,6 +146,9 @@ abstract interface class LinkImportsApi {
 
   /// The user's latest link imports, newest first.
   Future<List<LinkImport>> listLinkImports(String token);
+
+  /// Makes a playlist of a Spotify link's titles found in the library.
+  Future<SpotifyImportResult> importSpotify(String token, String url);
 }
 
 /// What a refused link or a failed import means, in Persian.
@@ -84,6 +161,10 @@ String linkImportMessage(String? code) => switch (code) {
         'در این صفحه فایل صوتی پیدا نشد. لینک صفحه‌ی خود آهنگ یا لینک مستقیم فایل را بچسبان.',
       'unsupported_format' => 'این لینک به فایل صوتی پشتیبانی‌شده نمی‌رسد.',
       'too_large' => 'این فایل از حد مجاز بزرگ‌تر است.',
+      'too_long' => 'این ویدیو از حداکثر مدت مجاز طولانی‌تر است.',
+      'metadata_only' =>
+        'از اسپاتیفای فقط فهرست آهنگ‌ها خوانده می‌شود؛ آهنگ‌هایی که در کتابخانه‌ات داری در یک فهرست پخش جمع می‌شوند.',
+      'no_tracks' => 'در این لینک اسپاتیفای آهنگی پیدا نشد.',
       'duplicate_import' => 'این آهنگ همین حالا در حال اضافه شدن است.',
       'too_many_imports' ||
       'too_many_pending_uploads' ||

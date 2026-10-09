@@ -103,6 +103,8 @@ func TestLinkImportAPI(t *testing.T) {
 		{linkimport.ErrDuplicate, http.StatusConflict, "duplicate_import"},
 		{linkimport.ErrTooMany, http.StatusTooManyRequests, "too_many_imports"},
 		{linkimport.ErrDisabled, http.StatusServiceUnavailable, "uploads_disabled"},
+		{linkimport.ErrTooLong, http.StatusUnprocessableEntity, "too_long"},
+		{linkimport.ErrMetadataOnly, http.StatusUnprocessableEntity, "metadata_only"},
 		{errors.New("boom"), http.StatusInternalServerError, "internal_error"},
 	} {
 		importer.err = tc.err
@@ -118,5 +120,69 @@ func TestLinkImportAPI(t *testing.T) {
 	handler.ServeHTTP(list, request)
 	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), `"site":"cdn.example.ir"`) {
 		t.Fatalf("list = %d %s", list.Code, list.Body.String())
+	}
+}
+
+type fakeSpotifyImporter struct {
+	result linkimport.SpotifyResult
+	err    error
+}
+
+func (f *fakeSpotifyImporter) Import(context.Context, string, string) (linkimport.SpotifyResult, error) {
+	return f.result, f.err
+}
+
+func TestSpotifyImportAPI(t *testing.T) {
+	tokens, _ := auth.NewTokens([]byte(strings.Repeat("k", auth.MinSecretBytes)), time.Hour)
+	token, _, _ := tokens.Issue("u1")
+	spotify := &fakeSpotifyImporter{result: linkimport.SpotifyResult{
+		Name:     "Road Trip",
+		Playlist: &store.Playlist{ID: "pl1"},
+		Matched:  []linkimport.SpotifyMatch{{Item: linkimport.SpotifyItem{Title: "Hello", Artists: []string{"Adele"}}, TrackID: "t1"}},
+		Missing:  []linkimport.SpotifyItem{{Title: "Gone"}},
+	}}
+	handler := NewHandler(Config{LinkImports: NewLinkImportHandlers(&fakeLinkImporter{}, tokens, nil).WithSpotify(spotify)})
+	post := func(auth bool) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(http.MethodPost, "/api/v1/imports/spotify",
+			strings.NewReader(`{"url":"https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M"}`))
+		if auth {
+			request.Header.Set("Authorization", "Bearer "+token)
+		}
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+	if code := post(false).Code; code != http.StatusUnauthorized {
+		t.Fatalf("anonymous = %d", code)
+	}
+	response := post(true)
+	var body struct {
+		Name       string `json:"name"`
+		PlaylistID string `json:"playlistId"`
+		Matched    []struct {
+			Title   string   `json:"title"`
+			Artists []string `json:"artists"`
+			TrackID string   `json:"trackId"`
+		} `json:"matched"`
+		Missing []struct {
+			Title   string   `json:"title"`
+			Artists []string `json:"artists"`
+		} `json:"missing"`
+	}
+	json.NewDecoder(response.Body).Decode(&body)
+	if response.Code != http.StatusCreated || body.PlaylistID != "pl1" || body.Name != "Road Trip" ||
+		len(body.Matched) != 1 || body.Matched[0].TrackID != "t1" || len(body.Missing) != 1 || body.Missing[0].Artists == nil {
+		t.Fatalf("import = %d %+v", response.Code, body)
+	}
+
+	spotify.result = linkimport.SpotifyResult{Name: "Road Trip", Missing: []linkimport.SpotifyItem{{Title: "Gone"}}}
+	response = post(true)
+	if response.Code != http.StatusOK || strings.Contains(response.Body.String(), "playlistId") {
+		t.Fatalf("no matches = %d %s", response.Code, response.Body.String())
+	}
+
+	spotify.err = linkimport.ErrNoTracks
+	if response := post(true); response.Code != http.StatusUnprocessableEntity || !strings.Contains(response.Body.String(), "no_tracks") {
+		t.Fatalf("no tracks = %d %s", response.Code, response.Body.String())
 	}
 }

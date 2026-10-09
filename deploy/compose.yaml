@@ -68,6 +68,11 @@ services:
       # Links one user may submit for import (each makes the server fetch a page).
       LINK_IMPORT_USER_RATE_REQUESTS: ${LINK_IMPORT_USER_RATE_REQUESTS:-20}
       LINK_IMPORT_USER_RATE_WINDOW: ${LINK_IMPORT_USER_RATE_WINDOW:-10m}
+      # YouTube and Instagram imports through the image's pinned yt-dlp.
+      YTDLP_ENABLED: ${YTDLP_ENABLED:-true}
+      YTDLP_PROXY_URL: ${YTDLP_PROXY_URL:-}
+      YTDLP_MAX_DURATION: ${YTDLP_MAX_DURATION:-30m}
+      YTDLP_MAX_CONCURRENT: ${YTDLP_MAX_CONCURRENT:-2}
       # Each messenger bot stays off until its token is set; see README.md.
       BALE_BOT_TOKEN: ${BALE_BOT_TOKEN:-}
       BALE_BOT_USERNAME: ${BALE_BOT_USERNAME:-}

@@ -270,6 +270,13 @@ func run() error {
 			Enabled: uploadsEnabled, MaxFileBytes: maxUploadBytes,
 			MaxOwnerBytes: ownerQuotaBytes, MaxPending: maxPending,
 		}), bots, maxPending)
+	media, err := setupYTDLP()
+	if err != nil {
+		return err
+	}
+	if media != nil {
+		linkImports.WithMedia(media)
+	}
 	go linkImports.Resume(ctx)
 
 	lyricsHandlers, err := setupLyrics(pool, tracks, playlists, tokens)
@@ -336,12 +343,13 @@ func run() error {
 				WithAndroidApp(os.Getenv("ANDROID_APP_URL")).
 				WithSite(os.Getenv("WEB_ORIGIN")).
 				WithVerification(os.Getenv("GOOGLE_SITE_VERIFICATION"), os.Getenv("BING_SITE_VERIFICATION")),
-			Bots:        botHandlers.WithEmailGate(emailGate),
-			LinkImports: httpapi.NewLinkImportHandlers(linkImports, tokens, linkImportRate).WithEmailGate(emailGate),
-			Lyrics:      lyricsHandlers,
-			Identify:    identifyHandlers,
-			Ops:         ops,
-			Webhooks:    webhooks,
+			Bots: botHandlers.WithEmailGate(emailGate),
+			LinkImports: httpapi.NewLinkImportHandlers(linkImports, tokens, linkImportRate).WithEmailGate(emailGate).WithSpotify(
+				linkimport.NewSpotifyImporter(linkimport.NewSpotifyReader(linkFetcher), tracks, playlists)),
+			Lyrics:   lyricsHandlers,
+			Identify: identifyHandlers,
+			Ops:      ops,
+			Webhooks: webhooks,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,

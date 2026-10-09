@@ -717,6 +717,13 @@ class ApiClient
   }
 
   @override
+  Future<SpotifyImportResult> importSpotify(String token, String url) async {
+    final body = await _send('POST', '/api/v1/imports/spotify',
+        body: {'url': url}, token: token);
+    return SpotifyImportResult.fromJson(body);
+  }
+
+  @override
   Future<List<Track>> listHistory(String token, {int? limit}) async {
     final body = await _send('GET',
         limit == null ? '/api/v1/history' : '/api/v1/history?limit=$limit',
