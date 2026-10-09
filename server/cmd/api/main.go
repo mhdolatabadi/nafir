@@ -140,6 +140,16 @@ func run() error {
 	if err := ensureBucket(ctx, objects); err != nil {
 		return fmt.Errorf("storage bucket: %w", err)
 	}
+	// Audio is only ever reachable through presigned URLs; a bucket someone
+	// made public would expose every library, so refuse to serve (#217).
+	// Failing to read the policy (a key without s3:GetBucketPolicy) is only
+	// a warning, so a missing permission can't take the site down.
+	switch err := objects.CheckPrivate(ctx); {
+	case errors.Is(err, storage.ErrPublicBucket):
+		return fmt.Errorf("storage: %w; remove it with `mc anonymous set none`", err)
+	case err != nil:
+		slog.Warn("could not check that the storage bucket is private", "error", err)
+	}
 
 	registerRate, err := rateLimiterEnv("REGISTER_RATE", 5, time.Hour)
 	if err != nil {

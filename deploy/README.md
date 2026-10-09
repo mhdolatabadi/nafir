@@ -215,6 +215,44 @@ Per-IP limits count an IPv6 client by its /64, since one host usually holds a
 whole /64. Registration also refuses the most common passwords and the
 account's own email (`400 weak_password`).
 
+### The API's own MinIO user
+
+The API should not hold the MinIO root credentials (#217). Give it a user
+that can only read, write, list and delete objects in `nafir-music`:
+
+```bash
+cd deploy
+# In .env: STORAGE_ACCESS_KEY=nafir-api and STORAGE_SECRET_KEY=$(openssl rand -hex 32)
+./minio-api-user.sh          # creates the user and the nafir-api policy, idempotent
+docker compose up -d api     # the API switches to the new user
+docker compose logs --tail=20 api   # no "storage" errors
+```
+
+The policy is `deploy/minio-api-policy.json`. Until `STORAGE_ACCESS_KEY` is
+set, the API keeps using the root account, so nothing breaks before the
+user exists. Rollback: empty both variables in `.env` and run
+`docker compose up -d api`.
+
+At start the API refuses to run if the bucket has an anonymous policy,
+because audio must only ever be reachable through presigned links. Remove
+such a policy with `mc anonymous set none <alias>/nafir-music`.
+
+### MinIO image
+
+`MINIO_IMAGE` (default `minio/minio:latest`) chooses the MinIO image. Pin it
+to what the server already runs, so a moving tag never changes the storage
+engine under the data:
+
+```bash
+docker inspect --format '{{index .RepoDigests 0}}' "$(docker compose images -q minio)"
+# put the result in .env, e.g. MINIO_IMAGE=minio/minio@sha256:…
+```
+
+`minio/minio` may no longer be pullable from Docker Hub (it could not be
+pulled while #217 was written). Keep the pinned image in the server's cache
+(do not `docker image prune -a`) until a maintained source is chosen, and
+test any new image against a copy of the data first.
+
 ### Watching disk space
 
 MinIO and Postgres share the server's disk. Check it after deploys and when

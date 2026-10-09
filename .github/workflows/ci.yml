@@ -173,6 +173,19 @@ jobs:
           for volume in ("postgres-data", "minio-data", "caddy-data", "caddy-config"):
               assert f"name: deploy_{volume}" in compose, volume
 
+          # The API runs as its own MinIO user, falling back to root only
+          # until one is created, and the user's policy names only the bucket (#217).
+          assert "STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY:-${MINIO_ROOT_USER}}" in compose
+          assert "STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY:-${MINIO_ROOT_PASSWORD}}" in compose
+          assert "image: ${MINIO_IMAGE:-" in compose
+          import json
+          policy = json.loads(Path("deploy/minio-api-policy.json").read_text())
+          for statement in policy["Statement"]:
+              assert statement["Effect"] == "Allow"
+              assert all(not a.startswith("admin:") and a != "s3:*" for a in statement["Action"]), statement
+              assert statement["Resource"] in (["arn:aws:s3:::nafir-music"], ["arn:aws:s3:::nafir-music/*"]), statement
+              assert "s3:PutBucketPolicy" not in statement["Action"]
+
           nginx = Path("deploy/nginx.conf").read_text()
           assert "location /app/" in nginx and "/app/index.html" in nginx
           # Nothing outside /app/ may fall through to nginx's stock page (#153).

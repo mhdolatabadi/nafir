@@ -31,8 +31,10 @@ services:
       STORAGE_ENDPOINT: minio:9000
       STORAGE_PUBLIC_URL: https://${NAFIR_DOMAIN}
       STORAGE_BUCKET: nafir-music
-      STORAGE_ACCESS_KEY: ${MINIO_ROOT_USER}
-      STORAGE_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      # The API's own MinIO user, limited to the bucket (deploy/minio-api-user.sh,
+      # #217). Until it is set the API falls back to the root credentials.
+      STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY:-${MINIO_ROOT_USER}}
+      STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY:-${MINIO_ROOT_PASSWORD}}
       MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-209715200}
       STORAGE_QUOTA_BYTES: ${STORAGE_QUOTA_BYTES:-1073741824}
       MAX_PENDING_UPLOADS: ${MAX_PENDING_UPLOADS:-3}
@@ -121,7 +123,9 @@ services:
     networks: [internal]
 
   minio:
-    image: minio/minio:latest
+    # Pin this to the digest the server runs (see README.md, "MinIO image")
+    # so a moving tag never changes storage underneath the data.
+    image: ${MINIO_IMAGE:-minio/minio:latest}
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
