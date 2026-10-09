@@ -1,5 +1,6 @@
 import 'package:nafir/features/admin/data/admin_account.dart';
 import 'dart:convert';
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
@@ -693,7 +694,9 @@ class ApiClient
   Future<List<LinkImportCandidate>> previewLink(
       String token, String url) async {
     final body = await _send('POST', '/api/v1/imports/link/preview',
-        token: token, body: {'url': url});
+        token: token,
+        body: {'url': url},
+        requestTimeout: const Duration(seconds: 90));
     return [
       for (final json in body['candidates'] as List<dynamic>)
         LinkImportCandidate.fromJson(json as Map<String, dynamic>),
@@ -703,7 +706,9 @@ class ApiClient
   @override
   Future<LinkImport> importFromLink(String token, String url) async {
     final body = await _send('POST', '/api/v1/imports/link',
-        body: {'url': url}, token: token);
+        body: {'url': url},
+        token: token,
+        requestTimeout: const Duration(seconds: 90));
     return LinkImport.fromJson(body);
   }
 
@@ -848,6 +853,7 @@ class ApiClient
     Map<String, Object?>? body,
     String? token,
     bool expectBody = true,
+    Duration? requestTimeout,
   }) async {
     final request = http.Request(method, baseUri.resolve(path));
     if (body != null) {
@@ -856,9 +862,19 @@ class ApiClient
     }
     if (token != null) request.headers['Authorization'] = 'Bearer $token';
 
-    final response = await http.Response.fromStream(
-      await _httpClient.send(request).timeout(_timeout),
-    );
+    late http.Response response;
+    try {
+      response = await _httpClient
+          .send(request)
+          .then(http.Response.fromStream)
+          .timeout(requestTimeout ?? _timeout);
+    } on TimeoutException {
+      if (requestTimeout != null) {
+        throw const ApiException('Link import request timed out.',
+            code: 'import_timeout');
+      }
+      rethrow;
+    }
     final decoded = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final code = decoded?['error'];

@@ -108,6 +108,14 @@ func toLinkImportCandidateResponse(c linkimport.Candidate) linkImportCandidateRe
 	}
 }
 
+// Link metadata probes may take 60 seconds. Give them a bounded budget,
+// including queue wait, without extending deadlines for unrelated routes.
+func linkImportContext(w http.ResponseWriter, r *http.Request) (context.Context, context.CancelFunc) {
+	deadline := time.Now().Add(75 * time.Second)
+	_ = http.NewResponseController(w).SetWriteDeadline(deadline.Add(5 * time.Second))
+	return context.WithDeadline(r.Context(), deadline)
+}
+
 func (h *LinkImportHandlers) handlePreview(w http.ResponseWriter, r *http.Request) {
 	userID, ok := authenticate(h.tokens, w, r)
 	if !ok {
@@ -128,7 +136,9 @@ func (h *LinkImportHandlers) handlePreview(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusBadRequest, "invalid_json")
 		return
 	}
-	candidates, err := h.importer.Preview(r.Context(), userID, input.URL)
+	ctx, cancel := linkImportContext(w, r)
+	defer cancel()
+	candidates, err := h.importer.Preview(ctx, userID, input.URL)
 	switch {
 	case writeLinkImportError(w, err):
 	case err != nil:
@@ -163,7 +173,9 @@ func (h *LinkImportHandlers) handleSubmit(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusBadRequest, "invalid_json")
 		return
 	}
-	job, err := h.importer.Submit(r.Context(), userID, input.URL)
+	ctx, cancel := linkImportContext(w, r)
+	defer cancel()
+	job, err := h.importer.Submit(ctx, userID, input.URL)
 	switch {
 	case writeLinkImportError(w, err):
 	case err != nil:

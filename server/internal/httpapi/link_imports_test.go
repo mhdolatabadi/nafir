@@ -17,6 +17,7 @@ import (
 )
 
 type fakeLinkImporter struct {
+	delay      time.Duration
 	err        error
 	urls       []string
 	candidates []linkimport.Candidate
@@ -33,7 +34,14 @@ func (f *fakeLinkImporter) Submit(_ context.Context, userID, rawURL string) (sto
 	}, nil
 }
 
-func (f *fakeLinkImporter) Preview(_ context.Context, _ string, rawURL string) ([]linkimport.Candidate, error) {
+func (f *fakeLinkImporter) Preview(ctx context.Context, _ string, rawURL string) ([]linkimport.Candidate, error) {
+	if f.delay > 0 {
+		select {
+		case <-time.After(f.delay):
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
 	f.urls = append(f.urls, rawURL)
 	if f.err != nil {
 		return nil, f.err
@@ -184,5 +192,25 @@ func TestSpotifyImportAPI(t *testing.T) {
 	spotify.err = linkimport.ErrNoTracks
 	if response := post(true); response.Code != http.StatusUnprocessableEntity || !strings.Contains(response.Body.String(), "no_tracks") {
 		t.Fatalf("no tracks = %d %s", response.Code, response.Body.String())
+	}
+}
+
+func TestLinkPreviewExtendsOnlyItsWriteDeadline(t *testing.T) {
+	tokens, _ := auth.NewTokens([]byte(strings.Repeat("k", auth.MinSecretBytes)), time.Hour)
+	token, _, _ := tokens.Issue("owner")
+	importer := &fakeLinkImporter{delay: 80 * time.Millisecond}
+	server := httptest.NewUnstartedServer(NewHandler(Config{LinkImports: NewLinkImportHandlers(importer, tokens, nil)}))
+	server.Config.WriteTimeout = 20 * time.Millisecond
+	server.Start()
+	defer server.Close()
+	req, _ := http.NewRequest(http.MethodPost, server.URL+"/api/v1/imports/link/preview", strings.NewReader(`{"url":"https://youtu.be/BaW_jenozKc"}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	response, err := server.Client().Do(req)
+	if err != nil {
+		t.Fatal("preview hit the normal server write timeout:", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatal(response.StatusCode)
 	}
 }
