@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:async';
+import 'package:fake_async/fake_async.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -6,6 +8,45 @@ import 'package:http/testing.dart';
 import 'package:nafir/core/api/api_client.dart';
 
 void main() {
+  test('slow link preview survives the standard request timeout', () {
+    fakeAsync((clock) {
+      final pending = Completer<http.Response>();
+      final api = ApiClient(Uri.parse('https://example.com'),
+          httpClient: MockClient((_) => pending.future));
+      Object? error;
+      bool done = false;
+      api.previewLink('token', 'https://youtu.be/BaW_jenozKc').then<void>((_) {
+        done = true;
+      }, onError: (Object e) {
+        error = e;
+      });
+      clock.flushMicrotasks();
+      clock.elapse(const Duration(seconds: 20));
+      expect(error, isNull);
+      pending.complete(http.Response('{"candidates":[]}', 200));
+      clock.flushMicrotasks();
+      expect(done, isTrue);
+      expect(error, isNull);
+    });
+  });
+
+  test('link preview timeout has a specific recoverable error', () {
+    fakeAsync((clock) {
+      final api = ApiClient(Uri.parse('https://example.com'),
+          httpClient: MockClient((_) => Completer<http.Response>().future));
+      Object? error;
+      api
+          .previewLink('token', 'https://youtu.be/BaW_jenozKc')
+          .then<void>((_) {}, onError: (Object e) {
+        error = e;
+      });
+      clock.flushMicrotasks();
+      clock.elapse(const Duration(seconds: 91));
+      clock.flushMicrotasks();
+      expect((error as ApiException).code, 'import_timeout');
+    });
+  });
+
   final baseUri = Uri.parse('https://music.example.com');
 
   test('login posts credentials and parses the session', () async {

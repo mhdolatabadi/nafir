@@ -155,6 +155,7 @@ abstract interface class LinkImportsApi {
 String linkImportMessage(String? code) => switch (code) {
       'invalid_url' => 'این لینک معتبر نیست. یک لینک http یا https بچسبان.',
       'blocked_url' => 'ریتمو اجازه ندارد به نشانی این لینک وصل شود.',
+      'import_timeout' => 'بررسی لینک طول کشید؛ کمی بعد دوباره امتحان کن.',
       'unreachable' =>
         'صفحه باز نشد. لینک را بررسی کن یا کمی بعد دوباره امتحان کن.',
       'no_audio' =>
