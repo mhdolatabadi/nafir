@@ -24,6 +24,11 @@ type UserStore interface {
 	ByID(ctx context.Context, id string) (store.User, error)
 }
 
+// SessionRevoker ends every session of an account; *store.Users implements it.
+type SessionRevoker interface {
+	RevokeSessions(ctx context.Context, id string) (store.User, error)
+}
+
 type AuthRateLimiters struct {
 	Register *RateLimiter
 	Login    *RateLimiter
@@ -71,6 +76,8 @@ type AuthHandlers struct {
 	// missing account takes as long as one with a wrong password.
 	dummyHash string
 	admins    map[string]bool
+	revoker   SessionRevoker
+	sessions  *auth.Sessions
 	// verification is nil when email verification is off.
 	verification *EmailVerification
 }
@@ -91,6 +98,42 @@ func (h *AuthHandlers) register(mux *http.ServeMux) {
 		mux.HandleFunc("DELETE /api/v1/me", h.handleDeleteAccount)
 	}
 	h.registerEmailVerification(mux)
+	if h.revoker != nil {
+		mux.HandleFunc("POST /api/v1/auth/sessions/revoke", h.handleRevokeSessions)
+	}
+}
+
+// WithSessionRevocation serves POST /api/v1/auth/sessions/revoke, which signs
+// the account out everywhere. sessions is the cache the tokens check, so
+// this process sees a revocation or deletion at once.
+func (h *AuthHandlers) WithSessionRevocation(revoker SessionRevoker, sessions *auth.Sessions) *AuthHandlers {
+	h.revoker, h.sessions = revoker, sessions
+	return h
+}
+
+// handleRevokeSessions ends every session of the caller's account, on every
+// device, and answers with a fresh session so the device that asked stays
+// signed in.
+func (h *AuthHandlers) handleRevokeSessions(w http.ResponseWriter, r *http.Request) {
+	userID, ok := authenticate(h.tokens, w, r)
+	if !ok {
+		return
+	}
+	user, err := h.revoker.RevokeSessions(r.Context(), userID)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if err != nil {
+		internalError(w, "revoke sessions", err)
+		return
+	}
+	if h.sessions != nil {
+		h.sessions.Forget(user.ID)
+	}
+	slog.Info("sessions revoked", "account", user.ID)
+	w.Header().Set("Cache-Control", "no-store")
+	h.writeSession(w, http.StatusOK, user)
 }
 
 // WithAccountDeletion lets signed-in users delete their own account.
@@ -283,6 +326,10 @@ func (h *AuthHandlers) handleDeleteAccount(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	slog.Info("account deleted", "account", deletion.UserID)
+	// The account's tokens stop working with the next request (#216).
+	if h.sessions != nil {
+		h.sessions.Forget(deletion.UserID)
+	}
 
 	// The account is gone whatever happens next, so a client hanging up
 	// must not stop the cleanup.
@@ -297,7 +344,7 @@ func (h *AuthHandlers) handleDeleteAccount(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *AuthHandlers) writeSession(w http.ResponseWriter, status int, user store.User) {
-	token, expiresAt, err := h.tokens.Issue(user.ID)
+	token, expiresAt, err := h.tokens.IssueSession(user.ID, user.SessionEpoch)
 	if err != nil {
 		internalError(w, "issue token", err)
 		return
@@ -358,12 +405,20 @@ func normalizeEmail(raw string) (string, bool) {
 	return email, true
 }
 
-// authenticate returns the user ID from a valid bearer token, or writes 401.
+// authenticate returns the user ID from a valid, unrevoked bearer token, or
+// writes 401. When the revocation check itself fails it answers 503 instead:
+// a 401 would make the app sign the user out over a database hiccup.
 func authenticate(tokens *auth.Tokens, w http.ResponseWriter, r *http.Request) (string, bool) {
 	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 	if ok && token != "" {
-		if userID, err := tokens.Verify(token); err == nil {
+		userID, err := tokens.Authorize(r.Context(), token)
+		if err == nil {
 			return userID, true
+		}
+		if !errors.Is(err, auth.ErrInvalidToken) {
+			slog.Error("request failed", "action", "check session", "error", err)
+			writeError(w, http.StatusServiceUnavailable, "unavailable")
+			return "", false
 		}
 	}
 	writeError(w, http.StatusUnauthorized, "unauthorized")

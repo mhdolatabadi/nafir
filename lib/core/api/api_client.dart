@@ -40,6 +40,10 @@ abstract interface class AuthApi {
   /// password is checked again; a wrong one fails with `invalid_password`.
   Future<void> deleteAccount(String token, String password);
 
+  /// Ends every session of the account, on every device, and returns a new
+  /// session so this device stays signed in.
+  Future<AuthSession> revokeSessions(String token);
+
   /// Mails a new email verification code, replacing the last one, and
   /// returns when it expires.
   Future<DateTime> sendEmailCode(String token);
@@ -365,6 +369,13 @@ class ApiClient
   Future<void> deleteAccount(String token, String password) async {
     await _send('DELETE', '/api/v1/me',
         token: token, body: {'password': password}, expectBody: false);
+  }
+
+  @override
+  Future<AuthSession> revokeSessions(String token) async {
+    final body =
+        await _send('POST', '/api/v1/auth/sessions/revoke', token: token);
+    return AuthSession.fromJson(body);
   }
 
   @override

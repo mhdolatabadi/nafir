@@ -28,15 +28,17 @@ import (
 )
 
 const (
-	defaultTokenTTL      = 30 * 24 * time.Hour
-	defaultStreamURLTTL  = time.Hour
-	defaultMaxUpload     = 200 << 20
-	defaultOwnerQuota    = 1 << 30
-	defaultMaxPending    = 3
-	defaultPendingTTL    = 2 * time.Hour
-	defaultCleanupEvery  = 10 * time.Minute
-	defaultCleanupBatch  = 100
-	maxRateLimitKeys     = 10_000
+	defaultTokenTTL     = 30 * 24 * time.Hour
+	defaultStreamURLTTL = time.Hour
+	defaultMaxUpload    = 200 << 20
+	defaultOwnerQuota   = 1 << 30
+	defaultMaxPending   = 3
+	defaultPendingTTL   = 2 * time.Hour
+	defaultCleanupEvery = 10 * time.Minute
+	defaultCleanupBatch = 100
+	maxRateLimitKeys    = 10_000
+	// sessionCacheTTL bounds how long a revocation takes to reach another API process.
+	sessionCacheTTL      = 30 * time.Second
 	defaultTagWorkers    = 1
 	storageStartupWindow = time.Minute
 )
@@ -188,6 +190,16 @@ func run() error {
 		return err
 	}
 	users := store.NewUsers(pool)
+	// Tokens are checked against each account's session epoch, so signing
+	// out everywhere and deleting the account end them at once (#216).
+	sessions := auth.NewSessions(func(ctx context.Context, userID string) (int64, error) {
+		epoch, err := users.SessionEpoch(ctx, userID)
+		if errors.Is(err, store.ErrNotFound) {
+			return 0, auth.ErrNoAccount
+		}
+		return epoch, err
+	}, sessionCacheTTL, maxRateLimitKeys)
+	tokens.WithSessions(sessions)
 	authHandlers, err := httpapi.NewAuthHandlers(
 		users, auth.Passwords{Cost: 12}, tokens,
 		httpapi.AuthRateLimiters{
@@ -210,6 +222,7 @@ func run() error {
 		}
 	}
 	authHandlers.WithAdmins(adminEmails)
+	authHandlers.WithSessionRevocation(users, sessions)
 	if err := setupEmailVerification(authHandlers, users); err != nil {
 		return err
 	}

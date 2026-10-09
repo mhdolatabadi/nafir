@@ -27,15 +27,18 @@ type User struct {
 	// EmailVerifiedAt is when the owner proved they read this address; nil
 	// until then. It is independent of Verified.
 	EmailVerifiedAt *time.Time
+	// SessionEpoch is the epoch new access tokens are issued in (#216).
+	SessionEpoch int64
 }
 
 // userColumns are the columns scanUser reads, in order.
-const userColumns = `id::text, email, created_at, verified, verified_at, email_verified_at`
+const userColumns = `id::text, email, created_at, verified, verified_at, email_verified_at, session_epoch`
 
 // scanUser reads userColumns, then any extra columns into extra.
 func scanUser(row pgx.Row, user *User, extra ...any) error {
 	return row.Scan(append([]any{
 		&user.ID, &user.Email, &user.CreatedAt, &user.Verified, &user.VerifiedAt, &user.EmailVerifiedAt,
+		&user.SessionEpoch,
 	}, extra...)...)
 }
 
@@ -79,6 +82,30 @@ func (u *Users) ByID(ctx context.Context, id string) (User, error) {
 	// Comparing as text avoids a cast error when a token carries a malformed ID.
 	err := scanUser(u.pool.QueryRow(ctx,
 		`SELECT `+userColumns+` FROM users WHERE id::text = $1`, id,
+	), &user)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return User{}, ErrNotFound
+	}
+	return user, err
+}
+
+// SessionEpoch returns the epoch the account's valid tokens carry.
+func (u *Users) SessionEpoch(ctx context.Context, id string) (int64, error) {
+	var epoch int64
+	err := u.pool.QueryRow(ctx, `SELECT session_epoch FROM users WHERE id::text = $1`, id).Scan(&epoch)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, ErrNotFound
+	}
+	return epoch, err
+}
+
+// RevokeSessions moves the account to a new session epoch, which ends every
+// token issued so far, and returns the account with the new epoch.
+func (u *Users) RevokeSessions(ctx context.Context, id string) (User, error) {
+	var user User
+	err := scanUser(u.pool.QueryRow(ctx,
+		`UPDATE users SET session_epoch = session_epoch + 1 WHERE id::text = $1
+		 RETURNING `+userColumns, id,
 	), &user)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrNotFound
