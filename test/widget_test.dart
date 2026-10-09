@@ -514,7 +514,9 @@ void main() {
       )),
     );
 
-    await tester.tap(find.text('افزودن موسیقی'));
+    await tester.tap(find.byTooltip('افزودن موسیقی'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('افزودن از فایل'));
     await tester.pumpAndSettle();
 
     expect(find.text('«Song» به کتابخانه اضافه شد.'), findsOneWidget);
@@ -534,7 +536,9 @@ void main() {
       )),
     );
 
-    await tester.tap(find.text('افزودن موسیقی'));
+    await tester.tap(find.byTooltip('افزودن موسیقی'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('افزودن از فایل'));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('این قالب پشتیبانی نمی‌شود'), findsOneWidget);
@@ -552,7 +556,9 @@ void main() {
       )),
     );
 
-    await tester.tap(find.text('افزودن موسیقی'));
+    await tester.tap(find.byTooltip('افزودن موسیقی'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('افزودن از فایل'));
     await tester.pump();
     await tester.pump();
     expect(find.textContaining('در حال آپلود «song.mp3»'), findsOneWidget);
@@ -748,7 +754,9 @@ void main() {
     testWidgets('a song page link is queued and refusals are explained',
         (tester) async {
       final api = await pumpWithLinks(tester);
-      await tester.tap(find.byTooltip('افزودن از لینک'));
+      await tester.tap(find.byTooltip('افزودن موسیقی'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('افزودن از لینک'));
       await tester.pumpAndSettle();
       expect(find.text('افزودن از لینک'), findsWidgets);
 
@@ -781,7 +789,9 @@ void main() {
 
     testWidgets('a failed import says why until dismissed', (tester) async {
       final api = await pumpWithLinks(tester);
-      await tester.tap(find.byTooltip('افزودن از لینک'));
+      await tester.tap(find.byTooltip('افزودن موسیقی'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('افزودن از لینک'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'https://x.ir/a.mp3');
       await tester.tap(find.widgetWithText(FilledButton, 'بررسی لینک'));
@@ -812,7 +822,9 @@ void main() {
     testWidgets('a video link shows its title and artist on a narrow phone',
         (tester) async {
       final api = await pumpWithLinks(tester, size: const Size(360, 740));
-      await tester.tap(find.byTooltip('افزودن از لینک'));
+      await tester.tap(find.byTooltip('افزودن موسیقی'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('افزودن از لینک'));
       await tester.pumpAndSettle();
       await tester.enterText(
           find.byType(TextField), 'https://youtu.be/dQw4w9WgXcQ');
@@ -837,7 +849,9 @@ void main() {
     testWidgets('a Spotify link builds a playlist and lists missing titles',
         (tester) async {
       final api = await pumpWithLinks(tester, size: const Size(360, 740));
-      await tester.tap(find.byTooltip('افزودن از لینک'));
+      await tester.tap(find.byTooltip('افزودن موسیقی'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('افزودن از لینک'));
       await tester.pumpAndSettle();
       const link = 'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M';
       await tester.enterText(find.byType(TextField), link);
@@ -869,7 +883,9 @@ void main() {
         (tester) async {
       final api = await pumpWithLinks(tester);
       api.refuseWith = 'no_tracks';
-      await tester.tap(find.byTooltip('افزودن از لینک'));
+      await tester.tap(find.byTooltip('افزودن موسیقی'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('افزودن از لینک'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField),
           'https://open.spotify.com/album/1111111111111111111111');
@@ -882,14 +898,15 @@ void main() {
     testWidgets('the link action and dialog fit a narrow phone',
         (tester) async {
       await pumpWithLinks(tester, size: const Size(360, 740));
-      final link = tester.getRect(find.byTooltip('افزودن از لینک'));
-      expect(link.width, greaterThanOrEqualTo(40));
-      expect(link.left, greaterThanOrEqualTo(0));
-      // It sits above the upload button, not on top of it.
-      final upload = tester.getRect(find.text('افزودن موسیقی'));
-      expect(link.bottom, lessThanOrEqualTo(upload.top));
+      final add = tester.getRect(find.byTooltip('افزودن موسیقی'));
+      expect(add.width, greaterThanOrEqualTo(48));
+      expect(add.left, greaterThanOrEqualTo(0));
+      expect(find.byType(FloatingActionButton), findsOneWidget);
+      expect(find.text('افزودن موسیقی'), findsNothing);
 
-      await tester.tap(find.byTooltip('افزودن از لینک'));
+      await tester.tap(find.byTooltip('افزودن موسیقی'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('افزودن از لینک'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       final dialog = tester.getRect(find.byType(AlertDialog));
@@ -933,14 +950,14 @@ void main() {
       for (final tab in ['آهنگ‌ها', 'فهرست‌های پخش', 'آلبوم‌ها', 'هنرمندان']) {
         expect(find.widgetWithText(Tab, tab), findsOneWidget);
       }
-      expect(find.text('افزودن موسیقی'), findsOneWidget);
+      expect(find.byTooltip('افزودن موسیقی'), findsOneWidget);
 
       await tester.tap(find.widgetWithText(Tab, 'فهرست‌های پخش'));
       await tester.pumpAndSettle();
       expect(find.text('فهرست پخش جدید'), findsOneWidget);
       expect(find.text('mix'), findsWidgets);
       // Adding music belongs to the tracks tab only.
-      expect(find.text('افزودن موسیقی'), findsNothing);
+      expect(find.byTooltip('افزودن موسیقی'), findsNothing);
 
       await tester.tap(find.widgetWithText(Tab, 'آلبوم‌ها'));
       await tester.pumpAndSettle();
@@ -1047,7 +1064,9 @@ void main() {
     );
     expect(find.text('کتابخانهٔ شما خالی است'), findsOneWidget);
 
-    await tester.tap(find.text('افزودن موسیقی'));
+    await tester.tap(find.byTooltip('افزودن موسیقی'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('افزودن از فایل'));
     await tester.pumpAndSettle();
 
     expect(find.widgetWithText(ListTile, 'Song'), findsOneWidget);
