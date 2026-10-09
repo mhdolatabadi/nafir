@@ -118,6 +118,40 @@ class _LibraryScreenState extends State<LibraryScreen>
     }
   }
 
+  Future<void> _showAddMenu() async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      useSafeArea: true,
+      builder: (context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              minVerticalPadding: 16,
+              leading: const Icon(NafirIcons.uploadSimple),
+              title: const Text('افزودن از فایل'),
+              enabled: !widget.uploads.isBusy,
+              onTap: widget.uploads.isBusy
+                  ? null
+                  : () => Navigator.pop(context, 'file'),
+            ),
+            if (widget.linkImports != null)
+              ListTile(
+                minVerticalPadding: 16,
+                leading: const Icon(NafirIcons.link),
+                title: const Text('افزودن از لینک'),
+                onTap: () => Navigator.pop(context, 'link'),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (choice == 'file') await _pickAndUpload();
+    if (choice == 'link') await _importFromLink();
+  }
+
   Future<void> _importFromLink() async {
     final links = widget.linkImports;
     if (links == null) return;
@@ -579,29 +613,11 @@ class _LibraryScreenState extends State<LibraryScreen>
       bottomNavigationBar: MiniPlayer(player: widget.player),
       floatingActionButton: _tabs.index != 0
           ? null
-          : ListenableBuilder(
-              listenable: widget.uploads,
-              builder: (context, _) => Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  if (widget.linkImports != null) ...[
-                    FloatingActionButton.small(
-                      heroTag: 'link-import',
-                      tooltip: 'افزودن از لینک',
-                      onPressed: _importFromLink,
-                      child: const Icon(NafirIcons.link),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  FloatingActionButton.extended(
-                    heroTag: 'upload',
-                    onPressed: widget.uploads.isBusy ? null : _pickAndUpload,
-                    icon: const Icon(NafirIcons.plus),
-                    label: const Text('افزودن موسیقی'),
-                  ),
-                ],
-              ),
+          : FloatingActionButton(
+              heroTag: 'add-music',
+              tooltip: 'افزودن موسیقی',
+              onPressed: _showAddMenu,
+              child: const Icon(NafirIcons.plus),
             ),
       body: NafirBackdrop(
         child: NestedScrollView(
