@@ -1,5 +1,6 @@
 import 'package:nafir/features/admin/data/admin_account.dart';
 import 'dart:convert';
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
@@ -39,6 +40,10 @@ abstract interface class AuthApi {
   /// Deletes the signed-in account and everything in it for good. The
   /// password is checked again; a wrong one fails with `invalid_password`.
   Future<void> deleteAccount(String token, String password);
+
+  /// Ends every session of the account, on every device, and returns a new
+  /// session so this device stays signed in.
+  Future<AuthSession> revokeSessions(String token);
 
   /// Mails a new email verification code, replacing the last one, and
   /// returns when it expires.
@@ -212,6 +217,11 @@ abstract interface class BotsApi {
 
 /// Song lyrics, which the server looks up on LRCLIB; the app never calls
 /// LRCLIB itself.
+abstract interface class TranscriptionApi {
+  Future<Map<String, dynamic>> transcription(String token, String trackId,
+      {bool start = false});
+}
+
 abstract interface class LyricsApi {
   /// The lyrics of [track], asked for the way it is played: the user's own
   /// track, someone else's through its collaborative playlist, or through
@@ -300,6 +310,7 @@ class ApiClient
         BotsApi,
         LinkImportsApi,
         LyricsApi,
+        TranscriptionApi,
         IdentifyApi,
         AdminApi {
   ApiClient(this.baseUri, {http.Client? httpClient})
@@ -365,6 +376,13 @@ class ApiClient
   Future<void> deleteAccount(String token, String password) async {
     await _send('DELETE', '/api/v1/me',
         token: token, body: {'password': password}, expectBody: false);
+  }
+
+  @override
+  Future<AuthSession> revokeSessions(String token) async {
+    final body =
+        await _send('POST', '/api/v1/auth/sessions/revoke', token: token);
+    return AuthSession.fromJson(body);
   }
 
   @override
@@ -676,7 +694,9 @@ class ApiClient
   Future<List<LinkImportCandidate>> previewLink(
       String token, String url) async {
     final body = await _send('POST', '/api/v1/imports/link/preview',
-        token: token, body: {'url': url});
+        token: token,
+        body: {'url': url},
+        requestTimeout: const Duration(seconds: 90));
     return [
       for (final json in body['candidates'] as List<dynamic>)
         LinkImportCandidate.fromJson(json as Map<String, dynamic>),
@@ -686,7 +706,9 @@ class ApiClient
   @override
   Future<LinkImport> importFromLink(String token, String url) async {
     final body = await _send('POST', '/api/v1/imports/link',
-        body: {'url': url}, token: token);
+        body: {'url': url},
+        token: token,
+        requestTimeout: const Duration(seconds: 90));
     return LinkImport.fromJson(body);
   }
 
@@ -697,6 +719,13 @@ class ApiClient
       for (final json in body['imports'] as List<dynamic>)
         LinkImport.fromJson(json as Map<String, dynamic>),
     ];
+  }
+
+  @override
+  Future<SpotifyImportResult> importSpotify(String token, String url) async {
+    final body = await _send('POST', '/api/v1/imports/spotify',
+        body: {'url': url}, token: token);
+    return SpotifyImportResult.fromJson(body);
   }
 
   @override
@@ -729,6 +758,13 @@ class ApiClient
   Future<void> clearHistory(String token) async {
     await _send('DELETE', '/api/v1/history', token: token, expectBody: false);
   }
+
+  @override
+  Future<Map<String, dynamic>> transcription(String token, String trackId,
+          {bool start = false}) =>
+      _send(start ? 'POST' : 'GET',
+          '/api/v1/tracks/${Uri.encodeComponent(trackId)}/transcription',
+          token: token);
 
   @override
   Future<TrackLyrics> trackLyrics(String? token, Track track,
@@ -817,6 +853,7 @@ class ApiClient
     Map<String, Object?>? body,
     String? token,
     bool expectBody = true,
+    Duration? requestTimeout,
   }) async {
     final request = http.Request(method, baseUri.resolve(path));
     if (body != null) {
@@ -825,9 +862,19 @@ class ApiClient
     }
     if (token != null) request.headers['Authorization'] = 'Bearer $token';
 
-    final response = await http.Response.fromStream(
-      await _httpClient.send(request).timeout(_timeout),
-    );
+    late http.Response response;
+    try {
+      response = await _httpClient
+          .send(request)
+          .then(http.Response.fromStream)
+          .timeout(requestTimeout ?? _timeout);
+    } on TimeoutException {
+      if (requestTimeout != null) {
+        throw const ApiException('Link import request timed out.',
+            code: 'import_timeout');
+      }
+      rethrow;
+    }
     final decoded = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final code = decoded?['error'];

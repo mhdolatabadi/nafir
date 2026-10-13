@@ -46,6 +46,23 @@ class LinkImportController extends ChangeNotifier {
     }
   }
 
+  /// Makes a playlist of a Spotify link's titles already in the library.
+  /// Refusals are thrown as [ApiException].
+  Future<SpotifyImportResult> importSpotify(String url) async {
+    final token = _token();
+    if (token == null) {
+      throw const ApiException('Not signed in.');
+    }
+    _submitting = true;
+    notifyListeners();
+    try {
+      return await _api.importSpotify(token, url.trim());
+    } finally {
+      _submitting = false;
+      notifyListeners();
+    }
+  }
+
   Future<LinkSubmitResult> submit(String url) async {
     final token = _token();
     if (token == null) {

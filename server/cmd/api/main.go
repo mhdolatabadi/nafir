@@ -25,18 +25,21 @@ import (
 	"github.com/mhdolatabadi/nafir/server/internal/storage"
 	"github.com/mhdolatabadi/nafir/server/internal/store"
 	"github.com/mhdolatabadi/nafir/server/internal/tagwriter"
+	"github.com/mhdolatabadi/nafir/server/internal/transcription"
 )
 
 const (
-	defaultTokenTTL      = 30 * 24 * time.Hour
-	defaultStreamURLTTL  = time.Hour
-	defaultMaxUpload     = 200 << 20
-	defaultOwnerQuota    = 1 << 30
-	defaultMaxPending    = 3
-	defaultPendingTTL    = 2 * time.Hour
-	defaultCleanupEvery  = 10 * time.Minute
-	defaultCleanupBatch  = 100
-	maxRateLimitKeys     = 10_000
+	defaultTokenTTL     = 30 * 24 * time.Hour
+	defaultStreamURLTTL = time.Hour
+	defaultMaxUpload    = 200 << 20
+	defaultOwnerQuota   = 1 << 30
+	defaultMaxPending   = 3
+	defaultPendingTTL   = 2 * time.Hour
+	defaultCleanupEvery = 10 * time.Minute
+	defaultCleanupBatch = 100
+	maxRateLimitKeys    = 10_000
+	// sessionCacheTTL bounds how long a revocation takes to reach another API process.
+	sessionCacheTTL      = 30 * time.Second
 	defaultTagWorkers    = 1
 	storageStartupWindow = time.Minute
 )
@@ -188,6 +191,16 @@ func run() error {
 		return err
 	}
 	users := store.NewUsers(pool)
+	// Tokens are checked against each account's session epoch, so signing
+	// out everywhere and deleting the account end them at once (#216).
+	sessions := auth.NewSessions(func(ctx context.Context, userID string) (int64, error) {
+		epoch, err := users.SessionEpoch(ctx, userID)
+		if errors.Is(err, store.ErrNotFound) {
+			return 0, auth.ErrNoAccount
+		}
+		return epoch, err
+	}, sessionCacheTTL, maxRateLimitKeys)
+	tokens.WithSessions(sessions)
 	authHandlers, err := httpapi.NewAuthHandlers(
 		users, auth.Passwords{Cost: 12}, tokens,
 		httpapi.AuthRateLimiters{
@@ -210,6 +223,7 @@ func run() error {
 		}
 	}
 	authHandlers.WithAdmins(adminEmails)
+	authHandlers.WithSessionRevocation(users, sessions)
 	if err := setupEmailVerification(authHandlers, users); err != nil {
 		return err
 	}
@@ -256,11 +270,31 @@ func run() error {
 			Enabled: uploadsEnabled, MaxFileBytes: maxUploadBytes,
 			MaxOwnerBytes: ownerQuotaBytes, MaxPending: maxPending,
 		}), bots, maxPending)
+	media, err := setupYTDLP()
+	if err != nil {
+		return err
+	}
+	if media != nil {
+		linkImports.WithMedia(media)
+	}
 	go linkImports.Resume(ctx)
 
 	lyricsHandlers, err := setupLyrics(pool, tracks, playlists, tokens)
 	if err != nil {
 		return err
+	}
+
+	if endpoint := os.Getenv("TRANSCRIPTION_URL"); endpoint != "" {
+		if lyricsHandlers == nil {
+			return errors.New("transcription requires lyrics enabled")
+		}
+		jobs := store.NewTranscriptions(pool)
+		worker, err := transcription.New(jobs, objects, endpoint, os.Getenv("TRANSCRIPTION_TOKEN"))
+		if err != nil {
+			return err
+		}
+		lyricsHandlers.Transcriptions = jobs
+		go worker.Run(ctx)
 	}
 
 	fingerprints, identifyHandlers, err := setupIdentify(pool, playlists, objects, tokens, httpapi.SavePolicy{
@@ -309,12 +343,13 @@ func run() error {
 				WithAndroidApp(os.Getenv("ANDROID_APP_URL")).
 				WithSite(os.Getenv("WEB_ORIGIN")).
 				WithVerification(os.Getenv("GOOGLE_SITE_VERIFICATION"), os.Getenv("BING_SITE_VERIFICATION")),
-			Bots:        botHandlers.WithEmailGate(emailGate),
-			LinkImports: httpapi.NewLinkImportHandlers(linkImports, tokens, linkImportRate).WithEmailGate(emailGate),
-			Lyrics:      lyricsHandlers,
-			Identify:    identifyHandlers,
-			Ops:         ops,
-			Webhooks:    webhooks,
+			Bots: botHandlers.WithEmailGate(emailGate),
+			LinkImports: httpapi.NewLinkImportHandlers(linkImports, tokens, linkImportRate).WithEmailGate(emailGate).WithSpotify(
+				linkimport.NewSpotifyImporter(linkimport.NewSpotifyReader(linkFetcher), tracks, playlists)),
+			Lyrics:   lyricsHandlers,
+			Identify: identifyHandlers,
+			Ops:      ops,
+			Webhooks: webhooks,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,

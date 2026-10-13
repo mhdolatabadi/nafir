@@ -45,6 +45,7 @@ class LibraryScreen extends StatefulWidget {
     this.onAdmin,
     required this.onLogout,
     this.onDeleteAccount,
+    this.onSignOutEverywhere,
     required this.library,
     this.playlists,
     required this.localAudio,
@@ -70,6 +71,9 @@ class LibraryScreen extends StatefulWidget {
 
   /// Deletes the account after checking [password]; null hides the option.
   final Future<void> Function(String password)? onDeleteAccount;
+
+  /// Signs the account out on every other device; null hides the option.
+  final Future<void> Function()? onSignOutEverywhere;
   final LibraryController library;
   final PlaylistsController? playlists;
   final LocalAudioController localAudio;
@@ -114,6 +118,40 @@ class _LibraryScreenState extends State<LibraryScreen>
     }
   }
 
+  Future<void> _showAddMenu() async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      useSafeArea: true,
+      builder: (context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              minVerticalPadding: 16,
+              leading: const Icon(NafirIcons.uploadSimple),
+              title: const Text('افزودن از فایل'),
+              enabled: !widget.uploads.isBusy,
+              onTap: widget.uploads.isBusy
+                  ? null
+                  : () => Navigator.pop(context, 'file'),
+            ),
+            if (widget.linkImports != null)
+              ListTile(
+                minVerticalPadding: 16,
+                leading: const Icon(NafirIcons.link),
+                title: const Text('افزودن از لینک'),
+                onTap: () => Navigator.pop(context, 'link'),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (choice == 'file') await _pickAndUpload();
+    if (choice == 'link') await _importFromLink();
+  }
+
   Future<void> _importFromLink() async {
     final links = widget.linkImports;
     if (links == null) return;
@@ -121,8 +159,12 @@ class _LibraryScreenState extends State<LibraryScreen>
     if (message == null || !mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
-    // Shows the import in progress and follows it until it is done.
-    await widget.library.load();
+    // Shows the import in progress and follows it until it is done, and a
+    // playlist a Spotify link made.
+    await Future.wait([
+      widget.library.load(),
+      if (widget.playlists case final playlists?) playlists.load(),
+    ]);
   }
 
   void _onTabChanged() {
@@ -345,6 +387,7 @@ class _LibraryScreenState extends State<LibraryScreen>
           builder: (_) => SettingsScreen(
             email: widget.email,
             onDeleteAccount: widget.onDeleteAccount,
+            onSignOutEverywhere: widget.onSignOutEverywhere,
             cache: widget.cache,
             botLinks: widget.botLinks,
             library: widget.library,
@@ -570,29 +613,11 @@ class _LibraryScreenState extends State<LibraryScreen>
       bottomNavigationBar: MiniPlayer(player: widget.player),
       floatingActionButton: _tabs.index != 0
           ? null
-          : ListenableBuilder(
-              listenable: widget.uploads,
-              builder: (context, _) => Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  if (widget.linkImports != null) ...[
-                    FloatingActionButton.small(
-                      heroTag: 'link-import',
-                      tooltip: 'افزودن از لینک',
-                      onPressed: _importFromLink,
-                      child: const Icon(NafirIcons.link),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  FloatingActionButton.extended(
-                    heroTag: 'upload',
-                    onPressed: widget.uploads.isBusy ? null : _pickAndUpload,
-                    icon: const Icon(NafirIcons.plus),
-                    label: const Text('افزودن موسیقی'),
-                  ),
-                ],
-              ),
+          : FloatingActionButton(
+              heroTag: 'add-music',
+              tooltip: 'افزودن موسیقی',
+              onPressed: _showAddMenu,
+              child: const Icon(NafirIcons.plus),
             ),
       body: NafirBackdrop(
         child: NestedScrollView(

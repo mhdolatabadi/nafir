@@ -1,0 +1,11 @@
+# yt-dlp for YouTube and Instagram link imports, installed into the API image
+# with --require-hashes. To update: pick the release on
+# https://pypi.org/project/yt-dlp/, copy the wheel's sha256 from the
+# release's "Download files" page (and the yt-dlp-ejs version that release's
+# "default" extra pins), then rebuild and run the link-import smoke test in
+# deploy/README.md.
+yt-dlp==2026.8.19 \
+    --hash=sha256:1d57897e94c6665a0a6f9bc54b34e584284e32c034ffab3a7df25d8f7b24eedf
+# YouTube's JavaScript challenge solver, run by the image's Node.js.
+yt-dlp-ejs==0.8.0 \
+    --hash=sha256:79300e5fca7f937a1eeede11f0456862c1b41107ce1d726871e0207424f4bdb4

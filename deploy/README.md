@@ -205,6 +205,8 @@ requests can't get past these limits:
 | Registrations / logins per IP | `REGISTER_RATE_*` / `LOGIN_RATE_*` | 5 per hour / 30 per 15 min |
 | Login attempts per email, from any IP | `LOGIN_ACCOUNT_RATE_*` | 10 per 15 min |
 | Link imports per account | `LINK_IMPORT_USER_RATE_*` | 20 per 10 min |
+| YouTube/Instagram video length | `YTDLP_MAX_DURATION` | 30m |
+| yt-dlp processes at once (server-wide) | `YTDLP_MAX_CONCURRENT` | 2 |
 
 Refused requests get `413 quota_exceeded`, `429 rate_limited` (with
 `Retry-After`) or `429 too_many_pending_uploads`. Uploads that are never
@@ -214,6 +216,34 @@ rows and objects every `PENDING_CLEANUP_INTERVAL` (10m).
 Per-IP limits count an IPv6 client by its /64, since one host usually holds a
 whole /64. Registration also refuses the most common passwords and the
 account's own email (`400 weak_password`).
+
+### YouTube, Instagram and Spotify links
+
+Link imports also accept a YouTube video or Shorts link and an Instagram reel
+or post link. The API runs `yt-dlp` with fixed arguments (never through a
+shell) on a link rebuilt from the video ID, keeps the best audio-only stream
+as is, or copies the audio out of the video with ffmpeg without re-encoding.
+Size, duration, quota and rate limits apply as for any other import, and the
+download's temporary directory is removed whether it succeeds or fails.
+
+- `yt-dlp` is pinned by version and hash in `server/ytdlp-requirements.txt`
+  and installed with Python, ffmpeg and Node.js (for YouTube's JavaScript
+  challenges) into the API image.
+- **Updating yt-dlp:** when YouTube or Instagram imports start failing with
+  `unreachable`, bump `yt-dlp` (and the `yt-dlp-ejs` version its `default`
+  extra names) in that file with the wheels' sha256 from PyPI, open a PR, and
+  after CI and the deploy, smoke-test one YouTube and one Instagram link:
+  `docker compose exec api yt-dlp --version`.
+- `YTDLP_PROXY_URL` (optional, `http://`, `https://`, `socks5://` or
+  `socks5h://`) sends yt-dlp's traffic through a proxy for servers that
+  can't reach the sites. It may hold credentials: keep it in `.env` only.
+- No cookies are used, and none may be committed. Set `YTDLP_ENABLED=false`
+  to turn these imports off.
+
+A Spotify track, album or playlist link is never downloaded. The API reads
+the public embed page (through the same public-address checks as other
+link fetches), finds each title in the user's library, and makes a playlist
+of the matches; the app lists the titles it didn't find.
 
 ### Watching disk space
 
@@ -386,3 +416,34 @@ retries them at the new one.
 - Keep MinIO and PostgreSQL on the internal Docker network; do not expose their ports.
 - Back up the named Docker volumes before upgrades.
 - The API will create private music objects and issue short-lived playback links in the next feature.
+
+## Self-hosted audio transcription
+
+LRCLIB finds existing lyrics; it does not transcribe recordings. Owners can separately
+request «استخراج متن از صدا» for their uploaded tracks. This uses a private
+faster-whisper container on the same server, defaults to Persian, and stores timed
+and plain text in PostgreSQL. Machine transcripts may contain mistakes, especially
+with chanting, backing music and crowds. Original audio is never rewritten.
+Generated text is currently available to the owner, not shared playlist visitors.
+
+Provision and measure resources before enabling: the default CPU/int8 `small` model
+container is limited to 2 CPUs and 4 GiB RAM. Quality and processing time must be
+verified against real Persian recitations; these limits are not performance guarantees.
+For mostly Arabic recordings set `TRANSCRIPTION_LANGUAGE=auto` or `ar`. A larger
+model may need increased memory in `compose.yaml`.
+
+Set a random `TRANSCRIPTION_TOKEN` of at least 32 characters in `deploy/.env`, then
+`TRANSCRIPTION_ENABLED=true`. The normal deployment script enables the optional
+Compose profile, pulls the immutable transcriber image and starts it. No port is
+published; the API streams original audio directly over the internal container
+network using the token. The initial model download needs outbound access; subsequent
+loads reuse `transcription-models`. Recordings are never sent to a third party.
+
+One job runs at a time, with at most two active jobs per owner. Limits are 200 MiB
+and 2 hours of decoded audio. Status persists through app closure. Temporary audio
+is deleted after each inference; transcripts are deleted with their track/account.
+Failed jobs can be retried. After a worker crash its lease is recovered after
+2 hours; stale workers cannot overwrite a newer result. Jobs time out after
+110 minutes. Disabling the feature leaves stored results in the database, and
+reenabling recovers the queue. To roll back, set `TRANSCRIPTION_ENABLED=false` and
+run the normal deployment workflow; do not delete the model volume or user data.

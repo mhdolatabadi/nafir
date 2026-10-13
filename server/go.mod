@@ -1,13 +1,13 @@
 module github.com/mhdolatabadi/nafir/server
 
-go 1.26.8
+go 1.26.9
 
 require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/minio/minio-go/v7 v7.0.95
 	golang.org/x/crypto v0.57.0
-	golang.org/x/net v0.59.0
+	golang.org/x/net v0.60.0
 )
 
 require (

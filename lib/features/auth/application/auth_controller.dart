@@ -57,6 +57,14 @@ class AuthController extends ChangeNotifier {
     await logout();
   }
 
+  /// Signs the account out on every other device. This device swaps to the
+  /// new session the server returns and stays signed in.
+  Future<void> signOutEverywhere() async {
+    final token = this.token;
+    if (token == null) throw StateError('Not signed in.');
+    await _start(_api.revokeSessions(token));
+  }
+
   /// Mails a new verification code and returns when it expires.
   Future<DateTime> sendEmailCode() => _api.sendEmailCode(_requireToken());
 

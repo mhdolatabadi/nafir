@@ -51,6 +51,24 @@ class LyricsController extends ChangeNotifier {
     return lyrics;
   }
 
+  bool canExtract(Track track) =>
+      _api is TranscriptionApi &&
+      unavailable(track) == null &&
+      track.sharedVia == null &&
+      track.viaPlaylist == null;
+
+  Future<Map<String, dynamic>?> extraction(Track track,
+      {bool start = false}) async {
+    if (!canExtract(track)) return null;
+    try {
+      return await (_api as TranscriptionApi)
+          .transcription(_token()!, track.id, start: start);
+    } on ApiException catch (error) {
+      if (!start && error.code == 'transcription_disabled') return null;
+      rethrow;
+    }
+  }
+
   /// Other LRCLIB entries the owner may pick for [track].
   Future<List<LyricsMatch>> candidates(Track track, {String query = ''}) {
     final token = _token();
