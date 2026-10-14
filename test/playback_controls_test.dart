@@ -47,6 +47,83 @@ void main() {
     });
   }
 
+  test('silence skipping reaches supported engines and is restored', () async {
+    final native = _SilenceEngine();
+    engine = native;
+    final player = controller();
+    expect(player.supportsSilenceSkipping, isTrue);
+    await player.setSystemPreferences(
+        skipSilence: true, systemControls: false, externalPlayback: false);
+    expect(native.skipSilence, isTrue);
+    expect(store.settings.skipSilence, isTrue);
+    player.dispose();
+    final restored = controller();
+    addTearDown(restored.dispose);
+    await restored.loadSettings();
+    expect(restored.skipSilence, isTrue);
+    expect(restored.systemControls, isFalse);
+    expect(restored.externalPlayback, isFalse);
+  });
+
+  test('unsupported engines do not enable silence skipping', () async {
+    final player = controller();
+    addTearDown(player.dispose);
+    expect(player.supportsSilenceSkipping, isFalse);
+    await player.setSystemPreferences(skipSilence: true);
+    expect(player.skipSilence, isFalse);
+  });
+
+  group('queue preferences', () {
+    test('single-row mode preserves the chosen track and explicit play-all',
+        () async {
+      final player = controller();
+      addTearDown(player.dispose);
+      await player.setQueuePreferences(playOnlySelected: true);
+      await player.playTapped(_abc, 1);
+      expect(player.track?.id, 'b');
+      expect(player.upcoming, isEmpty);
+      await player.playFrom(_abc, 0);
+      expect(player.upcoming.map((track) => track.id), ['b', 'c']);
+    });
+
+    test('duplicate prevention keeps the tapped ID after earlier duplicates',
+        () async {
+      final player = controller();
+      addTearDown(player.dispose);
+      await player.setQueuePreferences(preventDuplicates: true);
+      await player.playTapped([_a, _a, _b, _b, _c], 3);
+      expect(player.track?.id, 'b');
+      expect(player.upcoming.map((track) => track.id), ['c']);
+      await player.playShuffled([_a, _a, _b, _c, _c]);
+      final ids = [
+        player.track!.id,
+        ...player.upcoming.map((track) => track.id)
+      ];
+      expect(ids.length, 3);
+      expect(ids.toSet(), {'a', 'b', 'c'});
+    });
+
+    test('preferences persist and malformed saved values use defaults',
+        () async {
+      final player = controller();
+      await player.setQueuePreferences(
+          playOnlySelected: true, preventDuplicates: true);
+      player.dispose();
+      final restored = controller();
+      addTearDown(restored.dispose);
+      await restored.loadSettings();
+      expect(restored.playOnlySelected, isTrue);
+      expect(restored.preventDuplicates, isTrue);
+      final settings = PlaybackSettings.fromJson(store.settings.toJson());
+      expect(settings.playOnlySelected, isTrue);
+      expect(settings.preventDuplicates, isTrue);
+      final invalid = PlaybackSettings.fromJson(
+          {'playOnlySelected': 'true', 'preventDuplicates': 1});
+      expect(invalid.playOnlySelected, isFalse);
+      expect(invalid.preventDuplicates, isFalse);
+    });
+  });
+
   group('sleep timer', () {
     test('counts down, fades out over the last seconds, then pauses', () {
       inFakeTime((async, player) {
@@ -495,4 +572,12 @@ void main() {
       expect(start, 1);
     });
   });
+}
+
+class _SilenceEngine extends FakeAudioEngine implements SilenceSkippingEngine {
+  bool skipSilence = false;
+  @override
+  bool get supportsSilenceSkipping => true;
+  @override
+  Future<void> setSkipSilence(bool enabled) async => skipSilence = enabled;
 }

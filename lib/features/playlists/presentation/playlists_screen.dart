@@ -719,7 +719,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                             )
                                           : null,
                                       onTap: () => widget.player
-                                          .playFrom(current.tracks, index),
+                                          .playTapped(current.tracks, index),
                                     );
                                   },
                                 ),
