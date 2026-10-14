@@ -22,6 +22,7 @@ class SettingsScreen extends StatefulWidget {
     this.player,
     this.email,
     this.onDeleteAccount,
+    this.onSignOutEverywhere,
     this.siteUri = AppConfiguration.sitePage,
     this.openLink = openExternalLink,
   });
@@ -31,6 +32,9 @@ class SettingsScreen extends StatefulWidget {
 
   /// Deletes the account; null hides the option.
   final Future<void> Function(String password)? onDeleteAccount;
+
+  /// Ends the account's sessions on every other device; null hides it.
+  final Future<void> Function()? onSignOutEverywhere;
 
   /// Where a page of the Nafir site, such as `/privacy`, lives; null when
   /// there is no server.
@@ -86,6 +90,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(ok ? 'کش پاک شد.' : 'پاک کردن کش ناموفق بود.'),
+    ));
+  }
+
+  Future<void> _signOutEverywhere(Future<void> Function() signOut) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('از همه‌ی دستگاه‌ها خارج شوی؟'),
+        content: const Text(
+          'روی همه‌ی گوشی‌ها و مرورگرهای دیگر از حسابت خارج می‌شوی و باید '
+          'دوباره وارد شوی. این دستگاه وارد می‌ماند.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('خروج از بقیه'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    var ok = true;
+    try {
+      await signOut();
+    } catch (_) {
+      ok = false;
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(ok
+          ? 'از همه‌ی دستگاه‌های دیگر خارج شدی.'
+          : 'خروج از دستگاه‌های دیگر ناموفق بود. دوباره امتحان کن.'),
     ));
   }
 
@@ -180,6 +220,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: const Icon(NafirIcons.arrowSquareOut, size: 20),
             onTap: () => _openPage('/privacy'),
           ),
+          if (widget.onSignOutEverywhere case final signOut?)
+            ListTile(
+              leading: const Icon(NafirIcons.signOut),
+              title: const Text('خروج از همه‌ی دستگاه‌ها'),
+              subtitle: const Text(
+                'اگر گوشی یا رمزت دست کس دیگری افتاده، بقیه‌ی نشست‌ها را ببند',
+              ),
+              onTap: () => _signOutEverywhere(signOut),
+            ),
           if ((widget.email, widget.onDeleteAccount)
               case (final String email, final delete?))
             ListTile(

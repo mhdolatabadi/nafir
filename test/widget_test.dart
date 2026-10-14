@@ -54,6 +54,17 @@ class FakeAuthApi implements AuthApi {
         token: validToken, user: AuthUser(id: 'u2', email: email));
   }
 
+  final revoked = <String>[];
+
+  @override
+  Future<AuthSession> revokeSessions(String token) async {
+    if (token != validToken) {
+      throw const ApiException('401', statusCode: 401, code: 'unauthorized');
+    }
+    revoked.add(token);
+    return const AuthSession(token: 'rotated-token', user: _user);
+  }
+
   @override
   Future<AuthUser> me(String token) async {
     if (meError != null) throw meError!;
@@ -149,10 +160,49 @@ class FakeLinkImportsApi implements LinkImportsApi {
     if (refuseWith case final code?) {
       throw ApiException(code, statusCode: 422, code: code);
     }
+    if (url.contains('youtu')) {
+      return [
+        LinkImportCandidate(
+          url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          fileName: 'song.m4a',
+          site: 'www.youtube.com',
+          title:
+              'یک عنوان خیلی خیلی طولانی برای ویدیو که در صفحه‌ی باریک جا نمی‌شود',
+          artist: 'Singer',
+          thumbnailUrl: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hq.jpg',
+          durationSeconds: 215,
+          sizeBytes: 3400000,
+        ),
+      ];
+    }
     return [
       LinkImportCandidate(
           url: url, fileName: 'Artist - Song.mp3', site: 'music.example.ir'),
     ];
+  }
+
+  final spotifyLinks = <String>[];
+
+  @override
+  Future<SpotifyImportResult> importSpotify(String token, String url) async {
+    spotifyLinks.add(url);
+    if (refuseWith case final code?) {
+      throw ApiException(code, statusCode: 422, code: code);
+    }
+    return const SpotifyImportResult(
+      name: 'Road Trip',
+      playlistId: 'pl1',
+      matched: [
+        SpotifyTitle(title: 'Hello', artists: ['Adele'])
+      ],
+      missing: [
+        SpotifyTitle(
+            title:
+                'A very long missing Spotify title that cannot fit on a narrow phone screen',
+            artists: ['Somebody', 'Somebody Else']),
+        SpotifyTitle(title: 'آهنگ پیدا نشده'),
+      ],
+    );
   }
 
   @override
@@ -412,6 +462,9 @@ void main() {
     await tester.scrollUntilVisible(find.text('حذف حساب کاربری'), 200,
         scrollable: find.byType(Scrollable).first);
     expect(find.text('حریم خصوصی'), findsOneWidget);
+    // Built is not the same as on screen; bring the tile fully into view.
+    await tester.ensureVisible(find.text('حذف حساب کاربری'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('حذف حساب کاربری'));
     await tester.pumpAndSettle();
 
@@ -461,7 +514,9 @@ void main() {
       )),
     );
 
-    await tester.tap(find.text('افزودن موسیقی'));
+    await tester.tap(find.byTooltip('افزودن موسیقی'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('افزودن از فایل'));
     await tester.pumpAndSettle();
 
     expect(find.text('«Song» به کتابخانه اضافه شد.'), findsOneWidget);
@@ -481,7 +536,9 @@ void main() {
       )),
     );
 
-    await tester.tap(find.text('افزودن موسیقی'));
+    await tester.tap(find.byTooltip('افزودن موسیقی'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('افزودن از فایل'));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('این قالب پشتیبانی نمی‌شود'), findsOneWidget);
@@ -499,7 +556,9 @@ void main() {
       )),
     );
 
-    await tester.tap(find.text('افزودن موسیقی'));
+    await tester.tap(find.byTooltip('افزودن موسیقی'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('افزودن از فایل'));
     await tester.pump();
     await tester.pump();
     expect(find.textContaining('در حال آپلود «song.mp3»'), findsOneWidget);
@@ -695,7 +754,9 @@ void main() {
     testWidgets('a song page link is queued and refusals are explained',
         (tester) async {
       final api = await pumpWithLinks(tester);
-      await tester.tap(find.byTooltip('افزودن از لینک'));
+      await tester.tap(find.byTooltip('افزودن موسیقی'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('افزودن از لینک'));
       await tester.pumpAndSettle();
       expect(find.text('افزودن از لینک'), findsWidgets);
 
@@ -728,7 +789,9 @@ void main() {
 
     testWidgets('a failed import says why until dismissed', (tester) async {
       final api = await pumpWithLinks(tester);
-      await tester.tap(find.byTooltip('افزودن از لینک'));
+      await tester.tap(find.byTooltip('افزودن موسیقی'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('افزودن از لینک'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'https://x.ir/a.mp3');
       await tester.tap(find.widgetWithText(FilledButton, 'بررسی لینک'));
@@ -756,17 +819,94 @@ void main() {
       expect(find.text('افزودن از لینک ناموفق بود'), findsNothing);
     });
 
+    testWidgets('a video link shows its title and artist on a narrow phone',
+        (tester) async {
+      final api = await pumpWithLinks(tester, size: const Size(360, 740));
+      await tester.tap(find.byTooltip('افزودن موسیقی'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('افزودن از لینک'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+          find.byType(TextField), 'https://youtu.be/dQw4w9WgXcQ');
+      await tester.tap(find.widgetWithText(FilledButton, 'بررسی لینک'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.textContaining('یک عنوان خیلی خیلی طولانی'), findsOneWidget);
+      expect(find.textContaining('Singer · ۳:۳۵'), findsOneWidget);
+      final dialog = tester.getRect(find.byType(AlertDialog));
+      expect(dialog.left, greaterThanOrEqualTo(0));
+      expect(dialog.right, lessThanOrEqualTo(360));
+      final tile = tester.getRect(find.byType(CheckboxListTile));
+      expect(tile.right, lessThanOrEqualTo(dialog.right));
+
+      await tester
+          .tap(find.widgetWithText(FilledButton, 'افزودن انتخاب‌شده‌ها'));
+      await tester.pumpAndSettle();
+      expect(
+          api.submitted.single, 'https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+    });
+
+    testWidgets('a Spotify link builds a playlist and lists missing titles',
+        (tester) async {
+      final api = await pumpWithLinks(tester, size: const Size(360, 740));
+      await tester.tap(find.byTooltip('افزودن موسیقی'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('افزودن از لینک'));
+      await tester.pumpAndSettle();
+      const link = 'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M';
+      await tester.enterText(find.byType(TextField), link);
+      await tester.tap(find.widgetWithText(FilledButton, 'بررسی لینک'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      // Nothing is downloaded: it never reaches the link import.
+      expect(api.spotifyLinks, [link]);
+      expect(api.submitted, isEmpty);
+      expect(find.text('فهرست پخش «Road Trip» با ۱ آهنگ ساخته شد.'),
+          findsOneWidget);
+      expect(find.text('۲ آهنگ در کتابخانه‌ات پیدا نشد:'), findsOneWidget);
+      expect(find.text('Somebody، Somebody Else'), findsOneWidget);
+      expect(find.text('آهنگ پیدا نشده'), findsOneWidget);
+      final dialog = tester.getRect(find.byType(AlertDialog));
+      expect(dialog.left, greaterThanOrEqualTo(0));
+      expect(dialog.right, lessThanOrEqualTo(360));
+      final done = tester.getRect(find.widgetWithText(FilledButton, 'تمام'));
+      expect(done.bottom, lessThanOrEqualTo(dialog.bottom));
+
+      await tester.tap(find.widgetWithText(FilledButton, 'تمام'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.text('فهرست پخش «Road Trip» با ۱ آهنگ ساخته شد.'),
+          findsOneWidget);
+    });
+
+    testWidgets('a Spotify link that names no tracks is explained',
+        (tester) async {
+      final api = await pumpWithLinks(tester);
+      api.refuseWith = 'no_tracks';
+      await tester.tap(find.byTooltip('افزودن موسیقی'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('افزودن از لینک'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField),
+          'https://open.spotify.com/album/1111111111111111111111');
+      await tester.tap(find.widgetWithText(FilledButton, 'بررسی لینک'));
+      await tester.pumpAndSettle();
+      expect(
+          find.text('در این لینک اسپاتیفای آهنگی پیدا نشد.'), findsOneWidget);
+    });
+
     testWidgets('the link action and dialog fit a narrow phone',
         (tester) async {
       await pumpWithLinks(tester, size: const Size(360, 740));
-      final link = tester.getRect(find.byTooltip('افزودن از لینک'));
-      expect(link.width, greaterThanOrEqualTo(40));
-      expect(link.left, greaterThanOrEqualTo(0));
-      // It sits above the upload button, not on top of it.
-      final upload = tester.getRect(find.text('افزودن موسیقی'));
-      expect(link.bottom, lessThanOrEqualTo(upload.top));
+      final add = tester.getRect(find.byTooltip('افزودن موسیقی'));
+      expect(add.width, greaterThanOrEqualTo(48));
+      expect(add.left, greaterThanOrEqualTo(0));
+      expect(find.byType(FloatingActionButton), findsOneWidget);
+      expect(find.text('افزودن موسیقی'), findsNothing);
 
-      await tester.tap(find.byTooltip('افزودن از لینک'));
+      await tester.tap(find.byTooltip('افزودن موسیقی'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('افزودن از لینک'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       final dialog = tester.getRect(find.byType(AlertDialog));
@@ -810,14 +950,14 @@ void main() {
       for (final tab in ['آهنگ‌ها', 'فهرست‌های پخش', 'آلبوم‌ها', 'هنرمندان']) {
         expect(find.widgetWithText(Tab, tab), findsOneWidget);
       }
-      expect(find.text('افزودن موسیقی'), findsOneWidget);
+      expect(find.byTooltip('افزودن موسیقی'), findsOneWidget);
 
       await tester.tap(find.widgetWithText(Tab, 'فهرست‌های پخش'));
       await tester.pumpAndSettle();
       expect(find.text('فهرست پخش جدید'), findsOneWidget);
       expect(find.text('mix'), findsWidgets);
       // Adding music belongs to the tracks tab only.
-      expect(find.text('افزودن موسیقی'), findsNothing);
+      expect(find.byTooltip('افزودن موسیقی'), findsNothing);
 
       await tester.tap(find.widgetWithText(Tab, 'آلبوم‌ها'));
       await tester.pumpAndSettle();
@@ -924,7 +1064,9 @@ void main() {
     );
     expect(find.text('کتابخانهٔ شما خالی است'), findsOneWidget);
 
-    await tester.tap(find.text('افزودن موسیقی'));
+    await tester.tap(find.byTooltip('افزودن موسیقی'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('افزودن از فایل'));
     await tester.pumpAndSettle();
 
     expect(find.widgetWithText(ListTile, 'Song'), findsOneWidget);
