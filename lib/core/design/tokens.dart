@@ -55,6 +55,10 @@ abstract final class NafirColors {
   /// Under the now-playing screen while it is dragged down.
   static const barrier = Color(0x8A000000);
 
+  /// The light theme's seed: a deeper ember that keeps its contrast on
+  /// light surfaces. The light scheme is derived from it.
+  static const lightSeed = Color(0xFFAD2638);
+
   // Ambient light behind the app.
   static const ambientTop = Color(0xFF17101D);
   static const ambientMiddle = Color(0xFF090B14);
@@ -142,7 +146,9 @@ abstract final class NafirMotion {
 abstract final class NafirType {
   static const family = 'Vazirmatn';
 
-  static TextTheme apply(TextTheme base) {
+  /// Sets the scale on [base], in [color] (the scheme's onSurface).
+  static TextTheme apply(TextTheme base,
+      {Color color = NafirColors.onSurface}) {
     TextStyle? style(
             TextStyle? s, double size, FontWeight weight, double height) =>
         s?.copyWith(
@@ -150,7 +156,7 @@ abstract final class NafirType {
           fontSize: size,
           fontWeight: weight,
           height: height,
-          color: NafirColors.onSurface,
+          color: color,
         );
     return base.copyWith(
       displaySmall: style(base.displaySmall, 34, FontWeight.w800, 1.25),
@@ -232,6 +238,13 @@ class NafirTokens extends ThemeExtension<NafirTokens> {
   final Color ambientSecondary;
 
   static const dark = NafirTokens();
+
+  /// The light theme: the glass levels keep their shape, the ring and the
+  /// ambient light take the deeper ember.
+  static const light = NafirTokens(
+    focusRing: NafirColors.lightSeed,
+    ambientPrimary: NafirColors.lightSeed,
+  );
 
   static NafirTokens of(BuildContext context) =>
       Theme.of(context).extension<NafirTokens>() ?? dark;

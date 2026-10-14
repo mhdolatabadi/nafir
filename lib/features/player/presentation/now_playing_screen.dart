@@ -183,7 +183,12 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [tint, NafirColors.background],
+                  colors: [
+                    Theme.of(context).brightness == Brightness.dark
+                        ? tint
+                        : Theme.of(context).colorScheme.primaryContainer,
+                    Theme.of(context).colorScheme.surface,
+                  ],
                   stops: const [0, 0.78],
                 ),
               ),
@@ -438,7 +443,9 @@ class NowPlayingArtwork extends StatelessWidget {
             end: Alignment.bottomLeft,
             colors: [
               Color.lerp(tint, NafirColors.highlight, 0.14)!,
-              Color.lerp(tint, NafirColors.background, 0.35)!,
+              Theme.of(context).brightness == Brightness.dark
+                  ? Color.lerp(tint, NafirColors.background, 0.35)!
+                  : colors.primaryContainer,
             ],
           ),
           border: Border.all(color: NafirColors.softBorder),

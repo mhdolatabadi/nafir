@@ -118,3 +118,27 @@ func TestPresignDownloadSignsTheSaveAsHeaders(t *testing.T) {
 		t.Fatalf("download URL does not carry the signed headers: %s", signed)
 	}
 }
+
+func TestAllowsAnonymous(t *testing.T) {
+	for _, tc := range []struct {
+		policy string
+		public bool
+	}{
+		{"", false},
+		{"  ", false},
+		// What `mc anonymous set download` writes.
+		{`{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":["*"]},"Action":["s3:GetObject"],"Resource":["arn:aws:s3:::nafir-music/*"]}]}`, true},
+		{`{"Statement":[{"Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":"*"}]}`, true},
+		{`{"Statement":[{"Effect":"Allow","Principal":{"AWS":"*"},"Action":"s3:PutObject","Resource":"*"}]}`, true},
+		{`{"Statement":[{"Effect":"Deny","Principal":"*","Action":"s3:*","Resource":"*"}]}`, false},
+		{`{"Statement":[{"Effect":"Allow","Principal":{"AWS":["arn:aws:iam::123:user/api"]},"Action":"s3:GetObject","Resource":"*"}]}`, false},
+	} {
+		public, err := allowsAnonymous(tc.policy)
+		if err != nil || public != tc.public {
+			t.Errorf("allowsAnonymous(%s) = %v, %v; want %v", tc.policy, public, err, tc.public)
+		}
+	}
+	if _, err := allowsAnonymous("{not json"); err == nil {
+		t.Error("a malformed policy must be an error")
+	}
+}

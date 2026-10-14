@@ -358,9 +358,13 @@ class _MiniTrackText extends StatelessWidget {
         ),
         const SizedBox(height: 2),
         Text(
-          status == PlayerStatus.error
-              ? 'پخش ناموفق بود. دوباره تلاش کن.'
-              : trackSubtitle(track),
+          switch (status) {
+            PlayerStatus.error => 'پخش ناموفق بود. دوباره تلاش کن.',
+            PlayerStatus.loading ||
+            PlayerStatus.buffering =>
+              'در حال بارگذاری…',
+            _ => trackSubtitle(track),
+          },
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(

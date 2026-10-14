@@ -110,7 +110,10 @@ playback outrank decoration. Its personality lives in precise details: the
 breathing artwork, each track's own tint, the ambient light.
 
 **Key Characteristics:**
-- Dark only. There is no light theme, by brand commitment.
+- Dark first. The dark glass theme is the brand and the default. A light
+  theme (Settings → appearance, from #281) uses Material's scheme seeded
+  from a deeper ember (`NafirColors.lightSeed`): its containers are plain
+  tonal fills, not translucent glass, and its focus ring is that ember.
 - One accent at a time. Ember marks the primary action and the playing
   state; violet marks selection and secondary emphasis.
 - Glass with restraint. Blur is reserved for chrome and panels; cards and

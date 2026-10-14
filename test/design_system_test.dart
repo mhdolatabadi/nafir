@@ -102,6 +102,29 @@ void main() {
       expect(artworkTint('a'), artworkTint('a'));
     });
 
+    test('the light theme keeps text readable and the ring visible', () {
+      final theme = NafirTheme.light();
+      final scheme = theme.colorScheme;
+      expect(theme.brightness, Brightness.light);
+      expect(theme.extension<NafirTokens>(), NafirTokens.light);
+      expect(theme.textTheme.bodyLarge?.color, scheme.onSurface);
+      expect(theme.textTheme.bodyLarge?.fontFamily, NafirType.family);
+      for (final surface in [
+        scheme.surface,
+        scheme.surfaceContainerLow,
+        scheme.surfaceContainerHigh,
+      ]) {
+        expect(contrast(scheme.onSurface, surface), greaterThanOrEqualTo(4.5));
+        expect(contrast(scheme.onSurfaceVariant, surface),
+            greaterThanOrEqualTo(4.5));
+        expect(contrast(NafirTokens.light.focusRing, surface),
+            greaterThanOrEqualTo(3));
+      }
+      final focused =
+          theme.filledButtonTheme.style!.side!.resolve({WidgetState.focused});
+      expect(focused?.color, NafirTokens.light.focusRing);
+    });
+
     testWidgets('motion collapses under reduce-motion', (tester) async {
       late Duration normal, reduced;
       await tester.pumpWidget(_app(Builder(builder: (context) {

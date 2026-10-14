@@ -29,19 +29,41 @@ class NafirAudioHandler extends BaseAudioHandler with SeekHandler {
   }
 
   @override
-  Future<void> play() async => _player?.resume();
+  Future<void> play() async {
+    final player = _player;
+    if (player != null && player.systemControls && player.externalPlayback) {
+      await player.resume();
+    }
+  }
 
   @override
-  Future<void> pause() async => _player?.pause();
+  Future<void> pause() async {
+    if (_player?.systemControls == true) await _player?.pause();
+  }
 
   @override
-  Future<void> seek(Duration position) async => _player?.seek(position);
+  Future<void> seek(Duration position) async {
+    if (_player?.systemControls == true) await _player?.seek(position);
+  }
 
   @override
-  Future<void> skipToNext() async => _player?.next();
+  Future<void> skipToNext() async {
+    if (_canNavigate) await _player?.next();
+  }
 
   @override
-  Future<void> skipToPrevious() async => _player?.previous();
+  Future<void> skipToPrevious() async {
+    if (_canNavigate) await _player?.previous();
+  }
+
+  bool get _canNavigate {
+    final player = _player;
+    return player != null &&
+        player.systemControls &&
+        (player.externalPlayback ||
+            player.status == PlayerStatus.playing ||
+            player.status == PlayerStatus.buffering);
+  }
 
   @override
   Future<void> stop() async {
@@ -76,13 +98,17 @@ class NafirAudioHandler extends BaseAudioHandler with SeekHandler {
     final playing = player.status == PlayerStatus.playing ||
         player.status == PlayerStatus.buffering;
     final next = PlaybackState(
-      controls: [
-        MediaControl.skipToPrevious,
-        playing ? MediaControl.pause : MediaControl.play,
-        MediaControl.skipToNext,
-      ],
-      systemActions: const {MediaAction.seek},
-      androidCompactActionIndices: const [0, 1, 2],
+      controls: player.systemControls
+          ? [
+              MediaControl.skipToPrevious,
+              playing ? MediaControl.pause : MediaControl.play,
+              MediaControl.skipToNext,
+            ]
+          : const [],
+      systemActions:
+          player.systemControls ? const {MediaAction.seek} : const {},
+      androidCompactActionIndices:
+          player.systemControls ? const [0, 1, 2] : const [],
       processingState: switch (player.status) {
         PlayerStatus.idle => AudioProcessingState.idle,
         PlayerStatus.loading => AudioProcessingState.loading,
@@ -100,7 +126,11 @@ class NafirAudioHandler extends BaseAudioHandler with SeekHandler {
     );
     // Position ticks many times a second; the system extrapolates it from
     // updatePosition, so only publish real changes and seeks.
-    if (_last != null && !_changed(_last!, next)) return;
+    if (_last != null &&
+        !_changed(_last!, next) &&
+        listEquals(_last!.controls, next.controls)) {
+      return;
+    }
     _last = next;
     playbackState.add(next);
   }
