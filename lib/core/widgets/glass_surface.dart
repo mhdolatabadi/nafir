@@ -34,7 +34,13 @@ class NafirBackdrop extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: const BoxDecoration(gradient: NafirGlass.backgroundGradient),
+      decoration: BoxDecoration(
+          gradient: Theme.of(context).brightness == Brightness.dark
+              ? NafirGlass.backgroundGradient
+              : LinearGradient(colors: [
+                  Theme.of(context).colorScheme.surfaceContainerLow,
+                  Theme.of(context).colorScheme.surface
+                ])),
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -174,11 +180,15 @@ class GlassSurface extends StatelessWidget {
           colors: [
             (tint ?? Colors.white).withValues(alpha: 0.16),
             Colors.white.withValues(alpha: 0.055),
-            NafirGlass.surface.withValues(alpha: 0.72),
+            (Theme.of(context).brightness == Brightness.dark
+                    ? NafirGlass.surface
+                    : Theme.of(context).colorScheme.surfaceContainerLow)
+                .withValues(alpha: 0.9),
           ],
           stops: const [0, 0.45, 1],
         ),
-        border: Border.all(color: borderColor ?? NafirGlass.border),
+        border: Border.all(
+            color: borderColor ?? Theme.of(context).colorScheme.outlineVariant),
         boxShadow: shadow
             ? const [
                 BoxShadow(

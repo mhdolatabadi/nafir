@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/app/app_preferences.dart';
 import 'package:nafir/features/settings/presentation/settings_screen.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -132,9 +133,11 @@ Future<void> _pumpApp(
   PlaylistsApi? playlists,
   LinkImportsApi? linkImports,
   bool settle = true,
+  AppPreferencesStore? appPreferencesStore,
 }) async {
   await tester.pumpWidget(NafirApp(
     healthCheck: () async {},
+    appPreferencesStore: appPreferencesStore ?? MemoryAppPreferencesStore(),
     authApi: api ?? FakeAuthApi(),
     tokenStore: tokenStore,
     tracksApi: tracks ?? FakeTracksApi(),
@@ -601,6 +604,28 @@ void main() {
     // Storage use lives in the account screen, not above the tracks.
     expect(find.textContaining('از ۵.۰ گیگابایت'), findsNothing);
     expect(find.text('کتابخانهٔ شما خالی است'), findsNothing);
+  });
+
+  testWidgets('tab preferences rebuild safely and retain the tracks tab',
+      (tester) async {
+    final store = MemoryAppPreferencesStore();
+    await _pumpApp(tester,
+        tokenStore: MemoryTokenStore('valid-token'),
+        appPreferencesStore: store);
+    final context = tester.element(find.byType(TabBar));
+    final preferences = AppPreferencesScope.maybeOf(context)!;
+    await preferences.update(
+        order: [LibraryTab.artists, LibraryTab.tracks],
+        hidden: {LibraryTab.albums, LibraryTab.playlists, LibraryTab.tracks});
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(Tab, 'آلبوم‌ها'), findsNothing);
+    expect(find.widgetWithText(Tab, 'آهنگ‌ها'), findsOneWidget);
+    expect(tester.getCenter(find.widgetWithText(Tab, 'هنرمندان')).dx,
+        greaterThan(tester.getCenter(find.widgetWithText(Tab, 'آهنگ‌ها')).dx));
+    await preferences.update(hidden: {});
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(Tab, 'علاقه‌مندی‌ها'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('the account screen shows cloud storage use on a narrow phone',

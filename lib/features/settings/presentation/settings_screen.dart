@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/app/app_preferences.dart';
+import 'package:nafir/features/settings/presentation/appearance_settings_section.dart';
 import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/core/links/open_link.dart';
 import 'package:nafir/core/links/site_page.dart';
@@ -158,6 +160,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             PlaybackSettingsSection(player: player),
           if (widget.player case final player?)
             QueueSettingsSection(player: player),
+          if (AppPreferencesScope.maybeOf(context) case final preferences?)
+            AppearanceSettingsSection(preferences: preferences),
           if (widget.library case final library?)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),

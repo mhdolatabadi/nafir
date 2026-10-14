@@ -193,7 +193,12 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [tint, NafirGlass.background],
+                  colors: [
+                    Theme.of(context).brightness == Brightness.dark
+                        ? tint
+                        : Theme.of(context).colorScheme.primaryContainer,
+                    Theme.of(context).colorScheme.surface
+                  ],
                   stops: const [0, 0.78],
                 ),
               ),

@@ -2,6 +2,7 @@ import 'package:nafir/core/persian_digits.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:nafir/app/app_preferences.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/core/format_size.dart';
@@ -97,14 +98,51 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   UploadPhase _lastPhase = UploadPhase.idle;
 
-  /// «آهنگ‌ها», «فهرست‌های پخش» when available, «آلبوم‌ها» and «هنرمندان».
-  late final TabController _tabs = TabController(
-    length: widget.playlists == null ? 3 : 4,
-    vsync: this,
-  )..addListener(_onTabChanged);
+  late TabController _tabs;
+  List<LibraryTab> _visibleTabs = [];
+
+  void _configureTabs() {
+    final settings =
+        AppPreferencesScope.maybeOf(context)?.value ?? const AppPreferences();
+    final visible = settings.order
+        .where((tab) =>
+            !settings.hidden.contains(tab) &&
+            (tab != LibraryTab.playlists || widget.playlists != null))
+        .toList();
+    if (visible.length == _visibleTabs.length &&
+        List.generate(visible.length, (i) => visible[i] == _visibleTabs[i])
+            .every((same) => same)) {
+      return;
+    }
+    LibraryTab? active;
+    if (_visibleTabs.isNotEmpty) {
+      active = _visibleTabs[_tabs.index];
+      _tabs.removeListener(_onTabChanged);
+      _tabs.dispose();
+    }
+    _visibleTabs = visible;
+    final index = active == null ? 0 : visible.indexOf(active);
+    _tabs = TabController(
+        length: visible.length,
+        initialIndex: index < 0 ? 0 : index,
+        vsync: this)
+      ..addListener(_onTabChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _configureTabs();
+  }
+
+  @override
+  void didUpdateWidget(covariant LibraryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _configureTabs();
+  }
 
   /// Once nothing is being imported any more, finds out how this
   /// session's link imports ended.
@@ -558,8 +596,10 @@ class _LibraryScreenState extends State<LibraryScreen>
       controller: _tabs,
       // On a phone the four short tabs share the width so all stay in view;
       // on wide screens they sit together at the start.
-      isScrollable: wide,
-      tabAlignment: wide ? TabAlignment.start : TabAlignment.fill,
+      isScrollable: wide || _visibleTabs.length > 4,
+      tabAlignment: wide || _visibleTabs.length > 4
+          ? TabAlignment.start
+          : TabAlignment.fill,
       labelStyle: Theme.of(context)
           .textTheme
           .titleSmall
@@ -571,12 +611,7 @@ class _LibraryScreenState extends State<LibraryScreen>
       // Phone tabs share a narrow width: tighter padding, and a label that
       // still does not fit shrinks a little instead of being clipped.
       labelPadding: wide ? null : const EdgeInsets.symmetric(horizontal: 4),
-      tabs: [
-        const _TabLabel('آهنگ‌ها'),
-        if (widget.playlists != null) const _TabLabel('فهرست‌های پخش'),
-        const _TabLabel('آلبوم‌ها'),
-        const _TabLabel('هنرمندان'),
-      ],
+      tabs: [for (final tab in _visibleTabs) _TabLabel(tab.label)],
     );
     final bar = wide
         ? SliverAppBar(
@@ -592,7 +627,7 @@ class _LibraryScreenState extends State<LibraryScreen>
             titleSpacing: 16,
             title: const _NafirBrand(compact: true),
             // Opaque, because the lists scroll underneath it.
-            backgroundColor: NafirGlass.background,
+            backgroundColor: Theme.of(context).colorScheme.surface,
             actions: _accountActions(context),
             bottom: tabs,
           );
@@ -607,7 +642,7 @@ class _LibraryScreenState extends State<LibraryScreen>
     return Scaffold(
       extendBody: true,
       bottomNavigationBar: MiniPlayer(player: widget.player),
-      floatingActionButton: _tabs.index != 0
+      floatingActionButton: _visibleTabs[_tabs.index] != LibraryTab.tracks
           ? null
           : FloatingActionButton(
               heroTag: 'add-music',
@@ -621,25 +656,37 @@ class _LibraryScreenState extends State<LibraryScreen>
           body: TabBarView(
             controller: _tabs,
             children: [
-              _Tab(child: _unifiedLibrary()),
-              if (widget.playlists case final playlists?)
-                _Tab(
-                  child: PlaylistsView(
-                    controller: playlists,
-                    libraryTracks: widget.library.tracks,
-                    player: widget.player,
-                    onSharedSaved: widget.library.load,
-                    underHeader: true,
-                  ),
-                ),
-              _Tab(child: _groupsTab(albums: true)),
-              _Tab(child: _groupsTab(albums: false)),
+              for (final tab in _visibleTabs)
+                _Tab(key: ValueKey(tab), child: _tabBody(tab))
             ],
           ),
         ),
       ),
     );
   }
+
+  Widget _tabBody(LibraryTab tab) => switch (tab) {
+        LibraryTab.tracks => _unifiedLibrary(),
+        LibraryTab.playlists => PlaylistsView(
+            controller: widget.playlists!,
+            libraryTracks: widget.library.tracks,
+            player: widget.player,
+            onSharedSaved: widget.library.load,
+            underHeader: true),
+        LibraryTab.albums => _groupsTab(albums: true),
+        LibraryTab.artists => _groupsTab(albums: false),
+        LibraryTab.favorites => ListenableBuilder(
+            listenable:
+                Listenable.merge([_libraryChanges, widget.player.favorites]),
+            builder: (context, _) {
+              final tracks = _unifiedTracks()
+                  .where((track) => widget.player.favorites.contains(track.id))
+                  .toList();
+              return tracks.isEmpty
+                  ? const Center(child: Text('هنوز آهنگی را پسند نکرده‌ای'))
+                  : _trackList(tracks);
+            }),
+      };
 
   Widget _groupsTab({required bool albums}) => ListenableBuilder(
         listenable: Listenable.merge([widget.library, widget.localAudio]),
@@ -917,7 +964,7 @@ class _AccountChip extends StatelessWidget {
 /// One library tab, kept alive so its scroll position survives switching
 /// tabs.
 class _Tab extends StatefulWidget {
-  const _Tab({required this.child});
+  const _Tab({super.key, required this.child});
 
   final Widget child;
 
