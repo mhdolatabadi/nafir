@@ -8,6 +8,23 @@ import 'package:nafir/features/player/data/crossfade.dart';
 
 enum EngineState { idle, loading, buffering, ready, completed }
 
+/// Reported on [AudioEngine.errors] when the browser refused to start audio
+/// without a tap first (its autoplay rules), so playback did not start.
+class PlaybackBlocked implements Exception {
+  const PlaybackBlocked();
+
+  /// Whether [error] is a browser refusing to play without a user gesture.
+  static bool matches(Object error) {
+    final text = error.toString();
+    return text.contains('NotAllowedError') ||
+        text.contains('play() failed because the user') ||
+        text.contains("user didn't interact");
+  }
+
+  @override
+  String toString() => 'PlaybackBlocked';
+}
+
 /// The part of an audio player the app uses, so it can be replaced in tests.
 abstract interface class AudioEngine {
   Stream<Duration> get position;
@@ -322,7 +339,22 @@ class JustAudioEngine implements AudioEngine {
   }
 
   @override
-  void play() => unawaited(_active.player.play());
+  void play() => unawaited(_play(_active.player));
+
+  Future<void> _play(AudioPlayer player) async {
+    try {
+      await player.play();
+    } catch (error) {
+      if (!PlaybackBlocked.matches(error)) {
+        _errors.add(error);
+        return;
+      }
+      // just_audio already counts itself as playing; it is silent, so say
+      // so and wait for a tap instead of showing a playing state.
+      await player.pause();
+      _errors.add(const PlaybackBlocked());
+    }
+  }
 
   @override
   Future<void> pause() async {
