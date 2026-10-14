@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/features/settings/presentation/settings_screen.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nafir/core/api/api_client.dart';
@@ -110,6 +111,13 @@ class FakePicker implements AudioPicker {
     if (file != null) onReading?.call();
     return file;
   }
+}
+
+Future<void> _revealSetting(WidgetTester tester, Finder target) async {
+  final scrollable = find.descendant(
+      of: find.byType(SettingsScreen), matching: find.byType(Scrollable));
+  await tester.scrollUntilVisible(target, 160, scrollable: scrollable.first);
+  await tester.pumpAndSettle();
 }
 
 Future<void> _pumpApp(
@@ -619,6 +627,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('تنظیمات').last);
     await tester.pumpAndSettle();
+    await _revealSetting(tester, find.text('فضای ابری'));
     expect(find.text('فضای ابری'), findsOneWidget);
     expect(find.textContaining('از ۵.۰ گیگابایت'), findsOneWidget);
     expect(
@@ -685,7 +694,7 @@ void main() {
     double top(String title) => tester.getTopLeft(find.text(title)).dy;
     expect(top('Zebra'), lessThan(top('Apple')));
 
-    await tester.tap(find.byTooltip('مرتب‌سازی: تازه‌ترین'));
+    await tester.tap(find.byTooltip('مرتب‌سازی: تاریخ افزودن؛ جدیدترین اول'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('نام آهنگ'));
     await tester.pumpAndSettle();
@@ -697,10 +706,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(top('Zebra'), lessThan(top('Apple')));
 
-    // The choice lasts the session; put it back for the tests that follow.
     await tester.tap(find.byTooltip('مرتب‌سازی: خواننده'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('تازه‌ترین'));
+    await tester.tap(find.text('تاریخ افزودن؛ قدیمی‌ترین اول'));
+    await tester.pumpAndSettle();
+    expect(top('Apple'), lessThan(top('Zebra')));
+
+    // The choice lasts the session; put it back for the tests that follow.
+    await tester.tap(find.byTooltip('مرتب‌سازی: تاریخ افزودن؛ قدیمی‌ترین اول'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('تاریخ افزودن؛ جدیدترین اول'));
     await tester.pumpAndSettle();
   });
 
@@ -1003,7 +1018,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('the large title collapses and scroll is kept per tab',
+    testWidgets('the compact toolbar stays pinned and scroll is kept per tab',
         (tester) async {
       await pumpPhone(tester);
       final expandedTabsTop =
@@ -1013,7 +1028,7 @@ void main() {
       await tester.pumpAndSettle();
       final collapsedTabsTop =
           tester.getTopLeft(find.widgetWithText(Tab, 'آهنگ‌ها')).dy;
-      expect(collapsedTabsTop, lessThan(expandedTabsTop));
+      expect(collapsedTabsTop, expandedTabsTop);
       // The tabs stay pinned and nothing slides under them.
       expect(find.widgetWithText(Tab, 'هنرمندان'), findsOneWidget);
       final tabsBottom = tester.getBottomLeft(find.byType(TabBar)).dy;
@@ -1442,15 +1457,18 @@ void main() {
 
     await tester.tap(find.byTooltip('تنظیمات'));
     await tester.pumpAndSettle();
+    await _revealSetting(tester, find.text('پاک کردن کش'));
     expect(find.text('حجم کش: ۳.۰ مگابایت'), findsOneWidget);
 
     // Cancelling keeps everything.
+    await _revealSetting(tester, find.text('پاک کردن کش'));
     await tester.tap(find.text('پاک کردن کش'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('انصراف'));
     await tester.pumpAndSettle();
     expect(cache.files, isNotEmpty);
 
+    await _revealSetting(tester, find.text('پاک کردن کش'));
     await tester.tap(find.text('پاک کردن کش'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('پاک کن'));
@@ -1481,6 +1499,7 @@ void main() {
 
     await tester.tap(find.byTooltip('تنظیمات'));
     await tester.pumpAndSettle();
+    await _revealSetting(tester, find.text('پاک کردن کش'));
     await tester.tap(find.text('پاک کردن کش'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('پاک کن'));
@@ -1501,6 +1520,8 @@ void main() {
     await tester.tap(find.byTooltip('تنظیمات'));
     await tester.pumpAndSettle();
 
+    await _revealSetting(
+        tester, find.text('در نسخه‌ی وب، کش را خود مرورگر مدیریت می‌کند.'));
     expect(find.text('در نسخه‌ی وب، کش را خود مرورگر مدیریت می‌کند.'),
         findsOneWidget);
     expect(find.text('پاک کردن کش'), findsNothing);
@@ -1516,23 +1537,23 @@ void main() {
 
     await tester.tap(find.byTooltip('تنظیمات'));
     await tester.pumpAndSettle();
+    await _revealSetting(tester, find.text('دریافت کد اتصال'));
     expect(find.text('اتصال به بات'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('دریافت کد اتصال'));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('دریافت کد اتصال'));
     await tester.pumpAndSettle();
 
+    await _revealSetting(tester, find.text('1234 5671'));
     expect(find.text('1234 5671'), findsOneWidget);
     expect(
         find.text('این کد را در بله برای @NafirBot بفرستید.'), findsOneWidget);
     expect(find.text('کپی کد'), findsOneWidget);
     expect(find.text('کپی لینک بات بله'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('کد تازه'));
-    await tester.pumpAndSettle();
+    await _revealSetting(tester, find.text('کد تازه'));
     await tester.tap(find.text('کد تازه'));
     await tester.pumpAndSettle();
+    await _revealSetting(tester, find.text('1234 5672'));
     expect(find.text('1234 5672'), findsOneWidget);
   });
 
