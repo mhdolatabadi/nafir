@@ -3,7 +3,8 @@ import 'package:nafir/features/library/data/track.dart';
 /// How the track list is ordered.
 enum TrackSort {
   /// The order the library gives: most recently added first.
-  recent('تازه‌ترین'),
+  recent('تاریخ افزودن؛ جدیدترین اول'),
+  oldest('تاریخ افزودن؛ قدیمی‌ترین اول'),
   title('نام آهنگ'),
   artist('خواننده');
 
@@ -17,6 +18,7 @@ enum TrackSort {
 /// case; tracks without an artist go last; ties keep their library order.
 List<Track> sortTracks(List<Track> tracks, TrackSort sort) {
   if (sort == TrackSort.recent) return tracks;
+  if (sort == TrackSort.oldest) return tracks.reversed.toList();
   String key(String? value) => value?.trim().toLowerCase() ?? '';
   final indexed = [for (var i = 0; i < tracks.length; i++) (i, tracks[i])];
   int byTitle((int, Track) a, (int, Track) b) =>
