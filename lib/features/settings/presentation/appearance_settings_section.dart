@@ -1,0 +1,121 @@
+import 'package:flutter/material.dart';
+import 'package:nafir/app/app_preferences.dart';
+import 'package:nafir/core/widgets/nafir_icons.dart';
+
+String themeModeLabel(ThemeMode mode) => switch (mode) {
+      ThemeMode.system => 'همراه تنظیم دستگاه',
+      ThemeMode.light => 'روشن',
+      ThemeMode.dark => 'تیره',
+    };
+
+class AppearanceSettingsSection extends StatelessWidget {
+  const AppearanceSettingsSection({super.key, required this.preferences});
+  final AppPreferencesController preferences;
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: preferences,
+        builder: (context, _) => Center(
+            child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('ظاهر و کتابخانه',
+                        style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: 8),
+                    Card(
+                        child: Column(children: [
+                      ListTile(
+                          title: const Text('حالت نمایش'),
+                          subtitle:
+                              Text(themeModeLabel(preferences.value.themeMode)),
+                          onTap: () => showModalBottomSheet<void>(
+                              context: context,
+                              useSafeArea: true,
+                              builder: (sheetContext) => Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        for (final mode in ThemeMode.values)
+                                          ListTile(
+                                              title: Text(themeModeLabel(mode)),
+                                              selected:
+                                                  preferences.value.themeMode ==
+                                                      mode,
+                                              onTap: () {
+                                                preferences.update(
+                                                    themeMode: mode);
+                                                Navigator.pop(sheetContext);
+                                              }),
+                                      ]))),
+                      const Divider(height: 1),
+                      ListTile(
+                          title: const Text('مدیریت تب‌ها'),
+                          subtitle: const Text(
+                              'نمایش، پنهان‌کردن و جابه‌جایی بخش‌های کتابخانه'),
+                          onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                  builder: (_) => ManageTabsScreen(
+                                      preferences: preferences)))),
+                    ])),
+                  ])),
+        )),
+      );
+}
+
+class ManageTabsScreen extends StatelessWidget {
+  const ManageTabsScreen({super.key, required this.preferences});
+  final AppPreferencesController preferences;
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('مدیریت تب‌ها')),
+        body: ListenableBuilder(
+            listenable: preferences,
+            builder: (context, _) {
+              final settings = preferences.value;
+              return ReorderableListView.builder(
+                  padding: EdgeInsets.only(
+                      bottom: 24 + MediaQuery.paddingOf(context).bottom),
+                  buildDefaultDragHandles: false,
+                  itemCount: settings.order.length,
+                  onReorder: (oldIndex, newIndex) {
+                    final order = [...settings.order];
+                    if (newIndex > oldIndex) {
+                      newIndex--;
+                    }
+                    order.insert(newIndex, order.removeAt(oldIndex));
+                    preferences.update(order: order);
+                  },
+                  itemBuilder: (context, index) {
+                    final tab = settings.order[index];
+                    return ListTile(
+                        key: ValueKey(tab),
+                        title: Text(tab.label),
+                        subtitle: tab == LibraryTab.tracks
+                            ? const Text('همیشه نمایش داده می‌شود')
+                            : null,
+                        leading: Checkbox(
+                            value: !settings.hidden.contains(tab),
+                            onChanged: tab == LibraryTab.tracks
+                                ? null
+                                : (show) {
+                                    final hidden = {...settings.hidden};
+                                    if (show == true) {
+                                      hidden.remove(tab);
+                                    } else {
+                                      hidden.add(tab);
+                                    }
+                                    preferences.update(hidden: hidden);
+                                  }),
+                        trailing: ReorderableDragStartListener(
+                            index: index,
+                            child: const Tooltip(
+                                message: 'برای جابه‌جایی بکش',
+                                child: SizedBox.square(
+                                    dimension: 48,
+                                    child: Icon(NafirIcons.dotsSixVertical)))));
+                  });
+            }),
+      );
+}
