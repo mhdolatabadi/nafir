@@ -61,6 +61,17 @@ type Track struct {
 	TagAttempts int32
 	// PendingStorageKey is an uploaded rewrite not yet swapped in.
 	PendingStorageKey *string
+	// Loudness is the ReplayGain the file's tags carry (#253).
+	Loudness Loudness
+}
+
+// Loudness is ReplayGain as stored: gains in dB re -18 LUFS, peaks as
+// linear amplitude. Nil means unknown.
+type Loudness struct {
+	TrackGainDB *float64
+	TrackPeak   *float64
+	AlbumGainDB *float64
+	AlbumPeak   *float64
 }
 
 // NewTrack is what a caller supplies; the ID is chosen by the store so the
@@ -131,7 +142,8 @@ var trackColumnNames = []string{
 	"composer", "genre", "year", "track_number", "disc_number", "comment", "duration_ms",
 	"file_name", "storage_key", "content_type", "size_bytes", "source", "created_at",
 	"metadata_version", "tag_status", "tag_version", "tag_error", "tag_attempts",
-	"pending_storage_key",
+	"pending_storage_key", "replaygain_track_gain_db", "replaygain_track_peak",
+	"replaygain_album_gain_db", "replaygain_album_peak",
 }
 
 var trackColumns = strings.Join(trackColumnNames, ", ")
@@ -163,7 +175,8 @@ func trackDestinations(t *Track) []any {
 		&t.Composer, &t.Genre, &t.Year, &t.TrackNumber, &t.DiscNumber, &t.Comment, &t.DurationMS,
 		&t.FileName, &t.StorageKey, &t.ContentType, &t.SizeBytes, &t.Source, &t.CreatedAt,
 		&t.MetadataVersion, &t.TagStatus, &t.TagVersion, &t.TagError, &t.TagAttempts,
-		&t.PendingStorageKey}
+		&t.PendingStorageKey, &t.Loudness.TrackGainDB, &t.Loudness.TrackPeak,
+		&t.Loudness.AlbumGainDB, &t.Loudness.AlbumPeak}
 }
 
 // ReservePending atomically checks the owner's total reserved bytes and active

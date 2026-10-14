@@ -20,6 +20,7 @@ import (
 	"github.com/mhdolatabadi/nafir/server/internal/fingerprint"
 	"github.com/mhdolatabadi/nafir/server/internal/httpapi"
 	"github.com/mhdolatabadi/nafir/server/internal/linkimport"
+	"github.com/mhdolatabadi/nafir/server/internal/loudness"
 	"github.com/mhdolatabadi/nafir/server/internal/lyrics"
 	"github.com/mhdolatabadi/nafir/server/internal/mail"
 	"github.com/mhdolatabadi/nafir/server/internal/storage"
@@ -38,6 +39,8 @@ const (
 	defaultCleanupEvery = 10 * time.Minute
 	defaultCleanupBatch = 100
 	maxRateLimitKeys    = 10_000
+	loudnessScanEvery   = 2 * time.Minute
+	loudnessScanBatch   = 50
 	// sessionCacheTTL bounds how long a revocation takes to reach another API process.
 	sessionCacheTTL      = 30 * time.Second
 	defaultTagWorkers    = 1
@@ -362,6 +365,8 @@ func run() error {
 		go fingerprints.Run(ctx)
 	}
 	go cleanPendingUploads(ctx, tracks, objects, pendingTTL, cleanupEvery, cleanupBatch)
+	// Reads ReplayGain from new uploads and, once, from every older track.
+	go loudness.NewScanner(tracks, objects, loudnessScanEvery, loudnessScanBatch).Run(ctx)
 	go purgeDeletedAccounts(ctx, users, objects, cleanupEvery, cleanupBatch)
 
 	serverErr := make(chan error, 1)
