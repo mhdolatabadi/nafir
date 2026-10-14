@@ -3,6 +3,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:nafir/app/app_preferences.dart';
+import 'package:flutter/services.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/core/format_size.dart';
@@ -1359,6 +1360,65 @@ class _TrackListState extends State<_TrackList> {
 
   final TextEditingController _search = TextEditingController();
   String _query = '';
+  final Set<String> _selectedIds = {};
+
+  @override
+  void didUpdateWidget(covariant _TrackList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _selectedIds.retainAll(widget.tracks.map((track) => track.id));
+  }
+
+  void _toggleSelection(Track track) => setState(() {
+        if (!_selectedIds.remove(track.id)) _selectedIds.add(track.id);
+      });
+
+  Widget _selectionBar(List<Track> visible) {
+    final selected = widget.tracks
+        .where((track) => _selectedIds.contains(track.id))
+        .toList();
+    final allVisible = visible.isNotEmpty &&
+        visible.every((track) => _selectedIds.contains(track.id));
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        IconButton(
+          tooltip: 'لغو انتخاب',
+          onPressed: () => setState(_selectedIds.clear),
+          icon: const Icon(NafirIcons.x),
+        ),
+        Semantics(
+          liveRegion: true,
+          child: Text('${persianDigits(selected.length)} آهنگ انتخاب‌شده'),
+        ),
+        TextButton(
+          onPressed: visible.isEmpty
+              ? null
+              : () => setState(() {
+                    final ids = visible.map((track) => track.id);
+                    if (allVisible) {
+                      _selectedIds.removeAll(ids);
+                    } else {
+                      _selectedIds.addAll(ids);
+                    }
+                  }),
+          child: Text(allVisible ? 'لغو انتخاب همه' : 'انتخاب همه'),
+        ),
+        IconButton(
+          tooltip: 'پخش انتخاب‌شده‌ها',
+          onPressed: selected.isEmpty
+              ? null
+              : () {
+                  widget.player.playFrom(selected, 0);
+                  setState(_selectedIds.clear);
+                },
+          icon: const Icon(NafirIcons.playFill),
+        ),
+        if (selected.length == 1)
+          if (_actionsFor(context, selected.single) case final actions?)
+            actions,
+      ],
+    );
+  }
 
   /// Kept for the whole session, whichever screen shows the list.
   static TrackSort _sessionSort = TrackSort.recent;
@@ -1626,6 +1686,7 @@ class _TrackListState extends State<_TrackList> {
         SliverToBoxAdapter(
           child: Column(
             children: [
+              if (_selectedIds.isNotEmpty) _selectionBar(tracks),
               if (widget.top case final top?) top,
               if (widget.deviceNotice case final notice?)
                 _DeviceStatusBanner(notice: notice),
@@ -1700,7 +1761,12 @@ class _TrackListState extends State<_TrackList> {
                 return _TrackRow(
                   track: track,
                   current: widget.player.track?.id == track.id,
-                  onTap: () => widget.player.playTapped(tracks, index),
+                  selected: _selectedIds.contains(track.id),
+                  selecting: _selectedIds.isNotEmpty,
+                  onLongPress: () => _toggleSelection(track),
+                  onTap: () => _selectedIds.isNotEmpty
+                      ? _toggleSelection(track)
+                      : widget.player.playTapped(tracks, index),
                   actions: _actionsFor(context, track),
                   sync: widget.sync?.operationFor(track.id),
                 );
@@ -1819,6 +1885,9 @@ class _TrackRow extends StatelessWidget {
     required this.onTap,
     required this.actions,
     this.sync,
+    this.selected = false,
+    this.selecting = false,
+    this.onLongPress,
   });
 
   final Track track;
@@ -1830,6 +1899,27 @@ class _TrackRow extends StatelessWidget {
   final bool current;
   final VoidCallback onTap;
   final Widget? actions;
+  final bool selected;
+  final bool selecting;
+  final VoidCallback? onLongPress;
+
+  Future<void> _openContextMenu(BuildContext context, Offset position) async {
+    final menu = actions;
+    if (menu is! PopupMenuButton<(_TrackAction, MessengerBot?)>) return;
+    final overlay =
+        Navigator.of(context).overlay!.context.findRenderObject()! as RenderBox;
+    final point = overlay.globalToLocal(position);
+    final choice = await showMenu<(_TrackAction, MessengerBot?)>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(point.dx, point.dy, 0, 0),
+        Offset.zero & overlay.size,
+      ),
+      items: menu.itemBuilder(context),
+    );
+    if (!context.mounted) return;
+    if (choice != null) menu.onSelected?.call(choice);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1838,76 +1928,98 @@ class _TrackRow extends StatelessWidget {
     final artist = track.artist?.trim();
     final secondary = theme.textTheme.bodySmall
         ?.copyWith(color: colors.onSurfaceVariant, height: 1.3);
-    return ListTile(
-      selected: current,
-      onTap: onTap,
-      minTileHeight: 64,
-      // Keep the two text lines compact while allowing larger text to grow.
-      minVerticalPadding: 6,
-      contentPadding: const EdgeInsetsDirectional.only(start: 8, end: 0),
-      horizontalTitleGap: 12,
-      leading: _TrackArtwork(track: track, current: current, sync: sync),
-      title: Row(
-        children: [
-          if (current) ...[
-            Semantics(
-              label: 'در حال پخش',
-              child: Icon(NafirIcons.waveformFill,
-                  size: 18, color: colors.primary),
+    return CallbackShortcuts(
+      bindings: {
+        if (onLongPress != null)
+          const SingleActivator(LogicalKeyboardKey.space): onLongPress!,
+      },
+      child: GestureDetector(
+        onSecondaryTapUp: (details) =>
+            _openContextMenu(context, details.globalPosition),
+        child: Semantics(
+          selected: selected,
+          child: ListTile(
+            selected: selecting ? selected : current,
+            onTap: onTap,
+            onLongPress: onLongPress,
+            minTileHeight: 64,
+            // Keep the two text lines compact while allowing larger text to grow.
+            minVerticalPadding: 6,
+            contentPadding: const EdgeInsetsDirectional.only(start: 8, end: 0),
+            horizontalTitleGap: 12,
+            leading: selecting
+                ? SizedBox.square(
+                    dimension: 48,
+                    child: Checkbox(
+                        value: selected, onChanged: (_) => onLongPress?.call()),
+                  )
+                : _TrackArtwork(track: track, current: current, sync: sync),
+            title: Row(
+              children: [
+                if (current) ...[
+                  Semantics(
+                    label: 'در حال پخش',
+                    child: Icon(NafirIcons.waveformFill,
+                        size: 18, color: colors.primary),
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                Expanded(
+                  child: Text(
+                    track.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: current ? FontWeight.w700 : FontWeight.w600,
+                      color: current ? colors.primary : colors.onSurface,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 4),
-          ],
-          Expanded(
-            child: Text(
-              track.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: current ? FontWeight.w700 : FontWeight.w600,
-                color: current ? colors.primary : colors.onSurface,
-              ),
-            ),
-          ),
-        ],
-      ),
-      subtitle: switch (sync) {
-        SyncOperation(phase: SyncPhase.failed, :final error?) => Text(
-            syncErrorMessage(error),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: secondary?.copyWith(color: colors.error),
-          ),
-        SyncOperation(preparing: true) => Text(
-            'در حال آماده‌سازی فایل…',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: secondary?.copyWith(color: colors.primary),
-          ),
-        SyncOperation(:final kind, :final phase, :final progress) => Text(
-            phase == SyncPhase.queued
-                ? 'در صف ${_syncVerb(kind)} · ${formatSize(track.sizeBytes)}'
-                : 'در حال ${_syncVerb(kind)} ${persianDigits((progress * 100).round())}٪ · '
-                    '${formatSize(track.sizeBytes)}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: secondary?.copyWith(color: colors.primary),
-          ),
-        null => Row(
-            children: [
-              Flexible(
-                child: Text(
-                  artist == null || artist.isEmpty ? 'خواننده نامشخص' : artist,
+            subtitle: switch (sync) {
+              SyncOperation(phase: SyncPhase.failed, :final error?) => Text(
+                  syncErrorMessage(error),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: secondary,
+                  style: secondary?.copyWith(color: colors.error),
                 ),
-              ),
-              Text(' · ${formatSize(track.sizeBytes)}',
-                  maxLines: 1, style: secondary),
-            ],
+              SyncOperation(preparing: true) => Text(
+                  'در حال آماده‌سازی فایل…',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: secondary?.copyWith(color: colors.primary),
+                ),
+              SyncOperation(:final kind, :final phase, :final progress) => Text(
+                  phase == SyncPhase.queued
+                      ? 'در صف ${_syncVerb(kind)} · ${formatSize(track.sizeBytes)}'
+                      : 'در حال ${_syncVerb(kind)} ${persianDigits((progress * 100).round())}٪ · '
+                          '${formatSize(track.sizeBytes)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: secondary?.copyWith(color: colors.primary),
+                ),
+              null => Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        artist == null || artist.isEmpty
+                            ? 'خواننده نامشخص'
+                            : artist,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: secondary,
+                      ),
+                    ),
+                    Text(' · ${formatSize(track.sizeBytes)}',
+                        maxLines: 1, style: secondary),
+                  ],
+                ),
+            },
+            trailing: actions,
           ),
-      },
-      trailing: actions,
+        ),
+      ),
     );
   }
 }
