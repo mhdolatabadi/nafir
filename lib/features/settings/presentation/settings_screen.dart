@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:nafir/core/design/design.dart';
 import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/core/links/open_link.dart';
 import 'package:nafir/core/links/site_page.dart';
@@ -67,27 +68,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _clear() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('کش پاک شود؟'),
-        content: const Text(
+    final confirmed = await showNafirConfirm(
+      context,
+      title: 'کش پاک شود؟',
+      message:
           'موسیقی‌های کتابخانه‌ات در فضای ابری می‌مانند و دفعه‌ی بعد دوباره '
           'از اینترنت پخش می‌شوند.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('انصراف'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('پاک کن'),
-          ),
-        ],
-      ),
+      confirmLabel: 'پاک کن',
+      destructive: false,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     final ok = await widget.cache.clear();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -96,27 +86,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _signOutEverywhere(Future<void> Function() signOut) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('از همه‌ی دستگاه‌ها خارج شوی؟'),
-        content: const Text(
-          'روی همه‌ی گوشی‌ها و مرورگرهای دیگر از حسابت خارج می‌شوی و باید '
+    final confirmed = await showNafirConfirm(
+      context,
+      title: 'از همه‌ی دستگاه‌ها خارج شوی؟',
+      message: 'روی همه‌ی گوشی‌ها و مرورگرهای دیگر از حسابت خارج می‌شوی و باید '
           'دوباره وارد شوی. این دستگاه وارد می‌ماند.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('انصراف'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('خروج از بقیه'),
-          ),
-        ],
-      ),
+      confirmLabel: 'خروج از بقیه',
+      destructive: false,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     var ok = true;
     try {
       await signOut();

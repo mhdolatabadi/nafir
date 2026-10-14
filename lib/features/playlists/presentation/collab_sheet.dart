@@ -1,5 +1,6 @@
 import 'package:nafir/core/persian_digits.dart';
 import 'package:flutter/material.dart';
+import 'package:nafir/core/design/design.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:nafir/app/app_configuration.dart';
@@ -64,25 +65,15 @@ class _CollabSheetState extends State<_CollabSheet> {
       }, 'باطل کردن لینک ناموفق بود. دوباره تلاش کن.');
 
   Future<void> _remove(PlaylistMember member) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('حذف عضو؟'),
-        content: Text(
-            '${member.name} از این فهرست پخش حذف می‌شود و آهنگ‌هایی که اضافه کرده هم از آن بیرون می‌روند.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('انصراف'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('حذف'),
-          ),
-        ],
-      ),
+    final confirmed = await showNafirConfirm(
+      context,
+      title: 'حذف عضو؟',
+      message:
+          '${member.name} از این فهرست پخش حذف می‌شود و آهنگ‌هایی که اضافه کرده هم از آن بیرون می‌روند.',
+      confirmLabel: 'حذف',
+      destructive: true,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     await _run(() async {
       final ok =
           await widget.controller.removeMember(widget.playlist.id, member.id);

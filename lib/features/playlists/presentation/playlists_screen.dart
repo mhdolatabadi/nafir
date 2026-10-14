@@ -497,25 +497,15 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   Future<void> _leave() async {
     final current = playlist;
     if (current == null) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('ترک فهرست پخش؟'),
-        content: const Text(
-            'آهنگ‌هایی که به این فهرست پخش اضافه کرده‌ای از آن بیرون می‌روند؛ در کتابخانه‌ات می‌مانند.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('انصراف'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('ترک'),
-          ),
-        ],
-      ),
+    final confirmed = await showNafirConfirm(
+      context,
+      title: 'ترک فهرست پخش؟',
+      message:
+          'آهنگ‌هایی که به این فهرست پخش اضافه کرده‌ای از آن بیرون می‌روند؛ در کتابخانه‌ات می‌مانند.',
+      confirmLabel: 'ترک',
+      destructive: true,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     final left = await widget.controller.leave(current.id);
     if (!mounted) return;
     if (left) {
@@ -567,24 +557,14 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   Future<void> _delete() async {
     final current = playlist;
     if (current == null) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('حذف فهرست پخش؟'),
-        content: const Text('آهنگ‌های کتابخانه حذف نمی‌شوند.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('انصراف'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('حذف'),
-          ),
-        ],
-      ),
+    final confirmed = await showNafirConfirm(
+      context,
+      title: 'حذف فهرست پخش؟',
+      message: 'آهنگ‌های کتابخانه حذف نمی‌شوند.',
+      confirmLabel: 'حذف',
+      destructive: true,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     final deleted = await widget.controller.delete(current.id);
     if (!mounted) return;
     if (deleted) {
