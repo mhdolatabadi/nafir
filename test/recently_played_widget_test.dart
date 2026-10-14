@@ -95,7 +95,7 @@ void _expectTouchTarget(WidgetTester tester, Finder finder) {
 void main() {
   group('recently played', () {
     testWidgets(
-        'on a 360 px phone the shelf and the full list truncate long titles, '
+        'on a 360 px phone the compact library truncates long titles, '
         'keep 48 px targets and stay clear of the mini player', (tester) async {
       _phone(tester);
       final library = [
@@ -112,40 +112,32 @@ void main() {
         ];
       await _pumpApp(tester, tracks: FakeTracksApi(library), history: history);
 
-      // The shelf on top of the library.
-      expect(find.text('اخیراً پخش‌شده'), findsOneWidget);
+      expect(find.text('اخیراً پخش‌شده'), findsNothing);
       expect(tester.takeException(), isNull);
-      _expectTouchTarget(tester, find.byTooltip('پخش همهٔ اخیراً پخش‌شده‌ها'));
-      _expectTouchTarget(tester, find.widgetWithText(TextButton, 'همه'));
+      expect(tester.getSize(find.byType(SearchBar)).height, 48);
+      final brand = tester.getRect(find.text('ریتمو'));
+      final search = tester.getRect(find.byTooltip('جست‌وجو در کتابخانه'));
+      expect((brand.center.dy - search.center.dy).abs(), lessThan(4));
+      expect(tester.getSize(_row(_longPersian)).height, lessThanOrEqualTo(72));
+      _expectTouchTarget(tester, _row(_longPersian));
 
-      await tester.tap(find.widgetWithText(TextButton, 'همه'));
-      await tester.pumpAndSettle();
-      expect(find.widgetWithText(AppBar, 'اخیراً پخش‌شده'), findsOneWidget);
-      expect(find.text('۱۳ آهنگ'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-      _expectTouchTarget(tester, find.widgetWithText(FilledButton, 'پخش همه'));
-      _expectTouchTarget(tester, find.byTooltip('پخش تصادفی'));
-      _expectTouchTarget(tester, find.byTooltip('پاک کردن تاریخچه'));
-
-      // Own tracks keep the library's actions; another member's do not.
+      // Library tracks keep their actions.
       expect(
           find.descendant(
               of: _row(_longPersian), matching: find.byTooltip('اقدامات آهنگ')),
           findsOneWidget);
-      expect(
-          find.descendant(
-              of: _row('آهنگ هم‌گروه'),
-              matching: find.byTooltip('اقدامات آهنگ')),
-          findsNothing);
       // Long titles stay on one line inside the row.
       final title = tester.getRect(find.text(_longPersian));
       expect(title.left, greaterThanOrEqualTo(0));
       expect(title.right, lessThanOrEqualTo(360));
 
-      // Play all starts at the most recent, and the mini player shows.
-      await tester.tap(find.widgetWithText(FilledButton, 'پخش همه'));
+      // Starting a track shows the compact mini player.
+      await tester.tap(find.text(_longPersian));
       await tester.pumpAndSettle();
       expect(find.byTooltip('توقف'), findsOneWidget);
+      final progress = find.byType(LinearProgressIndicator);
+      expect(progress, findsOneWidget);
+      expect(Directionality.of(tester.element(progress)), TextDirection.ltr);
 
       for (var i = 0; i < 8; i++) {
         await tester.drag(
@@ -158,7 +150,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('a real listen moves the track to the top of the shelf',
+    testWidgets('a real listen records history without adding a home shelf',
         (tester) async {
       _phone(tester);
       final history = FakeHistoryApi();
@@ -181,25 +173,7 @@ void main() {
       }
       await tester.pumpAndSettle();
       expect(history.recorded, [('b', null)]);
-      expect(find.text('اخیراً پخش‌شده'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('clearing the history leaves the empty state', (tester) async {
-      _phone(tester);
-      final history = FakeHistoryApi()..history = [_cloud('a', 'Alpha')];
-      await _pumpApp(tester,
-          tracks: FakeTracksApi([_cloud('a', 'Alpha')]), history: history);
-      await tester.tap(find.widgetWithText(TextButton, 'همه'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('پاک کردن تاریخچه'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, 'پاک کردن'));
-      await tester.pumpAndSettle();
-
-      expect(history.cleared, 1);
-      expect(find.text('هنوز آهنگی پخش نشده'), findsOneWidget);
-      expect(find.byTooltip('پاک کردن تاریخچه'), findsNothing);
+      expect(find.text('اخیراً پخش‌شده'), findsNothing);
       expect(tester.takeException(), isNull);
     });
 

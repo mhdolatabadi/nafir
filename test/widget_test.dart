@@ -685,7 +685,7 @@ void main() {
     double top(String title) => tester.getTopLeft(find.text(title)).dy;
     expect(top('Zebra'), lessThan(top('Apple')));
 
-    await tester.tap(find.byTooltip('مرتب‌سازی: تازه‌ترین'));
+    await tester.tap(find.byTooltip('مرتب‌سازی: تاریخ افزودن؛ جدیدترین اول'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('نام آهنگ'));
     await tester.pumpAndSettle();
@@ -697,10 +697,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(top('Zebra'), lessThan(top('Apple')));
 
-    // The choice lasts the session; put it back for the tests that follow.
     await tester.tap(find.byTooltip('مرتب‌سازی: خواننده'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('تازه‌ترین'));
+    await tester.tap(find.text('تاریخ افزودن؛ قدیمی‌ترین اول'));
+    await tester.pumpAndSettle();
+    expect(top('Apple'), lessThan(top('Zebra')));
+
+    // The choice lasts the session; put it back for the tests that follow.
+    await tester.tap(find.byTooltip('مرتب‌سازی: تاریخ افزودن؛ قدیمی‌ترین اول'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('تاریخ افزودن؛ جدیدترین اول'));
     await tester.pumpAndSettle();
   });
 
@@ -1003,7 +1009,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('the large title collapses and scroll is kept per tab',
+    testWidgets('the compact toolbar stays pinned and scroll is kept per tab',
         (tester) async {
       await pumpPhone(tester);
       final expandedTabsTop =
@@ -1013,7 +1019,7 @@ void main() {
       await tester.pumpAndSettle();
       final collapsedTabsTop =
           tester.getTopLeft(find.widgetWithText(Tab, 'آهنگ‌ها')).dy;
-      expect(collapsedTabsTop, lessThan(expandedTabsTop));
+      expect(collapsedTabsTop, expandedTabsTop);
       // The tabs stay pinned and nothing slides under them.
       expect(find.widgetWithText(Tab, 'هنرمندان'), findsOneWidget);
       final tabsBottom = tester.getBottomLeft(find.byType(TabBar)).dy;
