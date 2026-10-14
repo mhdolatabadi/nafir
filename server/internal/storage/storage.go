@@ -4,10 +4,12 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -257,4 +259,75 @@ func validPrefix(prefix string) bool {
 	trimmed := strings.Trim(prefix, "/")
 	return trimmed != "" && strings.HasSuffix(prefix, "/") && !strings.HasPrefix(prefix, "/") &&
 		!strings.Contains(prefix, "//") && !strings.Contains(prefix, "..")
+}
+
+// ErrPublicBucket means the bucket has a policy that lets anyone read or
+// write it without a signature. Audio must only ever be reachable through
+// presigned URLs (#217).
+var ErrPublicBucket = errors.New("the storage bucket allows anonymous access")
+
+// CheckPrivate returns ErrPublicBucket when the bucket's policy grants
+// anything to anonymous users. A bucket without a policy is private.
+func (s *Storage) CheckPrivate(ctx context.Context) error {
+	policy, err := s.internal.GetBucketPolicy(ctx, s.bucket)
+	if err != nil {
+		return fmt.Errorf("read bucket policy: %w", err)
+	}
+	public, err := allowsAnonymous(policy)
+	if err != nil {
+		return fmt.Errorf("parse bucket policy: %w", err)
+	}
+	if public {
+		return ErrPublicBucket
+	}
+	return nil
+}
+
+// allowsAnonymous reports whether an S3 bucket policy has an Allow statement
+// whose principal includes everyone ("*").
+func allowsAnonymous(policy string) (bool, error) {
+	if strings.TrimSpace(policy) == "" {
+		return false, nil
+	}
+	var doc struct {
+		Statement []struct {
+			Effect    string          `json:"Effect"`
+			Principal json.RawMessage `json:"Principal"`
+		} `json:"Statement"`
+	}
+	if err := json.Unmarshal([]byte(policy), &doc); err != nil {
+		return false, err
+	}
+	for _, statement := range doc.Statement {
+		if !strings.EqualFold(statement.Effect, "Allow") {
+			continue
+		}
+		if principalIsEveryone(statement.Principal) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// principalIsEveryone accepts the forms a policy may use: "*", {"AWS": "*"}
+// and {"AWS": ["…", "*"]}.
+func principalIsEveryone(raw json.RawMessage) bool {
+	var single string
+	if json.Unmarshal(raw, &single) == nil {
+		return single == "*"
+	}
+	var byKind map[string]json.RawMessage
+	if json.Unmarshal(raw, &byKind) != nil {
+		return false
+	}
+	for _, value := range byKind {
+		if json.Unmarshal(value, &single) == nil && single == "*" {
+			return true
+		}
+		var list []string
+		if json.Unmarshal(value, &list) == nil && slices.Contains(list, "*") {
+			return true
+		}
+	}
+	return false
 }
