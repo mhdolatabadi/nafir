@@ -15,7 +15,19 @@ class PlaybackSettings {
     this.speed = 1,
     this.crossfade = Duration.zero,
     this.loudness = LoudnessMode.track,
+    this.playOnlySelected = false,
+    this.preventDuplicates = false,
+    this.skipSilence = false,
+    this.systemControls = true,
+    this.externalPlayback = true,
   });
+
+  /// Applies to tapping a row; explicit play-all actions keep the whole list.
+  final bool playOnlySelected;
+  final bool preventDuplicates;
+  final bool skipSilence;
+  final bool systemControls;
+  final bool externalPlayback;
 
   final double speed;
 
@@ -31,6 +43,15 @@ class PlaybackSettings {
     final speed = json['speed'];
     final crossfadeMs = json['crossfadeMs'];
     return PlaybackSettings(
+      playOnlySelected: json['playOnlySelected'] == true,
+      preventDuplicates: json['preventDuplicates'] == true,
+      skipSilence: json['skipSilence'] == true,
+      systemControls: json['systemControls'] is bool
+          ? json['systemControls'] as bool
+          : true,
+      externalPlayback: json['externalPlayback'] is bool
+          ? json['externalPlayback'] as bool
+          : true,
       speed: speed is num && playbackSpeeds.contains(speed.toDouble())
           ? speed.toDouble()
           : 1,
@@ -49,14 +70,28 @@ class PlaybackSettings {
         'speed': speed,
         'crossfadeMs': crossfade.inMilliseconds,
         'loudness': loudness.name,
+        'playOnlySelected': playOnlySelected,
+        'preventDuplicates': preventDuplicates,
+        'skipSilence': skipSilence,
+        'systemControls': systemControls,
+        'externalPlayback': externalPlayback,
       };
 
-  PlaybackSettings copyWith({
-    double? speed,
-    Duration? crossfade,
-    LoudnessMode? loudness,
-  }) =>
+  PlaybackSettings copyWith(
+          {double? speed,
+          Duration? crossfade,
+          bool? playOnlySelected,
+          bool? preventDuplicates,
+          bool? skipSilence,
+          bool? systemControls,
+          bool? externalPlayback,
+          LoudnessMode? loudness}) =>
       PlaybackSettings(
+        playOnlySelected: playOnlySelected ?? this.playOnlySelected,
+        preventDuplicates: preventDuplicates ?? this.preventDuplicates,
+        skipSilence: skipSilence ?? this.skipSilence,
+        systemControls: systemControls ?? this.systemControls,
+        externalPlayback: externalPlayback ?? this.externalPlayback,
         speed: speed ?? this.speed,
         crossfade: crossfade ?? this.crossfade,
         loudness: loudness ?? this.loudness,

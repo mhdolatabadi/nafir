@@ -5,6 +5,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/player/data/audio_cache.dart';
 import 'package:nafir/features/player/data/crossfade.dart';
+import 'package:nafir/features/player/data/volume_ramp.dart';
 
 enum EngineState { idle, loading, buffering, ready, completed }
 
@@ -60,6 +61,12 @@ abstract interface class AudioEngine {
   Future<void> dispose();
 }
 
+/// Optional native capability; unsupported engines keep silence unchanged.
+abstract interface class SilenceSkippingEngine {
+  bool get supportsSilenceSkipping;
+  Future<void> setSkipSilence(bool enabled);
+}
+
 /// One just_audio player and the tracks queued in it, by id.
 class _Deck {
   _Deck() : player = AudioPlayer();
@@ -87,7 +94,7 @@ class _Deck {
 /// throttled in background tabs and on a locked phone, and a second media
 /// element may not start there without a fresh tap. Fades would stutter or
 /// the next track would not start, so crossfade is not offered on the web.
-class JustAudioEngine implements AudioEngine {
+class JustAudioEngine implements AudioEngine, SilenceSkippingEngine {
   JustAudioEngine({AudioCache? cache, bool? supportsCrossfade})
       : _cache = cache ?? createAudioCache(),
         supportsCrossfade = supportsCrossfade ?? !kIsWeb {
@@ -122,7 +129,43 @@ class JustAudioEngine implements AudioEngine {
   double _deckVolume(_Deck deck) => _volumeFor(deck.current);
 
   double _volumeFor(Track? track) =>
-      _volume * (track == null ? 1 : _gainFor(track).clamp(0.0, 1.0));
+      _volume *
+      _transportGain *
+      (track == null ? 1 : _gainFor(track).clamp(0.0, 1.0));
+
+  bool _skipSilence = false;
+
+  @override
+  bool get supportsSilenceSkipping =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  @override
+  Future<void> setSkipSilence(bool enabled) async {
+    if (!supportsSilenceSkipping) return;
+    await _active.player.setSkipSilenceEnabled(enabled);
+    await _standby?.player.setSkipSilenceEnabled(enabled);
+    _skipSilence = enabled;
+  }
+
+  /// Pause, resume and seek fade through this gain instead of cutting the
+  /// sound, which clicks (#254). It multiplies [_volume].
+  double _transportGain = 1;
+  late final _transport = VolumeRamp(_applyTransport);
+
+  /// Bumped by play (and new tracks): a pause still fading out when play is
+  /// tapped again does not pause after all.
+  int _playOp = 0;
+
+  /// Bumped by seek and pause: only the latest seek fades back in, and not
+  /// once a pause has started.
+  int _seekOp = 0;
+
+  void _applyTransport(double gain) {
+    _transportGain = gain;
+    if (_fade == null) {
+      unawaited(_active.player.setVolume(_deckVolume(_active)));
+    }
+  }
 
   Timer? _fade;
   _Deck? _fadingOut;
@@ -134,6 +177,9 @@ class JustAudioEngine implements AudioEngine {
 
   _Deck _listen(_Deck deck) {
     final player = deck.player;
+    if (supportsSilenceSkipping && _skipSilence) {
+      unawaited(player.setSkipSilenceEnabled(true));
+    }
     player.positionStream.listen((value) {
       if (deck != _active) return;
       _position.add(value);
@@ -200,6 +246,10 @@ class JustAudioEngine implements AudioEngine {
       ..tracks.replaceRange(0, deck.tracks.length, [track]);
     _currentId = track.id;
     _nextId = null;
+    // A new track starts from its own beginning, at full volume.
+    _playOp++;
+    _seekOp++;
+    _transport.jump(1);
     await deck.player.setVolume(_deckVolume(deck));
     await deck.player.setAudioSource(playlist, initialPosition: start);
   }
@@ -349,23 +399,53 @@ class JustAudioEngine implements AudioEngine {
   }
 
   @override
-  void play() => unawaited(_active.player.play());
+  void play() {
+    _playOp++;
+    final player = _active.player;
+    // Resuming mid-track fades in; a track starting from the top already
+    // starts from silence.
+    if (!player.playing &&
+        player.position > const Duration(milliseconds: 500)) {
+      _transport.jump(0);
+      unawaited(player.play());
+      unawaited(_transport.to(1, transportFade));
+    } else {
+      unawaited(_transport.to(1, transportFade));
+      unawaited(player.play());
+    }
+  }
 
   @override
   Future<void> pause() async {
     await _finishCrossfade();
+    final op = _playOp;
+    _seekOp++;
+    if (_active.player.playing) {
+      await _transport.to(0, transportFade);
+      // Play was tapped while fading out: keep playing.
+      if (op != _playOp) return;
+    }
     await _active.player.pause();
   }
 
   @override
   Future<void> seek(Duration position) async {
     await _finishCrossfade();
+    final op = ++_seekOp;
+    if (!_active.player.playing) {
+      await _active.player.seek(position);
+      return;
+    }
+    await _transport.to(0, seekFadeOut);
     await _active.player.seek(position);
+    if (op == _seekOp) unawaited(_transport.to(1, seekFadeIn));
   }
 
   @override
   Future<void> stop() async {
     _generation++;
+    _playOp++;
+    _seekOp++;
     await _finishCrossfade();
     await _clearStandby();
     _currentId = null;
@@ -401,6 +481,7 @@ class JustAudioEngine implements AudioEngine {
 
   @override
   Future<void> dispose() async {
+    _transport.dispose();
     _fade?.cancel();
     _fadeDone?.complete();
     await _active.player.dispose();

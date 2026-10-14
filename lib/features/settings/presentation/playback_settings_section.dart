@@ -73,6 +73,31 @@ class PlaybackSettingsSection extends StatelessWidget {
                         if (player.supportsCrossfade)
                           CrossfadeSetting(player: player),
                         LoudnessSetting(player: player),
+                        if (player.supportsSilenceSkipping)
+                          SwitchListTile(
+                            title: const Text('رد کردن سکوت'),
+                            subtitle:
+                                const Text('بخش‌های ساکت هنگام پخش رد شوند.'),
+                            value: player.skipSilence,
+                            onChanged: (value) =>
+                                player.setSystemPreferences(skipSilence: value),
+                          ),
+                        SwitchListTile(
+                          title: const Text('کنترل پخش از سیستم'),
+                          subtitle:
+                              const Text('دکمه‌های پخش در اعلان و صفحهٔ قفل'),
+                          value: player.systemControls,
+                          onChanged: (value) => player.setSystemPreferences(
+                              systemControls: value),
+                        ),
+                        SwitchListTile(
+                          title: const Text('شروع پخش با دستگاه خارجی'),
+                          subtitle: const Text(
+                              'اجازهٔ شروع پخش با هدست و دکمه‌های سیستم'),
+                          value: player.externalPlayback,
+                          onChanged: (value) => player.setSystemPreferences(
+                              externalPlayback: value),
+                        ),
                       ],
                     ),
                   ),
