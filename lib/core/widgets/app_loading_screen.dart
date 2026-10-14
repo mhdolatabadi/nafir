@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/core/design/design.dart';
 
 /// Full-screen loading state that matches the web splash in web/index.html,
 /// so startup looks like one continuous screen.
@@ -14,7 +15,7 @@ class AppLoadingScreen extends StatelessWidget {
           children: [
             // The app icon: a red nafir on black.
             ClipRRect(
-              borderRadius: BorderRadius.all(Radius.circular(16)),
+              borderRadius: BorderRadius.all(Radius.circular(NafirRadii.lg)),
               child: Image(
                 image: AssetImage('assets/icon/nafir.png'),
                 width: 72,

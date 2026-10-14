@@ -1,8 +1,8 @@
 import 'package:nafir/core/persian_digits.dart';
 import 'package:flutter/material.dart';
+import 'package:nafir/core/design/design.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/core/format_size.dart';
-import 'package:nafir/core/widgets/glass_surface.dart';
 
 /// How much of the account's cloud storage is used, for the account screen.
 class StorageUsageCard extends StatelessWidget {
@@ -72,7 +72,7 @@ class StorageUsageCard extends StatelessWidget {
             if (known) ...[
               const SizedBox(height: 12),
               ClipRRect(
-                borderRadius: BorderRadius.circular(99),
+                borderRadius: BorderRadius.circular(NafirRadii.pill),
                 child: LinearProgressIndicator(
                   value: progress,
                   minHeight: 6,

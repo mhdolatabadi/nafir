@@ -1910,7 +1910,7 @@ class _TrackArtwork extends StatelessWidget {
               color: current
                   ? colors.primaryContainer
                   : colors.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(NafirRadii.xs + 2),
+              borderRadius: BorderRadius.circular(NafirRadii.sm),
             ),
             child: Icon(
               NafirIcons.musicNote,
@@ -2684,7 +2684,7 @@ class _PlaylistResult extends StatelessWidget {
         height: 48,
         decoration: BoxDecoration(
           color: colors.secondaryContainer,
-          borderRadius: BorderRadius.circular(NafirRadii.xs + 2),
+          borderRadius: BorderRadius.circular(NafirRadii.sm),
         ),
         child: Icon(icon, color: colors.onSecondaryContainer),
       ),

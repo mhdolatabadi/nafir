@@ -319,7 +319,7 @@ class _Measure extends StatelessWidget {
           height: radius == null ? 16 : 56,
           decoration: BoxDecoration(
             color: radius == null ? colors.primary : colors.secondaryContainer,
-            borderRadius: BorderRadius.circular(radius ?? NafirRadii.xs / 2),
+            borderRadius: BorderRadius.circular(radius ?? NafirRadii.bar),
           ),
         ),
         const SizedBox(height: NafirSpace.xs),

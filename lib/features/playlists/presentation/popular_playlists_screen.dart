@@ -1,10 +1,10 @@
 import 'package:nafir/core/persian_digits.dart';
 import 'package:flutter/material.dart';
+import 'package:nafir/core/design/design.dart';
 import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/core/links/open_link.dart';
 import 'package:nafir/core/links/site_page.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/features/auth/presentation/sign_in_prompt.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/presentation/mini_player.dart';
@@ -205,7 +205,7 @@ class _PopularRow extends StatelessWidget {
           width: 52,
           height: 52,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(17),
+            borderRadius: BorderRadius.circular(NafirRadii.lg),
             gradient: LinearGradient(
               begin: Alignment.topRight,
               end: Alignment.bottomLeft,
@@ -245,7 +245,8 @@ class _PopularRow extends StatelessWidget {
           compact: true,
         ),
         onTap: onOpen,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(NafirRadii.xl)),
       ),
     );
   }

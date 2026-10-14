@@ -1,8 +1,8 @@
 import 'package:nafir/core/search_text.dart';
 import 'package:nafir/core/persian_digits.dart';
 import 'package:flutter/material.dart';
+import 'package:nafir/core/design/design.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/playlists/application/playlists_controller.dart';
@@ -381,7 +381,7 @@ class _PlaylistFeatureCard extends StatelessWidget {
     return SizedBox(
       width: 148,
       child: InkWell(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(NafirRadii.xl),
         onTap: onTap,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -497,25 +497,15 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   Future<void> _leave() async {
     final current = playlist;
     if (current == null) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('ترک فهرست پخش؟'),
-        content: const Text(
-            'آهنگ‌هایی که به این فهرست پخش اضافه کرده‌ای از آن بیرون می‌روند؛ در کتابخانه‌ات می‌مانند.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('انصراف'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('ترک'),
-          ),
-        ],
-      ),
+    final confirmed = await showNafirConfirm(
+      context,
+      title: 'ترک فهرست پخش؟',
+      message:
+          'آهنگ‌هایی که به این فهرست پخش اضافه کرده‌ای از آن بیرون می‌روند؛ در کتابخانه‌ات می‌مانند.',
+      confirmLabel: 'ترک',
+      destructive: true,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     final left = await widget.controller.leave(current.id);
     if (!mounted) return;
     if (left) {
@@ -567,24 +557,14 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   Future<void> _delete() async {
     final current = playlist;
     if (current == null) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('حذف فهرست پخش؟'),
-        content: const Text('آهنگ‌های کتابخانه حذف نمی‌شوند.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('انصراف'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('حذف'),
-          ),
-        ],
-      ),
+    final confirmed = await showNafirConfirm(
+      context,
+      title: 'حذف فهرست پخش؟',
+      message: 'آهنگ‌های کتابخانه حذف نمی‌شوند.',
+      confirmLabel: 'حذف',
+      destructive: true,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     final deleted = await widget.controller.delete(current.id);
     if (!mounted) return;
     if (deleted) {
@@ -826,11 +806,11 @@ class _PlaylistCover extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
-          colors: [NafirGlass.primary, Color(0xFF4E3B8D)],
+          colors: [NafirColors.primary, NafirColors.secondaryDeep],
         ),
         boxShadow: [
           BoxShadow(
-            color: NafirGlass.primary.withValues(alpha: 0.2),
+            color: NafirColors.primary.withValues(alpha: 0.2),
             offset: const Offset(0, 10),
             blurRadius: 24,
           ),
@@ -842,7 +822,7 @@ class _PlaylistCover extends StatelessWidget {
           Icon(
             trackCount == 0 ? NafirIcons.playlist : NafirIcons.musicNotes,
             size: size * 0.36,
-            color: const Color(0xFFFFF5F5),
+            color: NafirColors.onBrand,
           ),
           PositionedDirectional(
             end: 10,
@@ -850,7 +830,7 @@ class _PlaylistCover extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: colors.surface.withValues(alpha: 0.66),
-                borderRadius: BorderRadius.circular(999),
+                borderRadius: BorderRadius.circular(NafirRadii.pill),
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
@@ -1035,28 +1015,13 @@ class _PlaylistEmptyState extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: GlassSurface(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(NafirIcons.playlist, size: 40),
-              const SizedBox(height: 16),
-              Text(message, textAlign: TextAlign.center),
-              const SizedBox(height: 20),
-              FilledButton.icon(
-                onPressed: onPressed,
-                icon: const Icon(NafirIcons.plus),
-                label: Text(action),
-              ),
-            ],
-          ),
+  Widget build(BuildContext context) => NafirStateView(
+        icon: NafirIcons.playlist,
+        title: message,
+        action: FilledButton.icon(
+          onPressed: onPressed,
+          icon: const Icon(NafirIcons.plus),
+          label: Text(action),
         ),
-      ),
-    );
-  }
+      );
 }
