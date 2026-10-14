@@ -126,6 +126,7 @@ class PlayerController extends ChangeNotifier {
 
   PlaybackSettings _settings = const PlaybackSettings();
   bool _queueSettingsChanged = false;
+  bool _systemSettingsChanged = false;
 
   /// The track after the current one handed to the engine, and its link.
   String? _preloadedId;
@@ -155,6 +156,31 @@ class PlayerController extends ChangeNotifier {
     _settings = _settings.copyWith(
       playOnlySelected: playOnlySelected,
       preventDuplicates: preventDuplicates,
+    );
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  bool get systemControls => _settings.systemControls;
+  bool get externalPlayback => _settings.externalPlayback;
+  bool get skipSilence => _settings.skipSilence;
+  bool get supportsSilenceSkipping =>
+      _engine is SilenceSkippingEngine &&
+      (_engine as SilenceSkippingEngine).supportsSilenceSkipping;
+
+  Future<void> setSystemPreferences({
+    bool? systemControls,
+    bool? externalPlayback,
+    bool? skipSilence,
+  }) async {
+    _systemSettingsChanged = true;
+    if (skipSilence != null && supportsSilenceSkipping) {
+      await (_engine as SilenceSkippingEngine).setSkipSilence(skipSilence);
+    }
+    _settings = _settings.copyWith(
+      systemControls: systemControls,
+      externalPlayback: externalPlayback,
+      skipSilence: supportsSilenceSkipping ? skipSilence : null,
     );
     notifyListeners();
     await _saveSettings();
@@ -190,6 +216,18 @@ class PlayerController extends ChangeNotifier {
       if (_settings.speed == 1) await _applySpeed(saved.speed);
       if (_settings.crossfade == Duration.zero) {
         await _applyCrossfade(saved.crossfade);
+      }
+      if (!_systemSettingsChanged) {
+        if (supportsSilenceSkipping) {
+          await (_engine as SilenceSkippingEngine)
+              .setSkipSilence(saved.skipSilence);
+        }
+        if (!_systemSettingsChanged) {
+          _settings = _settings.copyWith(
+              systemControls: saved.systemControls,
+              externalPlayback: saved.externalPlayback,
+              skipSilence: supportsSilenceSkipping && saved.skipSilence);
+        }
       }
       if (!_queueSettingsChanged) {
         _settings = _settings.copyWith(
