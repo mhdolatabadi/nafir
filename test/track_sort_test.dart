@@ -23,6 +23,11 @@ void main() {
     expect(ids(sortTracks(library, TrackSort.recent)), ['1', '2', '3', '4']);
   });
 
+  test('oldest reverses addition order without changing the library', () {
+    expect(ids(sortTracks(library, TrackSort.oldest)), ['4', '3', '2', '1']);
+    expect(ids(library), ['1', '2', '3', '4']);
+  });
+
   test('title ignores case and keeps ties in library order', () {
     expect(ids(sortTracks(library, TrackSort.title)), ['2', '4', '3', '1']);
   });
