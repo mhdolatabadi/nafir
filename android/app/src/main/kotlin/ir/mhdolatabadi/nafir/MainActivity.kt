@@ -12,6 +12,8 @@ import android.media.MediaScannerConnection
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.provider.Settings
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.ryanheise.audioservice.AudioServiceActivity
@@ -45,6 +47,22 @@ class MainActivity : AudioServiceActivity() {
             channelName,
         ).setMethodCallHandler { call, result ->
             when (call.method) {
+                "permissionStatus" -> result.success(mapOf(
+                    "audio" to hasAudioPermission(),
+                    "microphone" to (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED),
+                    "notifications" to NotificationManagerCompat.from(this).areNotificationsEnabled(),
+                ))
+                "openAppSettings" -> {
+                    try {
+                        startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+                        result.success(true)
+                    } catch (_: Exception) { result.success(false) }
+                }
+                "appVersion" -> {
+                    val info = packageManager.getPackageInfo(packageName, 0)
+                    val build = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.longVersionCode else info.versionCode.toLong()
+                    result.success(mapOf("version" to info.versionName, "build_number" to build.toString()))
+                }
                 "queryAudio" -> handleQueryAudio(result)
                 "copyAudioToCache" -> handleCopyAudioToCache(
                     call.argument<String>("uri"),
