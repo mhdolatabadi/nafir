@@ -5,6 +5,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/player/data/audio_cache.dart';
 import 'package:nafir/features/player/data/crossfade.dart';
+import 'package:nafir/features/player/data/volume_ramp.dart';
 
 enum EngineState { idle, loading, buffering, ready, completed }
 
@@ -107,6 +108,20 @@ class JustAudioEngine implements AudioEngine {
   double _volume = 1;
   Duration _crossfade = Duration.zero;
 
+  /// Pause, resume and seek fade through this gain instead of cutting the
+  /// sound, which clicks (#254). It multiplies [_volume].
+  double _transportGain = 1;
+  late final _transport = VolumeRamp(_applyTransport);
+
+  /// Bumped by every play, pause and seek, so a pause still fading out when
+  /// play is tapped again does not pause after all.
+  int _transportOp = 0;
+
+  void _applyTransport(double gain) {
+    _transportGain = gain;
+    if (_fade == null) unawaited(_active.player.setVolume(_volume * gain));
+  }
+
   Timer? _fade;
   _Deck? _fadingOut;
   Completer<void>? _fadeDone;
@@ -182,6 +197,9 @@ class JustAudioEngine implements AudioEngine {
       ..ids.replaceRange(0, deck.ids.length, [track.id]);
     _currentId = track.id;
     _nextId = null;
+    // A new track starts from its own beginning, at full volume.
+    _transportOp++;
+    _transport.jump(1);
     await deck.player.setVolume(_volume);
     await deck.player.setAudioSource(playlist, initialPosition: start);
   }
@@ -299,8 +317,8 @@ class JustAudioEngine implements AudioEngine {
     _fade = Timer.periodic(step, (_) {
       done++;
       final (outGain, inGain) = crossfadeGains(done / steps);
-      out.player.setVolume(_volume * outGain);
-      into.player.setVolume(_volume * inGain);
+      out.player.setVolume(_volume * _transportGain * outGain);
+      into.player.setVolume(_volume * _transportGain * inGain);
       if (done >= steps) unawaited(_finishCrossfade());
     });
   }
@@ -315,30 +333,58 @@ class JustAudioEngine implements AudioEngine {
     _fade = null;
     _fadingOut = null;
     out.ids.clear();
-    await _active.player.setVolume(_volume);
+    await _active.player.setVolume(_volume * _transportGain);
     await out.player.stop();
     _fadeDone?.complete();
     _fadeDone = null;
   }
 
   @override
-  void play() => unawaited(_active.player.play());
+  void play() {
+    _transportOp++;
+    final player = _active.player;
+    // Resuming mid-track fades in; a track starting from the top already
+    // starts from silence.
+    if (!player.playing &&
+        player.position > const Duration(milliseconds: 500)) {
+      _transport.jump(0);
+      unawaited(player.play());
+      unawaited(_transport.to(1, transportFade));
+    } else {
+      unawaited(_transport.to(1, transportFade));
+      unawaited(player.play());
+    }
+  }
 
   @override
   Future<void> pause() async {
     await _finishCrossfade();
+    final op = ++_transportOp;
+    if (_active.player.playing) {
+      await _transport.to(0, transportFade);
+      // Play was tapped while fading out: keep playing.
+      if (op != _transportOp) return;
+    }
     await _active.player.pause();
   }
 
   @override
   Future<void> seek(Duration position) async {
     await _finishCrossfade();
+    final op = ++_transportOp;
+    if (!_active.player.playing) {
+      await _active.player.seek(position);
+      return;
+    }
+    await _transport.to(0, seekFadeOut);
     await _active.player.seek(position);
+    if (op == _transportOp) unawaited(_transport.to(1, seekFadeIn));
   }
 
   @override
   Future<void> stop() async {
     _generation++;
+    _transportOp++;
     await _finishCrossfade();
     await _clearStandby();
     _currentId = null;
@@ -357,7 +403,7 @@ class JustAudioEngine implements AudioEngine {
   Future<void> setVolume(double volume) async {
     _volume = volume.clamp(0.0, 1.0);
     // A running crossfade applies it on its next step.
-    if (_fade == null) await _active.player.setVolume(_volume);
+    if (_fade == null) await _active.player.setVolume(_volume * _transportGain);
   }
 
   @override
@@ -367,6 +413,7 @@ class JustAudioEngine implements AudioEngine {
 
   @override
   Future<void> dispose() async {
+    _transport.dispose();
     _fade?.cancel();
     _fadeDone?.complete();
     await _active.player.dispose();

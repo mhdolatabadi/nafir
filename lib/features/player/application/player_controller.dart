@@ -6,6 +6,7 @@ import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/lyrics/application/lyrics_controller.dart';
 import 'package:nafir/features/player/application/favorite_tracks.dart';
+import 'package:nafir/features/player/application/playback_metrics.dart';
 import 'package:nafir/features/player/application/play_queue.dart';
 import 'package:nafir/features/player/application/playback_settings.dart';
 import 'package:nafir/features/player/data/audio_engine.dart';
@@ -95,6 +96,9 @@ class PlayerController extends ChangeNotifier {
 
   /// The tracks the listener liked, shown on the now-playing screen.
   final FavoriteTracks favorites;
+
+  /// Time to first audio and stalls per play; printed in debug builds.
+  final metrics = PlaybackMetrics();
 
   /// Lyrics for the now-playing screen; null where there is no server.
   final LyricsController? lyrics;
@@ -397,6 +401,7 @@ class PlayerController extends ChangeNotifier {
       _fadeTimer = null;
       unawaited(_engine.setVolume(1));
     }
+    metrics.started(track.id, _now());
     _setStatus(PlayerStatus.loading);
     try {
       final url =
@@ -457,6 +462,7 @@ class PlayerController extends ChangeNotifier {
     _listened = false;
     _heard = Duration.zero;
     _advancing = false;
+    metrics.started(next.id, _now(), preloaded: true);
     _refreshStatus();
   }
 
@@ -691,6 +697,7 @@ class PlayerController extends ChangeNotifier {
 
   void _setStatus(PlayerStatus status) {
     _status = status;
+    metrics.status(status, _now());
     notifyListeners();
   }
 
