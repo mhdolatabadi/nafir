@@ -799,7 +799,6 @@ class QueueSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final bottom = MediaQuery.viewPaddingOf(context).bottom;
     return FractionallySizedBox(
       heightFactor: 0.75,
       child: ListenableBuilder(
@@ -807,106 +806,56 @@ class QueueSheet extends StatelessWidget {
         builder: (context, _) {
           final current = player.track;
           final upcoming = player.upcoming;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsetsDirectional.fromSTEB(24, 0, 24, 8),
-                child: Text(
-                  'صف پخش',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
+          return NafirSheetFrame(
+            title: 'صف پخش',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (current != null)
+                  NafirTrackRow(
+                    seed: current.id,
+                    title: current.title,
+                    subtitle: 'در حال پخش · ${trackSubtitle(current)}',
+                    active: true,
+                  ),
+                Padding(
+                  padding: const EdgeInsetsDirectional.fromSTEB(NafirSpace.xxl,
+                      NafirSpace.md, NafirSpace.xxl, NafirSpace.xs),
+                  child: Text(
+                    upcoming.isEmpty
+                        ? 'بعدی'
+                        : 'بعدی · ${persianDigits(upcoming.length)} آهنگ',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
-              ),
-              if (current != null)
-                _QueueTile(
-                  track: current,
-                  label: 'در حال پخش',
-                  current: true,
-                ),
-              Padding(
-                padding: const EdgeInsetsDirectional.fromSTEB(24, 12, 24, 4),
-                child: Text(
-                  upcoming.isEmpty
-                      ? 'بعدی'
-                      : 'بعدی · ${persianDigits(upcoming.length)} آهنگ',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: upcoming.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(
-                            'آهنگ دیگری در صف نیست.',
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
+                Expanded(
+                  child: upcoming.isEmpty
+                      ? const NafirStateView(
+                          icon: NafirIcons.playlist,
+                          title: 'آهنگ دیگری در صف نیست.',
+                          message:
+                              'آهنگ بعدی را از کتابخانه یا فهرست پخش انتخاب کنید.',
+                        )
+                      : ListView.builder(
+                          padding: nafirListBottomPadding(context),
+                          itemCount: upcoming.length,
+                          itemBuilder: (context, index) {
+                            final track = upcoming[index];
+                            return NafirTrackRow(
+                              seed: track.id,
+                              title: track.title,
+                              subtitle: trackSubtitle(track),
+                              onTap: () => player.skipTo(index),
+                            );
+                          },
                         ),
-                      )
-                    : ListView.builder(
-                        padding: EdgeInsets.only(bottom: bottom + 16),
-                        itemCount: upcoming.length,
-                        itemBuilder: (context, index) => _QueueTile(
-                          track: upcoming[index],
-                          onTap: () => player.skipTo(index),
-                        ),
-                      ),
-              ),
-            ],
+                ),
+              ],
+            ),
           );
         },
-      ),
-    );
-  }
-}
-
-class _QueueTile extends StatelessWidget {
-  const _QueueTile({
-    required this.track,
-    this.label,
-    this.current = false,
-    this.onTap,
-  });
-
-  final Track track;
-  final String? label;
-  final bool current;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return ListTile(
-      minTileHeight: 64,
-      contentPadding: const EdgeInsetsDirectional.symmetric(horizontal: 24),
-      onTap: onTap,
-      selected: current,
-      leading: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: current ? colors.primaryContainer : trackTint(track),
-          borderRadius: BorderRadius.circular(NafirRadii.sm),
-        ),
-        child: Icon(
-          current ? NafirIcons.waveformFill : NafirIcons.musicNote,
-          size: 20,
-          color: current ? colors.onPrimaryContainer : colors.onSurfaceVariant,
-        ),
-      ),
-      title: Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(
-        label == null
-            ? trackSubtitle(track)
-            : '$label · ${trackSubtitle(track)}',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
       ),
     );
   }
@@ -936,25 +885,21 @@ class _TrackDetailsSheet extends StatelessWidget {
     ];
     return SingleChildScrollView(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.viewPaddingOf(context).bottom + 16,
+        bottom: MediaQuery.viewPaddingOf(context).bottom + NafirSpace.lg,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsetsDirectional.fromSTEB(24, 0, 24, 8),
-            child: Text(
-              'جزئیات آهنگ',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-            ),
+          const NafirSectionHeader(
+            title: 'جزئیات آهنگ',
+            padding: EdgeInsetsDirectional.fromSTEB(
+                NafirSpace.xxl, 0, NafirSpace.xxl, NafirSpace.sm),
           ),
           for (final (label, value) in rows)
             if (value?.trim().isNotEmpty == true)
               ListTile(
-                contentPadding:
-                    const EdgeInsetsDirectional.symmetric(horizontal: 24),
+                contentPadding: const EdgeInsetsDirectional.symmetric(
+                    horizontal: NafirSpace.xxl),
                 title: Text(label),
                 subtitle:
                     Text(value!, maxLines: 2, overflow: TextOverflow.ellipsis),

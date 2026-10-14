@@ -445,6 +445,8 @@ class _Result extends StatelessWidget {
   }
 }
 
+/// A state of the screen without a result, drawn as the shared
+/// [NafirStateView].
 class _Message extends StatelessWidget {
   const _Message({
     required this.icon,
@@ -462,40 +464,11 @@ class _Message extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (busy)
-          const SizedBox.square(
-            dimension: 56,
-            child: CircularProgressIndicator(strokeWidth: 3),
-          )
-        else
-          Icon(icon, size: 56, color: theme.colorScheme.onSurfaceVariant),
-        const SizedBox(height: 20),
-        Text(
-          title,
-          textAlign: TextAlign.center,
-          style:
-              theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-        ),
-        if (detail != null) ...[
-          const SizedBox(height: 10),
-          Text(
-            detail!,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              height: 1.7,
-            ),
-          ),
-        ],
-        if (action != null) ...[
-          const SizedBox(height: 24),
-          action!,
-        ],
-      ],
-    );
+    if (busy) return NafirStateView.loading(title: title, message: detail);
+    return icon == NafirIcons.warningCircle
+        ? NafirStateView.error(
+            icon: icon, title: title, message: detail, action: action)
+        : NafirStateView(
+            icon: icon, title: title, message: detail, action: action);
   }
 }

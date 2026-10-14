@@ -362,7 +362,8 @@ class _LyricsViewState extends State<LyricsView> {
   }
 }
 
-/// A centered message for a state with no lyrics to show.
+/// A state with no lyrics to show, drawn as the shared [NafirStateView];
+/// a warning icon makes it an error.
 class LyricsMessage extends StatelessWidget {
   const LyricsMessage({
     super.key,
@@ -378,42 +379,11 @@ class LyricsMessage extends StatelessWidget {
   final Widget? action;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(
-            32, 24, 32, MediaQuery.viewPaddingOf(context).bottom + 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 40, color: theme.colorScheme.onSurfaceVariant),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            if (detail != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                detail!,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-            if (action != null) ...[
-              const SizedBox(height: 20),
-              action!,
-            ],
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => icon == NafirIcons.warningCircle
+      ? NafirStateView.error(
+          icon: icon, title: title, message: detail, action: action)
+      : NafirStateView(
+          icon: icon, title: title, message: detail, action: action);
 }
 
 /// Plain lyrics: text to scroll through, each line in its own direction.
