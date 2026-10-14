@@ -452,7 +452,9 @@ class NowPlayingArtwork extends StatelessWidget {
             end: Alignment.bottomLeft,
             colors: [
               Color.lerp(tint, Colors.white, 0.14)!,
-              Color.lerp(tint, NafirGlass.background, 0.35)!,
+              Theme.of(context).brightness == Brightness.dark
+                  ? Color.lerp(tint, NafirGlass.background, 0.35)!
+                  : colors.primaryContainer,
             ],
           ),
           border: Border.all(color: NafirGlass.softBorder),

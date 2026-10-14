@@ -62,7 +62,7 @@ class _IdentifyScreenState extends State<IdentifyScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('این آهنگ چیه؟'),
-        backgroundColor: NafirGlass.background,
+        backgroundColor: Theme.of(context).colorScheme.surface,
       ),
       bottomNavigationBar: MiniPlayer(player: widget.player),
       body: NafirBackdrop(

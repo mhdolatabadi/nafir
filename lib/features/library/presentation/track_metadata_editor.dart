@@ -738,10 +738,15 @@ class _SaveBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: NafirGlass.surface.withValues(alpha: 0.96),
+      color: Theme.of(context)
+          .colorScheme
+          .surfaceContainerLow
+          .withValues(alpha: 0.96),
       child: Container(
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: NafirGlass.softBorder)),
+        decoration: BoxDecoration(
+          border: Border(
+              top: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant)),
         ),
         padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomInset),
         // heightFactor keeps the bar as tall as the button, not the screen.
