@@ -1015,28 +1015,13 @@ class _PlaylistEmptyState extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: GlassSurface(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(NafirIcons.playlist, size: 40),
-              const SizedBox(height: 16),
-              Text(message, textAlign: TextAlign.center),
-              const SizedBox(height: 20),
-              FilledButton.icon(
-                onPressed: onPressed,
-                icon: const Icon(NafirIcons.plus),
-                label: Text(action),
-              ),
-            ],
-          ),
+  Widget build(BuildContext context) => NafirStateView(
+        icon: NafirIcons.playlist,
+        title: message,
+        action: FilledButton.icon(
+          onPressed: onPressed,
+          icon: const Icon(NafirIcons.plus),
+          label: Text(action),
         ),
-      ),
-    );
-  }
+      );
 }

@@ -127,111 +127,119 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final error = Theme.of(context).colorScheme.error;
     return Scaffold(
       appBar: AppBar(title: const Text('تنظیمات')),
-      body: ListView(
-        // System navigation never covers the last item.
-        padding: EdgeInsets.only(
-          bottom: 24 + MediaQuery.paddingOf(context).bottom,
-        ),
-        children: [
-          if (widget.library case final library?)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: ListenableBuilder(
-                listenable: library,
-                builder: (context, _) => StorageUsageCard(
-                  usedBytes: library.usedBytes,
-                  limitBytes: library.limitBytes,
+      // Centred and capped on desktop, so rows never span the window.
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: NafirSpace.listWidth),
+          child: ListView(
+            // System navigation never covers the last item.
+            padding: EdgeInsets.only(
+              bottom: 24 + MediaQuery.paddingOf(context).bottom,
+            ),
+            children: [
+              if (widget.library case final library?)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: ListenableBuilder(
+                    listenable: library,
+                    builder: (context, _) => StorageUsageCard(
+                      usedBytes: library.usedBytes,
+                      limitBytes: library.limitBytes,
+                    ),
+                  ),
+                ),
+              const ListTile(
+                title: Text('کش موسیقی'),
+                subtitle: Text(
+                  'آهنگ‌هایی که پخش کرده‌ای روی همین دستگاه نگه داشته می‌شوند تا '
+                  'دفعه‌ی بعد سریع‌تر و بدون اینترنت پخش شوند.',
                 ),
               ),
-            ),
-          const ListTile(
-            title: Text('کش موسیقی'),
-            subtitle: Text(
-              'آهنگ‌هایی که پخش کرده‌ای روی همین دستگاه نگه داشته می‌شوند تا '
-              'دفعه‌ی بعد سریع‌تر و بدون اینترنت پخش شوند.',
-            ),
-          ),
-          if (widget.cache.isManaged)
-            ListenableBuilder(
-              listenable: widget.cache,
-              builder: (context, _) {
-                final cache = widget.cache;
-                final size = cache.sizeBytes;
-                return ListTile(
-                  leading: const Icon(NafirIcons.database),
-                  title: Text(switch ((size, cache.failed)) {
-                    (_, true) => 'حجم کش معلوم نشد',
-                    (null, _) => 'در حال محاسبه…',
-                    (final int bytes, _) => 'حجم کش: ${formatSize(bytes)}',
-                  }),
-                  trailing: OutlinedButton(
-                    onPressed: cache.busy || size == 0 ? null : _clear,
-                    child: const Text('پاک کردن کش'),
-                  ),
-                );
-              },
-            )
-          else
-            const ListTile(
-              leading: Icon(NafirIcons.globe),
-              title: Text('در نسخه‌ی وب، کش را خود مرورگر مدیریت می‌کند.'),
-            ),
-          if (widget.player case final player? when player.supportsCrossfade)
-            CrossfadeSetting(player: player),
-          if (widget.botLinks case final botLinks?)
-            BotLinkSection(controller: botLinks),
-          const Divider(),
-          ListTile(
-            title: const Text('حساب کاربری'),
-            subtitle: widget.email == null
-                ? null
-                : Text(
-                    widget.email!,
-                    textDirection: TextDirection.ltr,
-                    textAlign: TextAlign.end,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-          ),
-          ListTile(
-            leading: const Icon(NafirIcons.shieldCheck),
-            title: const Text('حریم خصوصی'),
-            subtitle: const Text('چه چیزهایی نگه می‌داریم و چه کسی می‌بیند'),
-            trailing: const Icon(NafirIcons.arrowSquareOut, size: 20),
-            onTap: () => _openPage('/privacy'),
-          ),
-          if (widget.onSignOutEverywhere case final signOut?)
-            ListTile(
-              leading: const Icon(NafirIcons.signOut),
-              title: const Text('خروج از همه‌ی دستگاه‌ها'),
-              subtitle: const Text(
-                'اگر گوشی یا رمزت دست کس دیگری افتاده، بقیه‌ی نشست‌ها را ببند',
+              if (widget.cache.isManaged)
+                ListenableBuilder(
+                  listenable: widget.cache,
+                  builder: (context, _) {
+                    final cache = widget.cache;
+                    final size = cache.sizeBytes;
+                    return ListTile(
+                      leading: const Icon(NafirIcons.database),
+                      title: Text(switch ((size, cache.failed)) {
+                        (_, true) => 'حجم کش معلوم نشد',
+                        (null, _) => 'در حال محاسبه…',
+                        (final int bytes, _) => 'حجم کش: ${formatSize(bytes)}',
+                      }),
+                      trailing: OutlinedButton(
+                        onPressed: cache.busy || size == 0 ? null : _clear,
+                        child: const Text('پاک کردن کش'),
+                      ),
+                    );
+                  },
+                )
+              else
+                const ListTile(
+                  leading: Icon(NafirIcons.globe),
+                  title: Text('در نسخه‌ی وب، کش را خود مرورگر مدیریت می‌کند.'),
+                ),
+              if (widget.player case final player?
+                  when player.supportsCrossfade)
+                CrossfadeSetting(player: player),
+              if (widget.botLinks case final botLinks?)
+                BotLinkSection(controller: botLinks),
+              const Divider(),
+              ListTile(
+                title: const Text('حساب کاربری'),
+                subtitle: widget.email == null
+                    ? null
+                    : Text(
+                        widget.email!,
+                        textDirection: TextDirection.ltr,
+                        textAlign: TextAlign.end,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
               ),
-              onTap: () => _signOutEverywhere(signOut),
-            ),
-          if ((widget.email, widget.onDeleteAccount)
-              case (final String email, final delete?))
-            ListTile(
-              leading: Icon(NafirIcons.userCircleMinus, color: error),
-              iconColor: error,
-              textColor: error,
-              title: const Text('حذف حساب کاربری'),
-              subtitle: const Text(
-                'حساب، موسیقی‌های ابری و فهرست‌های پخشت برای همیشه پاک می‌شوند',
+              ListTile(
+                leading: const Icon(NafirIcons.shieldCheck),
+                title: const Text('حریم خصوصی'),
+                subtitle:
+                    const Text('چه چیزهایی نگه می‌داریم و چه کسی می‌بیند'),
+                trailing: const Icon(NafirIcons.arrowSquareOut, size: 20),
+                onTap: () => _openPage('/privacy'),
               ),
-              trailing: const Icon(NafirIcons.caretLeft, size: 20),
-              onTap: () => _openDeleteAccount(email, delete),
-            ),
-          // Debug builds only: every token and component on one page.
-          if (kDebugMode)
-            ListTile(
-              leading: const Icon(NafirIcons.gauge),
-              title: const Text('سامانهٔ طراحی'),
-              subtitle: const Text('فقط در نسخهٔ آزمایشی'),
-              trailing: const Icon(NafirIcons.caretLeft, size: 20),
-              onTap: () => openDesignGallery(context),
-            ),
-        ],
+              if (widget.onSignOutEverywhere case final signOut?)
+                ListTile(
+                  leading: const Icon(NafirIcons.signOut),
+                  title: const Text('خروج از همه‌ی دستگاه‌ها'),
+                  subtitle: const Text(
+                    'اگر گوشی یا رمزت دست کس دیگری افتاده، بقیه‌ی نشست‌ها را ببند',
+                  ),
+                  onTap: () => _signOutEverywhere(signOut),
+                ),
+              if ((widget.email, widget.onDeleteAccount)
+                  case (final String email, final delete?))
+                ListTile(
+                  leading: Icon(NafirIcons.userCircleMinus, color: error),
+                  iconColor: error,
+                  textColor: error,
+                  title: const Text('حذف حساب کاربری'),
+                  subtitle: const Text(
+                    'حساب، موسیقی‌های ابری و فهرست‌های پخشت برای همیشه پاک می‌شوند',
+                  ),
+                  trailing: const Icon(NafirIcons.caretLeft, size: 20),
+                  onTap: () => _openDeleteAccount(email, delete),
+                ),
+              // Debug builds only: every token and component on one page.
+              if (kDebugMode)
+                ListTile(
+                  leading: const Icon(NafirIcons.gauge),
+                  title: const Text('سامانهٔ طراحی'),
+                  subtitle: const Text('فقط در نسخهٔ آزمایشی'),
+                  trailing: const Icon(NafirIcons.caretLeft, size: 20),
+                  onTap: () => openDesignGallery(context),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -86,6 +86,9 @@ abstract final class NafirSpace {
   /// The widest a reading column grows on desktop.
   static const double readingWidth = 520;
 
+  /// The widest a settings-style list of rows grows on desktop.
+  static const double listWidth = 720;
+
   /// The widest page content grows on desktop.
   static const double pageWidth = 960;
 }
