@@ -47,6 +47,32 @@ void main() {
     });
   }
 
+  test('silence skipping reaches supported engines and is restored', () async {
+    final native = _SilenceEngine();
+    engine = native;
+    final player = controller();
+    expect(player.supportsSilenceSkipping, isTrue);
+    await player.setSystemPreferences(
+        skipSilence: true, systemControls: false, externalPlayback: false);
+    expect(native.skipSilence, isTrue);
+    expect(store.settings.skipSilence, isTrue);
+    player.dispose();
+    final restored = controller();
+    addTearDown(restored.dispose);
+    await restored.loadSettings();
+    expect(restored.skipSilence, isTrue);
+    expect(restored.systemControls, isFalse);
+    expect(restored.externalPlayback, isFalse);
+  });
+
+  test('unsupported engines do not enable silence skipping', () async {
+    final player = controller();
+    addTearDown(player.dispose);
+    expect(player.supportsSilenceSkipping, isFalse);
+    await player.setSystemPreferences(skipSilence: true);
+    expect(player.skipSilence, isFalse);
+  });
+
   group('queue preferences', () {
     test('single-row mode preserves the chosen track and explicit play-all',
         () async {
@@ -546,4 +572,12 @@ void main() {
       expect(start, 1);
     });
   });
+}
+
+class _SilenceEngine extends FakeAudioEngine implements SilenceSkippingEngine {
+  bool skipSilence = false;
+  @override
+  bool get supportsSilenceSkipping => true;
+  @override
+  Future<void> setSkipSilence(bool enabled) async => skipSilence = enabled;
 }

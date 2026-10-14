@@ -55,6 +55,12 @@ abstract interface class AudioEngine {
   Future<void> dispose();
 }
 
+/// Optional native capability; unsupported engines keep silence unchanged.
+abstract interface class SilenceSkippingEngine {
+  bool get supportsSilenceSkipping;
+  Future<void> setSkipSilence(bool enabled);
+}
+
 /// One just_audio player and the tracks queued in it, by id.
 class _Deck {
   _Deck() : player = AudioPlayer();
@@ -77,7 +83,7 @@ class _Deck {
 /// throttled in background tabs and on a locked phone, and a second media
 /// element may not start there without a fresh tap. Fades would stutter or
 /// the next track would not start, so crossfade is not offered on the web.
-class JustAudioEngine implements AudioEngine {
+class JustAudioEngine implements AudioEngine, SilenceSkippingEngine {
   JustAudioEngine({AudioCache? cache, bool? supportsCrossfade})
       : _cache = cache ?? createAudioCache(),
         supportsCrossfade = supportsCrossfade ?? !kIsWeb {
@@ -106,6 +112,19 @@ class JustAudioEngine implements AudioEngine {
   double _speed = 1;
   double _volume = 1;
   Duration _crossfade = Duration.zero;
+  bool _skipSilence = false;
+
+  @override
+  bool get supportsSilenceSkipping =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  @override
+  Future<void> setSkipSilence(bool enabled) async {
+    if (!supportsSilenceSkipping) return;
+    await _active.player.setSkipSilenceEnabled(enabled);
+    await _standby?.player.setSkipSilenceEnabled(enabled);
+    _skipSilence = enabled;
+  }
 
   Timer? _fade;
   _Deck? _fadingOut;
@@ -117,6 +136,9 @@ class JustAudioEngine implements AudioEngine {
 
   _Deck _listen(_Deck deck) {
     final player = deck.player;
+    if (supportsSilenceSkipping && _skipSilence) {
+      unawaited(player.setSkipSilenceEnabled(true));
+    }
     player.positionStream.listen((value) {
       if (deck != _active) return;
       _position.add(value);
