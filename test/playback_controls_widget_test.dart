@@ -11,6 +11,7 @@ import 'package:nafir/features/player/presentation/now_playing_screen.dart';
 import 'package:nafir/features/player/presentation/playback_controls.dart';
 import 'package:nafir/features/settings/application/cache_controller.dart';
 import 'package:nafir/features/settings/presentation/settings_screen.dart';
+import 'package:nafir/features/settings/presentation/queue_settings_section.dart';
 
 import 'cache_controller_test.dart' show FakeAudioCache;
 import 'now_playing_screen_test.dart' show advanceUi;
@@ -201,6 +202,25 @@ void main() {
       final chip =
           tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '۱٫۵×'));
       expect(chip.selected, isTrue);
+    });
+
+    testWidgets('queue controls update persisted preferences on a narrow phone',
+        (tester) async {
+      phone(tester);
+      await tester.pumpWidget(_app(Scaffold(
+        body: SafeArea(child: QueueSettingsSection(player: player)),
+      )));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('با انتخاب یک آهنگ'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('فقط همان آهنگ پخش شود'));
+      await tester.pumpAndSettle();
+      expect(player.playOnlySelected, isTrue);
+      expect(find.text('فقط همان آهنگ پخش شود'), findsOneWidget);
+      await tester.tap(find.byType(Switch));
+      await tester.pumpAndSettle();
+      expect(player.preventDuplicates, isTrue);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('settings speed and sleep timer update the real player',
