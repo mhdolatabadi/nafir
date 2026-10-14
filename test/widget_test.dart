@@ -627,6 +627,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('تنظیمات').last);
     await tester.pumpAndSettle();
+    await _revealSetting(tester, find.text('فضای ابری'));
     expect(find.text('فضای ابری'), findsOneWidget);
     expect(find.textContaining('از ۵.۰ گیگابایت'), findsOneWidget);
     expect(
