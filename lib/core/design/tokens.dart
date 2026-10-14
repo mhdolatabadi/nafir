@@ -26,6 +26,10 @@ abstract final class NafirColors {
 
   // Accents.
   static const primary = Color(0xFFFF626A);
+
+  /// The deep end of the brand mark's ember gradient, and the light mark on it.
+  static const primaryDeep = Color(0xFFB72E50);
+  static const onBrand = Color(0xFFFFF5F5);
   static const onPrimary = Color(0xFF250005);
   static const primaryContainer = Color(0xFF462026);
   static const onPrimaryContainer = Color(0xFFFFDADB);

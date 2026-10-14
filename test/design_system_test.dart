@@ -33,23 +33,17 @@ Widget _app(Widget home, {bool reduceMotion = false}) => MaterialApp(
 /// Files that still hold raw values, by kind. Each screen pass empties its
 /// files out of these lists; the test fails when a listed file is already
 /// clean, so the lists only ever shrink.
-const _rawColourFiles = {
-  'lib/features/library/presentation/library_screen.dart',
-  'lib/features/library/presentation/track_metadata_editor.dart',
+const _rawColourFiles = <String>{
   'lib/features/playlists/presentation/playlists_screen.dart',
 };
-const _rawRadiusFiles = {
+const _rawRadiusFiles = <String>{
   'lib/core/widgets/app_loading_screen.dart',
-  'lib/features/history/presentation/recently_played_shelf.dart',
-  'lib/features/library/presentation/library_screen.dart',
   'lib/features/playlists/presentation/playlists_screen.dart',
   'lib/features/playlists/presentation/popular_playlists_screen.dart',
   'lib/features/playlists/presentation/shared_playlist_screen.dart',
   'lib/features/settings/presentation/storage_usage_card.dart',
 };
-const _rawDurationFiles = {
-  'lib/features/library/presentation/track_metadata_editor.dart',
-};
+const _rawDurationFiles = <String>{};
 
 void main() {
   group('tokens', () {

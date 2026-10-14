@@ -2,11 +2,11 @@ import 'package:nafir/core/persian_digits.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:nafir/core/design/design.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/core/format_size.dart';
 import 'package:nafir/core/search_text.dart';
-import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/features/auth/presentation/email_verification_screen.dart';
 import 'package:nafir/features/history/application/recently_played_controller.dart';
 import 'package:nafir/features/history/presentation/recently_played_shelf.dart';
@@ -595,7 +595,7 @@ class _LibraryScreenState extends State<LibraryScreen>
             pinned: true,
             expandedHeight: _largeTitleHeight + kToolbarHeight,
             // Opaque, because the lists scroll underneath it.
-            backgroundColor: NafirGlass.background,
+            backgroundColor: NafirColors.background,
             actions: _accountActions(context),
             flexibleSpace: const _CollapsingTitle(),
             bottom: tabs,
@@ -910,11 +910,11 @@ class _NafirMark extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
-          colors: [NafirGlass.primary, Color(0xFFB72E50)],
+          colors: [NafirColors.primary, NafirColors.primaryDeep],
         ),
         boxShadow: [
           BoxShadow(
-            color: NafirGlass.primary.withValues(alpha: 0.24),
+            color: NafirColors.primary.withValues(alpha: 0.24),
             offset: const Offset(0, 8),
             blurRadius: 22,
           ),
@@ -923,7 +923,7 @@ class _NafirMark extends StatelessWidget {
       child: Icon(
         NafirIcons.waveform,
         size: size * 0.55,
-        color: const Color(0xFFFFF5F5),
+        color: NafirColors.onBrand,
       ),
     );
   }
@@ -1178,7 +1178,7 @@ class _AlbumCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     return InkWell(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(NafirRadii.lg),
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2018,7 +2018,7 @@ class _TrackArtwork extends StatelessWidget {
               color: current
                   ? colors.primaryContainer
                   : colors.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(NafirRadii.xs + 2),
             ),
             child: Icon(
               NafirIcons.musicNote,
@@ -2160,6 +2160,8 @@ class _ImportsInProgress extends StatelessWidget {
   }
 }
 
+/// An empty or failed state of a library list, drawn as the shared
+/// [NafirStateView]; a cloud or warning icon makes it an error.
 class _LibraryState extends StatelessWidget {
   const _LibraryState({
     required this.icon,
@@ -2174,49 +2176,12 @@ class _LibraryState extends StatelessWidget {
   final Widget? action;
 
   @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: colors.secondaryContainer,
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Icon(icon, size: 36, color: colors.onSecondaryContainer),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colors.onSurfaceVariant,
-                    height: 1.6,
-                  ),
-            ),
-            if (action != null) ...[
-              const SizedBox(height: 20),
-              action!,
-            ],
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) =>
+      icon == NafirIcons.cloudSlash || icon == NafirIcons.warningCircle
+          ? NafirStateView.error(
+              icon: icon, title: title, message: message, action: action)
+          : NafirStateView(
+              icon: icon, title: title, message: message, action: action);
 }
 
 class _EmptyLibrary extends StatelessWidget {
@@ -2826,7 +2791,7 @@ class _PlaylistResult extends StatelessWidget {
         height: 48,
         decoration: BoxDecoration(
           color: colors.secondaryContainer,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(NafirRadii.xs + 2),
         ),
         child: Icon(icon, color: colors.onSecondaryContainer),
       ),
