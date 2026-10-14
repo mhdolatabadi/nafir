@@ -48,12 +48,21 @@ class NafirAudioHandler extends BaseAudioHandler with SeekHandler {
 
   @override
   Future<void> skipToNext() async {
-    if (_player?.systemControls == true) await _player?.next();
+    if (_canNavigate) await _player?.next();
   }
 
   @override
   Future<void> skipToPrevious() async {
-    if (_player?.systemControls == true) await _player?.previous();
+    if (_canNavigate) await _player?.previous();
+  }
+
+  bool get _canNavigate {
+    final player = _player;
+    return player != null &&
+        player.systemControls &&
+        (player.externalPlayback ||
+            player.status == PlayerStatus.playing ||
+            player.status == PlayerStatus.buffering);
   }
 
   @override

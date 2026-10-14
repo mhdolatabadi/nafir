@@ -94,6 +94,9 @@ void main() {
     await player.setSystemPreferences(externalPlayback: false);
     await handler.pause();
     await handler.play();
+    await handler.skipToNext();
+    await handler.skipToPrevious();
+    expect(player.track?.id, 'a');
     expect(player.status, PlayerStatus.paused);
     await player.resume();
     expect(player.status, PlayerStatus.playing);
