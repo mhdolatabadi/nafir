@@ -79,11 +79,8 @@ class ManageTabsScreen extends StatelessWidget {
                       bottom: 24 + MediaQuery.paddingOf(context).bottom),
                   buildDefaultDragHandles: false,
                   itemCount: settings.order.length,
-                  onReorder: (oldIndex, newIndex) {
+                  onReorderItem: (oldIndex, newIndex) {
                     final order = [...settings.order];
-                    if (newIndex > oldIndex) {
-                      newIndex--;
-                    }
                     order.insert(newIndex, order.removeAt(oldIndex));
                     preferences.update(order: order);
                   },
