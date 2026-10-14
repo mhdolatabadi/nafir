@@ -17,10 +17,18 @@ const _extensions = {
   'audio/webm': 'webm',
 };
 
+/// The cache file name of [track]'s stored file: its ID plus the revision of
+/// the bytes, never the presigned URL, which changes on every request. A
+/// metadata edit rewrites the stored file's tags into a new revision, so the
+/// edited track is fetched again instead of playing stale bytes (#252).
+String cacheFileName(Track track) {
+  final extension = _extensions[track.contentType] ?? 'audio';
+  return '${track.id}.r${track.embeddedTags.version ?? 0}.$extension';
+}
+
 /// Caches played tracks in the app's temporary directory, which the OS may
-/// also clear. Files are named by track ID, never by the presigned URL, which
-/// changes on every request. When the cache would exceed [maxBytes], the
-/// least recently played tracks are deleted first.
+/// also clear. Files are named by [cacheFileName]. When the cache would
+/// exceed [maxBytes], the least recently played tracks are deleted first.
 class FileAudioCache implements AudioCache {
   FileAudioCache(this._directory, {this.maxBytes = defaultCacheBytes});
 
@@ -31,12 +39,18 @@ class FileAudioCache implements AudioCache {
   Future<AudioSource> sourceFor(Track track, Uri url) async {
     final directory = await _directory();
     await directory.create(recursive: true);
-    final extension = _extensions[track.contentType] ?? 'audio';
-    final file = File('${directory.path}/${track.id}.$extension');
+    final name = cacheFileName(track);
+    final file = File('${directory.path}/$name');
+    await _dropOtherRevisions(directory, track.id, keep: name);
     if (await file.exists()) {
-      // A complete earlier download: play it offline and mark it recent.
-      await file.setLastModified(DateTime.now());
-      return AudioSource.file(file.path, tag: track.id);
+      if (await file.length() == track.sizeBytes) {
+        // A complete earlier download of exactly these bytes: play it
+        // offline and mark it recent.
+        await file.setLastModified(DateTime.now());
+        return AudioSource.file(file.path, tag: track.id);
+      }
+      // Not the stored file (truncated, or from elsewhere): fetch it again.
+      await _delete(file);
     }
     await evict(directory, incomingBytes: track.sizeBytes, keep: track.id);
     // Streams the URL while writing the file (as .part until complete).
@@ -44,6 +58,27 @@ class FileAudioCache implements AudioCache {
     // cache at once; it is isolated here so it is easy to replace.
     // ignore: experimental_member_use
     return LockCachingAudioSource(url, cacheFile: file, tag: track.id);
+  }
+
+  /// Deletes the cached copies of earlier revisions of track [id], and their
+  /// partial downloads, keeping only [keep] and its own partial download.
+  Future<void> _dropOtherRevisions(Directory directory, String id,
+      {required String keep}) async {
+    await for (final entity in directory.list()) {
+      if (entity is! File) continue;
+      final name = entity.uri.pathSegments.last;
+      if (name.split('.').first != id) continue;
+      if (name == keep || name.startsWith('$keep.')) continue;
+      await _delete(entity);
+    }
+  }
+
+  static Future<void> _delete(File file) async {
+    try {
+      await file.delete();
+    } on FileSystemException {
+      // Still open by the player; it will be retried next time.
+    }
   }
 
   /// Deletes least recently used tracks until [incomingBytes] more fit.

@@ -6,51 +6,72 @@ abstract final class NafirTheme {
   static const _controlRadius = NafirRadii.md;
   static const _surfaceRadius = NafirRadii.lg;
 
-  static ThemeData dark() {
-    final colors = ColorScheme.fromSeed(
-      seedColor: _seed,
-      brightness: Brightness.dark,
-      dynamicSchemeVariant: DynamicSchemeVariant.tonalSpot,
-    ).copyWith(
-      primary: NafirColors.primary,
-      onPrimary: NafirColors.onPrimary,
-      primaryContainer: NafirColors.primaryContainer,
-      onPrimaryContainer: NafirColors.onPrimaryContainer,
-      secondary: NafirColors.secondary,
-      onSecondary: NafirColors.onSecondary,
-      secondaryContainer: NafirColors.secondaryContainer,
-      onSecondaryContainer: NafirColors.onSecondaryContainer,
-      surface: NafirColors.background,
-      surfaceContainerLowest: NafirColors.background,
-      surfaceContainerLow: NafirColors.containerLow,
-      surfaceContainer: NafirColors.container,
-      surfaceContainerHigh: NafirColors.containerHigh,
-      surfaceContainerHighest: NafirColors.surfaceRaised,
-      onSurface: NafirColors.onSurface,
-      onSurfaceVariant: NafirColors.onSurfaceVariant,
-      outline: NafirColors.outline,
-      outlineVariant: NafirColors.outlineVariant,
-    );
+  static ThemeData dark() => _build(Brightness.dark);
+  static ThemeData light() => _build(Brightness.light);
+
+  static final _darkScheme = ColorScheme.fromSeed(
+    seedColor: _seed,
+    brightness: Brightness.dark,
+    dynamicSchemeVariant: DynamicSchemeVariant.tonalSpot,
+  ).copyWith(
+    primary: NafirColors.primary,
+    onPrimary: NafirColors.onPrimary,
+    primaryContainer: NafirColors.primaryContainer,
+    onPrimaryContainer: NafirColors.onPrimaryContainer,
+    secondary: NafirColors.secondary,
+    onSecondary: NafirColors.onSecondary,
+    secondaryContainer: NafirColors.secondaryContainer,
+    onSecondaryContainer: NafirColors.onSecondaryContainer,
+    surface: NafirColors.background,
+    surfaceContainerLowest: NafirColors.background,
+    surfaceContainerLow: NafirColors.containerLow,
+    surfaceContainer: NafirColors.container,
+    surfaceContainerHigh: NafirColors.containerHigh,
+    surfaceContainerHighest: NafirColors.surfaceRaised,
+    onSurface: NafirColors.onSurface,
+    onSurfaceVariant: NafirColors.onSurfaceVariant,
+    outline: NafirColors.outline,
+    outlineVariant: NafirColors.outlineVariant,
+  );
+
+  /// The light scheme is Material's own, seeded from a deeper ember so the
+  /// accent keeps its contrast on light surfaces.
+  static final _lightScheme = ColorScheme.fromSeed(
+    seedColor: NafirColors.lightSeed,
+    brightness: Brightness.light,
+  );
+
+  static ThemeData _build(Brightness brightness) {
+    final dark = brightness == Brightness.dark;
+    final colors = dark ? _darkScheme : _lightScheme;
     final material = ThemeData(
-      brightness: Brightness.dark,
+      brightness: brightness,
       colorScheme: colors,
       fontFamily: NafirType.family,
       useMaterial3: true,
       materialTapTargetSize: MaterialTapTargetSize.padded,
       visualDensity: VisualDensity.standard,
     );
+    final tokens = dark ? NafirTokens.dark : NafirTokens.light;
     final base = material.copyWith(
-      textTheme: NafirType.apply(material.textTheme),
-      extensions: const [NafirTokens.dark],
-      focusColor: NafirColors.primary.withValues(alpha: 0.24),
+      textTheme: NafirType.apply(material.textTheme, color: colors.onSurface),
+      extensions: [tokens],
+      focusColor: colors.primary.withValues(alpha: 0.24),
     );
+
+    // Translucent glass on the dark canvas; plain tonal containers in light.
+    final card = dark ? NafirColors.card : colors.surfaceContainerLow;
+    final overlay = dark ? NafirColors.overlay : colors.surfaceContainerHigh;
+    final field = dark ? NafirColors.field : colors.surfaceContainerLow;
+    final softBorder = dark ? NafirColors.softBorder : colors.outlineVariant;
+    final divider = dark ? NafirColors.divider : colors.outlineVariant;
 
     // Keyboard focus draws a 2 px ring on every button, on top of the
     // state layer, so it shows on any surface.
     WidgetStateProperty<BorderSide?> ring(BorderSide? rest) =>
         WidgetStateProperty.resolveWith((states) =>
             states.contains(WidgetState.focused)
-                ? BorderSide(color: NafirTokens.dark.focusRing, width: 2)
+                ? BorderSide(color: tokens.focusRing, width: 2)
                 : rest);
 
     final controlShape = RoundedRectangleBorder(
@@ -65,37 +86,37 @@ abstract final class NafirTheme {
     );
 
     return base.copyWith(
-      scaffoldBackgroundColor: NafirColors.background,
-      canvasColor: NafirColors.background,
+      scaffoldBackgroundColor: colors.surface,
+      canvasColor: colors.surface,
       dividerTheme: DividerThemeData(
         color: colors.outlineVariant,
         space: 1,
         thickness: 1,
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: NafirColors.background.withValues(alpha: 0.58),
+        backgroundColor: colors.surface.withValues(alpha: dark ? 0.58 : 0.96),
         foregroundColor: colors.onSurface,
         surfaceTintColor: NafirColors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
         shape: Border(
-          bottom: BorderSide(color: NafirColors.divider),
+          bottom: BorderSide(color: divider),
         ),
       ),
       cardTheme: CardThemeData(
-        color: NafirColors.card,
+        color: card,
         surfaceTintColor: NafirColors.transparent,
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: surfaceShape.copyWith(
           side: BorderSide(
-            color: NafirColors.softBorder,
+            color: softBorder,
           ),
         ),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: NafirColors.overlay,
+        backgroundColor: overlay,
         surfaceTintColor: NafirColors.transparent,
         elevation: 6,
         shape: RoundedRectangleBorder(
@@ -111,7 +132,7 @@ abstract final class NafirTheme {
         ),
       ),
       popupMenuTheme: PopupMenuThemeData(
-        color: NafirColors.overlay,
+        color: overlay,
         surfaceTintColor: NafirColors.transparent,
         elevation: 6,
         shape: surfaceShape,
@@ -167,7 +188,7 @@ abstract final class NafirTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: NafirColors.field,
+        fillColor: field,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: outline,
@@ -186,7 +207,7 @@ abstract final class NafirTheme {
         errorStyle: TextStyle(color: colors.error),
       ),
       searchBarTheme: SearchBarThemeData(
-        backgroundColor: const WidgetStatePropertyAll(NafirColors.field),
+        backgroundColor: WidgetStatePropertyAll(field),
         surfaceTintColor: const WidgetStatePropertyAll(NafirColors.transparent),
         elevation: const WidgetStatePropertyAll(0),
         shadowColor: const WidgetStatePropertyAll(NafirColors.transparent),
@@ -252,8 +273,8 @@ abstract final class NafirTheme {
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: NafirColors.primary,
-        foregroundColor: NafirColors.onPrimary,
+        backgroundColor: colors.primary,
+        foregroundColor: colors.onPrimary,
         elevation: 3,
         focusElevation: 4,
         hoverElevation: 4,

@@ -83,7 +83,7 @@ class RecentlyPlayedShelf extends StatelessWidget {
                   itemBuilder: (context, index) => _RecentCard(
                     track: shown[index],
                     current: player.track?.id == shown[index].id,
-                    onTap: () => player.playFrom(all, index),
+                    onTap: () => player.playTapped(all, index),
                   ),
                 ),
               ),
