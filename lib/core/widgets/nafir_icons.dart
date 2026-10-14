@@ -71,6 +71,7 @@ abstract final class NafirIcons {
   static const IconData shieldCheck = IconData(0xe40c, fontFamily: 'Phosphor');
   static const IconData shuffle = IconData(0xe422, fontFamily: 'Phosphor');
   static const IconData signOut = IconData(0xe42a, fontFamily: 'Phosphor');
+  static const IconData speakerHigh = IconData(0xe44a, fontFamily: 'Phosphor');
   static const IconData sortAscending =
       IconData(0xe444, fontFamily: 'Phosphor');
   static const IconData trash = IconData(0xe4a6, fontFamily: 'Phosphor');

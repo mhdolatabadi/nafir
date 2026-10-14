@@ -101,6 +101,13 @@ class FakeAudioEngine implements AudioEngine {
   Future<void> setCrossfade(Duration crossfade) async =>
       this.crossfade = crossfade;
 
+  /// The engine's current loudness gain, see [AudioEngine.setTrackGain].
+  double Function(Track track) trackGain = (_) => 1;
+
+  @override
+  Future<void> setTrackGain(double Function(Track track) gainFor) async =>
+      trackGain = gainFor;
+
   /// Moves on to the preloaded track by itself, as gapless playback does.
   void advance() {
     final id = preloaded!;

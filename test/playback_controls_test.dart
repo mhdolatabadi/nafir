@@ -5,6 +5,7 @@ import 'package:nafir/features/player/application/playback_settings.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/data/audio_engine.dart';
 import 'package:nafir/features/player/data/crossfade.dart';
+import 'package:nafir/features/player/data/loudness.dart';
 
 import 'player_controller_test.dart' show FakeAudioEngine;
 import 'upload_controller_test.dart' show FakeTracksApi;
@@ -512,6 +513,54 @@ void main() {
       final read = PlaybackSettings.fromJson(settings.toJson());
       expect(read.speed, 1.75);
       expect(read.crossfade, const Duration(seconds: 3));
+    });
+  });
+
+  group('loudness normalization', () {
+    const loud = Track(
+      id: 'loud',
+      title: 'L',
+      contentType: 'audio/mpeg',
+      sizeBytes: 1,
+      replayGain: ReplayGain(
+          trackGainDb: -6.0206, trackPeak: 0.9, albumGainDb: -12.0412),
+    );
+
+    test('is on, per track, from the start', () async {
+      final player = controller();
+      await pumpEventQueue();
+      expect(player.loudness, LoudnessMode.track);
+      expect(engine.trackGain(loud), closeTo(0.5, 1e-4));
+      player.dispose();
+    });
+
+    test('can be switched to album or off, and is remembered', () async {
+      final player = controller();
+      await player.setLoudness(LoudnessMode.album);
+      expect(engine.trackGain(loud), closeTo(0.25, 1e-4));
+      expect(store.settings.loudness, LoudnessMode.album);
+      await player.setLoudness(LoudnessMode.off);
+      expect(engine.trackGain(loud), 1);
+      expect(store.settings.loudness, LoudnessMode.off);
+      player.dispose();
+    });
+
+    test('a saved choice is restored at start', () async {
+      store.settings = const PlaybackSettings(loudness: LoudnessMode.off);
+      final player = controller();
+      await player.loadSettings();
+      expect(player.loudness, LoudnessMode.off);
+      expect(engine.trackGain(loud), 1);
+      player.dispose();
+    });
+
+    test('settings JSON keeps the mode and defaults to per track', () {
+      expect(PlaybackSettings.fromJson(null).loudness, LoudnessMode.track);
+      expect(PlaybackSettings.fromJson({'loudness': 'nonsense'}).loudness,
+          LoudnessMode.track);
+      const album = PlaybackSettings(loudness: LoudnessMode.album);
+      expect(PlaybackSettings.fromJson(album.toJson()).loudness,
+          LoudnessMode.album);
     });
   });
 

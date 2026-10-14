@@ -467,3 +467,45 @@ func TestMetadataVersionMigrationKeepsExistingTracks(t *testing.T) {
 		t.Fatalf("migrated track = %+v", after)
 	}
 }
+
+func TestLoudnessQueue(t *testing.T) {
+	ctx := context.Background()
+	pool := newTestPool(t)
+	users := NewUsers(pool)
+	tracks := NewTracks(pool)
+	owner, err := users.Create(ctx, "loud@example.com", "hash")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ready, err := tracks.Create(ctx, owner.ID, NewTrack{Title: "a", FileName: "a.mp3", ContentType: "audio/mpeg", SizeBytes: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pending, err := tracks.ReservePending(ctx, owner.ID, NewTrack{Title: "p", FileName: "p.mp3", ContentType: "audio/mpeg", SizeBytes: 1}, 1<<30, 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	jobs, err := tracks.PendingLoudness(ctx, 10)
+	if err != nil || len(jobs) != 1 || jobs[0].ID != ready.ID || jobs[0].StorageKey != ready.StorageKey {
+		t.Fatalf("PendingLoudness = %+v, %v (pending track %s must wait)", jobs, err, pending.ID)
+	}
+	if err := tracks.SetLoudness(ctx, ready.ID, "users/other/key", Loudness{}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("SetLoudness for a changed object = %v", err)
+	}
+	gain, peak := -6.5, 0.97
+	if err := tracks.SetLoudness(ctx, ready.ID, ready.StorageKey, Loudness{TrackGainDB: &gain, TrackPeak: &peak}); err != nil {
+		t.Fatal(err)
+	}
+	if jobs, _ := tracks.PendingLoudness(ctx, 10); len(jobs) != 0 {
+		t.Fatalf("scanned track still queued: %+v", jobs)
+	}
+	got, err := tracks.ForOwner(ctx, owner.ID, ready.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	l := got.Loudness
+	if l.TrackGainDB == nil || *l.TrackGainDB != gain || l.TrackPeak == nil || *l.TrackPeak != peak || l.AlbumGainDB != nil {
+		t.Fatalf("stored loudness = %+v", l)
+	}
+}

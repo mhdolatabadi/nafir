@@ -53,6 +53,11 @@ abstract interface class AudioEngine {
   /// applies to later [preload]s, and only where [supportsCrossfade].
   Future<void> setCrossfade(Duration crossfade);
 
+  /// Each track's own volume from 0 to 1, for loudness normalization. It
+  /// multiplies [setVolume] and fades, follows gapless and crossfaded track
+  /// changes, and applies to the current track at once.
+  Future<void> setTrackGain(double Function(Track track) gainFor);
+
   Future<void> dispose();
 }
 
@@ -70,7 +75,12 @@ class _Deck {
   ConcatenatingAudioSource? playlist;
   final ids = <String>[];
 
+  /// The tracks behind [ids], for their gain.
+  final tracks = <Track>[];
+
   int get index => player.currentIndex ?? 0;
+
+  Track? get current => index < tracks.length ? tracks[index] : null;
 }
 
 /// Plays through just_audio. The current track and the preloaded next one
@@ -113,6 +123,16 @@ class JustAudioEngine implements AudioEngine, SilenceSkippingEngine {
   double _speed = 1;
   double _volume = 1;
   Duration _crossfade = Duration.zero;
+  double Function(Track track) _gainFor = (_) => 1;
+
+  /// The volume [deck] plays at: the overall volume times its track's gain.
+  double _deckVolume(_Deck deck) => _volumeFor(deck.current);
+
+  double _volumeFor(Track? track) =>
+      _volume *
+      _transportGain *
+      (track == null ? 1 : _gainFor(track).clamp(0.0, 1.0));
+
   bool _skipSilence = false;
 
   @override
@@ -142,7 +162,9 @@ class JustAudioEngine implements AudioEngine, SilenceSkippingEngine {
 
   void _applyTransport(double gain) {
     _transportGain = gain;
-    if (_fade == null) unawaited(_active.player.setVolume(_volume * gain));
+    if (_fade == null) {
+      unawaited(_active.player.setVolume(_deckVolume(_active)));
+    }
   }
 
   Timer? _fade;
@@ -220,14 +242,15 @@ class JustAudioEngine implements AudioEngine, SilenceSkippingEngine {
     final playlist = ConcatenatingAudioSource(children: [source]);
     deck
       ..playlist = playlist
-      ..ids.replaceRange(0, deck.ids.length, [track.id]);
+      ..ids.replaceRange(0, deck.ids.length, [track.id])
+      ..tracks.replaceRange(0, deck.tracks.length, [track]);
     _currentId = track.id;
     _nextId = null;
     // A new track starts from its own beginning, at full volume.
     _playOp++;
     _seekOp++;
     _transport.jump(1);
-    await deck.player.setVolume(_volume);
+    await deck.player.setVolume(_deckVolume(deck));
     await deck.player.setAudioSource(playlist, initialPosition: start);
   }
 
@@ -246,7 +269,8 @@ class JustAudioEngine implements AudioEngine, SilenceSkippingEngine {
       final playlist = ConcatenatingAudioSource(children: [source]);
       deck
         ..playlist = playlist
-        ..ids.replaceRange(0, deck.ids.length, [track.id]);
+        ..ids.replaceRange(0, deck.ids.length, [track.id])
+        ..tracks.replaceRange(0, deck.tracks.length, [track]);
       await deck.player.setVolume(0);
       await deck.player.setSpeed(_speed);
       // Prepares and buffers it, paused, ready to fade in.
@@ -254,6 +278,7 @@ class JustAudioEngine implements AudioEngine, SilenceSkippingEngine {
     } else {
       final deck = _active;
       deck.ids.add(track.id);
+      deck.tracks.add(track);
       await deck.playlist?.add(source);
     }
   }
@@ -266,6 +291,7 @@ class JustAudioEngine implements AudioEngine, SilenceSkippingEngine {
     final after = deck.index + 1;
     if (deck.ids.length > after) {
       deck.ids.removeRange(after, deck.ids.length);
+      deck.tracks.removeRange(after, deck.tracks.length);
       await deck.playlist?.removeRange(after, deck.playlist!.length);
     }
     await _clearStandby();
@@ -277,6 +303,7 @@ class JustAudioEngine implements AudioEngine, SilenceSkippingEngine {
       return;
     }
     standby.ids.clear();
+    standby.tracks.clear();
     await standby.player.stop();
   }
 
@@ -286,14 +313,18 @@ class JustAudioEngine implements AudioEngine, SilenceSkippingEngine {
     if (deck != _active || index == null || index >= deck.ids.length) return;
     final id = deck.ids[index];
     if (id == _currentId || id != _nextId) return;
+    final track = deck.tracks[index];
     _currentId = id;
     _nextId = null;
     _advanced.add(id);
     _duration.add(deck.player.duration);
     if (index > 0) {
       deck.ids.removeRange(0, index);
+      deck.tracks.removeRange(0, index);
       unawaited(deck.playlist?.removeRange(0, index));
     }
+    // The next track of a gapless pair has its own gain.
+    if (_fade == null) unawaited(deck.player.setVolume(_volumeFor(track)));
   }
 
   void _maybeCrossfade(Duration position) {
@@ -344,8 +375,8 @@ class JustAudioEngine implements AudioEngine, SilenceSkippingEngine {
     _fade = Timer.periodic(step, (_) {
       done++;
       final (outGain, inGain) = crossfadeGains(done / steps);
-      out.player.setVolume(_volume * _transportGain * outGain);
-      into.player.setVolume(_volume * _transportGain * inGain);
+      out.player.setVolume(_deckVolume(out) * outGain);
+      into.player.setVolume(_deckVolume(into) * inGain);
       if (done >= steps) unawaited(_finishCrossfade());
     });
   }
@@ -360,7 +391,8 @@ class JustAudioEngine implements AudioEngine, SilenceSkippingEngine {
     _fade = null;
     _fadingOut = null;
     out.ids.clear();
-    await _active.player.setVolume(_volume * _transportGain);
+    out.tracks.clear();
+    await _active.player.setVolume(_deckVolume(_active));
     await out.player.stop();
     _fadeDone?.complete();
     _fadeDone = null;
@@ -432,12 +464,19 @@ class JustAudioEngine implements AudioEngine, SilenceSkippingEngine {
   Future<void> setVolume(double volume) async {
     _volume = volume.clamp(0.0, 1.0);
     // A running crossfade applies it on its next step.
-    if (_fade == null) await _active.player.setVolume(_volume * _transportGain);
+    if (_fade == null) await _active.player.setVolume(_deckVolume(_active));
   }
 
   @override
   Future<void> setCrossfade(Duration crossfade) async {
     _crossfade = supportsCrossfade ? crossfade : Duration.zero;
+  }
+
+  @override
+  Future<void> setTrackGain(double Function(Track track) gainFor) async {
+    _gainFor = gainFor;
+    // A running crossfade picks it up on its next step.
+    if (_fade == null) await _active.player.setVolume(_deckVolume(_active));
   }
 
   @override
