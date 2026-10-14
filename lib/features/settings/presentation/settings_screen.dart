@@ -24,6 +24,7 @@ class SettingsScreen extends StatefulWidget {
     this.botLinks,
     this.library,
     this.player,
+    this.onManagePlaylists,
     this.email,
     this.onDeleteAccount,
     this.onSignOutEverywhere,
@@ -53,6 +54,7 @@ class SettingsScreen extends StatefulWidget {
 
   /// Playback preferences; null hides them.
   final PlayerController? player;
+  final VoidCallback? onManagePlaylists;
 
   /// Null when the app has no API to ask about bots.
   final BotLinkController? botLinks;
@@ -163,6 +165,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             QueueSettingsSection(player: player),
           if (AppPreferencesScope.maybeOf(context) case final preferences?)
             AppearanceSettingsSection(preferences: preferences),
+          if (widget.onManagePlaylists case final manage?)
+            ListTile(
+                leading: const Icon(NafirIcons.playlist),
+                title: const Text('مدیریت فهرست‌های پخش'),
+                onTap: manage),
           if (widget.library case final library?)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),

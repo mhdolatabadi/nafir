@@ -606,6 +606,25 @@ void main() {
     expect(find.text('کتابخانهٔ شما خالی است'), findsNothing);
   });
 
+  testWidgets('settings opens playlists even when their tab is hidden',
+      (tester) async {
+    final store = MemoryAppPreferencesStore()
+      ..value = const AppPreferences(
+          hidden: {LibraryTab.playlists, LibraryTab.favorites});
+    await _pumpApp(tester,
+        tokenStore: MemoryTokenStore('valid-token'),
+        appPreferencesStore: store,
+        playlists: FakePlaylistsApi());
+    expect(find.widgetWithText(Tab, 'فهرست‌های پخش'), findsNothing);
+    await tester.tap(find.byTooltip('تنظیمات'));
+    await tester.pumpAndSettle();
+    await _revealSetting(tester, find.text('مدیریت فهرست‌های پخش'));
+    await tester.tap(find.text('مدیریت فهرست‌های پخش'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(AppBar, 'فهرست‌های پخش'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('tab preferences rebuild safely and retain the tracks tab',
       (tester) async {
     final store = MemoryAppPreferencesStore();

@@ -418,6 +418,22 @@ class _LibraryScreenState extends State<LibraryScreen>
     );
   }
 
+  void _managePlaylists() {
+    final playlists = widget.playlists;
+    if (playlists == null) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+              appBar: AppBar(title: const Text('فهرست‌های پخش')),
+              bottomNavigationBar: MiniPlayer(player: widget.player),
+              body: NafirBackdrop(
+                  child: PlaylistsView(
+                      controller: playlists,
+                      libraryTracks: widget.library.tracks,
+                      player: widget.player,
+                      onSharedSaved: widget.library.load)),
+            )));
+  }
+
   void _openSettings() {
     Navigator.of(context)
         .push(MaterialPageRoute<void>(
@@ -429,6 +445,8 @@ class _LibraryScreenState extends State<LibraryScreen>
             botLinks: widget.botLinks,
             library: widget.library,
             player: widget.player,
+            onManagePlaylists:
+                widget.playlists == null ? null : _managePlaylists,
           ),
         ))
         // A chat may have been linked meanwhile; offer sending to it.
