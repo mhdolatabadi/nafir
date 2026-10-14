@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:nafir/features/link_import/application/link_import_controller.dart';
 import 'package:nafir/features/link_import/data/link_import.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -36,6 +37,7 @@ import 'package:nafir/features/upload/data/storage_uploader.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (kIsWeb) await BrowserContextMenu.disableContextMenu();
   final mediaSession = await startMediaSession();
   runApp(ProviderScope(child: NafirApp(mediaSession: mediaSession)));
 }
