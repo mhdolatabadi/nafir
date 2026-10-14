@@ -203,6 +203,32 @@ void main() {
       expect(chip.selected, isTrue);
     });
 
+    testWidgets('settings speed and sleep timer update the real player',
+        (tester) async {
+      phone(tester);
+      await tester.pumpWidget(_app(SettingsScreen(
+        cache: CacheController(cache: FakeAudioCache(), playing: () => null),
+        player: player,
+        siteUri: (_) => null,
+      )));
+      await tester.pumpAndSettle();
+      final speed = find.byKey(const ValueKey('playback-speed-slider'));
+      expectTarget(tester, speed, 'speed slider');
+      expect(Directionality.of(tester.element(speed)), TextDirection.ltr);
+      await tester.drag(speed, const Offset(400, 0));
+      await tester.pumpAndSettle();
+      expect(player.speed, playbackSpeeds.last);
+      expect(engine.speed, playbackSpeeds.last);
+      await tester.tap(find.text('زمان‌سنج خواب'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('۱۵ دقیقه'));
+      await tester.pumpAndSettle();
+      expect(player.sleepTimerActive, isTrue);
+      expect(find.textContaining('توقف تا'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      player.cancelSleepTimer();
+    });
+
     testWidgets('settings offer crossfade where the platform supports it',
         (tester) async {
       phone(tester);
@@ -214,9 +240,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(find.text('هم‌پوشانی آهنگ‌ها'), findsOneWidget);
-      expect(find.text('خاموش'), findsOneWidget, reason: 'off by default');
+      expect(find.text('خاموش'), findsWidgets, reason: 'off by default');
 
-      final slider = find.byType(Slider);
+      final slider = find.byType(Slider).last;
       expectTarget(tester, slider, 'crossfade slider');
       // Slide all the way to the end: eight seconds.
       await tester.drag(slider, const Offset(400, 0));
@@ -237,7 +263,8 @@ void main() {
       )));
       await tester.pumpAndSettle();
       expect(find.text('هم‌پوشانی آهنگ‌ها'), findsNothing);
-      expect(find.byType(Slider), findsNothing);
+      expect(find.byType(Slider), findsOneWidget,
+          reason: 'speed stays available');
     });
   });
 }
