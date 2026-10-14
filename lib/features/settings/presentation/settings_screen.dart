@@ -8,7 +8,7 @@ import 'package:nafir/features/bots/application/bot_link_controller.dart';
 import 'package:nafir/features/bots/presentation/bot_link_section.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/settings/presentation/crossfade_setting.dart';
+import 'package:nafir/features/settings/presentation/playback_settings_section.dart';
 import 'package:nafir/features/settings/application/cache_controller.dart';
 import 'package:nafir/features/settings/presentation/delete_account_screen.dart';
 import 'package:nafir/features/settings/presentation/storage_usage_card.dart';
@@ -153,6 +153,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           bottom: 24 + MediaQuery.paddingOf(context).bottom,
         ),
         children: [
+          if (widget.player case final player?)
+            PlaybackSettingsSection(player: player),
           if (widget.library case final library?)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -196,8 +198,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               leading: Icon(NafirIcons.globe),
               title: Text('در نسخه‌ی وب، کش را خود مرورگر مدیریت می‌کند.'),
             ),
-          if (widget.player case final player? when player.supportsCrossfade)
-            CrossfadeSetting(player: player),
           if (widget.botLinks case final botLinks?)
             BotLinkSection(controller: botLinks),
           const Divider(),

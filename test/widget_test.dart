@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/features/settings/presentation/settings_screen.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nafir/core/api/api_client.dart';
@@ -110,6 +111,13 @@ class FakePicker implements AudioPicker {
     if (file != null) onReading?.call();
     return file;
   }
+}
+
+Future<void> _revealSetting(WidgetTester tester, Finder target) async {
+  final scrollable = find.descendant(
+      of: find.byType(SettingsScreen), matching: find.byType(Scrollable));
+  await tester.scrollUntilVisible(target, 160, scrollable: scrollable.first);
+  await tester.pumpAndSettle();
 }
 
 Future<void> _pumpApp(
@@ -1448,15 +1456,18 @@ void main() {
 
     await tester.tap(find.byTooltip('تنظیمات'));
     await tester.pumpAndSettle();
+    await _revealSetting(tester, find.text('پاک کردن کش'));
     expect(find.text('حجم کش: ۳.۰ مگابایت'), findsOneWidget);
 
     // Cancelling keeps everything.
+    await _revealSetting(tester, find.text('پاک کردن کش'));
     await tester.tap(find.text('پاک کردن کش'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('انصراف'));
     await tester.pumpAndSettle();
     expect(cache.files, isNotEmpty);
 
+    await _revealSetting(tester, find.text('پاک کردن کش'));
     await tester.tap(find.text('پاک کردن کش'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('پاک کن'));
@@ -1487,6 +1498,7 @@ void main() {
 
     await tester.tap(find.byTooltip('تنظیمات'));
     await tester.pumpAndSettle();
+    await _revealSetting(tester, find.text('پاک کردن کش'));
     await tester.tap(find.text('پاک کردن کش'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('پاک کن'));
@@ -1507,6 +1519,8 @@ void main() {
     await tester.tap(find.byTooltip('تنظیمات'));
     await tester.pumpAndSettle();
 
+    await _revealSetting(
+        tester, find.text('در نسخه‌ی وب، کش را خود مرورگر مدیریت می‌کند.'));
     expect(find.text('در نسخه‌ی وب، کش را خود مرورگر مدیریت می‌کند.'),
         findsOneWidget);
     expect(find.text('پاک کردن کش'), findsNothing);
@@ -1522,19 +1536,23 @@ void main() {
 
     await tester.tap(find.byTooltip('تنظیمات'));
     await tester.pumpAndSettle();
+    await _revealSetting(tester, find.text('دریافت کد اتصال'));
     expect(find.text('اتصال به بات'), findsOneWidget);
 
     await tester.tap(find.text('دریافت کد اتصال'));
     await tester.pumpAndSettle();
 
+    await _revealSetting(tester, find.text('1234 5671'));
     expect(find.text('1234 5671'), findsOneWidget);
     expect(
         find.text('این کد را در بله برای @NafirBot بفرستید.'), findsOneWidget);
     expect(find.text('کپی کد'), findsOneWidget);
     expect(find.text('کپی لینک بات بله'), findsOneWidget);
 
+    await _revealSetting(tester, find.text('کد تازه'));
     await tester.tap(find.text('کد تازه'));
     await tester.pumpAndSettle();
+    await _revealSetting(tester, find.text('1234 5672'));
     expect(find.text('1234 5672'), findsOneWidget);
   });
 
