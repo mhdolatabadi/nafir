@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/features/settings/presentation/device_settings_pages.dart';
 import 'package:nafir/app/app_preferences.dart';
 import 'package:nafir/features/settings/presentation/appearance_settings_section.dart';
 import 'package:nafir/app/app_configuration.dart';
@@ -208,6 +209,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (widget.botLinks case final botLinks?)
             BotLinkSection(controller: botLinks),
           const Divider(),
+          ListTile(
+              title: const Text('دسترسی‌ها'),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => const PermissionsScreen()))),
+          ListTile(
+              title: const Text('دربارهٔ ریتمو'),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => AboutScreen(openPage: _openPage)))),
           ListTile(
             title: const Text('حساب کاربری'),
             subtitle: widget.email == null
