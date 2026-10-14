@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:nafir/features/player/data/loudness.dart';
 
 /// The playback speeds offered, slowest first. Pitch is kept at every speed.
 const playbackSpeeds = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
@@ -10,12 +11,19 @@ const maxCrossfade = Duration(seconds: 8);
 
 /// Listening preferences kept between sessions.
 class PlaybackSettings {
-  const PlaybackSettings({this.speed = 1, this.crossfade = Duration.zero});
+  const PlaybackSettings({
+    this.speed = 1,
+    this.crossfade = Duration.zero,
+    this.loudness = LoudnessMode.track,
+  });
 
   final double speed;
 
   /// How long consecutive tracks overlap; zero is off.
   final Duration crossfade;
+
+  /// Loudness normalization; on, per track, unless the listener turns it off.
+  final LoudnessMode loudness;
 
   /// Reads saved settings, dropping values the app no longer offers.
   factory PlaybackSettings.fromJson(Object? json) {
@@ -30,16 +38,28 @@ class PlaybackSettings {
           ? Duration(
               milliseconds: crossfadeMs.clamp(0, maxCrossfade.inMilliseconds))
           : Duration.zero,
+      loudness: LoudnessMode.values.firstWhere(
+        (mode) => mode.name == json['loudness'],
+        orElse: () => LoudnessMode.track,
+      ),
     );
   }
 
-  Map<String, Object> toJson() =>
-      {'speed': speed, 'crossfadeMs': crossfade.inMilliseconds};
+  Map<String, Object> toJson() => {
+        'speed': speed,
+        'crossfadeMs': crossfade.inMilliseconds,
+        'loudness': loudness.name,
+      };
 
-  PlaybackSettings copyWith({double? speed, Duration? crossfade}) =>
+  PlaybackSettings copyWith({
+    double? speed,
+    Duration? crossfade,
+    LoudnessMode? loudness,
+  }) =>
       PlaybackSettings(
         speed: speed ?? this.speed,
         crossfade: crossfade ?? this.crossfade,
+        loudness: loudness ?? this.loudness,
       );
 }
 

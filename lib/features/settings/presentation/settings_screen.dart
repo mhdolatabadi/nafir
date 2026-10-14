@@ -11,6 +11,7 @@ import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/settings/presentation/crossfade_setting.dart';
 import 'package:nafir/features/settings/application/cache_controller.dart';
 import 'package:nafir/features/settings/presentation/delete_account_screen.dart';
+import 'package:nafir/features/settings/presentation/loudness_setting.dart';
 import 'package:nafir/features/settings/presentation/storage_usage_card.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -196,6 +197,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               leading: Icon(NafirIcons.globe),
               title: Text('در نسخه‌ی وب، کش را خود مرورگر مدیریت می‌کند.'),
             ),
+          if (widget.player case final player?) LoudnessSetting(player: player),
           if (widget.player case final player? when player.supportsCrossfade)
             CrossfadeSetting(player: player),
           if (widget.botLinks case final botLinks?)

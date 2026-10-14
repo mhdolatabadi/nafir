@@ -9,6 +9,7 @@ import 'package:nafir/features/player/application/favorite_tracks.dart';
 import 'package:nafir/features/player/application/play_queue.dart';
 import 'package:nafir/features/player/application/playback_settings.dart';
 import 'package:nafir/features/player/data/audio_engine.dart';
+import 'package:nafir/features/player/data/loudness.dart';
 
 enum PlayerStatus {
   idle,
@@ -83,6 +84,8 @@ class PlayerController extends ChangeNotifier {
       engine.errors.listen(_onEngineError),
       engine.advanced.listen(_onAdvanced),
     ];
+    // Normalization is on until the saved settings say otherwise.
+    unawaited(_applyLoudness(_settings.loudness));
   }
 
   final TracksApi _api;
@@ -175,6 +178,9 @@ class PlayerController extends ChangeNotifier {
       if (_settings.crossfade == Duration.zero) {
         await _applyCrossfade(saved.crossfade);
       }
+      if (_settings.loudness == const PlaybackSettings().loudness) {
+        await _applyLoudness(saved.loudness);
+      }
       notifyListeners();
     } catch (error) {
       debugPrint('Playback settings unavailable: $error');
@@ -198,6 +204,22 @@ class PlayerController extends ChangeNotifier {
     // The next track is buffered differently with and without an overlap.
     await _dropPreload();
     _maybePreload();
+  }
+
+  /// How tracks are evened out in loudness; remembered between sessions.
+  LoudnessMode get loudness => _settings.loudness;
+
+  /// Turns loudness normalization off, or evens out each track or album.
+  /// The files are never changed; only each track's volume is.
+  Future<void> setLoudness(LoudnessMode mode) async {
+    await _applyLoudness(mode);
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  Future<void> _applyLoudness(LoudnessMode mode) async {
+    _settings = _settings.copyWith(loudness: mode);
+    await _engine.setTrackGain((track) => normalizationGain(track, mode));
   }
 
   Future<void> _applySpeed(double speed) async {

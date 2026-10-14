@@ -1518,6 +1518,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('اتصال به بات'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('دریافت کد اتصال'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('دریافت کد اتصال'));
     await tester.pumpAndSettle();
 
@@ -1527,6 +1529,8 @@ void main() {
     expect(find.text('کپی کد'), findsOneWidget);
     expect(find.text('کپی لینک بات بله'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('کد تازه'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('کد تازه'));
     await tester.pumpAndSettle();
     expect(find.text('1234 5672'), findsOneWidget);
