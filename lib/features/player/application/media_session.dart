@@ -119,7 +119,9 @@ class NafirAudioHandler extends BaseAudioHandler with SeekHandler {
     // updatePosition, so only publish real changes and seeks.
     if (_last != null &&
         !_changed(_last!, next) &&
-        listEquals(_last!.controls, next.controls)) return;
+        listEquals(_last!.controls, next.controls)) {
+      return;
+    }
     _last = next;
     playbackState.add(next);
   }
