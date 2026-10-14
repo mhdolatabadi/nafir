@@ -174,13 +174,18 @@ class _CompactMiniPlayer extends StatelessWidget {
     return Stack(
       children: [
         Padding(
-          padding: const EdgeInsetsDirectional.fromSTEB(10, 9, 8, 8),
+          padding: const EdgeInsetsDirectional.fromSTEB(10, 4, 8, 8),
           child: Row(
             children: [
               InkWell(
                 borderRadius: NafirRadii.control,
                 onTap: onOpen,
-                child: _MiniArtwork(track: track, status: status, size: 44),
+                child: SizedBox.square(
+                  dimension: 48,
+                  child: Center(
+                    child: _MiniArtwork(track: track, status: status, size: 40),
+                  ),
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -245,10 +250,13 @@ class _CompactMiniPlayer extends StatelessWidget {
             bottom: 4,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(NafirRadii.pill),
-              child: LinearProgressIndicator(
-                value: value,
-                minHeight: 2,
-                backgroundColor: colors.surfaceContainerHighest,
+              child: Directionality(
+                textDirection: TextDirection.ltr,
+                child: LinearProgressIndicator(
+                  value: value,
+                  minHeight: 2,
+                  backgroundColor: colors.surfaceContainerHighest,
+                ),
               ),
             ),
           ),

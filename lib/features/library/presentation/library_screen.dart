@@ -9,7 +9,6 @@ import 'package:nafir/core/format_size.dart';
 import 'package:nafir/core/search_text.dart';
 import 'package:nafir/features/auth/presentation/email_verification_screen.dart';
 import 'package:nafir/features/history/application/recently_played_controller.dart';
-import 'package:nafir/features/history/presentation/recently_played_shelf.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
 import 'package:nafir/features/library/application/library_entries.dart';
 import 'package:nafir/features/library/application/library_sync_controller.dart';
@@ -552,10 +551,7 @@ class _LibraryScreenState extends State<LibraryScreen>
     ];
   }
 
-  /// Height of the big title area above the toolbar when fully expanded.
-  static const double _largeTitleHeight = 88;
-
-  /// The large, collapsing title with the category tabs pinned under it.
+  /// Brand and actions share one toolbar above the category tabs.
   Widget _header(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= 720;
     final tabs = TabBar(
@@ -593,11 +589,11 @@ class _LibraryScreenState extends State<LibraryScreen>
           )
         : SliverAppBar(
             pinned: true,
-            expandedHeight: _largeTitleHeight + kToolbarHeight,
+            titleSpacing: 16,
+            title: const _NafirBrand(compact: true),
             // Opaque, because the lists scroll underneath it.
             backgroundColor: NafirColors.background,
             actions: _accountActions(context),
-            flexibleSpace: const _CollapsingTitle(),
             bottom: tabs,
           );
     return SliverOverlapAbsorber(
@@ -669,11 +665,6 @@ class _LibraryScreenState extends State<LibraryScreen>
     ));
   }
 
-  /// The history as the library shows it: own tracks with their current
-  /// metadata and device copy.
-  List<Track> _recentTracks() =>
-      resolveRecent(widget.recent?.tracks ?? const [], _unifiedTracks());
-
   /// [tracks] with the library's row actions: playlists, bots, sync,
   /// editing and deleting.
   _TrackList _trackList(
@@ -710,20 +701,6 @@ class _LibraryScreenState extends State<LibraryScreen>
         if (widget.botLinks != null) widget.botLinks,
       ]);
 
-  void _openRecent() {
-    final recent = widget.recent;
-    if (recent == null) return;
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => RecentlyPlayedScreen(
-        recent: recent,
-        changes: _libraryChanges,
-        tracks: _recentTracks,
-        player: widget.player,
-        list: (tracks) => _trackList(tracks, filterable: false, nested: false),
-      ),
-    ));
-  }
-
   void _openSearch() {
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => LibrarySearchScreen(
@@ -754,13 +731,6 @@ class _LibraryScreenState extends State<LibraryScreen>
                 LinkImportFailures(controller: links),
               if (widget.library.importsInProgress case final n when n > 0)
                 _ImportsInProgress(count: n),
-              if (widget.recent case final recent?)
-                RecentlyPlayedShelf(
-                  recent: recent,
-                  tracks: _recentTracks,
-                  player: widget.player,
-                  onOpenAll: _openRecent,
-                ),
             ],
           );
           Widget state(Widget child) => _TabScrollView(slivers: [
@@ -816,84 +786,6 @@ enum _TrackAction {
   delete,
 }
 
-/// The phone header's title: large above the tabs, shrinking into the
-/// toolbar as the library scrolls, as in Samsung Music.
-class _CollapsingTitle extends StatelessWidget {
-  const _CollapsingTitle();
-
-  @override
-  Widget build(BuildContext context) {
-    final settings =
-        context.dependOnInheritedWidgetOfExactType<FlexibleSpaceBarSettings>()!;
-    final range = settings.maxExtent - settings.minExtent;
-    // 1 when fully expanded, 0 when collapsed into the toolbar.
-    final open = range <= 0
-        ? 0.0
-        : ((settings.currentExtent - settings.minExtent) / range)
-            .clamp(0.0, 1.0);
-    final theme = Theme.of(context);
-    final top = MediaQuery.paddingOf(context).top;
-    final tabsHeight = settings.minExtent - top - kToolbarHeight;
-    return Stack(
-      children: [
-        // The small title, in the toolbar once the large one is gone.
-        PositionedDirectional(
-          top: top,
-          start: 16,
-          height: kToolbarHeight,
-          child: Opacity(
-            opacity: (1 - open * 2).clamp(0.0, 1.0),
-            child: ExcludeSemantics(
-              excluding: open > 0.5,
-              child: const Row(
-                children: [
-                  _NafirMark(size: 32),
-                  SizedBox(width: 10),
-                  Text(
-                    'ریتمو',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        // The large title, just above the tabs.
-        PositionedDirectional(
-          start: 20,
-          end: 20,
-          bottom: tabsHeight + 12,
-          child: Opacity(
-            opacity: open,
-            child: ExcludeSemantics(
-              excluding: open <= 0.5,
-              child: Transform.scale(
-                scale: 0.8 + 0.2 * open,
-                alignment: AlignmentDirectional.bottomStart,
-                child: Row(
-                  children: [
-                    const _NafirMark(size: 44),
-                    const SizedBox(width: 14),
-                    Flexible(
-                      child: Text(
-                        'ریتمو',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.headlineMedium
-                            ?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 /// The rhythmo logo mark: the horn's sound wave on the brand gradient.
 class _NafirMark extends StatelessWidget {
   const _NafirMark({this.size = 44});
@@ -942,7 +834,7 @@ class _NafirBrand extends StatelessWidget {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const _NafirMark(),
+            _NafirMark(size: compact ? 32 : 44),
             const SizedBox(width: 12),
             Flexible(
               child: showSubtitle
@@ -1109,7 +1001,7 @@ class _GroupList extends StatelessWidget {
             final group = groups[index];
             return ListTile(
               minTileHeight: 64,
-              minVerticalPadding: 14,
+              minVerticalPadding: 6,
               contentPadding:
                   const EdgeInsetsDirectional.only(start: 8, end: 8),
               leading: _GroupArt(albums: false, size: 48),
@@ -1682,6 +1574,7 @@ class _TrackListState extends State<_TrackList> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
                   child: SearchBar(
+                    constraints: const BoxConstraints(minHeight: 48),
                     controller: _search,
                     hintText: 'جست‌وجوی آهنگ، خواننده یا آلبوم',
                     leading: const Icon(NafirIcons.magnifyingGlass),
@@ -1884,9 +1777,8 @@ class _TrackRow extends StatelessWidget {
       selected: current,
       onTap: onTap,
       minTileHeight: 64,
-      // With tall Persian text ListTile lays out by padding, not by
-      // minTileHeight, so the padding is what keeps the row about 64 px.
-      minVerticalPadding: 14,
+      // Keep the two text lines compact while allowing larger text to grow.
+      minVerticalPadding: 6,
       contentPadding: const EdgeInsetsDirectional.only(start: 8, end: 0),
       horizontalTitleGap: 12,
       leading: _TrackArtwork(track: track, current: current, sync: sync),
@@ -2505,6 +2397,7 @@ class _LibrarySearchScreenState extends State<LibrarySearchScreen> {
                 Padding(
                   padding: EdgeInsets.fromLTRB(side, 8, side, 8),
                   child: SearchBar(
+                    constraints: const BoxConstraints(minHeight: 48),
                     controller: _field,
                     autoFocus: true,
                     hintText: 'آهنگ، خواننده، آلبوم یا فهرست پخش',
@@ -2783,7 +2676,7 @@ class _PlaylistResult extends StatelessWidget {
     return ListTile(
       onTap: onTap,
       minTileHeight: 64,
-      minVerticalPadding: 14,
+      minVerticalPadding: 6,
       contentPadding: const EdgeInsetsDirectional.only(start: 8, end: 8),
       horizontalTitleGap: 12,
       leading: Container(
