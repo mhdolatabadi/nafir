@@ -113,9 +113,13 @@ class JustAudioEngine implements AudioEngine {
   double _transportGain = 1;
   late final _transport = VolumeRamp(_applyTransport);
 
-  /// Bumped by every play, pause and seek, so a pause still fading out when
-  /// play is tapped again does not pause after all.
-  int _transportOp = 0;
+  /// Bumped by play (and new tracks): a pause still fading out when play is
+  /// tapped again does not pause after all.
+  int _playOp = 0;
+
+  /// Bumped by seek and pause: only the latest seek fades back in, and not
+  /// once a pause has started.
+  int _seekOp = 0;
 
   void _applyTransport(double gain) {
     _transportGain = gain;
@@ -198,7 +202,8 @@ class JustAudioEngine implements AudioEngine {
     _currentId = track.id;
     _nextId = null;
     // A new track starts from its own beginning, at full volume.
-    _transportOp++;
+    _playOp++;
+    _seekOp++;
     _transport.jump(1);
     await deck.player.setVolume(_volume);
     await deck.player.setAudioSource(playlist, initialPosition: start);
@@ -341,7 +346,7 @@ class JustAudioEngine implements AudioEngine {
 
   @override
   void play() {
-    _transportOp++;
+    _playOp++;
     final player = _active.player;
     // Resuming mid-track fades in; a track starting from the top already
     // starts from silence.
@@ -359,11 +364,12 @@ class JustAudioEngine implements AudioEngine {
   @override
   Future<void> pause() async {
     await _finishCrossfade();
-    final op = ++_transportOp;
+    final op = _playOp;
+    _seekOp++;
     if (_active.player.playing) {
       await _transport.to(0, transportFade);
       // Play was tapped while fading out: keep playing.
-      if (op != _transportOp) return;
+      if (op != _playOp) return;
     }
     await _active.player.pause();
   }
@@ -371,20 +377,21 @@ class JustAudioEngine implements AudioEngine {
   @override
   Future<void> seek(Duration position) async {
     await _finishCrossfade();
-    final op = ++_transportOp;
+    final op = ++_seekOp;
     if (!_active.player.playing) {
       await _active.player.seek(position);
       return;
     }
     await _transport.to(0, seekFadeOut);
     await _active.player.seek(position);
-    if (op == _transportOp) unawaited(_transport.to(1, seekFadeIn));
+    if (op == _seekOp) unawaited(_transport.to(1, seekFadeIn));
   }
 
   @override
   Future<void> stop() async {
     _generation++;
-    _transportOp++;
+    _playOp++;
+    _seekOp++;
     await _finishCrossfade();
     await _clearStandby();
     _currentId = null;
