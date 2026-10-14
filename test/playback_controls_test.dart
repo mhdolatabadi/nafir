@@ -47,6 +47,57 @@ void main() {
     });
   }
 
+  group('queue preferences', () {
+    test('single-row mode preserves the chosen track and explicit play-all',
+        () async {
+      final player = controller();
+      addTearDown(player.dispose);
+      await player.setQueuePreferences(playOnlySelected: true);
+      await player.playTapped(_abc, 1);
+      expect(player.track?.id, 'b');
+      expect(player.upcoming, isEmpty);
+      await player.playFrom(_abc, 0);
+      expect(player.upcoming.map((track) => track.id), ['b', 'c']);
+    });
+
+    test('duplicate prevention keeps the tapped ID after earlier duplicates',
+        () async {
+      final player = controller();
+      addTearDown(player.dispose);
+      await player.setQueuePreferences(preventDuplicates: true);
+      await player.playTapped([_a, _a, _b, _b, _c], 3);
+      expect(player.track?.id, 'b');
+      expect(player.upcoming.map((track) => track.id), ['c']);
+      await player.playShuffled([_a, _a, _b, _c, _c]);
+      final ids = [
+        player.track!.id,
+        ...player.upcoming.map((track) => track.id)
+      ];
+      expect(ids.length, 3);
+      expect(ids.toSet(), {'a', 'b', 'c'});
+    });
+
+    test('preferences persist and malformed saved values use defaults',
+        () async {
+      final player = controller();
+      await player.setQueuePreferences(
+          playOnlySelected: true, preventDuplicates: true);
+      player.dispose();
+      final restored = controller();
+      addTearDown(restored.dispose);
+      await restored.loadSettings();
+      expect(restored.playOnlySelected, isTrue);
+      expect(restored.preventDuplicates, isTrue);
+      final settings = PlaybackSettings.fromJson(store.settings.toJson());
+      expect(settings.playOnlySelected, isTrue);
+      expect(settings.preventDuplicates, isTrue);
+      final invalid = PlaybackSettings.fromJson(
+          {'playOnlySelected': 'true', 'preventDuplicates': 1});
+      expect(invalid.playOnlySelected, isFalse);
+      expect(invalid.preventDuplicates, isFalse);
+    });
+  });
+
   group('sleep timer', () {
     test('counts down, fades out over the last seconds, then pauses', () {
       inFakeTime((async, player) {

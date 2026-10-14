@@ -299,7 +299,7 @@ class _Contents extends StatelessWidget {
                               ? null
                               : Text(track.artist!,
                                   maxLines: 1, overflow: TextOverflow.ellipsis),
-                          onTap: () => player.playFrom(tracks, index),
+                          onTap: () => player.playTapped(tracks, index),
                         ),
                       ),
                     );

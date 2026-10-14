@@ -1224,7 +1224,7 @@ class _TrackGroupScreen extends StatelessWidget {
                                   track: track,
                                   current: player.track?.id == track.id,
                                   onTap: () =>
-                                      player.playFrom(groupTracks, index),
+                                      player.playTapped(groupTracks, index),
                                   actions: null,
                                 );
                               },
@@ -1635,7 +1635,7 @@ class _TrackListState extends State<_TrackList> {
                 return _TrackRow(
                   track: track,
                   current: widget.player.track?.id == track.id,
-                  onTap: () => widget.player.playFrom(tracks, index),
+                  onTap: () => widget.player.playTapped(tracks, index),
                   actions: _actionsFor(context, track),
                   sync: widget.sync?.operationFor(track.id),
                 );
@@ -2540,7 +2540,7 @@ class _LibrarySearchScreenState extends State<LibrarySearchScreen> {
                   return _TrackRow(
                     track: track,
                     current: widget.player.track?.id == track.id,
-                    onTap: () => widget.player.playFrom(tracks, index),
+                    onTap: () => widget.player.playTapped(tracks, index),
                     actions: null,
                   );
                 },

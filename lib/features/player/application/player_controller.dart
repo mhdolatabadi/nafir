@@ -125,6 +125,7 @@ class PlayerController extends ChangeNotifier {
   int _request = 0;
 
   PlaybackSettings _settings = const PlaybackSettings();
+  bool _queueSettingsChanged = false;
 
   /// The track after the current one handed to the engine, and its link.
   String? _preloadedId;
@@ -143,6 +144,21 @@ class PlayerController extends ChangeNotifier {
   Duration? get duration => _duration;
 
   double get speed => _settings.speed;
+  bool get playOnlySelected => _settings.playOnlySelected;
+  bool get preventDuplicates => _settings.preventDuplicates;
+
+  Future<void> setQueuePreferences({
+    bool? playOnlySelected,
+    bool? preventDuplicates,
+  }) async {
+    _queueSettingsChanged = true;
+    _settings = _settings.copyWith(
+      playOnlySelected: playOnlySelected,
+      preventDuplicates: preventDuplicates,
+    );
+    notifyListeners();
+    await _saveSettings();
+  }
 
   /// How long consecutive tracks overlap; zero when off or unsupported.
   Duration get crossfade => _settings.crossfade;
@@ -174,6 +190,12 @@ class PlayerController extends ChangeNotifier {
       if (_settings.speed == 1) await _applySpeed(saved.speed);
       if (_settings.crossfade == Duration.zero) {
         await _applyCrossfade(saved.crossfade);
+      }
+      if (!_queueSettingsChanged) {
+        _settings = _settings.copyWith(
+          playOnlySelected: saved.playOnlySelected,
+          preventDuplicates: saved.preventDuplicates,
+        );
       }
       notifyListeners();
     } catch (error) {
@@ -321,6 +343,16 @@ class PlayerController extends ChangeNotifier {
     await _start(queue.skipTo(index));
   }
 
+  /// Tapping a row respects queue mode; explicit play-all uses [playFrom].
+  Future<void> playTapped(List<Track> tracks, int index) =>
+      playOnlySelected ? playFrom([tracks[index]], 0) : playFrom(tracks, index);
+
+  List<Track> _queueTracks(List<Track> tracks) {
+    if (!preventDuplicates) return tracks;
+    final seen = <String>{};
+    return tracks.where((track) => seen.add(track.id)).toList();
+  }
+
   /// Plays [tracks] starting at [index], or toggles pause when that track
   /// is already the current one. Shuffle and repeat settings carry over.
   Future<void> playFrom(List<Track> tracks, int index) async {
@@ -328,7 +360,11 @@ class PlayerController extends ChangeNotifier {
     if (_track?.id == track.id && _status != PlayerStatus.error) {
       return toggle();
     }
-    _queue = PlayQueue(tracks, start: index, random: _random)
+    final queued = _queueTracks(tracks);
+    final start = preventDuplicates
+        ? queued.indexWhere((item) => item.id == track.id)
+        : index;
+    _queue = PlayQueue(queued, start: start, random: _random)
       ..repeat = _repeat
       ..shuffled = _shuffle;
     await _start(_queue!.current);
@@ -338,7 +374,8 @@ class PlayerController extends ChangeNotifier {
   Future<void> playShuffled(List<Track> tracks) async {
     if (tracks.isEmpty) return;
     _shuffle = true;
-    _queue = PlayQueue.shuffled(tracks, random: _random)..repeat = _repeat;
+    _queue = PlayQueue.shuffled(_queueTracks(tracks), random: _random)
+      ..repeat = _repeat;
     notifyListeners();
     await _start(_queue!.current);
   }

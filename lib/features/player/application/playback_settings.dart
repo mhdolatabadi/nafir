@@ -10,7 +10,16 @@ const maxCrossfade = Duration(seconds: 8);
 
 /// Listening preferences kept between sessions.
 class PlaybackSettings {
-  const PlaybackSettings({this.speed = 1, this.crossfade = Duration.zero});
+  const PlaybackSettings({
+    this.speed = 1,
+    this.crossfade = Duration.zero,
+    this.playOnlySelected = false,
+    this.preventDuplicates = false,
+  });
+
+  /// Applies to tapping a row; explicit play-all actions keep the whole list.
+  final bool playOnlySelected;
+  final bool preventDuplicates;
 
   final double speed;
 
@@ -23,6 +32,8 @@ class PlaybackSettings {
     final speed = json['speed'];
     final crossfadeMs = json['crossfadeMs'];
     return PlaybackSettings(
+      playOnlySelected: json['playOnlySelected'] == true,
+      preventDuplicates: json['preventDuplicates'] == true,
       speed: speed is num && playbackSpeeds.contains(speed.toDouble())
           ? speed.toDouble()
           : 1,
@@ -33,11 +44,21 @@ class PlaybackSettings {
     );
   }
 
-  Map<String, Object> toJson() =>
-      {'speed': speed, 'crossfadeMs': crossfade.inMilliseconds};
+  Map<String, Object> toJson() => {
+        'speed': speed,
+        'crossfadeMs': crossfade.inMilliseconds,
+        'playOnlySelected': playOnlySelected,
+        'preventDuplicates': preventDuplicates,
+      };
 
-  PlaybackSettings copyWith({double? speed, Duration? crossfade}) =>
+  PlaybackSettings copyWith(
+          {double? speed,
+          Duration? crossfade,
+          bool? playOnlySelected,
+          bool? preventDuplicates}) =>
       PlaybackSettings(
+        playOnlySelected: playOnlySelected ?? this.playOnlySelected,
+        preventDuplicates: preventDuplicates ?? this.preventDuplicates,
         speed: speed ?? this.speed,
         crossfade: crossfade ?? this.crossfade,
       );
