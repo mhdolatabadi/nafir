@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/core/design/design.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/presentation/now_playing_screen.dart';
@@ -51,7 +51,7 @@ class _MiniPlayerState extends State<MiniPlayer> {
               child: GlassSurface(
                 radius: 24,
                 blur: 24,
-                tint: NafirGlass.primary,
+                tint: NafirColors.primary,
                 child: SafeArea(
                   top: false,
                   child: LayoutBuilder(
@@ -178,14 +178,14 @@ class _CompactMiniPlayer extends StatelessWidget {
           child: Row(
             children: [
               InkWell(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: NafirRadii.control,
                 onTap: onOpen,
                 child: _MiniArtwork(track: track, status: status, size: 44),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(NafirRadii.xs + 2),
                   onTap: onOpen,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
@@ -244,7 +244,7 @@ class _CompactMiniPlayer extends StatelessWidget {
             end: 18,
             bottom: 4,
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(NafirRadii.pill),
               child: LinearProgressIndicator(
                 value: value,
                 minHeight: 2,
@@ -271,7 +271,7 @@ class _TrackSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: NafirRadii.control,
       onTap: onTap,
       child: Row(
         children: [
@@ -310,7 +310,7 @@ class _MiniArtwork extends StatelessWidget {
         borderRadius: BorderRadius.circular(size >= 44 ? 14 : 12),
         boxShadow: [
           BoxShadow(
-            color: NafirGlass.primary.withValues(alpha: 0.18),
+            color: NafirColors.primary.withValues(alpha: 0.18),
             offset: const Offset(0, 7),
             blurRadius: 18,
           ),

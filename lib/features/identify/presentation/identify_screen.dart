@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/core/design/design.dart';
 import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/core/persian_digits.dart';
-import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/features/identify/application/identify_controller.dart';
 import 'package:nafir/features/identify/data/snippet_recorder.dart';
@@ -62,7 +62,7 @@ class _IdentifyScreenState extends State<IdentifyScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('این آهنگ چیه؟'),
-        backgroundColor: NafirGlass.background,
+        backgroundColor: NafirColors.background,
       ),
       bottomNavigationBar: MiniPlayer(player: widget.player),
       body: NafirBackdrop(
@@ -82,7 +82,7 @@ class _IdentifyScreenState extends State<IdentifyScreen> {
                     child: AnimatedSwitcher(
                       duration: MediaQuery.disableAnimationsOf(context)
                           ? Duration.zero
-                          : const Duration(milliseconds: 240),
+                          : NafirMotion.medium,
                       child: KeyedSubtree(
                         key: ValueKey(_controller.phase),
                         child: _content(context),
@@ -265,9 +265,7 @@ class _Listening extends StatelessWidget {
               alignment: Alignment.center,
               children: [
                 AnimatedContainer(
-                  duration: reduceMotion
-                      ? Duration.zero
-                      : const Duration(milliseconds: 120),
+                  duration: reduceMotion ? Duration.zero : NafirMotion.quick,
                   width: 120 + 48 * level,
                   height: 120 + 48 * level,
                   decoration: BoxDecoration(
@@ -310,7 +308,7 @@ class _Listening extends StatelessWidget {
             duration: snippetLength,
             builder: (context, value, _) => LinearProgressIndicator(
               value: value,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(NafirRadii.xs / 2),
               semanticsLabel: 'زمان ضبط',
             ),
           ),
@@ -375,7 +373,7 @@ class _Result extends StatelessWidget {
                   height: 72,
                   decoration: BoxDecoration(
                     color: trackTint(track),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(NafirRadii.lg),
                   ),
                   child: Icon(NafirIcons.musicNote,
                       size: 32, color: colors.onSurfaceVariant),

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:nafir/core/design/design.dart';
 import 'package:flutter/rendering.dart';
 import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/core/persian_digits.dart';
@@ -507,9 +508,8 @@ class _SyncedLyricsState extends State<SyncedLyrics> {
     Scrollable.ensureVisible(
       target,
       alignment: 0.35,
-      duration:
-          reduceMotion ? Duration.zero : const Duration(milliseconds: 420),
-      curve: Curves.easeOutCubic,
+      duration: reduceMotion ? Duration.zero : NafirMotion.long,
+      curve: NafirMotion.standard,
     );
   }
 
@@ -599,7 +599,7 @@ class _LyricLineTile extends StatelessWidget {
       button: true,
       hint: 'پخش از این خط',
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(NafirRadii.lg),
         onTap: onTap,
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 48),
@@ -607,9 +607,8 @@ class _LyricLineTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Center(
               child: AnimatedDefaultTextStyle(
-                duration:
-                    animate ? const Duration(milliseconds: 260) : Duration.zero,
-                curve: Curves.easeOutCubic,
+                duration: animate ? NafirMotion.medium : Duration.zero,
+                curve: NafirMotion.standard,
                 style: (style ?? const TextStyle()).copyWith(
                   color: color,
                   fontWeight: active ? FontWeight.w800 : FontWeight.w500,

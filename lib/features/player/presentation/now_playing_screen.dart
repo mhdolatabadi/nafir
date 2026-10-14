@@ -2,9 +2,8 @@ import 'package:nafir/core/persian_digits.dart';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:nafir/core/design/tokens.dart';
+import 'package:nafir/core/design/design.dart';
 import 'package:nafir/core/format_size.dart';
-import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/lyrics/presentation/lyrics_sheet.dart';
@@ -24,18 +23,17 @@ Future<void> openNowPlaying(BuildContext context, PlayerController player) {
     PageRouteBuilder<void>(
       // The page underneath shows while the screen is dragged down.
       opaque: false,
-      barrierColor: Colors.black54,
-      transitionDuration:
-          reduceMotion ? Duration.zero : const Duration(milliseconds: 360),
+      barrierColor: NafirColors.barrier,
+      transitionDuration: reduceMotion ? Duration.zero : NafirMotion.enter,
       reverseTransitionDuration:
-          reduceMotion ? Duration.zero : const Duration(milliseconds: 240),
+          reduceMotion ? Duration.zero : NafirMotion.medium,
       pageBuilder: (_, __, ___) => NowPlayingScreen(player: player),
       transitionsBuilder: (_, animation, __, child) => SlideTransition(
         position: Tween(begin: const Offset(0, 1), end: Offset.zero).animate(
           CurvedAnimation(
             parent: animation,
-            curve: Curves.easeOutQuart,
-            reverseCurve: Curves.easeInCubic,
+            curve: NafirMotion.emphasized,
+            reverseCurve: NafirMotion.exit,
           ),
         ),
         child: child,
@@ -87,7 +85,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
   double _drag = 0;
   late final AnimationController _settle = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 220),
+    duration: NafirMotion.short,
   )..addListener(() => setState(() => _drag = _settleFrom * _settle.value));
   late final AnimationController _ambient = AnimationController(
     vsync: this,
@@ -128,7 +126,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
     }
     _settleFrom = _drag;
     _settle.value = 1;
-    _settle.animateTo(0, curve: Curves.easeOutCubic);
+    _settle.animateTo(0, curve: NafirMotion.standard);
   }
 
   void _openQueue() {
@@ -185,7 +183,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [tint, NafirGlass.background],
+                  colors: [tint, NafirColors.background],
                   stops: const [0, 0.78],
                 ),
               ),
@@ -309,7 +307,8 @@ class _PlaybackBackdropPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final phase = animation.value * 2 * pi;
     final glow = Paint()
-      ..color = Color.lerp(tint, Colors.white, 0.35)!.withValues(alpha: 0.09);
+      ..color = Color.lerp(tint, NafirColors.highlight, 0.35)!
+          .withValues(alpha: 0.09);
     canvas.drawCircle(
       Offset(size.width * (0.25 + 0.08 * sin(phase)),
           size.height * (0.35 + 0.04 * cos(phase))),
@@ -318,7 +317,7 @@ class _PlaybackBackdropPainter extends CustomPainter {
     );
     final paint = Paint()
       ..style = PaintingStyle.stroke
-      ..color = Colors.white.withValues(alpha: 0.045)
+      ..color = NafirColors.highlight.withValues(alpha: 0.045)
       ..strokeWidth = 2;
     for (var band = 0; band < 5; band++) {
       final path = Path();
@@ -427,8 +426,8 @@ class NowPlayingArtwork extends StatelessWidget {
       scale: active ? 1 : 0.9,
       duration: MediaQuery.disableAnimationsOf(context)
           ? Duration.zero
-          : const Duration(milliseconds: 420),
-      curve: Curves.easeOutQuart,
+          : NafirMotion.long,
+      curve: NafirMotion.emphasized,
       child: Container(
         width: size,
         height: size,
@@ -438,14 +437,14 @@ class NowPlayingArtwork extends StatelessWidget {
             begin: Alignment.topRight,
             end: Alignment.bottomLeft,
             colors: [
-              Color.lerp(tint, Colors.white, 0.14)!,
-              Color.lerp(tint, NafirGlass.background, 0.35)!,
+              Color.lerp(tint, NafirColors.highlight, 0.14)!,
+              Color.lerp(tint, NafirColors.background, 0.35)!,
             ],
           ),
-          border: Border.all(color: NafirGlass.softBorder),
+          border: Border.all(color: NafirColors.softBorder),
           boxShadow: const [
             BoxShadow(
-              color: NafirGlass.shadow,
+              color: NafirColors.shadow,
               offset: Offset(0, 18),
               blurRadius: 42,
             ),
@@ -782,7 +781,7 @@ class _ModeToggle extends StatelessWidget {
           active ? colors.onSecondaryContainer : colors.onSurfaceVariant,
         ),
         backgroundColor: WidgetStatePropertyAll(
-          active ? colors.secondaryContainer : Colors.transparent,
+          active ? colors.secondaryContainer : NafirColors.transparent,
         ),
       ),
       icon: Icon(icon),
@@ -893,7 +892,7 @@ class _QueueTile extends StatelessWidget {
         height: 44,
         decoration: BoxDecoration(
           color: current ? colors.primaryContainer : trackTint(track),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(NafirRadii.sm),
         ),
         child: Icon(
           current ? NafirIcons.waveformFill : NafirIcons.musicNote,

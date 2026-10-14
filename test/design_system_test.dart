@@ -36,27 +36,19 @@ Widget _app(Widget home, {bool reduceMotion = false}) => MaterialApp(
 const _rawColourFiles = {
   'lib/features/library/presentation/library_screen.dart',
   'lib/features/library/presentation/track_metadata_editor.dart',
-  'lib/features/player/presentation/now_playing_screen.dart',
   'lib/features/playlists/presentation/playlists_screen.dart',
 };
 const _rawRadiusFiles = {
   'lib/core/widgets/app_loading_screen.dart',
   'lib/features/history/presentation/recently_played_shelf.dart',
-  'lib/features/identify/presentation/identify_screen.dart',
   'lib/features/library/presentation/library_screen.dart',
-  'lib/features/lyrics/presentation/lyrics_sheet.dart',
-  'lib/features/player/presentation/mini_player.dart',
-  'lib/features/player/presentation/now_playing_screen.dart',
   'lib/features/playlists/presentation/playlists_screen.dart',
   'lib/features/playlists/presentation/popular_playlists_screen.dart',
   'lib/features/playlists/presentation/shared_playlist_screen.dart',
   'lib/features/settings/presentation/storage_usage_card.dart',
 };
 const _rawDurationFiles = {
-  'lib/features/identify/presentation/identify_screen.dart',
   'lib/features/library/presentation/track_metadata_editor.dart',
-  'lib/features/lyrics/presentation/lyrics_sheet.dart',
-  'lib/features/player/presentation/now_playing_screen.dart',
 };
 
 void main() {
