@@ -30,6 +30,9 @@ abstract final class NafirColors {
   /// The deep end of the brand mark's ember gradient, and the light mark on it.
   static const primaryDeep = Color(0xFFB72E50);
   static const onBrand = Color(0xFFFFF5F5);
+
+  /// The deep violet end of the playlist cover gradient.
+  static const secondaryDeep = Color(0xFF4E3B8D);
   static const onPrimary = Color(0xFF250005);
   static const primaryContainer = Color(0xFF462026);
   static const onPrimaryContainer = Color(0xFFFFDADB);
@@ -90,6 +93,8 @@ abstract final class NafirSpace {
 /// Corner radii. Controls are [md], surfaces [lg], large glass panels and
 /// dialogs [xl], sheets [sheet]; [pill] is only for small controls.
 abstract final class NafirRadii {
+  /// Thin bars: progress tracks and meters.
+  static const double bar = 4;
   static const double xs = 8;
   static const double sm = 12;
   static const double md = 14;

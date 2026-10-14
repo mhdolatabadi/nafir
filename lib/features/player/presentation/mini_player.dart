@@ -185,7 +185,7 @@ class _CompactMiniPlayer extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(NafirRadii.xs + 2),
+                  borderRadius: BorderRadius.circular(NafirRadii.sm),
                   onTap: onOpen,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
