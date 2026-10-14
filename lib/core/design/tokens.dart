@@ -111,7 +111,10 @@ abstract final class NafirMotion {
   /// Content swaps and dismissals.
   static const medium = Duration(milliseconds: 260);
 
-  /// Screens entering, artwork breathing.
+  /// A full-screen layer sliding in, such as now playing.
+  static const enter = Duration(milliseconds: 360);
+
+  /// Artwork breathing, the playing lyric line scrolling into place.
   static const long = Duration(milliseconds: 420);
 
   /// The ambient light settling in once, as a screen arrives.
