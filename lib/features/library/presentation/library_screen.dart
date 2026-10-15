@@ -554,28 +554,20 @@ class _LibraryScreenState extends State<LibraryScreen>
             child: Icon(RhythmoIcons.checkCircle),
           ),
         if (widget.onAdmin != null)
-          TextButton.icon(
+          IconButton(
+            tooltip: 'مدیریت حساب‌ها',
             onPressed: widget.onAdmin,
             icon: const Icon(RhythmoIcons.usersFill),
-            label: const Text('مدیریت حساب‌ها'),
           ),
-        const SizedBox(width: 8),
-        Tooltip(
-          message: 'تنظیمات',
-          child: FilledButton.tonalIcon(
-            onPressed: _openSettings,
-            icon: const Icon(RhythmoIcons.gear, size: 19),
-            label: const Text('تنظیمات'),
-          ),
+        IconButton(
+          tooltip: 'تنظیمات',
+          onPressed: _openSettings,
+          icon: const Icon(RhythmoIcons.gear),
         ),
-        const SizedBox(width: 8),
-        Tooltip(
-          message: 'خروج',
-          child: OutlinedButton.icon(
-            onPressed: widget.onLogout,
-            icon: const Icon(RhythmoIcons.signOut, size: 19),
-            label: const Text('خروج'),
-          ),
+        IconButton(
+          tooltip: 'خروج',
+          onPressed: widget.onLogout,
+          icon: const Icon(RhythmoIcons.signOut),
         ),
         const SizedBox(width: 32),
       ];
@@ -703,6 +695,7 @@ class _LibraryScreenState extends State<LibraryScreen>
     return Scaffold(
       extendBody: true,
       bottomNavigationBar: MiniPlayer(player: widget.player),
+      floatingActionButtonLocation: const _LibraryAddButtonLocation(),
       floatingActionButton: _visibleTabs[_tabs.index] != LibraryTab.tracks
           ? null
           : FloatingActionButton(
@@ -3144,4 +3137,25 @@ class _TabLabel extends StatelessWidget {
           child: Text(text, maxLines: 1, softWrap: false),
         ),
       );
+}
+
+/// Keep Scaffold's vertical safe-area/player clearance, but share the
+/// scrolling content's horizontal gutter instead of the viewport edge.
+class _LibraryAddButtonLocation extends FloatingActionButtonLocation {
+  const _LibraryAddButtonLocation();
+
+  @override
+  Offset getOffset(ScaffoldPrelayoutGeometry scaffoldGeometry) {
+    final offset =
+        FloatingActionButtonLocation.endFloat.getOffset(scaffoldGeometry);
+    final width = scaffoldGeometry.scaffoldSize.width;
+    final gutter = width >= 900
+        ? ((width - 880) / 2).clamp(40.0, 10000.0)
+        : 16.0;
+    final shift = gutter - 16;
+    return offset.translate(
+      scaffoldGeometry.textDirection == TextDirection.rtl ? shift : -shift,
+      0,
+    );
+  }
 }
