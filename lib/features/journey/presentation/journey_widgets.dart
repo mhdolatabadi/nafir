@@ -1,3 +1,4 @@
+import 'package:nafir/features/journey/presentation/monthly_card_section.dart';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -65,6 +66,7 @@ class JourneyCard extends StatelessWidget {
                       MaterialPageRoute<void>(
                         builder: (_) => _JourneyScreen(
                           journey: journey,
+                          accountGeneration: journey.accountGeneration,
                           tracks: tracks,
                           player: player,
                         ),
@@ -87,6 +89,7 @@ class JourneyCard extends StatelessWidget {
 
 class _JourneyScreen extends StatelessWidget {
   const _JourneyScreen({
+    required this.accountGeneration,
     required this.journey,
     required this.tracks,
     required this.player,
@@ -94,6 +97,7 @@ class _JourneyScreen extends StatelessWidget {
   final ListeningJourney journey;
   final List<Track> tracks;
   final PlayerController player;
+  final int accountGeneration;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -102,12 +106,13 @@ class _JourneyScreen extends StatelessWidget {
           child: ListenableBuilder(
             listenable: journey,
             builder: (context, _) {
+              if (!journey.ready ||
+                  journey.accountGeneration != accountGeneration) {
+                return const Center(
+                    child:
+                        Text('برای دیدن سفر این حساب، دوباره وارد صفحه شو.'));
+              }
               final suggestions = journey.suggestions(tracks);
-              final monthly = journey.monthlyPlays;
-              final popular = tracks
-                  .where((t) => monthly.containsKey(t.id))
-                  .toList()
-                ..sort((a, b) => monthly[b.id]!.compareTo(monthly[a.id]!));
               return Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 720),
@@ -175,29 +180,7 @@ class _JourneyScreen extends StatelessWidget {
                           ),
                         ),
                       const SizedBox(height: 24),
-                      Text(
-                        'خاطرهٔ شنیدن این ماه',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      Text(
-                        '${persianDigits(monthly.values.fold<int>(0, (a, b) => a + b))} '
-                        'بار شنیدن معنادار · ${persianDigits(monthly.length)} آهنگ متفاوت',
-                      ),
-                      for (final track in popular.take(3))
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            track.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          trailing: Text(
-                            '${persianDigits(monthly[track.id]!)} بار',
-                          ),
-                        ),
-                      if (monthly.isEmpty)
-                        const Text(
-                            'با اولین شنیدن، خاطرهٔ این ماه آغاز می‌شود.'),
+                      MonthlyCardSection(journey: journey, tracks: tracks),
                       const SizedBox(height: 16),
                       const Text(
                         'این پیشرفت خصوصی است و فعلاً فقط روی همین دستگاه ذخیره می‌شود.',
