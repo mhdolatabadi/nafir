@@ -73,6 +73,15 @@ type TrackHandlers struct {
 	emailGate *EmailGate
 	// fingerprints is woken when a track becomes ready.
 	fingerprints TagRewriteNotifier
+	// likes, when set, adds like counts to the owner's track list.
+	likes LikeStore
+}
+
+// WithLikes adds each track's like count and published state to the
+// owner's library (#284).
+func (h *TrackHandlers) WithLikes(likes LikeStore) *TrackHandlers {
+	h.likes = likes
+	return h
 }
 
 // WithEmailGate keeps accounts with an unverified email out of what costs
@@ -142,6 +151,12 @@ type trackResponse struct {
 	// ReplayGain is the loudness the file's tags carry, or null when they
 	// carry none or have not been read yet (#253).
 	ReplayGain *replayGainResponse `json:"replayGain"`
+	// Published, LikeCount and Liked are only filled in the owner's own
+	// library (#284): whether they published the track to the store, how
+	// many listeners like the song, and whether they do.
+	Published bool `json:"published,omitempty"`
+	LikeCount int  `json:"likeCount,omitempty"`
+	Liked     bool `json:"liked,omitempty"`
 }
 
 // replayGainResponse holds gains in dB re -18 LUFS and peaks as linear
@@ -257,8 +272,15 @@ func (h *TrackHandlers) handleList(w http.ResponseWriter, r *http.Request) {
 			UsedBytes: usedBytes, LimitBytes: h.limits.MaxOwnerBytes,
 		},
 	}
+	likes := map[string]store.LikeState{}
+	if h.likes != nil {
+		if likes, err = h.likes.OwnerStates(r.Context(), userID); err != nil {
+			internalError(w, "count track likes", err)
+			return
+		}
+	}
 	for _, track := range tracks {
-		response.Tracks = append(response.Tracks, toTrackResponse(track))
+		response.Tracks = append(response.Tracks, toOwnTrackResponse(track, likes[track.ID]))
 	}
 	if h.imports != nil {
 		if response.ImportsInProgress, err = h.imports.ActiveImports(r.Context(), userID); err != nil {
