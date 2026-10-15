@@ -38,6 +38,7 @@ import 'package:rhythmo/features/upload/data/audio_picker.dart';
 import 'package:rhythmo/features/upload/data/storage_uploader.dart';
 import 'package:rhythmo/features/store/application/store_controller.dart';
 import 'package:rhythmo/features/store/data/store_catalog.dart';
+import 'package:rhythmo/features/likes/data/likes.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -59,6 +60,7 @@ class RhythmoApp extends StatefulWidget {
     this.linkImportsApi,
     this.identifyApi,
     this.storeApi,
+    this.likesApi,
     this.snippetRecorder,
     this.historyApi,
     this.lyricsApi,
@@ -86,6 +88,7 @@ class RhythmoApp extends StatefulWidget {
   final LinkImportsApi? linkImportsApi;
   final IdentifyApi? identifyApi;
   final StoreApi? storeApi;
+  final LikesApi? likesApi;
   final SnippetRecorder? snippetRecorder;
   final HistoryApi? historyApi;
   final LyricsApi? lyricsApi;
@@ -182,7 +185,11 @@ class _RhythmoAppState extends State<RhythmoApp> {
 
   late final LibraryController? _library = _tracksApi == null
       ? null
-      : LibraryController(api: _tracksApi, token: () => _auth?.token);
+      : LibraryController(
+          api: _tracksApi,
+          token: () => _auth?.token,
+          likes: widget.likesApi ?? _apiClient,
+        );
 
   final ListeningJourney _journey = ListeningJourney();
 
@@ -201,6 +208,9 @@ class _RhythmoAppState extends State<RhythmoApp> {
           token: () => _auth?.token,
           favorites: FavoriteTracks(
             store: widget.favoritesStore ?? SecureFavoritesStore(),
+            // Likes live on the server once signed in (#284).
+            api: widget.likesApi ?? _apiClient,
+            token: () => _auth?.token,
           )..load(),
           settingsStore:
               widget.playbackSettingsStore ?? SecurePlaybackSettingsStore(),

@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:rhythmo/core/design/design.dart';
 import 'package:rhythmo/core/format_size.dart';
 import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/features/auth/presentation/sign_in_prompt.dart';
 import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/player/application/favorite_tracks.dart';
 import 'package:rhythmo/features/lyrics/presentation/lyrics_sheet.dart';
 import 'package:rhythmo/features/player/application/play_queue.dart';
 import 'package:rhythmo/features/player/application/player_controller.dart';
@@ -101,6 +103,23 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
     _settle.dispose();
     _ambient.dispose();
     super.dispose();
+  }
+
+  /// Likes or unlikes the playing song, and says when that didn't work.
+  Future<void> _like(Track track) async {
+    final result = await _player.favorites.toggleTrack(track);
+    if (!mounted) return;
+    switch (result) {
+      case TrackLikeResult.done:
+        break;
+      case TrackLikeResult.needsAccount:
+        askToSignIn(context, action: 'پسندیدن');
+      case TrackLikeResult.failed:
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(const SnackBar(
+              content: Text('پسندیدن ثبت نشد. دوباره تلاش کن.')));
+    }
   }
 
   void _close() {
@@ -245,7 +264,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
       _TitleRow(
         track: track,
         liked: _player.favorites.contains(track.id),
-        onLike: () => _player.favorites.toggle(track.id),
+        onLike: () => _like(track),
       ),
       const SizedBox(height: 12),
       _SeekBar(

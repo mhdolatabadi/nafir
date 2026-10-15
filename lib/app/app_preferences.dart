@@ -7,7 +7,7 @@ enum LibraryTab {
   playlists('فهرست‌های پخش'),
   albums('آلبوم‌ها'),
   artists('هنرمندان'),
-  favorites('علاقه‌مندی‌ها');
+  favorites('پسندیده‌ها');
 
   const LibraryTab(this.label);
   final String label;

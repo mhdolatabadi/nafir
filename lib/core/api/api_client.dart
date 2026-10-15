@@ -12,6 +12,7 @@ import 'package:rhythmo/features/lyrics/data/lyrics.dart';
 import 'package:rhythmo/features/playlists/data/playlist.dart';
 import 'package:rhythmo/features/upload/data/upload_models.dart';
 import 'package:rhythmo/features/store/data/store_catalog.dart';
+import 'package:rhythmo/features/likes/data/likes.dart';
 
 class ApiException implements Exception {
   const ApiException(this.message,
@@ -327,6 +328,7 @@ class ApiClient
         TranscriptionApi,
         IdentifyApi,
         StoreApi,
+        LikesApi,
         AdminApi {
   ApiClient(this.baseUri, {http.Client? httpClient})
       : _httpClient = httpClient ?? http.Client();
@@ -717,6 +719,44 @@ class ApiClient
             'details': details.trim(),
         },
         expectBody: false);
+  }
+
+  @override
+  Future<LikeState> setLike(String token, Track track, bool liked) async {
+    final id = Uri.encodeComponent(track.id);
+    final body = await _send(
+        liked ? 'PUT' : 'DELETE',
+        track.fromStore
+            ? '/api/v1/store/tracks/$id/like'
+            : '/api/v1/tracks/$id/like',
+        token: token);
+    return LikeState.fromJson(body);
+  }
+
+  @override
+  Future<List<LikedSong>> likedSongs(String token) async {
+    final songs = <LikedSong>[];
+    // A few pages at most; the server keeps the newest likes first.
+    for (var page = 0; page < 20; page++) {
+      final body = await _send(
+          'GET', '/api/v1/likes?limit=100&offset=${songs.length}',
+          token: token);
+      songs.addAll([
+        for (final json in body['songs'] as List<dynamic>)
+          LikedSong.fromJson(json as Map<String, dynamic>),
+      ]);
+      if (body['hasMore'] != true) break;
+    }
+    return songs;
+  }
+
+  @override
+  Future<bool> setPublished(
+      String token, String trackId, bool published) async {
+    final body = await _send(published ? 'PUT' : 'DELETE',
+        '/api/v1/tracks/${Uri.encodeComponent(trackId)}/published',
+        token: token);
+    return body['published'] == true;
   }
 
   @override

@@ -10,6 +10,7 @@ import 'package:rhythmo/features/playlists/data/playlist.dart';
 import 'package:rhythmo/features/playlists/presentation/collab_sheet.dart';
 import 'package:rhythmo/features/playlists/presentation/popular_playlists_screen.dart';
 import 'package:rhythmo/features/playlists/presentation/shared_playlist_screen.dart';
+import 'package:rhythmo/features/likes/presentation/liked_songs_screen.dart';
 import 'package:rhythmo/features/store/application/store_controller.dart';
 import 'package:rhythmo/features/store/presentation/store_screen.dart';
 
@@ -192,6 +193,13 @@ class _PlaylistsViewState extends State<PlaylistsView> {
     ));
   }
 
+  void _openLiked() {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => LikedSongsScreen(
+          player: widget.player, libraryTracks: widget.libraryTracks),
+    ));
+  }
+
   void _openStore() {
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) =>
@@ -217,6 +225,12 @@ class _PlaylistsViewState extends State<PlaylistsView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          LikedSongsEntry(
+            favorites: widget.player.favorites,
+            libraryTracks: widget.libraryTracks,
+            onOpen: _openLiked,
+          ),
+          const SizedBox(height: RhythmoSpace.sm),
           PopularPlaylistsEntry(onOpen: _openPopular),
           const SizedBox(height: RhythmoSpace.md),
           Wrap(

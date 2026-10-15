@@ -23,6 +23,7 @@ import 'package:rhythmo/features/library/application/track_sort.dart';
 import 'package:rhythmo/features/library/application/local_audio_controller.dart';
 import 'package:rhythmo/features/library/data/track.dart';
 import 'package:rhythmo/features/library/presentation/track_metadata_editor.dart';
+import 'package:rhythmo/features/player/application/favorite_tracks.dart';
 import 'package:rhythmo/features/player/application/player_controller.dart';
 import 'package:rhythmo/features/player/presentation/mini_player.dart';
 import 'package:rhythmo/features/playlists/presentation/shared_playlist_screen.dart';
@@ -361,6 +362,21 @@ class _LibraryScreenState extends State<LibraryScreen>
     if (message == null || !mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  /// Publishes [track] to the store, or makes it private again (#284).
+  Future<void> _setPublished(Track track, bool published) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final done = await widget.library.setPublished(track, published);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(!done
+            ? 'تغییر انتشار ثبت نشد. دوباره تلاش کن.'
+            : published
+                ? '«${track.title}» در استور منتشر شد. بدون نام تو نمایش داده می‌شود.'
+                : '«${track.title}» دیگر منتشر نمی‌شود، مگر در یک فهرست پخش عمومی باشد.'),
+      ));
   }
 
   Future<void> _editTrackMetadata(Track track) async {
@@ -725,9 +741,8 @@ class _LibraryScreenState extends State<LibraryScreen>
             listenable:
                 Listenable.merge([_libraryChanges, widget.player.favorites]),
             builder: (context, _) {
-              final tracks = _unifiedTracks()
-                  .where((track) => widget.player.favorites.contains(track.id))
-                  .toList();
+              final tracks =
+                  widget.player.favorites.likedFrom(_unifiedTracks());
               return tracks.isEmpty
                   ? const Center(child: Text('هنوز آهنگی را پسند نکرده‌ای'))
                   : _trackList(tracks);
@@ -774,6 +789,7 @@ class _LibraryScreenState extends State<LibraryScreen>
         playlists: widget.playlists,
         onDelete: _confirmDeleteTrack,
         onEditMetadata: _editTrackMetadata,
+        onSetPublished: widget.library.canPublish ? _setPublished : null,
         isDeleting: (trackId) =>
             widget.library.isDeleting(trackId) ||
             widget.library.isUpdating(trackId),
@@ -883,6 +899,8 @@ enum _TrackAction {
   cancelSync,
   dismissSync,
   editMetadata,
+  like,
+  publish,
   delete,
 }
 
@@ -1349,6 +1367,7 @@ class _TrackList extends StatefulWidget {
     this.playlists,
     this.onDelete,
     this.onEditMetadata,
+    this.onSetPublished,
     this.isDeleting,
     this.linkedBots = const [],
     this.onSendToBot,
@@ -1366,6 +1385,9 @@ class _TrackList extends StatefulWidget {
   final PlaylistsController? playlists;
   final Future<void> Function(Track track)? onDelete;
   final Future<void> Function(Track track)? onEditMetadata;
+
+  /// Publishes the track to the store or makes it private (#284).
+  final Future<void> Function(Track track, bool published)? onSetPublished;
   final bool Function(String trackId)? isDeleting;
 
   /// Bots with a linked chat, offered as «ارسال به …» for each track.
@@ -1469,7 +1491,8 @@ class _TrackListState extends State<_TrackList> {
   Widget? _actionsFor(BuildContext context, Track track) {
     // Someone else's track, from a collaborative playlist, is theirs to
     // manage.
-    if (track.addedBy != null) return null;
+    // A store song is nobody's to manage here either.
+    if (track.addedBy != null || track.fromStore) return null;
     final sync = widget.sync;
     final location = locationOf(track);
     final onServer = location != TrackLocation.device;
@@ -1527,9 +1550,22 @@ class _TrackListState extends State<_TrackList> {
           RhythmoIcons.cloudArrowDown,
           sync.downloadsToDevice ? 'دانلود روی دستگاه' : 'دانلود فایل',
         ),
+      item(
+        _TrackAction.like,
+        widget.player.favorites.contains(track.id)
+            ? RhythmoIcons.heartFill
+            : RhythmoIcons.heart,
+        widget.player.favorites.contains(track.id) ? 'نپسندیدن' : 'پسندیدن',
+      ),
       if (onServer) ...[
         item(_TrackAction.editMetadata, RhythmoIcons.pencilSimple,
             'ویرایش اطلاعات آهنگ'),
+        if (widget.onSetPublished != null)
+          item(
+            _TrackAction.publish,
+            RhythmoIcons.globe,
+            track.published ? 'لغو انتشار در استور' : 'انتشار در استور',
+          ),
         if (widget.playlists != null)
           item(_TrackAction.addToPlaylist, RhythmoIcons.listPlus,
               'افزودن به فهرست پخش'),
@@ -1568,6 +1604,10 @@ class _TrackListState extends State<_TrackList> {
             widget.onDelete?.call(track);
           case (_TrackAction.editMetadata, _):
             widget.onEditMetadata?.call(track);
+          case (_TrackAction.like, _):
+            _like(context, track);
+          case (_TrackAction.publish, _):
+            widget.onSetPublished?.call(track, !track.published);
           case (_TrackAction.uploadToServer, _):
             sync?.upload(track);
           case (_TrackAction.downloadToDevice, _):
@@ -1586,6 +1626,17 @@ class _TrackListState extends State<_TrackList> {
       },
       itemBuilder: (context) => items,
     );
+  }
+
+  Future<void> _like(BuildContext context, Track track) async {
+    final messenger = ScaffoldMessenger.of(context);
+    if (await widget.player.favorites.toggleTrack(track) ==
+        TrackLikeResult.failed) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+            const SnackBar(content: Text('پسندیدن ثبت نشد. دوباره تلاش کن.')));
+    }
   }
 
   Future<void> _addToPlaylist(BuildContext context, Track track) async {
@@ -1730,7 +1781,8 @@ class _TrackListState extends State<_TrackList> {
           ),
         ),
         ListenableBuilder(
-          listenable: widget.player,
+          listenable:
+              Listenable.merge([widget.player, widget.player.favorites]),
           builder: (context, _) => SliverList.separated(
             itemCount: tracks.length,
             separatorBuilder: (_, __) => const _RowHairline(),
@@ -1747,6 +1799,8 @@ class _TrackListState extends State<_TrackList> {
                     : widget.player.playTapped(tracks, index),
                 actions: _actionsFor(context, track),
                 sync: widget.sync?.operationFor(track.id),
+                liked: widget.player.favorites.contains(track.id),
+                likeCount: widget.player.favorites.countFor(track),
               );
             },
           ),
@@ -1860,9 +1914,16 @@ class _TrackRow extends StatelessWidget {
     this.selected = false,
     this.selecting = false,
     this.onLongPress,
+    this.liked = false,
+    this.likeCount = 0,
   });
 
   final Track track;
+
+  /// Whether the listener likes it, and how many listeners do; shown with
+  /// whether it is published (#284).
+  final bool liked;
+  final int likeCount;
 
   /// The track's upload, while queued, running or failed.
   final SyncOperation? sync;
@@ -1970,16 +2031,79 @@ class _TrackRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: secondary?.copyWith(color: colors.primary),
                 ),
-              null => Text(
-                  artist == null || artist.isEmpty ? 'خواننده نامشخص' : artist,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: secondary,
+              null => Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        artist == null || artist.isEmpty
+                            ? 'خواننده نامشخص'
+                            : artist,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: secondary,
+                      ),
+                    ),
+                    _LikeBadges(
+                      published: track.published,
+                      liked: liked,
+                      likeCount: likeCount,
+                      style: secondary,
+                    ),
+                  ],
                 ),
             },
             trailing: actions,
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Small marks after the artist: published to the store, and the heart
+/// with how many listeners like the song (filled when the listener does).
+class _LikeBadges extends StatelessWidget {
+  const _LikeBadges({
+    required this.published,
+    required this.liked,
+    required this.likeCount,
+    this.style,
+  });
+
+  final bool published;
+  final bool liked;
+  final int likeCount;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!published && !liked && likeCount == 0) return const SizedBox.shrink();
+    final colors = Theme.of(context).colorScheme;
+    final labels = [
+      if (published) 'منتشرشده',
+      if (liked) 'پسندیده‌ای',
+      if (likeCount > 0) '${persianDigits(likeCount)} پسند',
+    ];
+    return Semantics(
+      label: labels.join('، '),
+      excludeSemantics: true,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (published) ...[
+            const SizedBox(width: RhythmoSpace.sm),
+            Icon(RhythmoIcons.globe, size: 14, color: colors.secondary),
+          ],
+          if (liked || likeCount > 0) ...[
+            const SizedBox(width: RhythmoSpace.sm),
+            Icon(liked ? RhythmoIcons.heartFill : RhythmoIcons.heart,
+                size: 14, color: liked ? colors.primary : style?.color),
+            if (likeCount > 0) ...[
+              const SizedBox(width: RhythmoSpace.xxs),
+              Text(persianDigits(likeCount), style: style),
+            ],
+          ],
+        ],
       ),
     );
   }
