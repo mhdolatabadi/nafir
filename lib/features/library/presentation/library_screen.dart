@@ -2730,8 +2730,9 @@ class _LibrarySearchScreenState extends State<LibrarySearchScreen> {
                   return _PlaylistResult(
                     icon: NafirIcons.fire,
                     title: playlist.name,
+                    // Owners stay private: no email, even masked.
                     subtitle: [
-                      playlist.owner,
+                      '${persianDigits(playlist.trackCount)} آهنگ',
                       '${persianDigits(playlist.likes.likeCount)} پسند',
                     ].join(' · '),
                     onTap: () => _openPopular(playlist),
