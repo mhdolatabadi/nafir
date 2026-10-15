@@ -31,6 +31,9 @@ abstract final class NafirColors {
   static const primaryDeep = Color(0xFFB72E50);
   static const onBrand = Color(0xFFFFF5F5);
 
+  /// The dark tile behind the logo mark, the same as the app icon's.
+  static const markTile = Color(0xFF0B0D16);
+
   /// The deep violet end of the playlist cover gradient.
   static const secondaryDeep = Color(0xFF4E3B8D);
   static const onPrimary = Color(0xFF250005);

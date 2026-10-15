@@ -7,6 +7,7 @@ import 'package:nafir/core/design/design.dart';
 import 'package:nafir/app/app_preferences.dart';
 import 'package:flutter/services.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
+import 'package:nafir/core/widgets/nafir_mark.dart';
 import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/core/search_text.dart';
 import 'package:nafir/features/auth/presentation/email_verification_screen.dart';
@@ -879,41 +880,6 @@ enum _TrackAction {
   delete,
 }
 
-/// The rhythmo logo mark: the horn's sound wave on the brand gradient.
-class _NafirMark extends StatelessWidget {
-  const _NafirMark({this.size = 44});
-
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(size * 0.32),
-        gradient: const LinearGradient(
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-          colors: [NafirColors.primary, NafirColors.primaryDeep],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: NafirColors.primary.withValues(alpha: 0.24),
-            offset: const Offset(0, 8),
-            blurRadius: 22,
-          ),
-        ],
-      ),
-      child: Icon(
-        NafirIcons.waveform,
-        size: size * 0.55,
-        color: NafirColors.onBrand,
-      ),
-    );
-  }
-}
-
 class _NafirBrand extends StatelessWidget {
   const _NafirBrand({required this.compact});
 
@@ -927,7 +893,7 @@ class _NafirBrand extends StatelessWidget {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _NafirMark(size: compact ? 32 : 44),
+            NafirMark(size: compact ? 32 : 44),
             const SizedBox(width: 12),
             Flexible(
               child: showSubtitle
