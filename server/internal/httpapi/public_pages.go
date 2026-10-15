@@ -310,7 +310,7 @@ func (p *PublicPages) handleHome(w http.ResponseWriter, r *http.Request) {
 	}{
 		Verify: p.verify,
 		pageMeta: pageMeta{
-			Title: "ریتمو — پخش‌کننده و فضای ابری موسیقی",
+			Title: "ریتمو | پخش آنلاین موسیقی و فضای ابری برای آهنگ‌هایت",
 			Description: "ریتمو کتابخانه‌ی موسیقی ابری توست: آهنگ‌هایت را با کیفیت اصلی آپلود کن، " +
 				"فهرست پخش بساز و روی وب و اندروید گوش بده. فهرست‌های پخش محبوب را بدون ثبت‌نام بشنو.",
 			Canonical: site + "/", Image: site + "/social.png", OGType: "website",
@@ -460,10 +460,10 @@ func (p *PublicPages) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 	if len(artists) > 0 {
 		description += "، از " + strings.Join(artists, "، ")
 	}
-	description += ". بدون ثبت‌نام بشنو."
+	description += ". آنلاین و بدون ثبت‌نام بشنو."
 	canonical := site + "/p/" + token
 	meta := pageMeta{
-		Title:       shared.Name + " — فهرست پخش در ریتمو",
+		Title:       shared.Name + " | فهرست پخش آنلاین در ریتمو",
 		Description: description,
 		Canonical:   canonical, Image: site + "/social.png", OGType: "music.playlist",
 		JSONLD: map[string]any{
@@ -556,7 +556,7 @@ func (p *PublicPages) handleSitemap(w http.ResponseWriter, r *http.Request) {
 	urls := []sitemapURL{{Loc: site + "/"}, {Loc: site + "/privacy"}, {Loc: site + "/delete-account"}}
 	for _, pl := range listed {
 		urls = append(urls, sitemapURL{
-			Loc: site + "/p/" + pl.ShareToken, LastMod: pl.UpdatedAt.UTC().Format(time.DateOnly),
+			Loc: site + "/p/" + pl.ShareToken, LastMod: lastMod(pl.UpdatedAt),
 		})
 	}
 	storeURLs, err := p.storeSitemapURLs(r, site)

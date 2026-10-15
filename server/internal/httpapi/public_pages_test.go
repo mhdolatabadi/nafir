@@ -107,7 +107,7 @@ func TestPublicPlaylistPage(t *testing.T) {
 		t.Fatalf("playlist page = %d", response.Code)
 	}
 	for _, want := range []string{
-		`<title>Road trip — فهرست پخش در ریتمو</title>`,
+		`<title>Road trip | فهرست پخش آنلاین در ریتمو</title>`,
 		`<meta name="description" content="فهرست پخش «Road trip» با ۲ آهنگ در ریتمو`,
 		`<link rel="canonical" href="https://rhythmo.example.com/p/` + token + `">`,
 		`<meta property="og:type" content="music.playlist">`,
@@ -356,7 +356,7 @@ func TestFrontPageExplainsRhythmoWithFAQ(t *testing.T) {
 	page := get(site, "/").Body.String()
 
 	for _, want := range []string{
-		"<title>ریتمو — پخش‌کننده و فضای ابری موسیقی</title>",
+		"<title>ریتمو | پخش آنلاین موسیقی و فضای ابری برای آهنگ‌هایت</title>",
 		"<h1>ریتمو، کتابخانه‌ی موسیقی ابری تو</h1>",
 		"کتابخانه‌ی ابری با کیفیت اصلی",
 		`<h2 class="section" id="playlists">فهرست‌های پخش محبوب</h2>`,

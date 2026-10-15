@@ -11,6 +11,9 @@ import (
 	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
+// storeSongPath is the fake store song's page, with its slug.
+const storeSongPath = "/store/t/" + storeEntryID + "/%D8%A8%D8%A7%D8%B1%D8%A7%D9%86-ac-dc"
+
 func storeSite(t *testing.T, limits AnonymousLimits) (http.Handler, *fakeCatalog) {
 	t.Helper()
 	duration := int32(245_000)
@@ -27,7 +30,7 @@ func storeSite(t *testing.T, limits AnonymousLimits) (http.Handler, *fakeCatalog
 
 func TestStorePagesListSongsWithoutTheirOwners(t *testing.T) {
 	site, catalog := storeSite(t, AnonymousLimits{})
-	for _, path := range []string{"/store", "/store?q=باران", "/store/t/" + storeEntryID,
+	for _, path := range []string{"/store", "/store?q=باران", storeSongPath,
 		"/store/artists", "/store/artists/AC%2FDC", "/store/albums", "/store/albums/Seasons?artist=AC%2FDC"} {
 		response := get(site, path)
 		page := response.Body.String()
@@ -42,11 +45,11 @@ func TestStorePagesListSongsWithoutTheirOwners(t *testing.T) {
 		assertHardeningHeaders(t, response.Header(), pageContentSecurityPolicy)
 	}
 
-	page := get(site, "/store/t/"+storeEntryID).Body.String()
+	page := get(site, storeSongPath).Body.String()
 	for _, want := range []string{"<h1 dir=\"auto\">باران</h1>", `href="/store/artists/AC%2FDC"`,
 		`href="/store/albums/Seasons?artist=AC%2FDC"`, "۴:۰۵", "FLAC", "۳۰٫۴ مگابایت",
 		`src="/store/t/` + storeEntryID + `/stream"`, `href="/app/?store=` + storeEntryID + `"`,
-		`<link rel="canonical" href="https://rhythmo.example.com/store/t/` + storeEntryID + `">`} {
+		`<link rel="canonical" href="https://rhythmo.example.com` + storeSongPath + `">`} {
 		if !strings.Contains(page, want) {
 			t.Errorf("song page lacks %q", want)
 		}
@@ -95,7 +98,7 @@ func TestStoreSongPagesFollowTheCatalog(t *testing.T) {
 		t.Fatalf("stream = %d %v", stream.Code, stream.Header())
 	}
 	catalog.hidden = true
-	if response := get(site, "/store/t/"+storeEntryID); response.Code != http.StatusNotFound ||
+	if response := get(site, storeSongPath); response.Code != http.StatusNotFound ||
 		!strings.Contains(response.Body.String(), "noindex") {
 		t.Fatalf("hidden song page = %d", response.Code)
 	}
@@ -114,7 +117,7 @@ func TestStorePagesUseTheVisitorLimits(t *testing.T) {
 	})
 	get(site, "/store")
 	get(site, "/store/artists")
-	if response := get(site, "/store/t/"+storeEntryID); response.Code != http.StatusTooManyRequests {
+	if response := get(site, storeSongPath); response.Code != http.StatusTooManyRequests {
 		t.Fatalf("past the view limit = %d", response.Code)
 	}
 	get(site, "/store/t/"+storeEntryID+"/stream")
@@ -127,7 +130,7 @@ func TestSitemapListsTheStore(t *testing.T) {
 	site, _ := storeSite(t, AnonymousLimits{})
 	sitemap := get(site, "/sitemap.xml").Body.String()
 	for _, want := range []string{"https://rhythmo.example.com/store</loc>", "/store/artists</loc>", "/store/albums</loc>",
-		"/store/artists/Kayhan</loc>", "/store/t/" + storeEntryID + "</loc>"} {
+		"/store/artists/Kayhan</loc>", storeSongPath + "</loc>"} {
 		if !strings.Contains(sitemap, want) {
 			t.Errorf("sitemap lacks %q", want)
 		}
@@ -137,7 +140,7 @@ func TestSitemapListsTheStore(t *testing.T) {
 func TestStorePagesNeedNoScript(t *testing.T) {
 	site, _ := storeSite(t, AnonymousLimits{})
 	scriptTag := regexp.MustCompile(`<script[^>]*>`)
-	for _, path := range []string{"/store", "/store/t/" + storeEntryID, "/store/artists", "/store/albums"} {
+	for _, path := range []string{"/store", storeSongPath, "/store/artists", "/store/albums"} {
 		page := get(site, path).Body.String()
 		for _, tag := range scriptTag.FindAllString(page, -1) {
 			if tag != `<script type="application/ld+json">` {
@@ -205,7 +208,7 @@ func TestPlaylistPageLinksItsSongsToTheStore(t *testing.T) {
 	site := NewHandler(Config{Public: NewPublicPages(data, fixedPresigner{}, AnonymousLimits{}).WithStore(catalog)})
 
 	page := get(site, "/p/"+token).Body.String()
-	link := `<a class="title" href="/store/t/` + storeEntryID + `" dir="auto">باران</a>`
+	link := `<a class="title" href="` + storeSongPath + `" dir="auto">باران</a>`
 	if !strings.Contains(page, link) || strings.Count(page, `href="/store/artists/AC%2FDC"`) != 1 {
 		t.Errorf("the store song is not linked once with its artist:\n%s", page)
 	}
@@ -213,7 +216,7 @@ func TestPlaylistPageLinksItsSongsToTheStore(t *testing.T) {
 		t.Error("a song outside the store was linked")
 	}
 	tracks := jsonLD(t, page)["track"].([]any)
-	if tracks[0].(map[string]any)["url"] != "https://rhythmo.example.com/store/t/"+storeEntryID || tracks[1].(map[string]any)["url"] != nil {
+	if tracks[0].(map[string]any)["url"] != "https://rhythmo.example.com"+storeSongPath || tracks[1].(map[string]any)["url"] != nil {
 		t.Errorf("playlist structured data = %v", tracks)
 	}
 	if got := strings.Join(breadcrumbNames(t, page), ","); got != "ریتمو|https://rhythmo.example.com/,فهرست‌های پخش|https://rhythmo.example.com/#playlists,Road trip|" {
@@ -235,7 +238,7 @@ func TestStorePagesHaveBreadcrumbs(t *testing.T) {
 	site, _ := storeSite(t, AnonymousLimits{})
 	for path, want := range map[string]string{
 		"/store": "ریتمو|https://rhythmo.example.com/,استور|",
-		"/store/t/" + storeEntryID: "ریتمو|https://rhythmo.example.com/,استور|https://rhythmo.example.com/store," +
+		storeSongPath: "ریتمو|https://rhythmo.example.com/,استور|https://rhythmo.example.com/store," +
 			"AC/DC|https://rhythmo.example.com/store/artists/AC%2FDC,باران|",
 		"/store/artists/AC%2FDC": "ریتمو|https://rhythmo.example.com/,استور|https://rhythmo.example.com/store," +
 			"خواننده‌ها|https://rhythmo.example.com/store/artists,AC/DC|",
@@ -256,7 +259,7 @@ func TestStorePagesHaveBreadcrumbs(t *testing.T) {
 func TestFrontPageLinksToStoreSongs(t *testing.T) {
 	site, catalog := storeSite(t, AnonymousLimits{})
 	page := get(site, "/").Body.String()
-	if !strings.Contains(page, "آهنگ‌های محبوب استور") || !strings.Contains(page, `href="/store/t/`+storeEntryID+`"`) ||
+	if !strings.Contains(page, "آهنگ‌های محبوب استور") || !strings.Contains(page, `href="`+storeSongPath+`"`) ||
 		catalog.ranked != store.RankPopular {
 		t.Error("the front page does not link to popular store songs")
 	}
@@ -271,9 +274,70 @@ func TestSitemapListsStoreAlbumsAndSongDates(t *testing.T) {
 	catalog.entry.Track.CreatedAt = time.Date(2026, 3, 4, 23, 0, 0, 0, time.UTC)
 	sitemap := get(site, "/sitemap.xml").Body.String()
 	for _, want := range []string{"/store/albums/Seasons?artist=AC%2FDC</loc>",
-		"/store/t/" + storeEntryID + "</loc>\n    <lastmod>2026-03-04</lastmod>"} {
+		storeSongPath + "</loc>\n    <lastmod>2026-03-04</lastmod>"} {
 		if !strings.Contains(sitemap, want) {
 			t.Errorf("sitemap lacks %q:\n%s", want, sitemap)
 		}
+	}
+}
+
+func TestStoreSongURLsCarryAReadableSlug(t *testing.T) {
+	site, catalog := storeSite(t, AnonymousLimits{})
+	// A bare, stale or differently escaped link moves to the one URL.
+	for _, path := range []string{"/store/t/" + storeEntryID, "/store/t/" + storeEntryID + "/old-name"} {
+		response := get(site, path)
+		if response.Code != http.StatusMovedPermanently || response.Header().Get("Location") != storeSongPath {
+			t.Errorf("%s = %d to %q", path, response.Code, response.Header().Get("Location"))
+		}
+	}
+	if response := get(site, "/store/t/"+storeEntryID+"/باران-ac-dc"); response.Code != http.StatusOK {
+		t.Errorf("the unescaped slug = %d", response.Code)
+	}
+	if response := get(site, "/store/t/00000000-0000-0000-0000-000000000000/x"); response.Code != http.StatusNotFound {
+		t.Errorf("an unknown song with a slug = %d", response.Code)
+	}
+	// A song whose slug would be empty, or would be the stream path, keeps
+	// the bare URL.
+	catalog.entry.Track.Title, catalog.entry.Track.Artist = "Stream", nil
+	if response := get(site, "/store/t/"+storeEntryID); response.Code != http.StatusOK {
+		t.Errorf("a song titled Stream = %d", response.Code)
+	}
+	if stream := get(site, "/store/t/"+storeEntryID+"/stream"); stream.Code != http.StatusFound {
+		t.Errorf("the stream of a song titled Stream = %d", stream.Code)
+	}
+}
+
+func TestSongSlug(t *testing.T) {
+	for _, c := range []struct{ title, artist, want string }{
+		{"باران", "AC/DC", "باران-ac-dc"},
+		{"  Hello,  World!! ", "", "hello-world"},
+		{"علي‌كوچك", "", "علی-کوچک"},
+		{"سَلام", "۲۰۲۴", "سلام-۲۰۲۴"},
+		{"!!!", "", ""},
+		{"stream", "", ""},
+		{strings.Repeat("a", 100), "", strings.Repeat("a", maxSlugRunes)},
+		{strings.Repeat("ab ", 40), "", strings.TrimSuffix(strings.Repeat("ab-", 27), "-")},
+	} {
+		if got := songSlug(c.title, c.artist); got != c.want {
+			t.Errorf("songSlug(%q, %q) = %q; want %q", c.title, c.artist, got, c.want)
+		}
+	}
+}
+
+func TestStorePageTitlesFollowPersianSearches(t *testing.T) {
+	site, _ := storeSite(t, AnonymousLimits{})
+	for path, want := range map[string]string{
+		storeSongPath:                          "<title>آهنگ باران از AC/DC | پخش آنلاین در ریتمو</title>",
+		"/store/artists/AC%2FDC":               "<title>آهنگ‌های AC/DC | پخش آنلاین در ریتمو</title>",
+		"/store/albums/Seasons?artist=AC%2FDC": "<title>آلبوم Seasons از AC/DC | پخش آنلاین در ریتمو</title>",
+		"/store":                               "<title>استور ریتمو | پخش آنلاین آهنگ با کیفیت اصلی</title>",
+	} {
+		if page := get(site, path).Body.String(); !strings.Contains(page, want) {
+			t.Errorf("%s lacks %s", path, want)
+		}
+	}
+	song := get(site, storeSongPath).Body.String()
+	if !strings.Contains(song, `content="آهنگ «باران» از AC/DC، آلبوم Seasons را آنلاین، با کیفیت اصلی (FLAC) و بدون ثبت‌نام در ریتمو بشنو`) {
+		t.Error("the song description does not name its album and format")
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/mhdolatabadi/rhythmo/server/internal/display"
@@ -50,6 +51,7 @@ func (p *PublicPages) registerStore(mux *http.ServeMux) {
 	}
 	mux.HandleFunc("GET /store", p.handleStore)
 	mux.HandleFunc("GET /store/t/{id}", p.handleStoreTrack)
+	mux.HandleFunc("GET /store/t/{id}/{slug}", p.handleStoreTrack)
 	mux.HandleFunc("GET /store/t/{id}/stream", p.handleStoreStream)
 	mux.HandleFunc("GET /store/artists", p.handleStoreArtists)
 	mux.HandleFunc("GET /store/artists/{name}", p.handleStoreArtist)
@@ -132,8 +134,61 @@ func optional(s *string) string {
 	return strings.TrimSpace(*s)
 }
 
-// storeTrackLink is a store song's page.
-func storeTrackLink(entry store.StoreEntry) string { return "/store/t/" + entry.ID }
+// storeTrackLink is a store song's page: its ID, then a readable slug of
+// its title and artist for people and search engines.
+func storeTrackLink(entry store.StoreEntry) string {
+	link := "/store/t/" + entry.ID
+	if slug := songSlug(entry.Track.Title, optional(entry.Track.Artist)); slug != "" {
+		link += "/" + url.PathEscape(slug)
+	}
+	return link
+}
+
+// maxSlugRunes keeps song URLs short.
+const maxSlugRunes = 80
+
+// songSlug is title and artist as a URL path segment: lower-case letters
+// and digits of any script joined by dashes, with Arabic letter variants
+// folded to their Persian forms and diacritics dropped. It is never a
+// path the song page itself uses, such as "stream".
+func songSlug(title, artist string) string {
+	var b strings.Builder
+	runes, dash := 0, false
+	for _, r := range strings.ToLower(strings.TrimSpace(title + " " + artist)) {
+		switch r {
+		case 'ي', 'ى':
+			r = 'ی'
+		case 'ك':
+			r = 'ک'
+		}
+		switch {
+		case unicode.Is(unicode.Mn, r):
+			continue
+		case unicode.IsLetter(r) || unicode.IsDigit(r):
+			if dash && b.Len() > 0 {
+				b.WriteByte('-')
+				runes++
+			}
+			if runes >= maxSlugRunes {
+				return trimSlug(b.String())
+			}
+			b.WriteRune(r)
+			runes++
+			dash = false
+		default:
+			dash = true
+		}
+	}
+	return trimSlug(b.String())
+}
+
+func trimSlug(slug string) string {
+	slug = strings.Trim(slug, "-")
+	if slug == "stream" {
+		return ""
+	}
+	return slug
+}
 
 func artistLink(name string) string { return "/store/artists/" + url.PathEscape(name) }
 
@@ -253,8 +308,8 @@ func (p *PublicPages) handleStore(w http.ResponseWriter, r *http.Request) {
 		Query:   search,
 		Empty:   "هنوز آهنگی در استور نیست.",
 	}
-	data.Title = "استور ریتمو — آهنگ‌های فهرست‌های پخش عمومی"
-	data.Description = "آهنگ‌های فهرست‌های پخش عمومی ریتمو را جستجو کن، بر اساس خواننده و آلبوم مرور کن و بدون ثبت‌نام بشنو."
+	data.Title = "استور ریتمو | پخش آنلاین آهنگ با کیفیت اصلی"
+	data.Description = "آهنگ‌های فهرست‌های پخش عمومی ریتمو را جستجو کن، بر اساس خواننده و آلبوم مرور کن و آنلاین و بدون ثبت‌نام بشنو."
 	keep := url.Values{}
 	if search != "" {
 		keep.Set("q", search)
@@ -281,8 +336,8 @@ func (p *PublicPages) handleStoreArtist(w http.ResponseWriter, r *http.Request) 
 		Empty: "آهنگی از این خواننده در استور نیست.",
 	}
 	data.Trail = []crumb{{Name: "خواننده‌ها", Link: "/store/artists"}, {Name: name}}
-	data.Title = name + " — آهنگ‌ها در استور ریتمو"
-	data.Description = "آهنگ‌های " + name + " را در ریتمو بدون ثبت‌نام بشنو."
+	data.Title = "آهنگ‌های " + name + " | پخش آنلاین در ریتمو"
+	data.Description = "آهنگ‌های " + name + " را آنلاین، با کیفیت اصلی و بدون ثبت‌نام در ریتمو بشنو."
 	p.renderStoreList(w, r, store.StoreQuery{Artist: name}, data, artistLink(name), url.Values{})
 }
 
@@ -304,8 +359,12 @@ func (p *PublicPages) handleStoreAlbum(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Intro += " در استور ریتمو."
 	data.Trail = []crumb{{Name: "آلبوم‌ها", Link: "/store/albums"}, {Name: name}}
-	data.Title = name + " — آلبوم در استور ریتمو"
-	data.Description = data.Intro + " بدون ثبت‌نام بشنو."
+	data.Title = "آلبوم " + name
+	if artist != "" {
+		data.Title += " از " + artist
+	}
+	data.Title += " | پخش آنلاین در ریتمو"
+	data.Description = data.Intro + " آنلاین و بدون ثبت‌نام بشنو."
 	p.renderStoreList(w, r, store.StoreQuery{Album: name, Artist: artist}, data, albumLink(name, artist), keep)
 }
 
@@ -342,7 +401,7 @@ func (p *PublicPages) handleStoreArtists(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	data := storeIndexData{Heading: "خواننده‌ها", Intro: "خواننده‌های آهنگ‌های استور ریتمو.", Empty: "هنوز خواننده‌ای در استور نیست."}
-	data.Title = "خواننده‌ها — استور ریتمو"
+	data.Title = "خواننده‌ها | استور ریتمو"
 	data.Description = "آهنگ‌های استور ریتمو را بر اساس خواننده مرور کن و بدون ثبت‌نام بشنو."
 	for _, a := range artists {
 		data.Items = append(data.Items, storeIndexItem{Name: a.Name, Link: artistLink(a.Name), TrackCount: a.TrackCount})
@@ -361,7 +420,7 @@ func (p *PublicPages) handleStoreAlbums(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	data := storeIndexData{Heading: "آلبوم‌ها", Intro: "آلبوم‌های آهنگ‌های استور ریتمو.", Empty: "هنوز آلبومی در استور نیست."}
-	data.Title = "آلبوم‌ها — استور ریتمو"
+	data.Title = "آلبوم‌ها | استور ریتمو"
 	data.Description = "آهنگ‌های استور ریتمو را بر اساس آلبوم مرور کن و بدون ثبت‌نام بشنو."
 	for _, a := range albums {
 		artist := optional(a.Artist)
@@ -398,6 +457,13 @@ func (p *PublicPages) handleStoreTrack(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// One song has one URL: an old or bare link moves to the current slug.
+	link := storeTrackLink(entry)
+	if r.URL.EscapedPath() != link && r.URL.Path != "/store/t/"+entry.ID+"/"+songSlug(entry.Track.Title, optional(entry.Track.Artist)) {
+		w.Header().Set("Cache-Control", publicPageMaxAge)
+		http.Redirect(w, r, link, http.StatusMovedPermanently)
+		return
+	}
 	t := entry.Track
 	track := storeTrackPage{
 		ID: entry.ID, Title: t.Title, Artist: optional(t.Artist), Album: optional(t.Album),
@@ -416,25 +482,25 @@ func (p *PublicPages) handleStoreTrack(w http.ResponseWriter, r *http.Request) {
 	site := p.origin(r)
 	canonical := site + storeTrackLink(entry)
 	recording := map[string]any{"@context": "https://schema.org", "@type": "MusicRecording", "name": t.Title, "url": canonical}
-	description := "«" + t.Title + "»"
+	description := "آهنگ «" + t.Title + "»"
 	if track.Artist != "" {
 		recording["byArtist"] = map[string]any{"@type": "MusicGroup", "name": track.Artist}
 		description += " از " + track.Artist
 	}
 	if track.Album != "" {
 		recording["inAlbum"] = map[string]any{"@type": "MusicAlbum", "name": track.Album}
+		description += "، آلبوم " + track.Album
 	}
 	if t.DurationMS != nil && *t.DurationMS > 0 {
 		recording["duration"] = fmt.Sprintf("PT%dM%dS", *t.DurationMS/60000, *t.DurationMS/1000%60)
 	}
-	description += " را در استور ریتمو با کیفیت اصلی و بدون ثبت‌نام بشنو."
+	description += " را آنلاین، با کیفیت اصلی (" + track.Format + ") و بدون ثبت‌نام در ریتمو بشنو و به کتابخانه‌ات اضافه کن."
+	title := "آهنگ " + t.Title
+	if track.Artist != "" {
+		title += " از " + track.Artist
+	}
 	meta := pageMeta{
-		Title: t.Title + func() string {
-			if track.Artist != "" {
-				return " از " + track.Artist
-			}
-			return ""
-		}() + " — استور ریتمو",
+		Title:       title + " | پخش آنلاین در ریتمو",
 		Description: description, Canonical: canonical, Image: site + "/social.png",
 		OGType: "music.song", JSONLD: recording,
 	}
