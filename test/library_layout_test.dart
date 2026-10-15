@@ -33,6 +33,24 @@ void main() {
   for (final size in const [Size(360, 740), Size(1280, 900)]) {
     final label = '${size.width.toInt()} px';
 
+    testWidgets('add button follows the content gutter at $label',
+        (tester) async {
+      await _pump(tester, size, const []);
+      final rect = tester.getRect(find.byType(FloatingActionButton));
+      final gutter = size.width >= 900
+          ? ((size.width - 880) / 2).clamp(40.0, 10000.0)
+          : 16.0;
+      expect(rect.left, closeTo(gutter, 1));
+      expect(rect.width, greaterThanOrEqualTo(48));
+      expect(tester.takeException(), isNull);
+      if (size.width >= 960) {
+        expect(find.text('تنظیمات'), findsNothing);
+        expect(find.text('خروج'), findsNothing);
+        expect(find.byTooltip('تنظیمات'), findsOneWidget);
+        expect(find.byTooltip('خروج'), findsOneWidget);
+      }
+    });
+
     testWidgets('an empty library says what to do at $label', (tester) async {
       await _pump(tester, size, const []);
       expect(tester.takeException(), isNull);

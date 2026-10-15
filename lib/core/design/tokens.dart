@@ -31,6 +31,9 @@ abstract final class RhythmoColors {
   static const primaryDeep = Color(0xFFB72E50);
   static const onBrand = Color(0xFFFFF5F5);
 
+  /// The dark tile behind the logo mark, the same as the app icon's.
+  static const markTile = Color(0xFF0B0D16);
+
   /// The deep violet end of the playlist cover gradient.
   static const secondaryDeep = Color(0xFF4E3B8D);
   static const onPrimary = Color(0xFF250005);
@@ -40,6 +43,9 @@ abstract final class RhythmoColors {
   static const onSecondary = Color(0xFF160F45);
   static const secondaryContainer = Color(0xFF2A2454);
   static const onSecondaryContainer = Color(0xFFE5DFFF);
+
+  /// The check on a verified account.
+  static const verified = Color(0xFF1D9BF0);
 
   // Text and lines.
   static const onSurface = Color(0xFFF5F1F7);

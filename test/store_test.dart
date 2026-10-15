@@ -66,6 +66,19 @@ class FakeStoreApi implements StoreApi {
     return StorePage(page, hasMore: offset + page.length < matching.length);
   }
 
+  /// What the carousels rank; empty means nothing has a score yet.
+  List<Track> ranked = [];
+
+  @override
+  Future<StorePage<Track>> storeRanked(String? token, StoreRanking ranking,
+      {int offset = 0}) async {
+    calls.add('ranked:${ranking.wire}:$offset');
+    if (error != null) throw error!;
+    final list =
+        ranking == StoreRanking.popular ? ranked : ranked.reversed.toList();
+    return StorePage(list.skip(offset).toList(), hasMore: false);
+  }
+
   @override
   Future<Track> storeTrack(String? token, String id) async {
     calls.add('track:$id');
@@ -412,11 +425,9 @@ void main() {
       final menu = tester.getSize(find.byTooltip('گزینه‌های آهنگ').first);
       expect(menu.width, greaterThanOrEqualTo(RhythmoSpace.target));
       expect(menu.height, greaterThanOrEqualTo(RhythmoSpace.target));
-      // The artist, then the size, as supporting detail.
-      expect(
-          find.text(
-              'خواننده‌ای با نام بسیار بلند 0 · ${formatSize(3 * 1024 * 1024)}'),
-          findsOneWidget);
+      // The artist is the row's only secondary detail; the size is not.
+      expect(find.text('خواننده‌ای با نام بسیار بلند 0'), findsOneWidget);
+      expect(find.textContaining(formatSize(3 * 1024 * 1024)), findsNothing);
 
       await player.play(song(0, title: '$long 0'));
       await tester.pumpAndSettle();
@@ -505,7 +516,10 @@ void main() {
       await tester.tap(find.text('گزارش تخلف'));
       await tester.pumpAndSettle();
       expect(find.text('برای گزارش تخلف وارد حسابت شو.'), findsOneWidget);
-      expect(api.calls.where((c) => !c.startsWith('tracks:')), isEmpty);
+      expect(
+          api.calls.where(
+              (c) => !c.startsWith('tracks:') && !c.startsWith('ranked:')),
+          isEmpty);
     });
 
     testWidgets('a listener adds a song and reports one', (tester) async {

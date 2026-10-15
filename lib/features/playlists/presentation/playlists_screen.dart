@@ -12,6 +12,8 @@ import 'package:rhythmo/features/playlists/presentation/popular_playlists_screen
 import 'package:rhythmo/features/playlists/presentation/shared_playlist_screen.dart';
 import 'package:rhythmo/features/likes/presentation/liked_songs_screen.dart';
 import 'package:rhythmo/features/store/application/store_controller.dart';
+import 'package:rhythmo/features/store/data/store_catalog.dart';
+import 'package:rhythmo/features/store/presentation/store_carousel.dart';
 import 'package:rhythmo/features/store/presentation/store_screen.dart';
 
 /// Joins the collaborative playlist with [collabToken] and opens it, or
@@ -232,6 +234,14 @@ class _PlaylistsViewState extends State<PlaylistsView> {
           ),
           const SizedBox(height: RhythmoSpace.sm),
           PopularPlaylistsEntry(onOpen: _openPopular),
+          if (widget.store case final store?)
+            for (final ranking in StoreRanking.values.reversed)
+              StoreCarousel(
+                controller: store,
+                ranking: ranking,
+                player: widget.player,
+                padding: EdgeInsets.zero,
+              ),
           const SizedBox(height: RhythmoSpace.md),
           Wrap(
             spacing: 8,

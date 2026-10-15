@@ -678,6 +678,23 @@ class ApiClient
   }
 
   @override
+  Future<StorePage<Track>> storeRanked(String? token, StoreRanking ranking,
+      {int offset = 0}) async {
+    final body = await _send(
+        'GET',
+        _withQuery('/api/v1/store/${ranking.wire}',
+            {'limit': '20', if (offset > 0) 'offset': '$offset'}),
+        token: token);
+    return StorePage(
+      [
+        for (final json in body['tracks'] as List<dynamic>)
+          Track.fromStoreJson(json as Map<String, dynamic>),
+      ],
+      hasMore: body['hasMore'] == true,
+    );
+  }
+
+  @override
   Future<Track> storeTrack(String? token, String id) async {
     final body = await _send(
         'GET', '/api/v1/store/tracks/${Uri.encodeComponent(id)}',

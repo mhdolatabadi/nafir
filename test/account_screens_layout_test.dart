@@ -37,7 +37,7 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('تنظیمات').last);
       } else {
-        await tester.tap(find.widgetWithText(FilledButton, 'تنظیمات'));
+        await tester.tap(find.byTooltip('تنظیمات'));
       }
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);

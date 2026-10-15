@@ -7,6 +7,7 @@ import 'package:rhythmo/core/design/design.dart';
 import 'package:rhythmo/app/app_preferences.dart';
 import 'package:flutter/services.dart';
 import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/core/widgets/rhythmo_mark.dart';
 import 'package:rhythmo/app/app_configuration.dart';
 import 'package:rhythmo/core/search_text.dart';
 import 'package:rhythmo/features/auth/presentation/email_verification_screen.dart';
@@ -547,35 +548,22 @@ class _LibraryScreenState extends State<LibraryScreen>
         if (identifySong != null) identifySong,
         search,
         const SizedBox(width: 8),
-        _AccountChip(email: widget.email),
-        if (widget.verified)
-          const Tooltip(
-            message: 'حساب تأییدشده',
-            child: Icon(RhythmoIcons.checkCircle),
-          ),
+        _AccountChip(email: widget.email, verified: widget.verified),
         if (widget.onAdmin != null)
-          TextButton.icon(
+          IconButton(
+            tooltip: 'مدیریت حساب‌ها',
             onPressed: widget.onAdmin,
             icon: const Icon(RhythmoIcons.usersFill),
-            label: const Text('مدیریت حساب‌ها'),
           ),
-        const SizedBox(width: 8),
-        Tooltip(
-          message: 'تنظیمات',
-          child: FilledButton.tonalIcon(
-            onPressed: _openSettings,
-            icon: const Icon(RhythmoIcons.gear, size: 19),
-            label: const Text('تنظیمات'),
-          ),
+        IconButton(
+          tooltip: 'تنظیمات',
+          onPressed: _openSettings,
+          icon: const Icon(RhythmoIcons.gear),
         ),
-        const SizedBox(width: 8),
-        Tooltip(
-          message: 'خروج',
-          child: OutlinedButton.icon(
-            onPressed: widget.onLogout,
-            icon: const Icon(RhythmoIcons.signOut, size: 19),
-            label: const Text('خروج'),
-          ),
+        IconButton(
+          tooltip: 'خروج',
+          onPressed: widget.onLogout,
+          icon: const Icon(RhythmoIcons.signOut),
         ),
         const SizedBox(width: 32),
       ];
@@ -585,7 +573,7 @@ class _LibraryScreenState extends State<LibraryScreen>
       search,
       PopupMenuButton<_HeaderAction>(
         tooltip: 'حساب و تنظیمات',
-        icon: const Icon(RhythmoIcons.userCircle),
+        icon: AccountAvatar(verified: widget.verified),
         onSelected: (action) {
           switch (action) {
             case _HeaderAction.settings:
@@ -703,6 +691,7 @@ class _LibraryScreenState extends State<LibraryScreen>
     return Scaffold(
       extendBody: true,
       bottomNavigationBar: MiniPlayer(player: widget.player),
+      floatingActionButtonLocation: const _LibraryAddButtonLocation(),
       floatingActionButton: _visibleTabs[_tabs.index] != LibraryTab.tracks
           ? null
           : FloatingActionButton(
@@ -904,41 +893,6 @@ enum _TrackAction {
   delete,
 }
 
-/// The rhythmo logo mark: the horn's sound wave on the brand gradient.
-class _RhythmoMark extends StatelessWidget {
-  const _RhythmoMark({this.size = 44});
-
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(size * 0.32),
-        gradient: const LinearGradient(
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-          colors: [RhythmoColors.primary, RhythmoColors.primaryDeep],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: RhythmoColors.primary.withValues(alpha: 0.24),
-            offset: const Offset(0, 8),
-            blurRadius: 22,
-          ),
-        ],
-      ),
-      child: Icon(
-        RhythmoIcons.waveform,
-        size: size * 0.55,
-        color: RhythmoColors.onBrand,
-      ),
-    );
-  }
-}
-
 class _RhythmoBrand extends StatelessWidget {
   const _RhythmoBrand({required this.compact});
 
@@ -952,7 +906,7 @@ class _RhythmoBrand extends StatelessWidget {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _RhythmoMark(size: compact ? 32 : 44),
+            RhythmoMark(size: compact ? 32 : 44),
             const SizedBox(width: 12),
             Flexible(
               child: showSubtitle
@@ -996,37 +950,21 @@ class _RhythmoBrand extends StatelessWidget {
 }
 
 class _AccountChip extends StatelessWidget {
-  const _AccountChip({required this.email});
+  const _AccountChip({required this.email, required this.verified});
 
   final String email;
+  final bool verified;
 
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: email,
+      message: verified ? '$email · حساب تأییدشده' : email,
       child: GlassSurface(
         blur: 0,
         shadow: false,
         radius: 14,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 220),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(RhythmoIcons.userCircle, size: 19),
-              const SizedBox(width: 7),
-              Flexible(
-                child: Text(
-                  email,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelMedium,
-                ),
-              ),
-            ],
-          ),
-        ),
+        padding: const EdgeInsets.all(9),
+        child: AccountAvatar(verified: verified, size: 22),
       ),
     );
   }
@@ -3144,4 +3082,24 @@ class _TabLabel extends StatelessWidget {
           child: Text(text, maxLines: 1, softWrap: false),
         ),
       );
+}
+
+/// Keep Scaffold's vertical safe-area/player clearance, but share the
+/// scrolling content's horizontal gutter instead of the viewport edge.
+class _LibraryAddButtonLocation extends FloatingActionButtonLocation {
+  const _LibraryAddButtonLocation();
+
+  @override
+  Offset getOffset(ScaffoldPrelayoutGeometry scaffoldGeometry) {
+    final offset =
+        FloatingActionButtonLocation.endFloat.getOffset(scaffoldGeometry);
+    final width = scaffoldGeometry.scaffoldSize.width;
+    final gutter =
+        width >= 900 ? ((width - 880) / 2).clamp(40.0, 10000.0) : 16.0;
+    final shift = gutter - 16;
+    return offset.translate(
+      scaffoldGeometry.textDirection == TextDirection.rtl ? shift : -shift,
+      0,
+    );
+  }
 }
