@@ -7,6 +7,7 @@ import 'package:rhythmo/core/design/design.dart';
 import 'package:rhythmo/app/app_preferences.dart';
 import 'package:flutter/services.dart';
 import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/core/widgets/rhythmo_mark.dart';
 import 'package:rhythmo/app/app_configuration.dart';
 import 'package:rhythmo/core/search_text.dart';
 import 'package:rhythmo/features/auth/presentation/email_verification_screen.dart';
@@ -897,41 +898,6 @@ enum _TrackAction {
   delete,
 }
 
-/// The rhythmo logo mark: the horn's sound wave on the brand gradient.
-class _RhythmoMark extends StatelessWidget {
-  const _RhythmoMark({this.size = 44});
-
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(size * 0.32),
-        gradient: const LinearGradient(
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-          colors: [RhythmoColors.primary, RhythmoColors.primaryDeep],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: RhythmoColors.primary.withValues(alpha: 0.24),
-            offset: const Offset(0, 8),
-            blurRadius: 22,
-          ),
-        ],
-      ),
-      child: Icon(
-        RhythmoIcons.waveform,
-        size: size * 0.55,
-        color: RhythmoColors.onBrand,
-      ),
-    );
-  }
-}
-
 class _RhythmoBrand extends StatelessWidget {
   const _RhythmoBrand({required this.compact});
 
@@ -945,7 +911,7 @@ class _RhythmoBrand extends StatelessWidget {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _RhythmoMark(size: compact ? 32 : 44),
+            RhythmoMark(size: compact ? 32 : 44),
             const SizedBox(width: 12),
             Flexible(
               child: showSubtitle
