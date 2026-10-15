@@ -67,9 +67,11 @@ class FakeIdentifyApi implements IdentifyApi {
   Completer<void>? gate;
   final snippets = <Uint8List>[];
   final saved = <SongMatch>[];
+  final tokens = <String?>[];
 
   @override
-  Future<SongMatch?> identifySong(String token, Uint8List wav) async {
+  Future<SongMatch?> identifySong(String? token, Uint8List wav) async {
+    tokens.add(token);
     snippets.add(wav);
     await gate?.future;
     if (error != null) throw error!;

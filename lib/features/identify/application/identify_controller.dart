@@ -61,6 +61,10 @@ class IdentifyController extends ChangeNotifier {
   /// Whether the found song was added to the library.
   bool get saved => _saved;
 
+  /// Without an account, snippets are matched against the public store
+  /// only, and a found song can be played but not added.
+  bool get signedIn => _token() != null;
+
   /// Back to the explanation, for example when the screen opens again.
   void reset() {
     if (_phase == IdentifyPhase.listening) unawaited(_recorder.cancel());
@@ -109,9 +113,7 @@ class IdentifyController extends ChangeNotifier {
     if (attempt != _attempt) return;
     _set(attempt, IdentifyPhase.searching);
     try {
-      final token = _token();
-      if (token == null) throw const ApiException('signed out');
-      final match = await _api.identifySong(token, snippet);
+      final match = await _api.identifySong(_token(), snippet);
       if (attempt != _attempt) return;
       _match = match;
       _set(attempt,

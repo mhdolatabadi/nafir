@@ -11,6 +11,7 @@ import 'package:nafir/features/player/presentation/mini_player.dart';
 import 'package:nafir/features/playlists/application/playlists_controller.dart';
 import 'package:nafir/features/playlists/data/playlist.dart';
 import 'package:nafir/features/playlists/presentation/shared_playlist_screen.dart';
+import 'package:nafir/features/identify/application/identify_controller.dart';
 import 'package:nafir/features/store/application/store_controller.dart';
 import 'package:nafir/features/store/presentation/store_screen.dart';
 
@@ -25,6 +26,7 @@ class PopularPlaylistsScreen extends StatefulWidget {
     this.onSignIn,
     this.openShareToken,
     this.store,
+    this.identify,
     this.siteUri = AppConfiguration.sitePage,
     this.openLink = openExternalLink,
   });
@@ -44,6 +46,9 @@ class PopularPlaylistsScreen extends StatefulWidget {
 
   /// The public store, offered in the app bar; null hides it.
   final StoreController? store;
+
+  /// «این آهنگ چیه؟», offered inside the store; null hides it.
+  final IdentifyController? identify;
 
   /// Where the guest's privacy policy link points.
   final SitePageResolver siteUri;
@@ -115,6 +120,7 @@ class _PopularPlaylistsScreenState extends State<PopularPlaylistsScreen> {
                     controller: widget.store!,
                     player: widget.player,
                     onSignIn: widget.onSignIn,
+                    identify: widget.identify,
                   ),
                 ),
               ),
