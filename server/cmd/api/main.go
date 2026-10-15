@@ -17,6 +17,7 @@ import (
 
 	"github.com/mhdolatabadi/nafir/server/internal/auth"
 	"github.com/mhdolatabadi/nafir/server/internal/bot"
+	"github.com/mhdolatabadi/nafir/server/internal/catalog"
 	"github.com/mhdolatabadi/nafir/server/internal/fingerprint"
 	"github.com/mhdolatabadi/nafir/server/internal/httpapi"
 	"github.com/mhdolatabadi/nafir/server/internal/linkimport"
@@ -321,6 +322,20 @@ func run() error {
 		readyTracks = fingerprints
 	}
 
+	storeReportRate, err := rateLimiterEnv("STORE_REPORT_RATE", 20, 24*time.Hour)
+	if err != nil {
+		return err
+	}
+	adminHandlers := httpapi.NewAdminHandlers(authHandlers, users)
+	storeCatalog := store.NewCatalog(pool)
+	storeHandlers := httpapi.NewCatalogHandlers(storeCatalog, tokens, objects,
+		httpapi.AnonymousLimits{View: publicViewRate, Stream: publicStreamRate}).
+		WithSave(store.NewFingerprints(pool), httpapi.SavePolicy{
+			Objects: objects, MaxOwnerBytes: ownerQuotaBytes, Enabled: uploadsEnabled,
+		}).
+		WithReports(storeReportRate).
+		WithAdmin(adminHandlers)
+
 	var ops *httpapi.OpsHandlers
 	if opsToken := os.Getenv("OPS_TOKEN"); opsToken != "" {
 		if len(opsToken) < 32 {
@@ -337,7 +352,7 @@ func run() error {
 		Handler: httpapi.NewHandler(httpapi.Config{
 			AllowedOrigin: os.Getenv("WEB_ORIGIN"),
 			Auth:          authHandlers,
-			Admin:         httpapi.NewAdminHandlers(authHandlers, users),
+			Admin:         adminHandlers,
 			Tracks: httpapi.NewTrackHandlers(tracks, objects, tokens, httpapi.UploadLimits{
 				MaxFileBytes: maxUploadBytes, MaxOwnerBytes: ownerQuotaBytes,
 				MaxPending: maxPending, Enabled: uploadsEnabled,
@@ -361,6 +376,7 @@ func run() error {
 				linkimport.NewSpotifyImporter(linkimport.NewSpotifyReader(linkFetcher), tracks, playlists)),
 			Lyrics:   lyricsHandlers,
 			Identify: identifyHandlers,
+			Store:    storeHandlers,
 			Ops:      ops,
 			Webhooks: webhooks,
 		}),
@@ -378,6 +394,8 @@ func run() error {
 	// Reads ReplayGain from new uploads and, once, from every older track.
 	go loudness.NewScanner(tracks, objects, loudnessScanEvery, loudnessScanBatch).Run(ctx)
 	go purgeDeletedAccounts(ctx, users, objects, cleanupEvery, cleanupBatch)
+	// Groups every song in a public playlist into the store's catalog.
+	go catalog.NewIndexer(storeCatalog, catalog.Config{}).Run(ctx)
 
 	serverErr := make(chan error, 1)
 	go func() {

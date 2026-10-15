@@ -25,6 +25,9 @@ type Config struct {
 	Lyrics *LyricsHandlers
 	// Identify recognises songs from a recorded snippet.
 	Identify *IdentifyHandlers
+	// Store is the public store: every song in a public playlist, listed
+	// once.
+	Store *CatalogHandlers
 	// Public serves the public HTML pages at /, /p/{token}, sitemap.xml and
 	// robots.txt.
 	Public *PublicPages
@@ -64,6 +67,9 @@ func NewHandler(config Config) http.Handler {
 	}
 	if config.Identify != nil {
 		config.Identify.register(mux)
+	}
+	if config.Store != nil {
+		config.Store.register(mux)
 	}
 	if config.Public != nil {
 		config.Public.register(mux)
