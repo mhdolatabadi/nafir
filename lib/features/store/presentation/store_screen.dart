@@ -12,6 +12,7 @@ import 'package:rhythmo/features/player/application/player_controller.dart';
 import 'package:rhythmo/features/player/presentation/mini_player.dart';
 import 'package:rhythmo/features/store/application/store_controller.dart';
 import 'package:rhythmo/features/store/data/store_catalog.dart';
+import 'package:rhythmo/features/store/presentation/store_carousel.dart';
 
 /// «استور»: every song in rhythmo's public playlists, once, by title,
 /// artist and album. Anyone can search and play; adding a song to the
@@ -263,6 +264,39 @@ class _StoreScreenState extends State<StoreScreen>
               onSave: _save,
               onReport: _report,
               onSignIn: widget.onSignIn,
+              header: ListenableBuilder(
+                listenable: controller,
+                builder: (context, _) => controller.query.isNotEmpty
+                    ? const SizedBox.shrink()
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (final ranking in StoreRanking.values.reversed)
+                            StoreCarousel(
+                              controller: controller,
+                              ranking: ranking,
+                              player: widget.player,
+                            ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                                RhythmoSpace.lg,
+                                RhythmoSpace.lg,
+                                RhythmoSpace.lg,
+                                RhythmoSpace.xs),
+                            child: Semantics(
+                              header: true,
+                              child: Text(
+                                'همه‌ی آهنگ‌ها',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w800),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
             ),
             _Listing<StoreArtist>(
               listing: controller.artists,
@@ -539,7 +573,11 @@ class _SongList extends StatelessWidget {
     required this.onSave,
     required this.onReport,
     this.onSignIn,
+    this.header,
   });
+
+  /// Shown above the first song.
+  final Widget? header;
 
   final StoreListing<Track> listing;
 
@@ -557,6 +595,7 @@ class _SongList extends StatelessWidget {
       listing: listing,
       emptyTitle: 'آهنگی پیدا نشد',
       empty: empty,
+      header: header,
       row: (song) => ListenableBuilder(
         listenable: player,
         builder: (context, _) {
@@ -686,7 +725,11 @@ class _Listing<T> extends StatelessWidget {
     required this.row,
     required this.emptyTitle,
     this.empty,
+    this.header,
   });
+
+  /// Shown above the first row, such as the carousels.
+  final Widget? header;
 
   final StoreListing<T> listing;
   final Widget Function(T item) row;
@@ -731,8 +774,14 @@ class _Listing<T> extends StatelessWidget {
                       bottom: MediaQuery.paddingOf(context).bottom +
                           RhythmoSpace.lg,
                     ),
-                    itemCount: items.length + (listing.hasMore ? 1 : 0),
+                    itemCount: items.length +
+                        (listing.hasMore ? 1 : 0) +
+                        (header == null ? 0 : 1),
                     itemBuilder: (context, index) {
+                      if (header != null) {
+                        if (index == 0) return header!;
+                        index--;
+                      }
                       if (index < items.length) return row(items[index]);
                       return _MoreRow(listing: listing);
                     },
