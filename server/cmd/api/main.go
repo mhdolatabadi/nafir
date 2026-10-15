@@ -370,7 +370,8 @@ func run() error {
 				WithQuota(ownerQuotaBytes).
 				WithAndroidApp(os.Getenv("ANDROID_APP_URL")).
 				WithSite(os.Getenv("WEB_ORIGIN")).
-				WithVerification(os.Getenv("GOOGLE_SITE_VERIFICATION"), os.Getenv("BING_SITE_VERIFICATION")),
+				WithVerification(os.Getenv("GOOGLE_SITE_VERIFICATION"), os.Getenv("BING_SITE_VERIFICATION")).
+				WithStore(storeCatalog),
 			Bots: botHandlers.WithEmailGate(emailGate),
 			LinkImports: httpapi.NewLinkImportHandlers(linkImports, tokens, linkImportRate).WithEmailGate(emailGate).WithSpotify(
 				linkimport.NewSpotifyImporter(linkimport.NewSpotifyReader(linkFetcher), tracks, playlists)),
