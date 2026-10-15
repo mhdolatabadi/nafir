@@ -311,7 +311,8 @@ func run() error {
 		go worker.Run(ctx)
 	}
 
-	fingerprints, identifyHandlers, err := setupIdentify(pool, playlists, objects, tokens, httpapi.SavePolicy{
+	storeCatalog := store.NewCatalog(pool)
+	fingerprints, identifyHandlers, err := setupIdentify(pool, playlists, storeCatalog, objects, tokens, httpapi.SavePolicy{
 		Objects: objects, MaxOwnerBytes: ownerQuotaBytes, Enabled: uploadsEnabled,
 	})
 	if err != nil {
@@ -327,7 +328,6 @@ func run() error {
 		return err
 	}
 	adminHandlers := httpapi.NewAdminHandlers(authHandlers, users)
-	storeCatalog := store.NewCatalog(pool)
 	storeHandlers := httpapi.NewCatalogHandlers(storeCatalog, tokens, objects,
 		httpapi.AnonymousLimits{View: publicViewRate, Stream: publicStreamRate}).
 		WithSave(store.NewFingerprints(pool), httpapi.SavePolicy{
@@ -481,7 +481,7 @@ func (noFingerprints) Notify() {}
 // (FPCALC_PATH) is missing. Snippets and track copies are read from
 // FINGERPRINT_TMPDIR while fpcalc runs.
 func setupIdentify(
-	pool *pgxpool.Pool, playlists *store.Playlists, objects *storage.Storage,
+	pool *pgxpool.Pool, playlists *store.Playlists, storeCatalog *store.Catalog, objects *storage.Storage,
 	tokens *auth.Tokens, save httpapi.SavePolicy,
 ) (*fingerprint.Worker, *httpapi.IdentifyHandlers, error) {
 	if raw := os.Getenv("IDENTIFY_ENABLED"); raw != "" {
@@ -510,6 +510,11 @@ func setupIdentify(
 	if err != nil {
 		return nil, nil, err
 	}
+	// Visitors without an account may match against the public store.
+	anonymousRate, err := rateLimiterEnv("IDENTIFY_ANONYMOUS_RATE", 10, 10*time.Minute)
+	if err != nil {
+		return nil, nil, err
+	}
 	tempDir := os.Getenv("FINGERPRINT_TMPDIR")
 	fingerprints := store.NewFingerprints(pool)
 	worker := fingerprint.NewWorker(fingerprints, objects, calc, fingerprint.WorkerConfig{
@@ -519,6 +524,7 @@ func setupIdentify(
 	handlers := httpapi.NewIdentifyHandlers(httpapi.IdentifyConfig{
 		Fingerprinter: snippets, Matches: fingerprints, Playlists: playlists, Copier: fingerprints,
 		Save: save, TempDir: tempDir, Rate: rate, Concurrent: concurrent,
+		Store: storeCatalog, AnonymousRate: anonymousRate,
 	}, tokens)
 	return worker, handlers, nil
 }

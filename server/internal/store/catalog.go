@@ -498,3 +498,34 @@ func (c *Catalog) SetHidden(ctx context.Context, entryID, adminID string, hidden
 		return err
 	})
 }
+
+// EachMatchable calls fn for every listed store entry that has a
+// fingerprint, with its best copy, for song identification without an
+// account. Only listed entries are walked, so nothing private or hidden is
+// ever compared; userID is not used. A non-nil error from fn stops the walk
+// and is returned.
+func (c *Catalog) EachMatchable(ctx context.Context, _ string, fn func(Matchable) error) error {
+	rows, err := c.pool.Query(ctx, `
+		WITH `+liveEntries+`
+		SELECT live.entry_id, `+liveTrackColumns+`, e.points
+		FROM live JOIN store_entries e ON e.id::text = live.entry_id
+		WHERE e.points IS NOT NULL
+	`, false)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var m Matchable
+		var entryID string
+		dest := append([]any{&entryID}, trackDestinations(&m.Track)...)
+		if err := rows.Scan(append(dest, &m.Points)...); err != nil {
+			return err
+		}
+		m.Source.StoreEntryID = &entryID
+		if err := fn(m); err != nil {
+			return err
+		}
+	}
+	return rows.Err()
+}
