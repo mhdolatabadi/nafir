@@ -412,11 +412,9 @@ void main() {
       final menu = tester.getSize(find.byTooltip('گزینه‌های آهنگ').first);
       expect(menu.width, greaterThanOrEqualTo(RhythmoSpace.target));
       expect(menu.height, greaterThanOrEqualTo(RhythmoSpace.target));
-      // The artist, then the size, as supporting detail.
-      expect(
-          find.text(
-              'خواننده‌ای با نام بسیار بلند 0 · ${formatSize(3 * 1024 * 1024)}'),
-          findsOneWidget);
+      // The artist is the row's only secondary detail; the size is not.
+      expect(find.text('خواننده‌ای با نام بسیار بلند 0'), findsOneWidget);
+      expect(find.textContaining(formatSize(3 * 1024 * 1024)), findsNothing);
 
       await player.play(song(0, title: '$long 0'));
       await tester.pumpAndSettle();
