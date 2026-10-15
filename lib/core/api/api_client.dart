@@ -253,6 +253,14 @@ class SongMatch {
   });
 
   factory SongMatch.fromJson(Map<String, dynamic> json) {
+    final storeTrack = json['storeTrack'];
+    if (json['source'] == 'store' && storeTrack is Map<String, dynamic>) {
+      return SongMatch(
+        track: Track.fromStoreJson(storeTrack),
+        confidence: (json['confidence'] as num?)?.toDouble() ?? 0,
+        source: SongMatchSource.store,
+      );
+    }
     final shareToken = json['shareToken'] as String?;
     return SongMatch(
       track: Track.fromJson(json['track'] as Map<String, dynamic>,
@@ -278,14 +286,16 @@ class SongMatch {
 }
 
 /// Where a recognised song was found: the listener's own library, a
-/// collaborative playlist they belong to, or a public playlist.
-enum SongMatchSource { library, playlist, public }
+/// collaborative playlist they belong to, a public playlist, or (for a
+/// listener without an account) the public store.
+enum SongMatchSource { library, playlist, public, store }
 
 /// «این آهنگ چیه؟»: recognises a recorded snippet among the songs in
 /// rhythmo the listener may play.
 abstract interface class IdentifyApi {
-  /// The best match for [wav], or null when nothing matched.
-  Future<SongMatch?> identifySong(String token, Uint8List wav);
+  /// The best match for [wav], or null when nothing matched. Without a
+  /// [token] only the public store is searched.
+  Future<SongMatch?> identifySong(String? token, Uint8List wav);
 
   /// Copies a song found in someone else's playlist into the library.
   Future<Track> saveIdentifiedSong(String token, SongMatch match);
@@ -932,11 +942,11 @@ class ApiClient
   static const _identifyTimeout = Duration(seconds: 45);
 
   @override
-  Future<SongMatch?> identifySong(String token, Uint8List wav) async {
+  Future<SongMatch?> identifySong(String? token, Uint8List wav) async {
     final request = http.Request('POST', baseUri.resolve('/api/v1/identify'))
-      ..headers['Authorization'] = 'Bearer $token'
       ..headers['Content-Type'] = 'audio/wav'
       ..bodyBytes = wav;
+    if (token != null) request.headers['Authorization'] = 'Bearer $token';
     final response = await http.Response.fromStream(
       await _httpClient.send(request).timeout(_identifyTimeout),
     );
@@ -956,6 +966,9 @@ class ApiClient
   @override
   Future<Track> saveIdentifiedSong(String token, SongMatch match) async {
     final track = match.track;
+    if (match.source == SongMatchSource.store) {
+      return saveStoreTrack(token, track.id);
+    }
     final body =
         await _send('POST', '/api/v1/identify/save', token: token, body: {
       'trackId': track.id,

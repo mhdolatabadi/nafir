@@ -99,6 +99,7 @@ class _AuthGateState extends State<AuthGate> {
           player: widget.player,
           onSignIn: _openSignIn,
           openSongId: id,
+          identify: widget.identify,
         ),
       ));
     });
@@ -169,6 +170,7 @@ class _AuthGateState extends State<AuthGate> {
       onSignIn: _openSignIn,
       openShareToken: _guestShareToken,
       store: widget.store,
+      identify: widget.identify,
     );
   }
 

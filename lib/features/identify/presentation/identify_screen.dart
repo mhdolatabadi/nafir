@@ -4,6 +4,7 @@ import 'package:rhythmo/core/api/api_client.dart';
 import 'package:rhythmo/core/persian_digits.dart';
 import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
 import 'package:rhythmo/features/identify/application/identify_controller.dart';
+import 'package:rhythmo/features/auth/presentation/sign_in_prompt.dart';
 import 'package:rhythmo/features/identify/data/snippet_recorder.dart';
 import 'package:rhythmo/features/player/application/player_controller.dart';
 import 'package:rhythmo/features/player/presentation/mini_player.dart';
@@ -14,10 +15,12 @@ const identifyMaxWidth = 520.0;
 
 /// Opens «این آهنگ چیه؟» from the start.
 Future<void> openIdentify(BuildContext context, IdentifyController controller,
-    PlayerController player) {
+    PlayerController player,
+    {VoidCallback? onSignIn}) {
   controller.reset();
   return Navigator.of(context).push(MaterialPageRoute<void>(
-    builder: (_) => IdentifyScreen(controller: controller, player: player),
+    builder: (_) => IdentifyScreen(
+        controller: controller, player: player, onSignIn: onSignIn),
   ));
 }
 
@@ -28,10 +31,14 @@ class IdentifyScreen extends StatefulWidget {
     super.key,
     required this.controller,
     required this.player,
+    this.onSignIn,
   });
 
   final IdentifyController controller;
   final PlayerController player;
+
+  /// Opens sign-in, for a guest who wants to add a found song.
+  final VoidCallback? onSignIn;
 
   @override
   State<IdentifyScreen> createState() => _IdentifyScreenState();
@@ -48,6 +55,11 @@ class _IdentifyScreenState extends State<IdentifyScreen> {
   }
 
   Future<void> _save() async {
+    if (!_controller.signedIn) {
+      askToSignIn(context,
+          action: 'افزودن به کتابخانه', onSignIn: widget.onSignIn);
+      return;
+    }
     final track = await _controller.save();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -107,7 +119,8 @@ class _IdentifyScreenState extends State<IdentifyScreen> {
     );
     switch (_controller.phase) {
       case IdentifyPhase.ready:
-        return _Intro(onListen: _controller.listen);
+        return _Intro(
+            onListen: _controller.listen, signedIn: _controller.signedIn);
       case IdentifyPhase.unsupported:
         return const _Message(
           icon: RhythmoIcons.microphoneSlash,
@@ -153,8 +166,11 @@ class _IdentifyScreenState extends State<IdentifyScreen> {
         return _Message(
           icon: RhythmoIcons.musicNotesMinus,
           title: 'پیدا نشد',
-          detail: 'فقط آهنگ‌هایی شناخته می‌شوند که در کتابخانهٔ شما، '
-              'فهرست‌های پخش مشترک شما یا فهرست‌های پخش عمومی ریتمو هستند.',
+          detail: _controller.signedIn
+              ? 'فقط آهنگ‌هایی شناخته می‌شوند که در کتابخانهٔ شما، '
+                  'فهرست‌های پخش مشترک شما یا فهرست‌های پخش عمومی ریتمو هستند.'
+              : 'فقط آهنگ‌های استور ریتمو شناخته می‌شوند. با ورود به حساب، '
+                  'کتابخانه و فهرست‌های پخش شما هم جستجو می‌شوند.',
           action: retry,
         );
       case IdentifyPhase.failed:
@@ -170,9 +186,12 @@ class _IdentifyScreenState extends State<IdentifyScreen> {
 
 /// What happens, said before the microphone is asked for.
 class _Intro extends StatelessWidget {
-  const _Intro({required this.onListen});
+  const _Intro({required this.onListen, required this.signedIn});
 
   final VoidCallback onListen;
+
+  /// Without an account only the store is searched, and the copy says so.
+  final bool signedIn;
 
   @override
   Widget build(BuildContext context) {
@@ -203,9 +222,13 @@ class _Intro extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'ریتمو ${persianDigits(snippetLength.inSeconds)} ثانیه با میکروفون '
-          'گوش می‌دهد و صدا را با آهنگ‌های کتابخانهٔ شما و فهرست‌های پخشی '
-          'که به آن‌ها دسترسی دارید مقایسه می‌کند.',
+          signedIn
+              ? 'ریتمو ${persianDigits(snippetLength.inSeconds)} ثانیه با '
+                  'میکروفون گوش می‌دهد و صدا را با آهنگ‌های کتابخانهٔ شما و '
+                  'فهرست‌های پخشی که به آن‌ها دسترسی دارید مقایسه می‌کند.'
+              : 'ریتمو ${persianDigits(snippetLength.inSeconds)} ثانیه با '
+                  'میکروفون گوش می‌دهد و صدا را با آهنگ‌های استور ریتمو '
+                  'مقایسه می‌کند.',
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: colors.onSurfaceVariant,
@@ -350,6 +373,7 @@ class _Result extends StatelessWidget {
       SongMatchSource.library => 'در کتابخانهٔ شما',
       SongMatchSource.playlist => 'در یک فهرست پخش مشترک',
       SongMatchSource.public => 'در یک فهرست پخش عمومی',
+      SongMatchSource.store => 'در استور ریتمو',
     };
     final percent = (match.confidence * 100).round().clamp(0, 100);
     return Column(
