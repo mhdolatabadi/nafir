@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const clientIPHeader = "X-Nafir-Client-IP"
+const clientIPHeader = "X-rhythmo-Client-IP"
 
 type RateLimit struct {
 	Requests int

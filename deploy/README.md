@@ -118,12 +118,12 @@ external `proxynet` network. It must route exactly like `deploy/Caddyfile`:
 
 | Path | Goes to |
 | --- | --- |
-| `/api/` | `nafir-api:8080` |
+| `/api/` | `rhythmo-api:8080` |
 | `/nafir-music` | `nafir-minio:9000`, byte-for-byte: no gzip, no buffering, `Host` unchanged |
 | `/app/` | `nafir-web:80` (the Flutter app) |
 | `/?shared=…` | redirect to `/app/?shared=…` |
-| `/privacy`, `/delete-account` | `nafir-api:8080` explicitly, never the Flutter app |
-| everything else: `/`, `/p/…`, `sitemap.xml`, `robots.txt` | `nafir-api:8080`, with `X-Nafir-Client-IP` |
+| `/privacy`, `/delete-account` | `rhythmo-api:8080` explicitly, never the Flutter app |
+| everything else: `/`, `/p/…`, `sitemap.xml`, `robots.txt` | `rhythmo-api:8080`, with `X-Nafir-Client-IP` |
 
 `deploy/front-proxy.nginx.conf` has these routes ready. Copy it next to the
 nginx config and include it inside the rhythmo `server { }` block:
@@ -224,8 +224,8 @@ that can only read, write, list and delete objects in `nafir-music`:
 
 ```bash
 cd deploy
-# In .env: STORAGE_ACCESS_KEY=nafir-api and STORAGE_SECRET_KEY=$(openssl rand -hex 32)
-./minio-api-user.sh          # creates the user and the nafir-api policy, idempotent
+# In .env: STORAGE_ACCESS_KEY=rhythmo-api and STORAGE_SECRET_KEY=$(openssl rand -hex 32)
+./minio-api-user.sh          # creates the user and the rhythmo-api policy, idempotent
 docker compose up -d api     # the API switches to the new user
 docker compose logs --tail=20 api   # no "storage" errors
 ```

@@ -13,7 +13,7 @@ class AppLoadingScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // The app icon: the rhythmo mark.
+            // The app icon.
             ClipRRect(
               borderRadius: BorderRadius.all(Radius.circular(RhythmoRadii.lg)),
               child: Image(

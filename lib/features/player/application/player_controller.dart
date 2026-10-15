@@ -488,7 +488,7 @@ class PlayerController extends ChangeNotifier {
   /// Loads [track] and plays it, or leaves it paused when [autoplay] is false.
   Future<void> _start(Track track, {bool autoplay = true}) async {
     final token = _token();
-    if (!track.isLocal && token == null && track.sharedVia == null) return;
+    if (token == null && !track.playsWithoutAccount) return;
     final request = ++_request;
     final prefetched = _freshPrefetch(track.id);
     _preloadedId = null;
@@ -598,7 +598,7 @@ class PlayerController extends ChangeNotifier {
 
   Future<void> _preload(Track next) async {
     final token = _token();
-    if (!next.isLocal && token == null && next.sharedVia == null) return;
+    if (token == null && !next.playsWithoutAccount) return;
     final request = _request;
     _preloadedId = next.id;
     try {
@@ -727,8 +727,10 @@ class PlayerController extends ChangeNotifier {
   }
 
   /// Someone else's track is played through the shared link or the
-  /// collaborative playlist it was opened from; the user's own directly.
+  /// collaborative playlist it was opened from, a store song through the
+  /// store; the user's own directly.
   Future<StreamLink> _link(String? token, Track track) {
+    if (track.fromStore) return _api.storeStreamLink(token, track.id);
     final shareToken = track.sharedVia;
     final playlistId = track.viaPlaylist;
     if (shareToken != null) {
@@ -754,7 +756,7 @@ class PlayerController extends ChangeNotifier {
     final token = _token();
     if (track == null ||
         track.isLocal ||
-        (token == null && track.sharedVia == null) ||
+        (token == null && !track.playsWithoutAccount) ||
         _retriedLink) {
       _setStatus(PlayerStatus.error);
       return;

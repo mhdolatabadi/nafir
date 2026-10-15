@@ -155,4 +155,4 @@ class _Entry {
 }
 
 AudioCache createAudioCache() => FileAudioCache(() async =>
-    Directory('${(await getTemporaryDirectory()).path}/nafir_audio_cache'));
+    Directory('${(await getTemporaryDirectory()).path}/rhythmo_audio_cache'));
