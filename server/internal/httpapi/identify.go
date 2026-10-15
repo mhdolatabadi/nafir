@@ -57,13 +57,18 @@ type IdentifyConfig struct {
 	// TempDir holds a snippet while fpcalc reads it.
 	TempDir string
 	Rate    *RateLimiter
+	// Store, when set, lets visitors without an account match snippets
+	// against the public store, within AnonymousRate per IP.
+	Store         fingerprint.MatchStore
+	AnonymousRate *RateLimiter
 	// Concurrent caps how many snippets are fingerprinted at once.
 	Concurrent int
 }
 
 // IdentifyHandlers serve «این آهنگ چیه؟»: a recorded snippet is matched
 // against the tracks the listener may play, and a match from someone
-// else's playlist can be added to their library.
+// else's playlist can be added to their library. Without an account, a
+// snippet is matched against the public store only.
 type IdentifyHandlers struct {
 	config IdentifyConfig
 	tokens *auth.Tokens
@@ -90,10 +95,13 @@ type identifyResponse struct {
 	OffsetMS int64                  `json:"offsetMs,omitempty"`
 	Track    *playlistTrackResponse `json:"track,omitempty"`
 	// Source is library, playlist (a collaborative playlist the listener
-	// belongs to, PlaylistID) or public (a public playlist, ShareToken).
+	// belongs to, PlaylistID), public (a public playlist, ShareToken) or,
+	// for listeners without an account, store (StoreTrack).
 	Source     string  `json:"source,omitempty"`
 	PlaylistID *string `json:"playlistId,omitempty"`
 	ShareToken *string `json:"shareToken,omitempty"`
+	// StoreTrack is the matched store song; it never says whose copy it is.
+	StoreTrack *storeTrackResponse `json:"storeTrack,omitempty"`
 }
 
 type saveIdentifiedRequest struct {
@@ -106,8 +114,8 @@ type saveIdentifiedRequest struct {
 // snippet lives only in a private temporary file while fpcalc reads it,
 // is deleted right after, and is never stored or logged.
 func (h *IdentifyHandlers) handleIdentify(w http.ResponseWriter, r *http.Request) {
-	userID, ok := authenticate(h.tokens, w, r)
-	if !ok || !enforceRateLimit(w, h.config.Rate, userID) {
+	userID, ok := h.listener(w, r)
+	if !ok {
 		return
 	}
 	mediaType, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
@@ -128,7 +136,11 @@ func (h *IdentifyHandlers) handleIdentify(w http.ResponseWriter, r *http.Request
 		writeError(w, status, code)
 		return
 	}
-	result, found, err := fingerprint.Identify(r.Context(), h.config.Matches, userID, snippet.Points)
+	matches := h.config.Matches
+	if userID == "" {
+		matches = h.config.Store
+	}
+	result, found, err := fingerprint.Identify(r.Context(), matches, userID, snippet.Points)
 	if err != nil {
 		internalError(w, "identify song", err)
 		return
@@ -139,6 +151,14 @@ func (h *IdentifyHandlers) handleIdentify(w http.ResponseWriter, r *http.Request
 		return
 	}
 	match := result.Match
+	if userID == "" {
+		storeTrack := toStoreTrackResponse(store.StoreEntry{ID: *match.Source.StoreEntryID, Track: match.Track})
+		writeJSON(w, http.StatusOK, identifyResponse{
+			Status: "found", Confidence: result.Score.Confidence,
+			OffsetMS: max(0, result.Score.Offset.Milliseconds()), Source: "store", StoreTrack: &storeTrack,
+		})
+		return
+	}
 	track := playlistTrackResponse{trackResponse: toTrackResponse(match.Track)}
 	response := identifyResponse{
 		Status: "found", Confidence: result.Score.Confidence,
@@ -155,6 +175,17 @@ func (h *IdentifyHandlers) handleIdentify(w http.ResponseWriter, r *http.Request
 		}
 	}
 	writeJSON(w, http.StatusOK, response)
+}
+
+// listener is the signed-in user within their identify limit, or "" for a
+// visitor without an account within the per-IP limit when store matching
+// is on. It writes the error itself when it says no.
+func (h *IdentifyHandlers) listener(w http.ResponseWriter, r *http.Request) (string, bool) {
+	if h.config.Store == nil || h.config.AnonymousRate == nil || r.Header.Get("Authorization") != "" {
+		userID, ok := authenticate(h.tokens, w, r)
+		return userID, ok && enforceRateLimit(w, h.config.Rate, userID)
+	}
+	return "", enforceRateLimit(w, h.config.AnonymousRate, clientIP(r))
 }
 
 // fingerprintBody copies the request body to a temporary file only this

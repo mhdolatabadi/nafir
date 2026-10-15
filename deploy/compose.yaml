@@ -65,6 +65,9 @@ services:
       PUBLIC_STREAM_RATE_REQUESTS: ${PUBLIC_STREAM_RATE_REQUESTS:-300}
       PUBLIC_STREAM_RATE_WINDOW: ${PUBLIC_STREAM_RATE_WINDOW:-10m}
       # «گزارش تخلف» reports one account may send about store songs.
+      # Song identification for visitors without an account, per IP.
+      IDENTIFY_ANONYMOUS_RATE_REQUESTS: ${IDENTIFY_ANONYMOUS_RATE_REQUESTS:-10}
+      IDENTIFY_ANONYMOUS_RATE_WINDOW: ${IDENTIFY_ANONYMOUS_RATE_WINDOW:-10m}
       STORE_REPORT_RATE_REQUESTS: ${STORE_REPORT_RATE_REQUESTS:-20}
       STORE_REPORT_RATE_WINDOW: ${STORE_REPORT_RATE_WINDOW:-24h}
       # Plays one user may add to their recently played history.
