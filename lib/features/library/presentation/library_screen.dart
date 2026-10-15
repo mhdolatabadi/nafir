@@ -3115,9 +3115,8 @@ class _LibraryAddButtonLocation extends FloatingActionButtonLocation {
     final offset =
         FloatingActionButtonLocation.endFloat.getOffset(scaffoldGeometry);
     final width = scaffoldGeometry.scaffoldSize.width;
-    final gutter = width >= 900
-        ? ((width - 880) / 2).clamp(40.0, 10000.0)
-        : 16.0;
+    final gutter =
+        width >= 900 ? ((width - 880) / 2).clamp(40.0, 10000.0) : 16.0;
     final shift = gutter - 16;
     return offset.translate(
       scaffoldGeometry.textDirection == TextDirection.rtl ? shift : -shift,
