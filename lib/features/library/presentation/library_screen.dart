@@ -38,6 +38,7 @@ import 'package:rhythmo/features/settings/presentation/settings_screen.dart';
 import 'package:rhythmo/features/upload/application/upload_controller.dart';
 import 'package:rhythmo/features/upload/data/audio_picker.dart';
 import 'package:rhythmo/features/upload/presentation/upload_status_card.dart';
+import 'package:rhythmo/features/store/application/store_controller.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({
@@ -58,6 +59,7 @@ class LibraryScreen extends StatefulWidget {
     this.botLinks,
     this.linkImports,
     this.identify,
+    this.store,
     required this.picker,
     required this.player,
     this.recent,
@@ -92,6 +94,9 @@ class LibraryScreen extends StatefulWidget {
 
   /// «این آهنگ چیه؟»; null hides the action.
   final IdentifyController? identify;
+
+  /// The public store; null hides it.
+  final StoreController? store;
   final AudioPicker picker;
 
   /// The account's recently played tracks; null hides them.
@@ -443,6 +448,7 @@ class _LibraryScreenState extends State<LibraryScreen>
                       controller: playlists,
                       libraryTracks: widget.library.tracks,
                       player: widget.player,
+                      store: widget.store,
                       onSharedSaved: widget.library.load)),
             )));
   }
@@ -711,6 +717,7 @@ class _LibraryScreenState extends State<LibraryScreen>
             libraryTracks: widget.library.tracks,
             player: widget.player,
             onSharedSaved: widget.library.load,
+            store: widget.store,
             underHeader: true),
         LibraryTab.albums => _groupsTab(albums: true),
         LibraryTab.artists => _groupsTab(albums: false),

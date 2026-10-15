@@ -22,6 +22,8 @@ import 'package:rhythmo/features/link_import/application/link_import_controller.
 import 'package:rhythmo/features/settings/application/cache_controller.dart';
 import 'package:rhythmo/features/upload/application/upload_controller.dart';
 import 'package:rhythmo/features/upload/data/audio_picker.dart';
+import 'package:rhythmo/features/store/application/store_controller.dart';
+import 'package:rhythmo/features/store/presentation/store_screen.dart';
 
 /// Restores the saved session once, then shows the library, or for a guest
 /// the popular playlists, which they can play without an account.
@@ -40,6 +42,7 @@ class AuthGate extends StatefulWidget {
     this.botLinks,
     this.linkImports,
     this.identify,
+    this.store,
     required this.picker,
     required this.player,
   });
@@ -61,6 +64,9 @@ class AuthGate extends StatefulWidget {
 
   /// «این آهنگ چیه؟»; null hides it.
   final IdentifyController? identify;
+
+  /// The public store; null hides it.
+  final StoreController? store;
   final AudioPicker picker;
 
   @override
@@ -73,6 +79,30 @@ class _AuthGateState extends State<AuthGate> {
   /// The shared link the app was opened with, for a guest; taken once.
   String? _guestShareToken;
   bool _guestShown = false;
+
+  /// Whether the store song the app was opened with was looked at.
+  bool _storeSongChecked = false;
+
+  /// Opens the store on the song a store page linked to, once, signed in
+  /// or not.
+  void _openInitialStoreSong() {
+    if (_storeSongChecked) return;
+    _storeSongChecked = true;
+    final store = widget.store;
+    final id = AppConfiguration.takeInitialStoreSong();
+    if (store == null || id == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => StoreScreen(
+          controller: store,
+          player: widget.player,
+          onSignIn: _openSignIn,
+          openSongId: id,
+        ),
+      ));
+    });
+  }
 
   @override
   void initState() {
@@ -138,6 +168,7 @@ class _AuthGateState extends State<AuthGate> {
       player: widget.player,
       onSignIn: _openSignIn,
       openShareToken: _guestShareToken,
+      store: widget.store,
     );
   }
 
@@ -147,6 +178,10 @@ class _AuthGateState extends State<AuthGate> {
       listenable: widget.controller,
       builder: (context, _) {
         final controller = widget.controller;
+        if (controller.status == AuthStatus.signedIn ||
+            controller.status == AuthStatus.signedOut) {
+          _openInitialStoreSong();
+        }
         return switch (controller.status) {
           AuthStatus.restoring => const AppLoadingScreen(),
           AuthStatus.restoreFailed => _RestoreFailedScreen(
@@ -204,6 +239,7 @@ class _AuthGateState extends State<AuthGate> {
               botLinks: widget.botLinks,
               linkImports: widget.linkImports,
               identify: widget.identify,
+              store: widget.store,
               picker: widget.picker,
             ),
         };

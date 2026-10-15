@@ -85,10 +85,31 @@ class Track {
     this.sharedVia,
     this.addedBy,
     this.viaPlaylist,
+    this.fromStore = false,
     this.version = 1,
     this.embeddedTags = const EmbeddedTags(),
     this.replayGain,
   });
+
+  /// A song in the public store (#243): [id] is the store's own id for it,
+  /// it plays without an account, and whose copy it is is never known.
+  factory Track.fromStoreJson(Map<String, dynamic> json) => Track(
+        id: json['id'] as String,
+        title: json['title'] as String,
+        artist: json['artist'] as String?,
+        album: json['album'] as String?,
+        albumArtist: json['albumArtist'] as String?,
+        composer: json['composer'] as String?,
+        genre: json['genre'] as String?,
+        year: (json['year'] as num?)?.toInt(),
+        trackNumber: (json['trackNumber'] as num?)?.toInt(),
+        discNumber: (json['discNumber'] as num?)?.toInt(),
+        contentType: json['contentType'] as String,
+        sizeBytes: (json['sizeBytes'] as num).toInt(),
+        fromStore: true,
+        replayGain:
+            ReplayGain.fromJson(json['replayGain'] as Map<String, dynamic>?),
+      );
 
   /// [viaPlaylist] is the collaborative playlist a track someone else added
   /// was listed in; it is then played through that playlist.
@@ -166,6 +187,7 @@ class Track {
         sharedVia: other.sharedVia,
         addedBy: other.addedBy,
         viaPlaylist: other.viaPlaylist,
+        fromStore: other.fromStore,
         version: version,
         embeddedTags: embeddedTags,
         replayGain: replayGain,
@@ -195,6 +217,13 @@ class Track {
   /// The playlist someone else's track is played through, see [addedBy].
   final String? viaPlaylist;
 
+  /// Whether this is a public store song, played through the store.
+  final bool fromStore;
+
+  /// Whether this plays without an account: a file on this device, a song
+  /// from a shared playlist link, or a store song.
+  bool get playsWithoutAccount => isLocal || sharedVia != null || fromStore;
+
   /// This cloud track, played from the identical file at [uri] on this
   /// device.
   Track withDeviceCopy(Uri uri) => Track(
@@ -217,6 +246,7 @@ class Track {
         sharedVia: sharedVia,
         addedBy: addedBy,
         viaPlaylist: viaPlaylist,
+        fromStore: fromStore,
         version: version,
         // The same file, so the same loudness.
         replayGain: replayGain,
