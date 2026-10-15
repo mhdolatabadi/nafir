@@ -86,6 +86,9 @@ class Track {
     this.addedBy,
     this.viaPlaylist,
     this.fromStore = false,
+    this.published = false,
+    this.likeCount = 0,
+    this.liked = false,
     this.version = 1,
     this.embeddedTags = const EmbeddedTags(),
     this.replayGain,
@@ -109,6 +112,9 @@ class Track {
         fromStore: true,
         replayGain:
             ReplayGain.fromJson(json['replayGain'] as Map<String, dynamic>?),
+        published: json['published'] == true,
+        likeCount: (json['likeCount'] as num?)?.toInt() ?? 0,
+        liked: json['liked'] == true,
       );
 
   /// [viaPlaylist] is the collaborative playlist a track someone else added
@@ -139,6 +145,9 @@ class Track {
             json['embeddedTags'] as Map<String, dynamic>?),
         replayGain:
             ReplayGain.fromJson(json['replayGain'] as Map<String, dynamic>?),
+        published: json['published'] == true,
+        likeCount: (json['likeCount'] as num?)?.toInt() ?? 0,
+        liked: json['liked'] == true,
       );
 
   final String id;
@@ -188,6 +197,9 @@ class Track {
         addedBy: other.addedBy,
         viaPlaylist: other.viaPlaylist,
         fromStore: other.fromStore,
+        published: published,
+        likeCount: likeCount,
+        liked: liked,
         version: version,
         embeddedTags: embeddedTags,
         replayGain: replayGain,
@@ -220,6 +232,16 @@ class Track {
   /// Whether this is a public store song, played through the store.
   final bool fromStore;
 
+  /// In the owner's library: whether they published it to the store (#284).
+  final bool published;
+
+  /// How many listeners like the song: shown to the owner on their own
+  /// tracks, and to everyone on store songs.
+  final int likeCount;
+
+  /// Whether the listener likes it, as the server last said.
+  final bool liked;
+
   /// Whether this plays without an account: a file on this device, a song
   /// from a shared playlist link, or a store song.
   bool get playsWithoutAccount => isLocal || sharedVia != null || fromStore;
@@ -247,6 +269,9 @@ class Track {
         addedBy: addedBy,
         viaPlaylist: viaPlaylist,
         fromStore: fromStore,
+        published: published,
+        likeCount: likeCount,
+        liked: liked,
         version: version,
         // The same file, so the same loudness.
         replayGain: replayGain,

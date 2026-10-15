@@ -7,6 +7,7 @@ import 'package:rhythmo/features/auth/presentation/sign_in_prompt.dart';
 import 'package:rhythmo/features/identify/application/identify_controller.dart';
 import 'package:rhythmo/features/identify/presentation/identify_screen.dart';
 import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/likes/presentation/liked_songs_screen.dart';
 import 'package:rhythmo/features/player/application/player_controller.dart';
 import 'package:rhythmo/features/player/presentation/mini_player.dart';
 import 'package:rhythmo/features/store/application/store_controller.dart';
@@ -261,6 +262,7 @@ class _StoreScreenState extends State<StoreScreen>
                     ),
               onSave: _save,
               onReport: _report,
+              onSignIn: widget.onSignIn,
             ),
             _Listing<StoreArtist>(
               listing: controller.artists,
@@ -371,6 +373,7 @@ class _StoreSongsScreenState extends State<StoreSongsScreen> {
               onSignIn: widget.onSignIn),
           onReport: (song) => reportStoreSong(context, widget.controller, song,
               onSignIn: widget.onSignIn),
+          onSignIn: widget.onSignIn,
         ),
       ),
     );
@@ -535,9 +538,13 @@ class _SongList extends StatelessWidget {
     required this.empty,
     required this.onSave,
     required this.onReport,
+    this.onSignIn,
   });
 
   final StoreListing<Track> listing;
+
+  /// Opens sign-in, for a guest who likes a song.
+  final VoidCallback? onSignIn;
   final StoreController controller;
   final PlayerController player;
   final Widget Function() empty;
@@ -561,10 +568,21 @@ class _SongList extends StatelessWidget {
             detail: formatSize(song.sizeBytes),
             active: player.track?.id == song.id && player.track!.fromStore,
             onTap: () => player.playTapped(songs, songs.indexOf(song)),
-            trailing: _SongMenu(
-              saving: controller.isSaving(song),
-              onSave: () => onSave(song),
-              onReport: () => onReport(song),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                LikeButton(
+                  track: song,
+                  favorites: player.favorites,
+                  showCount: true,
+                  onSignIn: onSignIn,
+                ),
+                _SongMenu(
+                  saving: controller.isSaving(song),
+                  onSave: () => onSave(song),
+                  onReport: () => onReport(song),
+                ),
+              ],
             ),
           );
         },

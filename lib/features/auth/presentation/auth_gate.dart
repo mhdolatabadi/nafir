@@ -126,6 +126,8 @@ class _AuthGateState extends State<AuthGate> {
     final status = widget.controller.status;
     if (status == AuthStatus.signedIn && _status != AuthStatus.signedIn) {
       Navigator.of(context).popUntil((route) => route.isFirst);
+      // The account's likes follow it to this device.
+      widget.player.favorites.refresh();
     }
     if (status == AuthStatus.signedOut && _status == AuthStatus.signedIn) {
       _forgetAccount();
@@ -137,6 +139,7 @@ class _AuthGateState extends State<AuthGate> {
   /// Never show one account's tracks to the next one.
   void _forgetAccount() {
     widget.player.stop();
+    widget.player.favorites.clearAccount();
     widget.library.clear();
     widget.playlists?.clear();
     widget.recent?.clear();

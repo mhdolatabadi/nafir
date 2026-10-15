@@ -646,7 +646,7 @@ void main() {
         greaterThan(tester.getCenter(find.widgetWithText(Tab, 'آهنگ‌ها')).dx));
     await preferences.update(hidden: {});
     await tester.pumpAndSettle();
-    expect(find.widgetWithText(Tab, 'علاقه‌مندی‌ها'), findsOneWidget);
+    expect(find.widgetWithText(Tab, 'پسندیده‌ها'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

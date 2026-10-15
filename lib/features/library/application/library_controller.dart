@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:rhythmo/core/api/api_client.dart';
 import 'package:rhythmo/features/library/data/track.dart';
 import 'package:rhythmo/features/library/data/track_metadata.dart';
+import 'package:rhythmo/features/likes/data/likes.dart';
 
 enum LibraryStatus { loading, error, loaded }
 
@@ -45,11 +46,34 @@ class LibraryController extends ChangeNotifier {
     required TracksApi api,
     required String? Function() token,
     Schedule? schedule,
+    LikesApi? likes,
   })  : _api = api,
         _token = token,
+        _likes = likes,
         _schedule = schedule ?? _timer;
 
   final TracksApi _api;
+
+  /// Publishes single tracks to the store (#284); null hides it.
+  final LikesApi? _likes;
+
+  bool get canPublish => _likes != null;
+
+  /// Publishes [track] to the store, or makes it private again, then
+  /// reloads the library so the row shows it. Returns whether it worked.
+  Future<bool> setPublished(Track track, bool published) async {
+    final likes = _likes, token = _token();
+    if (likes == null || token == null) return false;
+    try {
+      await likes.setPublished(token, track.id, published);
+    } catch (error) {
+      debugPrint('Could not publish: $error');
+      return false;
+    }
+    await load();
+    return true;
+  }
+
   final String? Function() _token;
   final Schedule _schedule;
   void Function()? _cancelPoll;

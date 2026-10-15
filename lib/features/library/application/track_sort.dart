@@ -6,7 +6,14 @@ enum TrackSort {
   recent('تاریخ افزودن؛ جدیدترین اول'),
   oldest('تاریخ افزودن؛ قدیمی‌ترین اول'),
   title('نام آهنگ'),
-  artist('خواننده');
+  artist('خواننده'),
+
+  /// Most liked first (#284); likes are counted on the listener's own
+  /// tracks.
+  mostLiked('پسندیده‌ترین'),
+
+  /// Only tracks published to the store, most liked first.
+  published('منتشرشده‌ها؛ پسندیده‌ترین اول');
 
   const TrackSort(this.label);
 
@@ -19,6 +26,17 @@ enum TrackSort {
 List<Track> sortTracks(List<Track> tracks, TrackSort sort) {
   if (sort == TrackSort.recent) return tracks;
   if (sort == TrackSort.oldest) return tracks.reversed.toList();
+  if (sort == TrackSort.mostLiked || sort == TrackSort.published) {
+    final kept = [
+      for (var i = 0; i < tracks.length; i++)
+        if (sort == TrackSort.mostLiked || tracks[i].published) (i, tracks[i]),
+    ];
+    kept.sort((a, b) {
+      final order = b.$2.likeCount.compareTo(a.$2.likeCount);
+      return order != 0 ? order : a.$1.compareTo(b.$1);
+    });
+    return [for (final (_, track) in kept) track];
+  }
   String key(String? value) => value?.trim().toLowerCase() ?? '';
   final indexed = [for (var i = 0; i < tracks.length; i++) (i, tracks[i])];
   int byTitle((int, Track) a, (int, Track) b) =>
