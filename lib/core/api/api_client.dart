@@ -191,6 +191,11 @@ abstract interface class PlaylistsApi {
   /// Public playlists, most liked first.
   Future<List<PublicPlaylist>> listPublicPlaylists(String? token);
 
+  /// An admin takes a public playlist out of the popular list, or puts it
+  /// back. The playlist and its link stay as they are.
+  Future<void> setPopularPlaylistHidden(
+      String token, String shareToken, bool hidden);
+
   /// Makes a new collaboration link and returns its token; the old link
   /// stops working.
   Future<String> createCollabLink(String token, String playlistId);
@@ -558,6 +563,14 @@ class ApiClient
       for (final json in body['playlists'] as List<dynamic>)
         PublicPlaylist.fromJson(json as Map<String, dynamic>),
     ];
+  }
+
+  @override
+  Future<void> setPopularPlaylistHidden(
+      String token, String shareToken, bool hidden) async {
+    await _send('PATCH',
+        '/api/v1/admin/public-playlists/${Uri.encodeComponent(shareToken)}',
+        token: token, body: {'hidden': hidden});
   }
 
   @override

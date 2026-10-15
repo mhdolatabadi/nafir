@@ -127,7 +127,10 @@ class _RhythmoAppState extends State<RhythmoApp> {
       (_tracksApi is PlaylistsApi ? _tracksApi as PlaylistsApi : null);
   late final PlaylistsController? _playlists = _playlistsApi == null
       ? null
-      : PlaylistsController(api: _playlistsApi, token: () => _auth?.token);
+      : PlaylistsController(
+          api: _playlistsApi,
+          token: () => _auth?.token,
+          isAdmin: () => _auth?.user?.isAdmin ?? false);
 
   late final BotsApi? _botsApi = widget.botsApi ?? _apiClient;
   late final BotLinkController? _botLinks = _botsApi == null

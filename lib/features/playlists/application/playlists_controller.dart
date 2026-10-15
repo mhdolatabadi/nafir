@@ -25,12 +25,20 @@ class SharedPlaylistUnavailable implements Exception {
 
 class PlaylistsController extends ChangeNotifier {
   PlaylistsController(
-      {required PlaylistsApi api, required String? Function() token})
+      {required PlaylistsApi api,
+      required String? Function() token,
+      bool Function()? isAdmin})
       : _api = api,
-        _token = token;
+        _token = token,
+        _isAdmin = isAdmin;
 
   final PlaylistsApi _api;
   final String? Function() _token;
+  final bool Function()? _isAdmin;
+
+  /// Whether the signed-in account may take playlists out of the popular
+  /// list. The server checks again on every request.
+  bool get canModeratePopular => signedIn && (_isAdmin?.call() ?? false);
 
   PlaylistsStatus status = PlaylistsStatus.loading;
   List<Playlist> playlists = const [];
@@ -58,6 +66,34 @@ class PlaylistsController extends ChangeNotifier {
       popularStatus = PlaylistsStatus.error;
     }
     notifyListeners();
+  }
+
+  /// An admin takes [playlist] out of the popular list, or with
+  /// `hidden: false` puts it back. The list shows the change at once and
+  /// goes back if the server refuses it. Returns whether it was saved.
+  Future<bool> setPopularHidden(PublicPlaylist playlist,
+      {bool hidden = true}) async {
+    final token = _token();
+    if (token == null || !canModeratePopular) return false;
+    final before = popular;
+    if (hidden) {
+      popular = [
+        for (final p in popular)
+          if (p.shareToken != playlist.shareToken) p,
+      ];
+      notifyListeners();
+    }
+    try {
+      await _api.setPopularPlaylistHidden(token, playlist.shareToken, hidden);
+    } catch (_) {
+      if (hidden) {
+        popular = before;
+        notifyListeners();
+      }
+      return false;
+    }
+    if (!hidden) await loadPopular();
+    return true;
   }
 
   /// Likes or unlikes a shared playlist. The popular list shows the change

@@ -132,6 +132,46 @@ class _PopularPlaylistsScreenState extends State<PopularPlaylistsScreen> {
     if (result == LikeResult.gone) await widget.controller.loadPopular();
   }
 
+  Future<void> _remove(PublicPlaylist playlist) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('حذف از فهرست‌های محبوب؟'),
+        content: Text('«${playlist.name}» دیگر در فهرست‌های پخش محبوب '
+            'نشان داده نمی‌شود. خود فهرست پخش و لینکش سر جایشان می‌مانند.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final saved = await widget.controller.setPopularHidden(playlist);
+    if (!mounted) return;
+    messenger.showSnackBar(SnackBar(
+      content: Text(saved
+          ? '«${playlist.name}» از فهرست‌های محبوب حذف شد.'
+          : 'حذف انجام نشد. دوباره تلاش کن.'),
+      action: saved
+          ? SnackBarAction(
+              label: 'برگرداندن',
+              onPressed: () async {
+                final restored = await widget.controller
+                    .setPopularHidden(playlist, hidden: false);
+                if (!restored) _say('برگرداندن انجام نشد. دوباره تلاش کن.');
+              },
+            )
+          : null,
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
@@ -210,6 +250,7 @@ class _PopularPlaylistsScreenState extends State<PopularPlaylistsScreen> {
                     onOpen: _open,
                     onPlay: _play,
                     onLike: _like,
+                    onRemove: controller.canModeratePopular ? _remove : null,
                   ),
                 ),
             };
@@ -230,6 +271,7 @@ class _PopularGrid extends StatelessWidget {
     required this.onOpen,
     required this.onPlay,
     required this.onLike,
+    this.onRemove,
   });
 
   final List<PublicPlaylist> popular;
@@ -240,6 +282,9 @@ class _PopularGrid extends StatelessWidget {
   final ValueChanged<PublicPlaylist> onOpen;
   final ValueChanged<PublicPlaylist> onPlay;
   final ValueChanged<PublicPlaylist> onLike;
+
+  /// Offered to admins only: takes a playlist out of the list.
+  final ValueChanged<PublicPlaylist>? onRemove;
 
   /// Below the square cover: the title and count beside a 48 px like.
   static const _textHeight =
@@ -281,6 +326,7 @@ class _PopularGrid extends StatelessWidget {
                   onLike: isLiking(playlist.shareToken)
                       ? null
                       : () => onLike(playlist),
+                  onRemove: onRemove == null ? null : () => onRemove!(playlist),
                 );
               },
             ),
@@ -301,6 +347,7 @@ class _PopularTile extends StatelessWidget {
     required this.onOpen,
     required this.onPlay,
     required this.onLike,
+    this.onRemove,
   });
 
   final PublicPlaylist playlist;
@@ -309,6 +356,7 @@ class _PopularTile extends StatelessWidget {
   final VoidCallback onOpen;
   final VoidCallback onPlay;
   final VoidCallback? onLike;
+  final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -346,6 +394,21 @@ class _PopularTile extends StatelessWidget {
                 start: RhythmoSpace.sm,
                 child: _RankBadge(rank: rank),
               ),
+              if (onRemove != null)
+                PositionedDirectional(
+                  top: RhythmoSpace.xs,
+                  end: RhythmoSpace.xs,
+                  child: IconButton(
+                    tooltip: 'حذف ${playlist.name} از محبوب‌ها',
+                    onPressed: onRemove,
+                    style: IconButton.styleFrom(
+                      minimumSize: const Size.square(RhythmoSpace.target),
+                      backgroundColor: RhythmoColors.scrim,
+                      foregroundColor: RhythmoColors.onSurface,
+                    ),
+                    icon: const Icon(RhythmoIcons.eyeSlash),
+                  ),
+                ),
               PositionedDirectional(
                 bottom: RhythmoSpace.sm,
                 end: RhythmoSpace.sm,
