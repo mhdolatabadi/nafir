@@ -111,3 +111,58 @@ func TestVerificationInSessionAndMe(t *testing.T) {
 		t.Fatal("login omitted verification")
 	}
 }
+
+type fakeAdminPlaylists struct {
+	token, actor string
+	hidden       bool
+	calls        int
+}
+
+func (f *fakeAdminPlaylists) SetPopularHidden(_ context.Context, token, actor string, hidden bool) error {
+	f.calls++
+	if token != f.token {
+		return store.ErrNotFound
+	}
+	f.actor, f.hidden = actor, hidden
+	return nil
+}
+
+func TestAdminHidesPopularPlaylist(t *testing.T) {
+	api := newTestAPI(t)
+	admin, _ := api.users.Create(context.Background(), "admin@example.com", "hash")
+	member, _ := api.users.Create(context.Background(), "member@example.com", "hash")
+	adminToken, _, _ := api.tokens.Issue(admin.ID)
+	memberToken, _, _ := api.tokens.Issue(member.ID)
+	handlers, err := NewAuthHandlers(api.users, auth.Passwords{Cost: bcrypt.MinCost}, api.tokens, AuthRateLimiters{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handlers.WithAdmins([]string{admin.Email})
+	share, _ := newShareToken()
+	other, _ := newShareToken()
+	playlists := &fakeAdminPlaylists{token: share}
+	api.handler = NewHandler(Config{Auth: handlers,
+		Admin: NewAdminHandlers(handlers, &fakeAdminStore{}).WithPlaylists(playlists)})
+	path := "/api/v1/admin/public-playlists/" + share
+
+	expectError(t, api.do(t, "PATCH", path, `{"hidden":true}`, ""), http.StatusUnauthorized, "unauthorized")
+	expectError(t, api.do(t, "PATCH", path, `{"hidden":true}`, memberToken), http.StatusForbidden, "admin_required")
+	if playlists.calls != 0 {
+		t.Fatal("a non-admin reached playlist storage")
+	}
+	for _, hidden := range []bool{true, false} {
+		body := `{"hidden":false}`
+		if hidden {
+			body = `{"hidden":true}`
+		}
+		result := api.do(t, "PATCH", path, body, adminToken)
+		if result.Code != http.StatusOK || playlists.hidden != hidden || playlists.actor != admin.ID {
+			t.Fatalf("hidden=%v: %d %s", hidden, result.Code, result.Body)
+		}
+	}
+	for _, body := range []string{`{}`, `{"hidden":null}`, `{"hidden":true,"delete":true}`, `{"hidden":true} {}`} {
+		expectError(t, api.do(t, "PATCH", path, body, adminToken), http.StatusBadRequest, "invalid_json")
+	}
+	expectError(t, api.do(t, "PATCH", "/api/v1/admin/public-playlists/"+other, `{"hidden":true}`, adminToken), http.StatusNotFound, "playlist_not_found")
+	expectError(t, api.do(t, "PATCH", "/api/v1/admin/public-playlists/bad", `{"hidden":true}`, adminToken), http.StatusNotFound, "playlist_not_found")
+}

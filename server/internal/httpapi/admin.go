@@ -18,18 +18,33 @@ type AdminStore interface {
 	SetVerification(context.Context, string, string, bool) (store.User, error)
 }
 
+// AdminPlaylistStore takes public playlists out of the popular list.
+type AdminPlaylistStore interface {
+	SetPopularHidden(ctx context.Context, shareToken, actorID string, hidden bool) error
+}
+
 type AdminHandlers struct {
-	auth  *AuthHandlers
-	users AdminStore
+	auth      *AuthHandlers
+	users     AdminStore
+	playlists AdminPlaylistStore
 }
 
 func NewAdminHandlers(auth *AuthHandlers, users AdminStore) *AdminHandlers {
 	return &AdminHandlers{auth: auth, users: users}
 }
 
+// WithPlaylists lets admins take playlists out of the popular list.
+func (h *AdminHandlers) WithPlaylists(playlists AdminPlaylistStore) *AdminHandlers {
+	h.playlists = playlists
+	return h
+}
+
 func (h *AdminHandlers) register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/admin/accounts", h.list)
 	mux.HandleFunc("PATCH /api/v1/admin/accounts/{id}/verification", h.verify)
+	if h.playlists != nil {
+		mux.HandleFunc("PATCH /api/v1/admin/public-playlists/{token}", h.hidePlaylist)
+	}
 }
 
 // Authorize against a fresh database lookup on every request, not token claims.
@@ -129,4 +144,42 @@ func (h *AdminHandlers) verify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, h.account(user))
+}
+
+// hidePlaylist takes a public playlist out of the popular list with
+// {"hidden":true}, or puts it back with {"hidden":false}. The playlist and
+// its link are left as they are.
+func (h *AdminHandlers) hidePlaylist(w http.ResponseWriter, r *http.Request) {
+	actor, ok := h.authorize(w, r)
+	if !ok {
+		return
+	}
+	var input struct {
+		Hidden *bool `json:"hidden"`
+	}
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxAuthBodyBytes))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&input); err != nil || input.Hidden == nil {
+		writeError(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	if err := decoder.Decode(new(any)); err != io.EOF {
+		writeError(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	token := r.PathValue("token")
+	if !validShareToken(token) {
+		writeError(w, http.StatusNotFound, "playlist_not_found")
+		return
+	}
+	err := h.playlists.SetPopularHidden(r.Context(), token, actor, *input.Hidden)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "playlist_not_found")
+		return
+	}
+	if err != nil {
+		internalError(w, "hide popular playlist", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"hidden": *input.Hidden})
 }

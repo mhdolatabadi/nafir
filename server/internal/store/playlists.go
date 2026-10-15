@@ -558,7 +558,7 @@ type PublicPlaylist struct {
 
 // Popular lists up to limit public shared playlists, most liked first;
 // ties go to the most recently updated, then by id, so the order is stable.
-// Link-only playlists are never listed.
+// Link-only playlists, and ones an admin took out, are never listed.
 func (p *Playlists) Popular(ctx context.Context, userID string, limit int) ([]PublicPlaylist, error) {
 	rows, err := p.pool.Query(ctx, `
 		SELECT playlists.share_token, playlists.name, playlists.owner_id::text, users.email,
@@ -573,6 +573,7 @@ func (p *Playlists) Popular(ctx context.Context, userID string, limit int) ([]Pu
 			FROM playlist_likes WHERE playlist_id = playlists.id
 		) likes
 		WHERE playlists.is_public AND playlists.share_token IS NOT NULL
+		  AND playlists.popular_hidden_at IS NULL
 		ORDER BY likes.count DESC, playlists.updated_at DESC, playlists.id
 		LIMIT $2
 	`, userID, limit)
@@ -590,6 +591,40 @@ func (p *Playlists) Popular(ctx context.Context, userID string, limit int) ([]Pu
 		listed = append(listed, pp)
 	}
 	return listed, rows.Err()
+}
+
+// SetPopularHidden takes the public playlist shared with token out of the
+// popular list, or puts it back, for the admin actorID. The playlist and its
+// link stay as they are. It is ErrNotFound when no playlist is shared with
+// token; setting the state it already has changes nothing.
+func (p *Playlists) SetPopularHidden(ctx context.Context, token, actorID string, hidden bool) error {
+	return pgx.BeginFunc(ctx, p.pool, func(tx pgx.Tx) error {
+		var playlistID string
+		var wasHidden bool
+		err := tx.QueryRow(ctx, `
+			SELECT id::text, popular_hidden_at IS NOT NULL FROM playlists
+			WHERE share_token = $1 FOR UPDATE
+		`, token).Scan(&playlistID, &wasHidden)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil || wasHidden == hidden {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `
+			UPDATE playlists SET
+				popular_hidden_at = CASE WHEN $2 THEN now() ELSE NULL END,
+				popular_hidden_by = CASE WHEN $2 THEN $3::uuid ELSE NULL END
+			WHERE id = $1::uuid
+		`, playlistID, hidden, actorID); err != nil {
+			return err
+		}
+		_, err = tx.Exec(ctx, `
+			INSERT INTO popular_playlist_audit (playlist_id, actor_id, hidden)
+			VALUES ($1::uuid, $2::uuid, $3)
+		`, playlistID, actorID, hidden)
+		return err
+	})
 }
 
 // SetCollabToken turns the playlist's collaboration link on with token, or

@@ -96,6 +96,16 @@ class FakePlaylistsApi implements PlaylistsApi {
     return public;
   }
 
+  final hiddenCalls = <(String, bool)>[];
+  bool hideFails = false;
+
+  @override
+  Future<void> setPopularPlaylistHidden(
+      String t, String shareToken, bool hidden) async {
+    hiddenCalls.add((shareToken, hidden));
+    if (hideFails) throw const ApiException('500', statusCode: 500);
+  }
+
   @override
   Future<SharedPlaylist> getSharedPlaylist(String? t, String shareToken) async {
     final playlist = shared[shareToken];
@@ -610,6 +620,69 @@ void main() {
         await tester.pumpAndSettle();
         expect(api.likeCalls, [true]);
         expect(find.byIcon(RhythmoIcons.heartFill), findsOneWidget);
+      });
+
+      testWidgets('only admins can take a playlist out of the list',
+          (tester) async {
+        final api = await pump(
+            tester, FakePlaylistsApi()..public = [listed('loved', likes: 5)]);
+        expect(find.byIcon(RhythmoIcons.eyeSlash), findsNothing);
+        expect(api.hiddenCalls, isEmpty);
+      });
+
+      testWidgets('an admin removes a playlist and can undo it',
+          (tester) async {
+        final api = FakePlaylistsApi()
+          ..public = [
+            listed('loved', likes: 5),
+            listed('quiet', shareToken: 'B' * 22),
+          ];
+        // A narrow phone: the remove button fits beside the rank badge.
+        await tester.binding.setSurfaceSize(const Size(320, 640));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(MaterialApp(
+          home: PopularPlaylistsScreen(
+            controller: PlaylistsController(
+                api: api, token: () => 'tok', isAdmin: () => true),
+            player: PlayerController(
+                api: FakeTracksApi(),
+                engine: FakeAudioEngine(),
+                token: () => 'tok'),
+          ),
+        ));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byTooltip('حذف loved از محبوب‌ها'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('انصراف'));
+        await tester.pumpAndSettle();
+        expect(api.hiddenCalls, isEmpty);
+
+        // The server could not save it: the playlist comes back.
+        api.hideFails = true;
+        await tester.tap(find.byTooltip('حذف loved از محبوب‌ها'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('حذف'));
+        await tester.pumpAndSettle();
+        expect(find.text('loved'), findsOneWidget);
+        expect(find.text('حذف انجام نشد. دوباره تلاش کن.'), findsOneWidget);
+
+        api.hideFails = false;
+        ScaffoldMessenger.of(tester.element(find.text('quiet')))
+            .removeCurrentSnackBar();
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('حذف loved از محبوب‌ها'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('حذف'));
+        await tester.pumpAndSettle();
+        expect(find.text('loved'), findsNothing);
+        expect(find.text('quiet'), findsOneWidget);
+        expect(api.hiddenCalls.last, (token, true));
+
+        await tester.tap(find.text('برگرداندن'));
+        await tester.pumpAndSettle();
+        expect(api.hiddenCalls.last, (token, false));
+        expect(find.text('loved'), findsOneWidget);
       });
 
       testWidgets('a guest opens a shared link and plays it', (tester) async {

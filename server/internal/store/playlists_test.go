@@ -307,6 +307,33 @@ func TestOnlyPublicPlaylistsAreListedMostLikedFirst(t *testing.T) {
 		t.Fatalf("limit ignored: %d", len(limited))
 	}
 
+	// An admin takes a playlist out of the list and puts it back; its link
+	// keeps working, and each change is audited once.
+	if err := playlists.SetPopularHidden(ctx, "missing", other.ID, true); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("hiding an unknown link: %v", err)
+	}
+	for range 2 {
+		if err := playlists.SetPopularHidden(ctx, "loved", other.ID, true); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if hidden, _ := playlists.Popular(ctx, fan.ID, 10); len(hidden) != 1 || hidden[0].Name != "quiet" {
+		t.Fatalf("hidden playlist still listed: %+v", hidden)
+	}
+	if _, err := playlists.ForShareToken(ctx, "loved"); err != nil {
+		t.Fatalf("hidden playlist's link: %v", err)
+	}
+	if err := playlists.SetPopularHidden(ctx, "loved", other.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	if restored, _ := playlists.Popular(ctx, fan.ID, 10); len(restored) != 2 || restored[0].Name != "loved" {
+		t.Fatalf("restored = %+v", restored)
+	}
+	var audited int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM popular_playlist_audit WHERE actor_id::text = $1`, other.ID).Scan(&audited); err != nil || audited != 2 {
+		t.Fatalf("audit rows = %d, %v", audited, err)
+	}
+
 	// Visitors without an account reach only public playlists' tracks.
 	if _, err := playlists.SharedTrack(ctx, "loved", song.ID, true); err != nil {
 		t.Fatalf("public track for a visitor: %v", err)
