@@ -148,6 +148,11 @@ class PlayerController extends ChangeNotifier {
   bool get shuffle => _shuffle;
   QueueRepeat get repeat => _repeat;
   PlayerStatus get status => _status;
+
+  /// The browser blocked audio until the listener taps play (web autoplay
+  /// rules); cleared once playback is asked for again.
+  bool get needsTap => _needsTap;
+  bool _needsTap = false;
   Duration get position => _position;
   Duration? get duration => _duration;
 
@@ -651,6 +656,7 @@ class PlayerController extends ChangeNotifier {
   /// Continues a paused track, replays a completed one from the start, or
   /// retries one that failed.
   Future<void> resume() async {
+    _needsTap = false;
     switch (_status) {
       case PlayerStatus.paused:
         if (_fadeTimer != null) {
@@ -734,6 +740,12 @@ class PlayerController extends ChangeNotifier {
   /// Stream URLs expire; when playback fails (typically on a seek after the
   /// URL expired), fetch a fresh one once and resume where it stopped.
   Future<void> _onEngineError(Object error) async {
+    if (error is PlaybackBlocked) {
+      // Nothing is wrong with the track: the browser wants a tap first.
+      _needsTap = true;
+      _refreshStatus();
+      return;
+    }
     final track = _track;
     final token = _token();
     if (track == null ||
@@ -793,6 +805,7 @@ class PlayerController extends ChangeNotifier {
   }
 
   void _setStatus(PlayerStatus status) {
+    if (status == PlayerStatus.playing) _needsTap = false;
     _status = status;
     metrics.status(status, _now());
     notifyListeners();
