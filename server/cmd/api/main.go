@@ -17,6 +17,7 @@ import (
 
 	"github.com/mhdolatabadi/nafir/server/internal/auth"
 	"github.com/mhdolatabadi/nafir/server/internal/bot"
+	"github.com/mhdolatabadi/nafir/server/internal/catalog"
 	"github.com/mhdolatabadi/nafir/server/internal/fingerprint"
 	"github.com/mhdolatabadi/nafir/server/internal/httpapi"
 	"github.com/mhdolatabadi/nafir/server/internal/linkimport"
@@ -310,7 +311,8 @@ func run() error {
 		go worker.Run(ctx)
 	}
 
-	fingerprints, identifyHandlers, err := setupIdentify(pool, playlists, objects, tokens, httpapi.SavePolicy{
+	storeCatalog := store.NewCatalog(pool)
+	fingerprints, identifyHandlers, err := setupIdentify(pool, playlists, storeCatalog, objects, tokens, httpapi.SavePolicy{
 		Objects: objects, MaxOwnerBytes: ownerQuotaBytes, Enabled: uploadsEnabled,
 	})
 	if err != nil {
@@ -320,6 +322,19 @@ func run() error {
 	if fingerprints != nil {
 		readyTracks = fingerprints
 	}
+
+	storeReportRate, err := rateLimiterEnv("STORE_REPORT_RATE", 20, 24*time.Hour)
+	if err != nil {
+		return err
+	}
+	adminHandlers := httpapi.NewAdminHandlers(authHandlers, users)
+	storeHandlers := httpapi.NewCatalogHandlers(storeCatalog, tokens, objects,
+		httpapi.AnonymousLimits{View: publicViewRate, Stream: publicStreamRate}).
+		WithSave(store.NewFingerprints(pool), httpapi.SavePolicy{
+			Objects: objects, MaxOwnerBytes: ownerQuotaBytes, Enabled: uploadsEnabled,
+		}).
+		WithReports(storeReportRate).
+		WithAdmin(adminHandlers)
 
 	var ops *httpapi.OpsHandlers
 	if opsToken := os.Getenv("OPS_TOKEN"); opsToken != "" {
@@ -337,7 +352,7 @@ func run() error {
 		Handler: httpapi.NewHandler(httpapi.Config{
 			AllowedOrigin: os.Getenv("WEB_ORIGIN"),
 			Auth:          authHandlers,
-			Admin:         httpapi.NewAdminHandlers(authHandlers, users),
+			Admin:         adminHandlers,
 			Tracks: httpapi.NewTrackHandlers(tracks, objects, tokens, httpapi.UploadLimits{
 				MaxFileBytes: maxUploadBytes, MaxOwnerBytes: ownerQuotaBytes,
 				MaxPending: maxPending, Enabled: uploadsEnabled,
@@ -355,12 +370,14 @@ func run() error {
 				WithQuota(ownerQuotaBytes).
 				WithAndroidApp(os.Getenv("ANDROID_APP_URL")).
 				WithSite(os.Getenv("WEB_ORIGIN")).
-				WithVerification(os.Getenv("GOOGLE_SITE_VERIFICATION"), os.Getenv("BING_SITE_VERIFICATION")),
+				WithVerification(os.Getenv("GOOGLE_SITE_VERIFICATION"), os.Getenv("BING_SITE_VERIFICATION")).
+				WithStore(storeCatalog),
 			Bots: botHandlers.WithEmailGate(emailGate),
 			LinkImports: httpapi.NewLinkImportHandlers(linkImports, tokens, linkImportRate).WithEmailGate(emailGate).WithSpotify(
 				linkimport.NewSpotifyImporter(linkimport.NewSpotifyReader(linkFetcher), tracks, playlists)),
 			Lyrics:   lyricsHandlers,
 			Identify: identifyHandlers,
+			Store:    storeHandlers,
 			Ops:      ops,
 			Webhooks: webhooks,
 		}),
@@ -378,6 +395,8 @@ func run() error {
 	// Reads ReplayGain from new uploads and, once, from every older track.
 	go loudness.NewScanner(tracks, objects, loudnessScanEvery, loudnessScanBatch).Run(ctx)
 	go purgeDeletedAccounts(ctx, users, objects, cleanupEvery, cleanupBatch)
+	// Groups every song in a public playlist into the store's catalog.
+	go catalog.NewIndexer(storeCatalog, catalog.Config{}).Run(ctx)
 
 	serverErr := make(chan error, 1)
 	go func() {
@@ -463,7 +482,7 @@ func (noFingerprints) Notify() {}
 // (FPCALC_PATH) is missing. Snippets and track copies are read from
 // FINGERPRINT_TMPDIR while fpcalc runs.
 func setupIdentify(
-	pool *pgxpool.Pool, playlists *store.Playlists, objects *storage.Storage,
+	pool *pgxpool.Pool, playlists *store.Playlists, storeCatalog *store.Catalog, objects *storage.Storage,
 	tokens *auth.Tokens, save httpapi.SavePolicy,
 ) (*fingerprint.Worker, *httpapi.IdentifyHandlers, error) {
 	if raw := os.Getenv("IDENTIFY_ENABLED"); raw != "" {
@@ -492,6 +511,11 @@ func setupIdentify(
 	if err != nil {
 		return nil, nil, err
 	}
+	// Visitors without an account may match against the public store.
+	anonymousRate, err := rateLimiterEnv("IDENTIFY_ANONYMOUS_RATE", 10, 10*time.Minute)
+	if err != nil {
+		return nil, nil, err
+	}
 	tempDir := os.Getenv("FINGERPRINT_TMPDIR")
 	fingerprints := store.NewFingerprints(pool)
 	worker := fingerprint.NewWorker(fingerprints, objects, calc, fingerprint.WorkerConfig{
@@ -501,6 +525,7 @@ func setupIdentify(
 	handlers := httpapi.NewIdentifyHandlers(httpapi.IdentifyConfig{
 		Fingerprinter: snippets, Matches: fingerprints, Playlists: playlists, Copier: fingerprints,
 		Save: save, TempDir: tempDir, Rate: rate, Concurrent: concurrent,
+		Store: storeCatalog, AnonymousRate: anonymousRate,
 	}, tokens)
 	return worker, handlers, nil
 }

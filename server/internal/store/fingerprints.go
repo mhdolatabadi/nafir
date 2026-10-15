@@ -114,6 +114,9 @@ type MatchSource struct {
 	PlaylistID *string
 	// ShareToken is set for a track in a public playlist.
 	ShareToken *string
+	// StoreEntryID is set for a song matched in the public store, for
+	// listeners without an account.
+	StoreEntryID *string
 }
 
 // Matchable is a fingerprinted track the user may play.

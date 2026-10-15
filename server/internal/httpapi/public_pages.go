@@ -59,6 +59,8 @@ type PublicPages struct {
 	site string
 	// verify holds the search console ownership tokens for the front page.
 	verify siteVerification
+	// catalog, when set, serves the public store's pages.
+	catalog CatalogStore
 }
 
 // siteVerification is the content of the search engines' ownership <meta>
@@ -126,7 +128,8 @@ func (p *PublicPages) questions() []publicQuestion {
 		{"ریتمو رایگان است؟", "بله. هر حساب " + quotaText(p.quotaBytes) + " فضای ابری برای موسیقی دارد."},
 		{"چه قالب‌هایی را می‌شود آپلود کرد؟", "MP3، M4A، AAC، FLAC، OGG، Opus، WAV و WebM."},
 		{"کیفیت آهنگ‌ها کم می‌شود؟", "نه. ریتمو فایل را همان‌طور که آپلود کرده‌ای نگه می‌دارد و پخش می‌کند."},
-		{"چه کسی فهرست‌های پخش مرا می‌بیند؟", "فقط خودت، مگر اینکه لینکش را بسازی. فهرستی که «عمومی» کنی در صفحه‌ی اول ریتمو هم نشان داده می‌شود."},
+		{"چه کسی فهرست‌های پخش مرا می‌بیند؟", "فقط خودت، مگر اینکه لینکش را بسازی. فهرستی که «عمومی» کنی در صفحه‌ی اول ریتمو هم نشان داده می‌شود و آهنگ‌هایش، بدون نام یا ایمیل تو، در استور ریتمو می‌آیند."},
+		{"استور ریتمو چیست؟", "همه‌ی آهنگ‌های فهرست‌های پخش عمومی، هر آهنگ یک بار، که هر کسی بدون ثبت‌نام می‌شنود و با حساب ریتمو به کتابخانه‌اش اضافه می‌کند. کتابخانه‌های خصوصی هیچ‌وقت در استور نمی‌آیند."},
 		{"اپ اندروید هم دارد؟", "بله. ریتمو روی وب بدون نصب کار می‌کند و اپ اندروید هم دارد که موسیقی گوشی را هم نشان می‌دهد و پخش بدون اینترنت دارد."},
 		{"چطور حسابم را حذف کنم؟", "از تنظیمات اپ، «حذف حساب کاربری» را بزن. همه‌ی آهنگ‌ها و فهرست‌های پخشت برای همیشه پاک می‌شوند."},
 	}
@@ -142,6 +145,7 @@ func (p *PublicPages) register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /social.png", p.handleSocialImage)
 	mux.HandleFunc("GET /privacy", p.handlePrivacy)
 	mux.HandleFunc("GET /delete-account", p.handleDeleteAccount)
+	p.registerStore(mux)
 	mux.HandleFunc("GET /", p.handleNotFound)
 }
 
@@ -462,6 +466,12 @@ func (p *PublicPages) handleSitemap(w http.ResponseWriter, r *http.Request) {
 			Loc: site + "/p/" + pl.ShareToken, LastMod: pl.UpdatedAt.UTC().Format(time.DateOnly),
 		})
 	}
+	storeURLs, err := p.storeSitemapURLs(r, site)
+	if err != nil {
+		internalError(w, "list sitemap store pages", err)
+		return
+	}
+	urls = append(urls, storeURLs...)
 	body, err := xml.MarshalIndent(sitemap{XMLNS: "http://www.sitemaps.org/schemas/sitemap/0.9", URLs: urls}, "", "  ")
 	if err != nil {
 		internalError(w, "encode sitemap", err)
@@ -487,7 +497,7 @@ func (p *PublicPages) WithContact(email string) *PublicPages {
 }
 
 // privacyUpdated is when the privacy policy text last changed.
-const privacyUpdated = "۱۰ مهر ۱۴۰۵"
+const privacyUpdated = "۲۳ مهر ۱۴۰۵"
 
 // handlePrivacy serves the privacy policy app stores link to.
 func (p *PublicPages) handlePrivacy(w http.ResponseWriter, r *http.Request) {
