@@ -166,7 +166,7 @@ void main() {
       cache: CacheController(cache: FakeAudioCache(), playing: () => null),
       email: 'a@example.com',
       onDeleteAccount: (_) async {},
-      siteUri: (path) => Uri.parse('https://nafir.example.com').resolve(path),
+      siteUri: (path) => Uri.parse('https://rhythmo.example.com').resolve(path),
       openLink: (uri) async {
         opened.add(uri);
         return true;
@@ -177,7 +177,7 @@ void main() {
         scrollable: _page);
     await tester.tap(find.text('حریم خصوصی'));
     await tester.pumpAndSettle();
-    expect(opened, [Uri.parse('https://nafir.example.com/privacy')]);
+    expect(opened, [Uri.parse('https://rhythmo.example.com/privacy')]);
 
     await tester.scrollUntilVisible(find.text('حذف حساب کاربری'), 200,
         scrollable: _page);
@@ -187,7 +187,8 @@ void main() {
         scrollable: _page);
     await tester.tap(find.text('راهنمای حذف حساب'));
     await tester.pumpAndSettle();
-    expect(opened.last, Uri.parse('https://nafir.example.com/delete-account'));
+    expect(
+        opened.last, Uri.parse('https://rhythmo.example.com/delete-account'));
   });
 
   testWidgets('a page that cannot open is reported', (tester) async {

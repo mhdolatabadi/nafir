@@ -17,7 +17,7 @@ import (
 	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
-//go:embed public/*.html public/nafir.png public/social.png
+//go:embed public/*.html public/rhythmo.png public/social.png
 var publicFiles embed.FS
 
 var publicTemplates = map[string]*template.Template{
@@ -141,6 +141,8 @@ func (p *PublicPages) register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /p/{token}/t/{trackId}", p.handleTrack)
 	mux.HandleFunc("GET /sitemap.xml", p.handleSitemap)
 	mux.HandleFunc("GET /robots.txt", p.handleRobots)
+	mux.HandleFunc("GET /rhythmo.png", p.handleIcon)
+	// The icon's URL before the rename, still in old shares and caches.
 	mux.HandleFunc("GET /nafir.png", p.handleIcon)
 	mux.HandleFunc("GET /social.png", p.handleSocialImage)
 	mux.HandleFunc("GET /privacy", p.handlePrivacy)
@@ -284,7 +286,7 @@ func (p *PublicPages) handleHome(w http.ResponseWriter, r *http.Request) {
 					{"@type": "WebSite", "@id": site + "/#website", "name": "ریتمو", "alternateName": "rhythmo",
 						"url": site + "/", "inLanguage": "fa"},
 					{"@type": "Organization", "@id": site + "/#organization", "name": "ریتمو", "url": site + "/",
-						"logo": site + "/nafir.png"},
+						"logo": site + "/rhythmo.png"},
 					{"@type": "ItemList", "name": "فهرست‌های پخش محبوب ریتمو", "itemListElement": listJSON},
 					{"@type": "FAQPage", "mainEntity": faqJSON},
 				},
@@ -549,5 +551,5 @@ func (p *PublicPages) handleSocialImage(w http.ResponseWriter, r *http.Request) 
 
 func (p *PublicPages) handleIcon(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "public, max-age=86400")
-	http.ServeFileFS(w, r, publicFiles, "public/nafir.png")
+	http.ServeFileFS(w, r, publicFiles, "public/rhythmo.png")
 }

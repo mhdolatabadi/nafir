@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:rhythmo/core/design/design.dart';
-import 'package:rhythmo/core/format_size.dart';
 import 'package:rhythmo/core/persian_digits.dart';
 import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
 import 'package:rhythmo/features/auth/presentation/sign_in_prompt.dart';
@@ -604,7 +603,6 @@ class _SongList extends StatelessWidget {
             seed: song.id,
             title: song.title,
             subtitle: song.artist ?? 'خواننده‌ی نامشخص',
-            detail: formatSize(song.sizeBytes),
             active: player.track?.id == song.id && player.track!.fromStore,
             onTap: () => player.playTapped(songs, songs.indexOf(song)),
             trailing: Row(

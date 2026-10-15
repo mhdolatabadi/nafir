@@ -83,7 +83,7 @@ type AuthHandlers struct {
 }
 
 func NewAuthHandlers(users UserStore, passwords auth.Passwords, tokens *auth.Tokens, limiters AuthRateLimiters) (*AuthHandlers, error) {
-	dummyHash, err := passwords.Hash("nafir-timing-equaliser")
+	dummyHash, err := passwords.Hash("rhythmo-timing-equaliser")
 	if err != nil {
 		return nil, err
 	}

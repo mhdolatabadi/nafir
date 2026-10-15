@@ -17,7 +17,7 @@ class AppLoadingScreen extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.all(Radius.circular(RhythmoRadii.lg)),
               child: Image(
-                image: AssetImage('assets/icon/nafir.png'),
+                image: AssetImage('assets/icon/rhythmo.png'),
                 width: 72,
                 height: 72,
               ),

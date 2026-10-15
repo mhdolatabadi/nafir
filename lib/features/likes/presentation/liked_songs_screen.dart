@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:rhythmo/core/design/design.dart';
-import 'package:rhythmo/core/format_size.dart';
 import 'package:rhythmo/core/persian_digits.dart';
 import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
 import 'package:rhythmo/features/auth/presentation/sign_in_prompt.dart';
@@ -170,9 +169,6 @@ class LikedSongsScreen extends StatelessWidget {
                       seed: song.id,
                       title: song.title,
                       subtitle: song.artist ?? 'خواننده‌ی نامشخص',
-                      detail: song.sizeBytes > 0
-                          ? formatSize(song.sizeBytes)
-                          : null,
                       active: player.track?.id == song.id,
                       onTap: () => player.playTapped(songs, index - 1),
                       trailing: LikeButton(track: song, favorites: favorites),
