@@ -201,25 +201,27 @@ class _PlaylistsViewState extends State<PlaylistsView> {
   Widget build(BuildContext context) {
     final actions = Padding(
       padding: const EdgeInsets.fromLTRB(4, 12, 4, 4),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        crossAxisAlignment: WrapCrossAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          FilledButton.tonalIcon(
-            onPressed: _create,
-            icon: const Icon(NafirIcons.listPlus),
-            label: const Text('فهرست پخش جدید'),
-          ),
-          OutlinedButton.icon(
-            onPressed: _openPopular,
-            icon: const Icon(NafirIcons.fire),
-            label: const Text('فهرست‌های پخش محبوب'),
-          ),
-          IconButton(
-            tooltip: 'باز کردن لینک اشتراک',
-            onPressed: _openLink,
-            icon: const Icon(NafirIcons.link),
+          PopularPlaylistsEntry(onOpen: _openPopular),
+          const SizedBox(height: NafirSpace.md),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              FilledButton.tonalIcon(
+                onPressed: _create,
+                icon: const Icon(NafirIcons.listPlus),
+                label: const Text('فهرست پخش جدید'),
+              ),
+              IconButton(
+                tooltip: 'باز کردن لینک اشتراک',
+                onPressed: _openLink,
+                icon: const Icon(NafirIcons.link),
+              ),
+            ],
           ),
         ],
       ),
@@ -283,6 +285,73 @@ class _PlaylistsViewState extends State<PlaylistsView> {
           ),
         );
       },
+    );
+  }
+}
+
+/// The way into the popular playlists: a full-width card at the top of
+/// the playlists tab, rather than one button among several.
+class PopularPlaylistsEntry extends StatelessWidget {
+  const PopularPlaylistsEntry({super.key, required this.onOpen});
+
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Material(
+      color: scheme.primaryContainer,
+      shape: const RoundedRectangleBorder(borderRadius: NafirRadii.surface),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onOpen,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 72),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: NafirSpace.lg, vertical: NafirSpace.md),
+            child: Row(
+              children: [
+                Container(
+                  width: NafirSpace.target,
+                  height: NafirSpace.target,
+                  decoration: BoxDecoration(
+                    color: scheme.primary,
+                    borderRadius: NafirRadii.control,
+                  ),
+                  child: Icon(NafirIcons.fire, color: scheme.onPrimary),
+                ),
+                const SizedBox(width: NafirSpace.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'فهرست‌های پخش محبوب',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: scheme.onPrimaryContainer,
+                        ),
+                      ),
+                      Text(
+                        'پرطرفدارترین فهرست‌های عمومی را بشنو و بپسند',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: scheme.onPrimaryContainer),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(NafirIcons.caretLeft, color: scheme.onPrimaryContainer),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

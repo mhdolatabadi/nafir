@@ -49,6 +49,34 @@ class PopularPlaylistsScreen extends StatefulWidget {
 }
 
 class _PopularPlaylistsScreenState extends State<PopularPlaylistsScreen> {
+  /// The playlist being fetched to play, so its button shows progress.
+  String? _playing;
+
+  Future<void> _play(PublicPlaylist playlist) async {
+    setState(() => _playing = playlist.shareToken);
+    try {
+      final shared = await widget.controller.openShared(playlist.shareToken);
+      if (!mounted) return;
+      if (shared.tracks.isEmpty) {
+        _say('این فهرست پخش آهنگی ندارد.');
+      } else {
+        await widget.player.playFrom(shared.tracks, 0);
+      }
+    } on SharedPlaylistUnavailable {
+      _say('این فهرست پخش دیگر عمومی نیست.');
+      await widget.controller.loadPopular();
+    } catch (_) {
+      _say('پخش این فهرست شروع نشد. دوباره تلاش کن.');
+    } finally {
+      if (mounted) setState(() => _playing = null);
+    }
+  }
+
+  void _say(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
   @override
   void initState() {
     super.initState();
@@ -122,158 +150,309 @@ class _PopularPlaylistsScreenState extends State<PopularPlaylistsScreen> {
       ),
       bottomNavigationBar: MiniPlayer(player: widget.player),
       body: NafirBackdrop(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 900),
-            child: ListenableBuilder(
-              listenable: controller,
-              builder: (context, _) {
-                final popular = controller.popular;
-                return switch (controller.popularStatus) {
-                  PlaylistsStatus.loading when popular.isEmpty =>
-                    const Center(child: CircularProgressIndicator()),
-                  PlaylistsStatus.error when popular.isEmpty => _Notice(
-                      icon: NafirIcons.cloudSlash,
-                      text: 'فهرست‌های پخش محبوب بارگذاری نشد.',
-                      action: FilledButton.icon(
-                        onPressed: controller.loadPopular,
-                        icon: const Icon(NafirIcons.arrowsClockwise),
-                        label: const Text('تلاش دوباره'),
-                      ),
-                    ),
-                  _ when popular.isEmpty => const _Notice(
-                      icon: NafirIcons.globe,
-                      text: 'هنوز فهرست پخش عمومی‌ای نیست. وقتی فهرست پخشی را '
-                          'به اشتراک می‌گذاری، «عمومی» را انتخاب کن تا اینجا '
-                          'نشان داده شود.',
-                    ),
-                  _ => RefreshIndicator(
-                      onRefresh: controller.loadPopular,
-                      child: ListView.builder(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        // Room for the mini player and system insets below.
-                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 104),
-                        itemCount: popular.length,
-                        itemBuilder: (context, index) {
-                          final playlist = popular[index];
-                          return _PopularRow(
-                            playlist: playlist,
-                            onOpen: () => _open(playlist),
-                            onLike: controller.isLiking(playlist.shareToken)
-                                ? null
-                                : () => _like(playlist),
-                          );
-                        },
-                      ),
-                    ),
-                };
-              },
-            ),
-          ),
+        child: ListenableBuilder(
+          listenable: controller,
+          builder: (context, _) {
+            final popular = controller.popular;
+            return switch (controller.popularStatus) {
+              PlaylistsStatus.loading when popular.isEmpty =>
+                const NafirStateView.loading(
+                    title: 'در حال دریافت فهرست‌های محبوب…'),
+              PlaylistsStatus.error when popular.isEmpty =>
+                NafirStateView.error(
+                  icon: NafirIcons.cloudSlash,
+                  title: 'فهرست‌های پخش محبوب بارگذاری نشد.',
+                  message: 'اتصال را بررسی کن و دوباره تلاش کن.',
+                  action: FilledButton.icon(
+                    onPressed: controller.loadPopular,
+                    icon: const Icon(NafirIcons.arrowsClockwise),
+                    label: const Text('تلاش دوباره'),
+                  ),
+                ),
+              _ when popular.isEmpty => const NafirStateView(
+                  icon: NafirIcons.globe,
+                  title: 'هنوز فهرست پخش عمومی‌ای نیست',
+                  message: 'وقتی فهرست پخشی را به اشتراک می‌گذاری، «عمومی» '
+                      'را انتخاب کن تا اینجا نشان داده شود.',
+                ),
+              _ => RefreshIndicator(
+                  onRefresh: controller.loadPopular,
+                  child: _PopularGrid(
+                    popular: popular,
+                    playing: _playing,
+                    isLiking: controller.isLiking,
+                    onOpen: _open,
+                    onPlay: _play,
+                    onLike: _like,
+                  ),
+                ),
+            };
+          },
         ),
       ),
     );
   }
 }
 
-class _PopularRow extends StatelessWidget {
-  const _PopularRow({
-    required this.playlist,
+/// The popular playlists as square tiles, two across on a phone and more
+/// on wider screens, inside a centred column.
+class _PopularGrid extends StatelessWidget {
+  const _PopularGrid({
+    required this.popular,
+    required this.playing,
+    required this.isLiking,
     required this.onOpen,
+    required this.onPlay,
+    required this.onLike,
+  });
+
+  final List<PublicPlaylist> popular;
+
+  /// The playlist whose tracks are being fetched to play, if any.
+  final String? playing;
+  final bool Function(String shareToken) isLiking;
+  final ValueChanged<PublicPlaylist> onOpen;
+  final ValueChanged<PublicPlaylist> onPlay;
+  final ValueChanged<PublicPlaylist> onLike;
+
+  /// Below the square cover: the title and count beside a 48 px like.
+  static const _textHeight = NafirSpace.sm + NafirSpace.target + NafirSpace.xs;
+
+  @override
+  Widget build(BuildContext context) {
+    // The scaffold extends the body under the mini player and reports the
+    // player's height, with the system inset, as bottom padding.
+    final bottom = MediaQuery.paddingOf(context).bottom + NafirSpace.xxl;
+    return LayoutBuilder(builder: (context, constraints) {
+      final width = constraints.maxWidth.clamp(0.0, NafirSpace.pageWidth);
+      final gutter = width >= 600 ? NafirSpace.xxl : NafirSpace.lg;
+      final inner = width - gutter * 2;
+      final columns = (inner / 200).floor().clamp(2, 5);
+      final tile = (inner - NafirSpace.md * (columns - 1)) / columns;
+      final side = (constraints.maxWidth - width) / 2 + gutter;
+      return CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(side, NafirSpace.md, side, bottom),
+            sliver: SliverGrid.builder(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columns,
+                mainAxisSpacing: NafirSpace.lg,
+                crossAxisSpacing: NafirSpace.md,
+                mainAxisExtent: tile + _textHeight,
+              ),
+              itemCount: popular.length,
+              itemBuilder: (context, index) {
+                final playlist = popular[index];
+                return _PopularTile(
+                  playlist: playlist,
+                  rank: index + 1,
+                  loading: playing == playlist.shareToken,
+                  onOpen: () => onOpen(playlist),
+                  onPlay: () => onPlay(playlist),
+                  onLike: isLiking(playlist.shareToken)
+                      ? null
+                      : () => onLike(playlist),
+                );
+              },
+            ),
+          ),
+        ],
+      );
+    });
+  }
+}
+
+/// One popular playlist: a mosaic cover with its rank and a play button,
+/// then its name, track count and likes. The owner is never shown.
+class _PopularTile extends StatelessWidget {
+  const _PopularTile({
+    required this.playlist,
+    required this.rank,
+    required this.loading,
+    required this.onOpen,
+    required this.onPlay,
     required this.onLike,
   });
 
   final PublicPlaylist playlist;
+  final int rank;
+  final bool loading;
   final VoidCallback onOpen;
+  final VoidCallback onPlay;
   final VoidCallback? onLike;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
-    return GlassSurface(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      padding: EdgeInsets.zero,
-      blur: 16,
-      radius: 22,
-      tint: scheme.secondary,
-      child: ListTile(
-        contentPadding: const EdgeInsetsDirectional.only(start: 14, end: 8),
-        minTileHeight: 76,
-        horizontalTitleGap: 14,
-        leading: Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(NafirRadii.lg),
-            gradient: LinearGradient(
-              begin: Alignment.topRight,
-              end: Alignment.bottomLeft,
-              colors: [
-                scheme.primary.withValues(alpha: 0.9),
-                scheme.secondary.withValues(alpha: 0.72),
-              ],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: scheme.primary.withValues(alpha: 0.22),
-                offset: const Offset(0, 10),
-                blurRadius: 22,
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final count = '${persianDigits(playlist.trackCount)} آهنگ';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AspectRatio(
+          aspectRatio: 1,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Semantics(
+                  button: true,
+                  label: 'رتبهٔ ${persianDigits(rank)}: ${playlist.name}، '
+                      '$count',
+                  excludeSemantics: true,
+                  child: Material(
+                    clipBehavior: Clip.antiAlias,
+                    shape: const RoundedRectangleBorder(
+                        borderRadius: NafirRadii.surface),
+                    child: InkWell(
+                      onTap: onOpen,
+                      child: _MosaicCover(
+                          seed: playlist.shareToken,
+                          tiles: playlist.trackCount),
+                    ),
+                  ),
+                ),
+              ),
+              PositionedDirectional(
+                top: NafirSpace.sm,
+                start: NafirSpace.sm,
+                child: _RankBadge(rank: rank),
+              ),
+              PositionedDirectional(
+                bottom: NafirSpace.sm,
+                end: NafirSpace.sm,
+                child: IconButton.filled(
+                  tooltip: 'پخش ${playlist.name}',
+                  onPressed:
+                      loading || playlist.trackCount == 0 ? null : onPlay,
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size.square(NafirSpace.target),
+                    backgroundColor: scheme.primary,
+                    foregroundColor: scheme.onPrimary,
+                  ),
+                  icon: loading
+                      ? SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: scheme.onPrimary),
+                        )
+                      : const Icon(NafirIcons.playFill),
+                ),
               ),
             ],
           ),
-          child: const Icon(NafirIcons.playlist),
         ),
-        title: Text(
-          playlist.name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+        const SizedBox(height: NafirSpace.sm),
+        Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                onTap: onOpen,
+                borderRadius: NafirRadii.control,
+                child: Padding(
+                  padding:
+                      const EdgeInsetsDirectional.only(start: NafirSpace.xs),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        playlist.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall
+                            ?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                      Text(
+                        playlist.isOwner ? 'فهرست پخش خودت · $count' : count,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: scheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            PlaylistLikeButton(
+              likes: playlist.likes,
+              onPressed: onLike,
+              compact: true,
+            ),
+          ],
         ),
-        subtitle: Text(
-          [
-            playlist.isOwner ? 'فهرست پخش خودت' : playlist.owner,
-            '${persianDigits(playlist.trackCount)} آهنگ',
-          ].join(' · '),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+      ],
+    );
+  }
+}
+
+/// The playlist's place in the list, on its cover.
+class _RankBadge extends StatelessWidget {
+  const _RankBadge({required this.rank});
+
+  final int rank;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final top = rank <= 3;
+    return Container(
+      constraints: const BoxConstraints(minWidth: 32),
+      padding: const EdgeInsets.symmetric(
+          horizontal: NafirSpace.sm, vertical: NafirSpace.xxs),
+      decoration: BoxDecoration(
+        color: top ? theme.colorScheme.primary : NafirColors.scrim,
+        borderRadius: BorderRadius.circular(NafirRadii.pill),
+      ),
+      child: Text(
+        persianDigits(rank),
+        textAlign: TextAlign.center,
+        style: theme.textTheme.labelLarge?.copyWith(
+          fontWeight: FontWeight.w800,
+          color: top ? theme.colorScheme.onPrimary : NafirColors.onSurface,
         ),
-        trailing: PlaylistLikeButton(
-          likes: playlist.likes,
-          onPressed: onLike,
-          compact: true,
-        ),
-        onTap: onOpen,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(NafirRadii.xl)),
       ),
     );
   }
 }
 
-class _Notice extends StatelessWidget {
-  const _Notice({required this.icon, required this.text, this.action});
+/// A cover made of up to four tinted squares, one per track, seeded by the
+/// playlist so it keeps its look. The API lists no artwork for popular
+/// playlists yet, so the tints stand in for it.
+class _MosaicCover extends StatelessWidget {
+  const _MosaicCover({required this.seed, required this.tiles});
 
-  final IconData icon;
-  final String text;
-  final Widget? action;
+  final String seed;
+  final int tiles;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 40),
-            const SizedBox(height: 12),
-            Text(text, textAlign: TextAlign.center),
-            if (action != null) ...[const SizedBox(height: 16), action!],
-          ],
-        ),
-      ),
+    Widget square(int i) => ColoredBox(
+          color: artworkTint('$seed-$i'),
+          child: Center(
+            child: Icon(NafirIcons.musicNotes,
+                color: NafirColors.onSurface.withValues(alpha: 0.32)),
+          ),
+        );
+    final count = tiles.clamp(1, 4);
+    if (count < 4) {
+      // Fewer than four tracks: one tint, so the cover never looks broken.
+      return square(0);
+    }
+    return Column(
+      children: [
+        for (final row in const [0, 2])
+          Expanded(
+            child: Row(
+              children: [
+                for (final column in const [0, 1])
+                  Expanded(child: square(row + column)),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

@@ -603,7 +603,9 @@ void main() {
               ]);
 
         expect(find.text('loved'), findsOneWidget);
-        expect(find.text('f***@example.com · ۳ آهنگ'), findsNWidgets(2));
+        expect(find.text('۳ آهنگ'), findsNWidgets(2));
+        // Owners are never shown, not even masked.
+        expect(find.textContaining('@'), findsNothing);
         await tester.tap(find.text('۵'));
         await tester.pumpAndSettle();
         expect(api.likeCalls, [true]);
