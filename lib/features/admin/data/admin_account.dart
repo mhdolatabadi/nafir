@@ -1,4 +1,4 @@
-import 'package:nafir/features/auth/data/auth_models.dart';
+import 'package:rhythmo/features/auth/data/auth_models.dart';
 
 class AdminAccount {
   const AdminAccount({required this.user, required this.createdAt});

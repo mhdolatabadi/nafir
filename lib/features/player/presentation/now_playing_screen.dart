@@ -1,15 +1,15 @@
-import 'package:nafir/core/persian_digits.dart';
+import 'package:rhythmo/core/persian_digits.dart';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:nafir/core/design/design.dart';
-import 'package:nafir/core/format_size.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/lyrics/presentation/lyrics_sheet.dart';
-import 'package:nafir/features/player/application/play_queue.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/player/presentation/playback_controls.dart';
+import 'package:rhythmo/core/design/design.dart';
+import 'package:rhythmo/core/format_size.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/lyrics/presentation/lyrics_sheet.dart';
+import 'package:rhythmo/features/player/application/play_queue.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/player/presentation/playback_controls.dart';
 
 /// The widest the now-playing column grows on desktop.
 const nowPlayingMaxWidth = 520.0;
@@ -23,17 +23,17 @@ Future<void> openNowPlaying(BuildContext context, PlayerController player) {
     PageRouteBuilder<void>(
       // The page underneath shows while the screen is dragged down.
       opaque: false,
-      barrierColor: NafirColors.barrier,
-      transitionDuration: reduceMotion ? Duration.zero : NafirMotion.enter,
+      barrierColor: RhythmoColors.barrier,
+      transitionDuration: reduceMotion ? Duration.zero : RhythmoMotion.enter,
       reverseTransitionDuration:
-          reduceMotion ? Duration.zero : NafirMotion.medium,
+          reduceMotion ? Duration.zero : RhythmoMotion.medium,
       pageBuilder: (_, __, ___) => NowPlayingScreen(player: player),
       transitionsBuilder: (_, animation, __, child) => SlideTransition(
         position: Tween(begin: const Offset(0, 1), end: Offset.zero).animate(
           CurvedAnimation(
             parent: animation,
-            curve: NafirMotion.emphasized,
-            reverseCurve: NafirMotion.exit,
+            curve: RhythmoMotion.emphasized,
+            reverseCurve: RhythmoMotion.exit,
           ),
         ),
         child: child,
@@ -85,7 +85,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
   double _drag = 0;
   late final AnimationController _settle = AnimationController(
     vsync: this,
-    duration: NafirMotion.short,
+    duration: RhythmoMotion.short,
   )..addListener(() => setState(() => _drag = _settleFrom * _settle.value));
   late final AnimationController _ambient = AnimationController(
     vsync: this,
@@ -126,7 +126,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
     }
     _settleFrom = _drag;
     _settle.value = 1;
-    _settle.animateTo(0, curve: NafirMotion.standard);
+    _settle.animateTo(0, curve: RhythmoMotion.standard);
   }
 
   void _openQueue() {
@@ -312,7 +312,7 @@ class _PlaybackBackdropPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final phase = animation.value * 2 * pi;
     final glow = Paint()
-      ..color = Color.lerp(tint, NafirColors.highlight, 0.35)!
+      ..color = Color.lerp(tint, RhythmoColors.highlight, 0.35)!
           .withValues(alpha: 0.09);
     canvas.drawCircle(
       Offset(size.width * (0.25 + 0.08 * sin(phase)),
@@ -322,7 +322,7 @@ class _PlaybackBackdropPainter extends CustomPainter {
     );
     final paint = Paint()
       ..style = PaintingStyle.stroke
-      ..color = NafirColors.highlight.withValues(alpha: 0.045)
+      ..color = RhythmoColors.highlight.withValues(alpha: 0.045)
       ..strokeWidth = 2;
     for (var band = 0; band < 5; band++) {
       final path = Path();
@@ -365,7 +365,7 @@ class _Header extends StatelessWidget {
           IconButton(
             tooltip: 'بستن',
             onPressed: onClose,
-            icon: const Icon(NafirIcons.caretDown),
+            icon: const Icon(RhythmoIcons.caretDown),
           ),
           Expanded(
             child: Column(
@@ -423,16 +423,16 @@ class NowPlayingArtwork extends StatelessWidget {
         status == PlayerStatus.buffering ||
         status == PlayerStatus.loading;
     final icon = status == PlayerStatus.error
-        ? NafirIcons.warningCircle
+        ? RhythmoIcons.warningCircle
         : track.isLocal
-            ? NafirIcons.deviceMobile
-            : NafirIcons.musicNote;
+            ? RhythmoIcons.deviceMobile
+            : RhythmoIcons.musicNote;
     return AnimatedScale(
       scale: active ? 1 : 0.9,
       duration: MediaQuery.disableAnimationsOf(context)
           ? Duration.zero
-          : NafirMotion.long,
-      curve: NafirMotion.emphasized,
+          : RhythmoMotion.long,
+      curve: RhythmoMotion.emphasized,
       child: Container(
         width: size,
         height: size,
@@ -442,16 +442,16 @@ class NowPlayingArtwork extends StatelessWidget {
             begin: Alignment.topRight,
             end: Alignment.bottomLeft,
             colors: [
-              Color.lerp(tint, NafirColors.highlight, 0.14)!,
+              Color.lerp(tint, RhythmoColors.highlight, 0.14)!,
               Theme.of(context).brightness == Brightness.dark
-                  ? Color.lerp(tint, NafirColors.background, 0.35)!
+                  ? Color.lerp(tint, RhythmoColors.background, 0.35)!
                   : colors.primaryContainer,
             ],
           ),
-          border: Border.all(color: NafirColors.softBorder),
+          border: Border.all(color: RhythmoColors.softBorder),
           boxShadow: const [
             BoxShadow(
-              color: NafirColors.shadow,
+              color: RhythmoColors.shadow,
               offset: Offset(0, 18),
               blurRadius: 42,
             ),
@@ -516,7 +516,7 @@ class _TitleRow extends StatelessWidget {
             onPressed: onLike,
             iconSize: 28,
             color: liked ? theme.colorScheme.primary : null,
-            icon: Icon(liked ? NafirIcons.heartFill : NafirIcons.heart),
+            icon: Icon(liked ? RhythmoIcons.heartFill : RhythmoIcons.heart),
           ),
         ),
       ],
@@ -619,7 +619,7 @@ class _Transport extends StatelessWidget {
             iconSize: 34,
             constraints: const BoxConstraints.tightFor(width: 56, height: 56),
             onPressed: player.previous,
-            icon: const Icon(NafirIcons.skipBackFill),
+            icon: const Icon(RhythmoIcons.skipBackFill),
           ),
           SizedBox.square(
             dimension: 76,
@@ -648,10 +648,10 @@ class _Transport extends StatelessWidget {
                     onPressed: player.toggle,
                     icon: Icon(
                       status == PlayerStatus.error
-                          ? NafirIcons.arrowsClockwise
+                          ? RhythmoIcons.arrowsClockwise
                           : playing
-                              ? NafirIcons.pauseFill
-                              : NafirIcons.playFill,
+                              ? RhythmoIcons.pauseFill
+                              : RhythmoIcons.playFill,
                     ),
                   ),
           ),
@@ -660,7 +660,7 @@ class _Transport extends StatelessWidget {
             iconSize: 34,
             constraints: const BoxConstraints.tightFor(width: 56, height: 56),
             onPressed: player.next,
-            icon: const Icon(NafirIcons.skipForwardFill),
+            icon: const Icon(RhythmoIcons.skipForwardFill),
           ),
           RepeatToggle(player: player),
         ],
@@ -697,7 +697,7 @@ class _BottomRow extends StatelessWidget {
             child: TextButton.icon(
               style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
               onPressed: onQueue,
-              icon: const Icon(NafirIcons.playlist),
+              icon: const Icon(RhythmoIcons.playlist),
               label: Text(
                 upcoming == 0
                     ? 'صف پخش'
@@ -713,12 +713,12 @@ class _BottomRow extends StatelessWidget {
           IconButton(
             tooltip: 'متن آهنگ',
             onPressed: onLyrics,
-            icon: const Icon(NafirIcons.quotes),
+            icon: const Icon(RhythmoIcons.quotes),
           ),
         IconButton(
           tooltip: 'جزئیات آهنگ',
           onPressed: onMore,
-          icon: const Icon(NafirIcons.dotsThreeVertical),
+          icon: const Icon(RhythmoIcons.dotsThreeVertical),
         ),
       ],
     );
@@ -734,7 +734,7 @@ class ShuffleToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _ModeToggle(
         tooltip: player.shuffle ? 'پخش تصادفی: روشن' : 'پخش تصادفی',
-        icon: player.shuffle ? NafirIcons.shuffleFill : NafirIcons.shuffle,
+        icon: player.shuffle ? RhythmoIcons.shuffleFill : RhythmoIcons.shuffle,
         active: player.shuffle,
         onPressed: player.toggleShuffle,
       );
@@ -754,9 +754,9 @@ class RepeatToggle extends StatelessWidget {
           QueueRepeat.one => 'تکرار: همین آهنگ',
         },
         icon: switch (player.repeat) {
-          QueueRepeat.off => NafirIcons.repeat,
-          QueueRepeat.all => NafirIcons.repeatFill,
-          QueueRepeat.one => NafirIcons.repeatOnceFill,
+          QueueRepeat.off => RhythmoIcons.repeat,
+          QueueRepeat.all => RhythmoIcons.repeatFill,
+          QueueRepeat.one => RhythmoIcons.repeatOnceFill,
         },
         active: player.repeat != QueueRepeat.off,
         onPressed: player.cycleRepeat,
@@ -788,7 +788,7 @@ class _ModeToggle extends StatelessWidget {
           active ? colors.onSecondaryContainer : colors.onSurfaceVariant,
         ),
         backgroundColor: WidgetStatePropertyAll(
-          active ? colors.secondaryContainer : NafirColors.transparent,
+          active ? colors.secondaryContainer : RhythmoColors.transparent,
         ),
       ),
       icon: Icon(icon),
@@ -813,21 +813,24 @@ class QueueSheet extends StatelessWidget {
         builder: (context, _) {
           final current = player.track;
           final upcoming = player.upcoming;
-          return NafirSheetFrame(
+          return RhythmoSheetFrame(
             title: 'صف پخش',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (current != null)
-                  NafirTrackRow(
+                  RhythmoTrackRow(
                     seed: current.id,
                     title: current.title,
                     subtitle: 'در حال پخش · ${trackSubtitle(current)}',
                     active: true,
                   ),
                 Padding(
-                  padding: const EdgeInsetsDirectional.fromSTEB(NafirSpace.xxl,
-                      NafirSpace.md, NafirSpace.xxl, NafirSpace.xs),
+                  padding: const EdgeInsetsDirectional.fromSTEB(
+                      RhythmoSpace.xxl,
+                      RhythmoSpace.md,
+                      RhythmoSpace.xxl,
+                      RhythmoSpace.xs),
                   child: Text(
                     upcoming.isEmpty
                         ? 'بعدی'
@@ -839,18 +842,18 @@ class QueueSheet extends StatelessWidget {
                 ),
                 Expanded(
                   child: upcoming.isEmpty
-                      ? const NafirStateView(
-                          icon: NafirIcons.playlist,
+                      ? const RhythmoStateView(
+                          icon: RhythmoIcons.playlist,
                           title: 'آهنگ دیگری در صف نیست.',
                           message:
                               'آهنگ بعدی را از کتابخانه یا فهرست پخش انتخاب کنید.',
                         )
                       : ListView.builder(
-                          padding: nafirListBottomPadding(context),
+                          padding: rhythmoListBottomPadding(context),
                           itemCount: upcoming.length,
                           itemBuilder: (context, index) {
                             final track = upcoming[index];
-                            return NafirTrackRow(
+                            return RhythmoTrackRow(
                               seed: track.id,
                               title: track.title,
                               subtitle: trackSubtitle(track),
@@ -892,21 +895,21 @@ class _TrackDetailsSheet extends StatelessWidget {
     ];
     return SingleChildScrollView(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.viewPaddingOf(context).bottom + NafirSpace.lg,
+        bottom: MediaQuery.viewPaddingOf(context).bottom + RhythmoSpace.lg,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const NafirSectionHeader(
+          const RhythmoSectionHeader(
             title: 'جزئیات آهنگ',
             padding: EdgeInsetsDirectional.fromSTEB(
-                NafirSpace.xxl, 0, NafirSpace.xxl, NafirSpace.sm),
+                RhythmoSpace.xxl, 0, RhythmoSpace.xxl, RhythmoSpace.sm),
           ),
           for (final (label, value) in rows)
             if (value?.trim().isNotEmpty == true)
               ListTile(
                 contentPadding: const EdgeInsetsDirectional.symmetric(
-                    horizontal: NafirSpace.xxl),
+                    horizontal: RhythmoSpace.xxl),
                 title: Text(label),
                 subtitle:
                     Text(value!, maxLines: 2, overflow: TextOverflow.ellipsis),

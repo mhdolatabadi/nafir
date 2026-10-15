@@ -1,5 +1,5 @@
 import 'package:just_audio/just_audio.dart';
-import 'package:nafir/features/library/data/track.dart';
+import 'package:rhythmo/features/library/data/track.dart';
 
 import 'audio_cache_stub.dart' if (dart.library.io) 'audio_cache_io.dart'
     as platform;

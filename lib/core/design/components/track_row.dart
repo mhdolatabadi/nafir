@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:nafir/core/design/tokens.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
+import 'package:rhythmo/core/design/tokens.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
 
 /// A square stand-in for cover art, tinted from [seed] so every track keeps
 /// its own colour.
-class NafirArtworkTile extends StatelessWidget {
-  const NafirArtworkTile({
+class RhythmoArtworkTile extends StatelessWidget {
+  const RhythmoArtworkTile({
     super.key,
     required this.seed,
     this.size = 44,
-    this.icon = NafirIcons.musicNote,
+    this.icon = RhythmoIcons.musicNote,
     this.active = false,
   });
 
@@ -31,7 +31,7 @@ class NafirArtworkTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(size * 0.27),
       ),
       child: Icon(
-        active ? NafirIcons.waveformFill : icon,
+        active ? RhythmoIcons.waveformFill : icon,
         size: size * 0.45,
         color: active ? colors.onPrimaryContainer : colors.onSurfaceVariant,
       ),
@@ -42,15 +42,15 @@ class NafirArtworkTile extends StatelessWidget {
 /// One track in a list: artwork, title, the artist (or where it plays
 /// from) and supporting detail such as the file size, then actions. Long
 /// titles in any script end in an ellipsis; the row is at least 64 px.
-class NafirTrackRow extends StatelessWidget {
-  const NafirTrackRow({
+class RhythmoTrackRow extends StatelessWidget {
+  const RhythmoTrackRow({
     super.key,
     required this.seed,
     required this.title,
     required this.subtitle,
     this.detail,
     this.active = false,
-    this.leadingIcon = NafirIcons.musicNote,
+    this.leadingIcon = RhythmoIcons.musicNote,
     this.onTap,
     this.trailing,
   });
@@ -73,10 +73,11 @@ class NafirTrackRow extends StatelessWidget {
     return ListTile(
       minTileHeight: 64,
       contentPadding: const EdgeInsetsDirectional.fromSTEB(
-          NafirSpace.lg, 0, NafirSpace.xs, 0),
+          RhythmoSpace.lg, 0, RhythmoSpace.xs, 0),
       onTap: onTap,
       selected: active,
-      leading: NafirArtworkTile(seed: seed, icon: leadingIcon, active: active),
+      leading:
+          RhythmoArtworkTile(seed: seed, icon: leadingIcon, active: active),
       title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(line, maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: trailing,

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/app/app_theme.dart';
-import 'package:nafir/features/auth/application/auth_controller.dart';
-import 'package:nafir/features/auth/data/token_store.dart';
-import 'package:nafir/features/auth/presentation/sign_in_screen.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/playlists/application/playlists_controller.dart';
-import 'package:nafir/features/playlists/presentation/popular_playlists_screen.dart';
+import 'package:rhythmo/app/app_theme.dart';
+import 'package:rhythmo/features/auth/application/auth_controller.dart';
+import 'package:rhythmo/features/auth/data/token_store.dart';
+import 'package:rhythmo/features/auth/presentation/sign_in_screen.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/playlists/application/playlists_controller.dart';
+import 'package:rhythmo/features/playlists/presentation/popular_playlists_screen.dart';
 
 import 'player_controller_test.dart' show FakeAudioEngine;
 import 'playlist_sharing_test.dart' show FakePlaylistsApi;
@@ -18,7 +18,7 @@ Widget _app(Widget home) => MaterialApp(
       locale: const Locale('fa'),
       supportedLocales: const [Locale('fa')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: NafirTheme.dark(),
+      theme: RhythmoTheme.dark(),
       home: home,
     );
 

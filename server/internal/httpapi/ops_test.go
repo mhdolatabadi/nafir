@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mhdolatabadi/nafir/server/internal/bot"
+	"github.com/mhdolatabadi/rhythmo/server/internal/bot"
 )
 
 type fakeHealth []bot.BotHealth

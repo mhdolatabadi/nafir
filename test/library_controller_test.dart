@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/features/library/application/library_controller.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/library/data/track_metadata.dart';
+import 'package:rhythmo/features/library/application/library_controller.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/library/data/track_metadata.dart';
 
 import 'upload_controller_test.dart' show FakeTracksApi;
 

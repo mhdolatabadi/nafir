@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:nafir/core/design/design.dart';
-import 'package:nafir/core/format_size.dart';
-import 'package:nafir/core/persian_digits.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/features/auth/presentation/sign_in_prompt.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/player/presentation/mini_player.dart';
-import 'package:nafir/features/store/application/store_controller.dart';
-import 'package:nafir/features/store/data/store_catalog.dart';
+import 'package:rhythmo/core/design/design.dart';
+import 'package:rhythmo/core/format_size.dart';
+import 'package:rhythmo/core/persian_digits.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/features/auth/presentation/sign_in_prompt.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/player/presentation/mini_player.dart';
+import 'package:rhythmo/features/store/application/store_controller.dart';
+import 'package:rhythmo/features/store/data/store_catalog.dart';
 
 /// «استور»: every song in rhythmo's public playlists, once, by title,
 /// artist and album. Anyone can search and play; adding a song to the
@@ -87,38 +87,38 @@ class _StoreScreenState extends State<StoreScreen>
       return;
     }
     final found = song;
-    await showNafirSheet<void>(
+    await showRhythmoSheet<void>(
       context,
       heightFactor: 0.6,
-      builder: (context) => NafirSheetFrame(
+      builder: (context) => RhythmoSheetFrame(
         title: found.title,
         subtitle: found.artist,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(
-                  NafirSpace.xxl, NafirSpace.sm, NafirSpace.xxl, 0)
-              .add(nafirListBottomPadding(context)),
+                  RhythmoSpace.xxl, RhythmoSpace.sm, RhythmoSpace.xxl, 0)
+              .add(rhythmoListBottomPadding(context)),
           children: [
             Text(
               'این آهنگ در فهرست‌های پخش عمومی ریتمو هست و با کیفیت فایل '
               'اصلی پخش می‌شود.',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
-            const SizedBox(height: NafirSpace.xl),
+            const SizedBox(height: RhythmoSpace.xl),
             FilledButton.icon(
               onPressed: () {
                 Navigator.of(context).pop();
                 widget.player.play(found);
               },
-              icon: const Icon(NafirIcons.playFill),
+              icon: const Icon(RhythmoIcons.playFill),
               label: const Text('پخش'),
             ),
-            const SizedBox(height: NafirSpace.sm),
+            const SizedBox(height: RhythmoSpace.sm),
             OutlinedButton.icon(
               onPressed: () {
                 Navigator.of(context).pop();
                 _save(found);
               },
-              icon: const Icon(NafirIcons.plusCircle),
+              icon: const Icon(RhythmoIcons.plusCircle),
               label: const Text('افزودن به کتابخانه‌ی من'),
             ),
           ],
@@ -166,23 +166,24 @@ class _StoreScreenState extends State<StoreScreen>
       appBar: AppBar(
         title: const Text('استور'),
         bottom: PreferredSize(
-          preferredSize:
-              const Size.fromHeight(NafirSpace.target * 2 + NafirSpace.md * 2),
+          preferredSize: const Size.fromHeight(
+              RhythmoSpace.target * 2 + RhythmoSpace.md * 2),
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: NafirSpace.pageWidth),
+              constraints:
+                  const BoxConstraints(maxWidth: RhythmoSpace.pageWidth),
               child: Column(
                 children: [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(
-                        NafirSpace.lg, 0, NafirSpace.lg, NafirSpace.md),
+                        RhythmoSpace.lg, 0, RhythmoSpace.lg, RhythmoSpace.md),
                     child: TextField(
                       controller: _search,
                       textInputAction: TextInputAction.search,
                       maxLength: 100,
                       decoration: InputDecoration(
                         hintText: 'نام آهنگ، خواننده یا آلبوم',
-                        prefixIcon: const Icon(NafirIcons.magnifyingGlass),
+                        prefixIcon: const Icon(RhythmoIcons.magnifyingGlass),
                         counterText: '',
                         suffixIcon: ListenableBuilder(
                           listenable: _search,
@@ -194,7 +195,7 @@ class _StoreScreenState extends State<StoreScreen>
                                     _search.clear();
                                     controller.search('');
                                   },
-                                  icon: const Icon(NafirIcons.x),
+                                  icon: const Icon(RhythmoIcons.x),
                                 ),
                         ),
                       ),
@@ -205,9 +206,9 @@ class _StoreScreenState extends State<StoreScreen>
                   TabBar(
                     controller: _tabs,
                     tabs: const [
-                      Tab(height: NafirSpace.target, text: 'آهنگ‌ها'),
-                      Tab(height: NafirSpace.target, text: 'خواننده‌ها'),
-                      Tab(height: NafirSpace.target, text: 'آلبوم‌ها'),
+                      Tab(height: RhythmoSpace.target, text: 'آهنگ‌ها'),
+                      Tab(height: RhythmoSpace.target, text: 'خواننده‌ها'),
+                      Tab(height: RhythmoSpace.target, text: 'آلبوم‌ها'),
                     ],
                   ),
                 ],
@@ -217,7 +218,7 @@ class _StoreScreenState extends State<StoreScreen>
         ),
       ),
       bottomNavigationBar: MiniPlayer(player: widget.player),
-      body: NafirBackdrop(
+      body: RhythmoBackdrop(
         child: TabBarView(
           controller: _tabs,
           children: [
@@ -227,13 +228,13 @@ class _StoreScreenState extends State<StoreScreen>
               player: widget.player,
               empty: () => controller.query.isEmpty
                   ? const _Empty(
-                      icon: NafirIcons.storefront,
+                      icon: RhythmoIcons.storefront,
                       title: 'استور هنوز خالی است',
                       message: 'وقتی کسی فهرست پخشی را عمومی کند، '
                           'آهنگ‌هایش اینجا می‌آیند.',
                     )
                   : const _Empty(
-                      icon: NafirIcons.magnifyingGlassMinus,
+                      icon: RhythmoIcons.magnifyingGlassMinus,
                       title: 'آهنگی پیدا نشد',
                       message: 'املای دیگری را امتحان کن یا نام خواننده را '
                           'بنویس.',
@@ -245,7 +246,7 @@ class _StoreScreenState extends State<StoreScreen>
               listing: controller.artists,
               emptyTitle: 'خواننده‌ای پیدا نشد',
               row: (artist) => _IndexRow(
-                icon: NafirIcons.microphoneStage,
+                icon: RhythmoIcons.microphoneStage,
                 seed: 'artist:${artist.name}',
                 title: artist.name,
                 subtitle: '${persianDigits(artist.trackCount)} آهنگ',
@@ -257,7 +258,7 @@ class _StoreScreenState extends State<StoreScreen>
               listing: controller.albums,
               emptyTitle: 'آلبومی پیدا نشد',
               row: (album) => _IndexRow(
-                icon: NafirIcons.vinylRecord,
+                icon: RhythmoIcons.vinylRecord,
                 seed: 'album:${album.name}:${album.artist}',
                 title: album.name,
                 subtitle: [
@@ -336,13 +337,13 @@ class _StoreSongsScreenState extends State<StoreSongsScreen> {
         ),
       ),
       bottomNavigationBar: MiniPlayer(player: widget.player),
-      body: NafirBackdrop(
+      body: RhythmoBackdrop(
         child: _SongList(
           listing: widget.listing,
           controller: widget.controller,
           player: widget.player,
           empty: () => const _Empty(
-            icon: NafirIcons.musicNotesMinus,
+            icon: RhythmoIcons.musicNotesMinus,
             title: 'آهنگی در استور نمانده',
             message: 'ممکن است از فهرست‌های پخش عمومی برداشته شده باشد.',
           ),
@@ -394,7 +395,7 @@ Future<void> reportStoreSong(
     return;
   }
   final messenger = ScaffoldMessenger.of(context);
-  final report = await showNafirSheet<_Report>(
+  final report = await showRhythmoSheet<_Report>(
     context,
     heightFactor: 0.85,
     builder: (context) => _ReportSheet(song: song),
@@ -445,16 +446,17 @@ class _ReportSheetState extends State<_ReportSheet> {
   @override
   Widget build(BuildContext context) {
     final reason = _reason;
-    return NafirSheetFrame(
+    return RhythmoSheetFrame(
       title: 'گزارش تخلف',
       subtitle: widget.song.title,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(NafirSpace.lg, 0, NafirSpace.lg, 0)
-            .add(nafirListBottomPadding(context)),
+        padding:
+            const EdgeInsets.fromLTRB(RhythmoSpace.lg, 0, RhythmoSpace.lg, 0)
+                .add(rhythmoListBottomPadding(context)),
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(
-                horizontal: NafirSpace.sm, vertical: NafirSpace.sm),
+                horizontal: RhythmoSpace.sm, vertical: RhythmoSpace.sm),
             child: Text(
               'چه مشکلی در این آهنگ هست؟ مدیران ریتمو گزارش را می‌بینند و '
               'ممکن است آهنگ را از استور پنهان کنند. نامت به کسی نشان داده '
@@ -471,12 +473,12 @@ class _ReportSheetState extends State<_ReportSheet> {
                   RadioListTile<StoreReportReason>(
                     value: option,
                     title: Text(option.label),
-                    minTileHeight: NafirSpace.target + NafirSpace.sm,
+                    minTileHeight: RhythmoSpace.target + RhythmoSpace.sm,
                   ),
               ],
             ),
           ),
-          const SizedBox(height: NafirSpace.sm),
+          const SizedBox(height: RhythmoSpace.sm),
           TextField(
             controller: _details,
             maxLength: 1000,
@@ -487,7 +489,7 @@ class _ReportSheetState extends State<_ReportSheet> {
               hintText: 'مثلاً صاحب اصلی اثر یا مشکل مشخصات',
             ),
           ),
-          const SizedBox(height: NafirSpace.md),
+          const SizedBox(height: RhythmoSpace.md),
           FilledButton.icon(
             onPressed: reason == null
                 ? null
@@ -496,7 +498,7 @@ class _ReportSheetState extends State<_ReportSheet> {
                     _details.text.trim().isEmpty
                         ? null
                         : _details.text.trim())),
-            icon: const Icon(NafirIcons.flag),
+            icon: const Icon(RhythmoIcons.flag),
             label: const Text('فرستادن گزارش'),
           ),
         ],
@@ -532,7 +534,7 @@ class _SongList extends StatelessWidget {
         listenable: player,
         builder: (context, _) {
           final songs = listing.items;
-          return NafirTrackRow(
+          return RhythmoTrackRow(
             seed: song.id,
             title: song.title,
             subtitle: song.artist ?? 'خواننده‌ی نامشخص',
@@ -568,10 +570,10 @@ class _SongMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     if (saving) {
       return const SizedBox.square(
-        dimension: NafirSpace.target,
+        dimension: RhythmoSpace.target,
         child: Center(
           child: SizedBox.square(
-            dimension: NafirSpace.xl,
+            dimension: RhythmoSpace.xl,
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
         ),
@@ -579,7 +581,7 @@ class _SongMenu extends StatelessWidget {
     }
     return PopupMenuButton<_SongAction>(
       tooltip: 'گزینه‌های آهنگ',
-      icon: const Icon(NafirIcons.dotsThreeVertical),
+      icon: const Icon(RhythmoIcons.dotsThreeVertical),
       onSelected: (action) => switch (action) {
         _SongAction.save => onSave(),
         _SongAction.report => onReport(),
@@ -589,7 +591,7 @@ class _SongMenu extends StatelessWidget {
           value: _SongAction.save,
           child: ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: Icon(NafirIcons.plusCircle),
+            leading: Icon(RhythmoIcons.plusCircle),
             title: Text('افزودن به کتابخانه‌ی من'),
           ),
         ),
@@ -597,7 +599,7 @@ class _SongMenu extends StatelessWidget {
           value: _SongAction.report,
           child: ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: Icon(NafirIcons.flag),
+            leading: Icon(RhythmoIcons.flag),
             title: Text('گزارش تخلف'),
           ),
         ),
@@ -623,15 +625,15 @@ class _IndexRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return NafirTrackRow(
+    return RhythmoTrackRow(
       seed: seed,
       leadingIcon: icon,
       title: title,
       subtitle: subtitle,
       onTap: onTap,
       trailing: const Padding(
-        padding: EdgeInsetsDirectional.only(end: NafirSpace.md),
-        child: Icon(NafirIcons.caretLeft),
+        padding: EdgeInsetsDirectional.only(end: RhythmoSpace.md),
+        child: Icon(RhythmoIcons.caretLeft),
       ),
     );
   }
@@ -662,33 +664,34 @@ class _Listing<T> extends StatelessWidget {
         return switch (listing.status) {
           StoreStatus.idle ||
           StoreStatus.loading when items.isEmpty =>
-            const NafirStateView.loading(title: 'در حال بارگذاری استور…'),
-          StoreStatus.error when items.isEmpty => NafirStateView.error(
-              icon: NafirIcons.cloudSlash,
+            const RhythmoStateView.loading(title: 'در حال بارگذاری استور…'),
+          StoreStatus.error when items.isEmpty => RhythmoStateView.error(
+              icon: RhythmoIcons.cloudSlash,
               title: 'استور بارگذاری نشد',
               message: 'اتصال اینترنت را بررسی کن و دوباره تلاش کن.',
               action: FilledButton.icon(
                 onPressed: listing.refresh,
-                icon: const Icon(NafirIcons.arrowsClockwise),
+                icon: const Icon(RhythmoIcons.arrowsClockwise),
                 label: const Text('تلاش دوباره'),
               ),
             ),
           _ when items.isEmpty => empty?.call() ??
-              _Empty(icon: NafirIcons.magnifyingGlassMinus, title: emptyTitle),
+              _Empty(
+                  icon: RhythmoIcons.magnifyingGlassMinus, title: emptyTitle),
           _ => RefreshIndicator(
               onRefresh: listing.refresh,
               child: Center(
                 child: ConstrainedBox(
                   constraints:
-                      const BoxConstraints(maxWidth: NafirSpace.pageWidth),
+                      const BoxConstraints(maxWidth: RhythmoSpace.pageWidth),
                   child: ListView.builder(
                     physics: const AlwaysScrollableScrollPhysics(),
                     // extendBody puts the mini player's height in the
                     // bottom padding, with the system inset.
                     padding: EdgeInsets.only(
-                      top: NafirSpace.sm,
-                      bottom:
-                          MediaQuery.paddingOf(context).bottom + NafirSpace.lg,
+                      top: RhythmoSpace.sm,
+                      bottom: MediaQuery.paddingOf(context).bottom +
+                          RhythmoSpace.lg,
                     ),
                     itemCount: items.length + (listing.hasMore ? 1 : 0),
                     itemBuilder: (context, index) {
@@ -716,11 +719,11 @@ class _MoreRow extends StatelessWidget {
   Widget build(BuildContext context) {
     if (listing.moreFailed) {
       return Padding(
-        padding: const EdgeInsets.all(NafirSpace.lg),
+        padding: const EdgeInsets.all(RhythmoSpace.lg),
         child: Center(
           child: OutlinedButton.icon(
             onPressed: listing.loadMore,
-            icon: const Icon(NafirIcons.arrowsClockwise),
+            icon: const Icon(RhythmoIcons.arrowsClockwise),
             label: const Text('بارگذاری بقیه'),
           ),
         ),
@@ -730,10 +733,10 @@ class _MoreRow extends StatelessWidget {
       WidgetsBinding.instance.addPostFrameCallback((_) => listing.loadMore());
     }
     return const Padding(
-      padding: EdgeInsets.all(NafirSpace.lg),
+      padding: EdgeInsets.all(RhythmoSpace.lg),
       child: Center(
         child: SizedBox.square(
-          dimension: NafirSpace.xxl,
+          dimension: RhythmoSpace.xxl,
           child: CircularProgressIndicator(strokeWidth: 2),
         ),
       ),
@@ -756,7 +759,7 @@ class _Empty extends StatelessWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: constraints.maxHeight),
-          child: NafirStateView(icon: icon, title: title, message: message),
+          child: RhythmoStateView(icon: icon, title: title, message: message),
         ),
       ),
     );

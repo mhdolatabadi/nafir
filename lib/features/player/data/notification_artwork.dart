@@ -1,7 +1,7 @@
 import 'notification_artwork_stub.dart'
     if (dart.library.io) 'notification_artwork_io.dart' as platform;
 
-/// The bundled Nafir logo shown when a track has no cover art.
+/// The bundled rhythmo logo shown when a track has no cover art.
 const notificationArtworkAsset = 'assets/icon/nafir.png';
 
 /// An artwork URI the system media controls can actually load.

@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 
 /// rhythmo's design tokens: the only place raw colours, the type scale,
 /// spacing, radii, glass levels and motion are defined. Everything else
-/// reads them from here, as constants or through [NafirTokens] on the theme.
+/// reads them from here, as constants or through [RhythmoTokens] on the theme.
 /// DESIGN.md describes how to use them.
 
 /// Colour roles of the dark glass theme. Text roles meet WCAG AA on every
 /// surface they are used on; test/design_system_test.dart checks the pairs.
-abstract final class NafirColors {
+abstract final class RhythmoColors {
   // Canvas and surfaces, darkest first.
   static const background = Color(0xFF070810);
   static const surface = Color(0xFF121522);
@@ -73,7 +73,7 @@ abstract final class NafirColors {
 
 /// Spacing scale, in logical pixels. Groups are tight (xs–sm), sections
 /// generous (lg–xxl). Page gutters are [lg] on phones and [xxl] on desktop.
-abstract final class NafirSpace {
+abstract final class RhythmoSpace {
   static const double xxs = 2;
   static const double xs = 4;
   static const double sm = 8;
@@ -99,7 +99,7 @@ abstract final class NafirSpace {
 
 /// Corner radii. Controls are [md], surfaces [lg], large glass panels and
 /// dialogs [xl], sheets [sheet]; [pill] is only for small controls.
-abstract final class NafirRadii {
+abstract final class RhythmoRadii {
   /// Thin bars: progress tracks and meters.
   static const double bar = 4;
   static const double xs = 8;
@@ -116,8 +116,8 @@ abstract final class NafirRadii {
 }
 
 /// Motion: a few durations and curves. Every animation goes through
-/// [NafirMotion.of], so it collapses to nothing under reduce-motion.
-abstract final class NafirMotion {
+/// [RhythmoMotion.of], so it collapses to nothing under reduce-motion.
+abstract final class RhythmoMotion {
   /// State changes on small controls: a press, a level meter.
   static const quick = Duration(milliseconds: 120);
 
@@ -155,12 +155,12 @@ abstract final class NafirMotion {
 
 /// The type scale: Material roles, set in Vazirmatn with line heights that
 /// leave room for Persian diacritics.
-abstract final class NafirType {
+abstract final class RhythmoType {
   static const family = 'Vazirmatn';
 
   /// Sets the scale on [base], in [color] (the scheme's onSurface).
   static TextTheme apply(TextTheme base,
-      {Color color = NafirColors.onSurface}) {
+      {Color color = RhythmoColors.onSurface}) {
     TextStyle? style(
             TextStyle? s, double size, FontWeight weight, double height) =>
         s?.copyWith(
@@ -190,8 +190,8 @@ abstract final class NafirType {
 /// How much a glass surface blurs and lifts. Blur is reserved for a few
 /// structural layers; cards on top of them stay flat.
 @immutable
-class NafirGlassLevel {
-  const NafirGlassLevel({
+class RhythmoGlassLevel {
+  const RhythmoGlassLevel({
     required this.blur,
     required this.highlight,
     required this.shadow,
@@ -207,19 +207,23 @@ class NafirGlassLevel {
   final Color border;
 
   /// The mini player and other chrome floating over content.
-  static const chrome = NafirGlassLevel(
-      blur: 24, highlight: 0.16, shadow: true, border: NafirColors.border);
+  static const chrome = RhythmoGlassLevel(
+      blur: 24, highlight: 0.16, shadow: true, border: RhythmoColors.border);
 
   /// Panels and grouped content.
-  static const panel = NafirGlassLevel(
-      blur: 18, highlight: 0.16, shadow: true, border: NafirColors.border);
+  static const panel = RhythmoGlassLevel(
+      blur: 18, highlight: 0.16, shadow: true, border: RhythmoColors.border);
 
   /// Cards inside a panel or list: no blur, no shadow.
-  static const card = NafirGlassLevel(
-      blur: 0, highlight: 0.08, shadow: false, border: NafirColors.softBorder);
+  static const card = RhythmoGlassLevel(
+      blur: 0,
+      highlight: 0.08,
+      shadow: false,
+      border: RhythmoColors.softBorder);
 
-  static NafirGlassLevel lerp(NafirGlassLevel a, NafirGlassLevel b, double t) =>
-      NafirGlassLevel(
+  static RhythmoGlassLevel lerp(
+          RhythmoGlassLevel a, RhythmoGlassLevel b, double t) =>
+      RhythmoGlassLevel(
         blur: lerpDouble(a.blur, b.blur, t)!,
         highlight: lerpDouble(a.highlight, b.highlight, t)!,
         shadow: t < 0.5 ? a.shadow : b.shadow,
@@ -228,49 +232,49 @@ class NafirGlassLevel {
 }
 
 /// The tokens on the theme, for widgets that take them from context:
-/// `NafirTokens.of(context)`.
+/// `RhythmoTokens.of(context)`.
 @immutable
-class NafirTokens extends ThemeExtension<NafirTokens> {
-  const NafirTokens({
-    this.chrome = NafirGlassLevel.chrome,
-    this.panel = NafirGlassLevel.panel,
-    this.card = NafirGlassLevel.card,
-    this.focusRing = NafirColors.primary,
-    this.ambientPrimary = NafirColors.primary,
-    this.ambientSecondary = NafirColors.secondary,
+class RhythmoTokens extends ThemeExtension<RhythmoTokens> {
+  const RhythmoTokens({
+    this.chrome = RhythmoGlassLevel.chrome,
+    this.panel = RhythmoGlassLevel.panel,
+    this.card = RhythmoGlassLevel.card,
+    this.focusRing = RhythmoColors.primary,
+    this.ambientPrimary = RhythmoColors.primary,
+    this.ambientSecondary = RhythmoColors.secondary,
   });
 
-  final NafirGlassLevel chrome;
-  final NafirGlassLevel panel;
-  final NafirGlassLevel card;
+  final RhythmoGlassLevel chrome;
+  final RhythmoGlassLevel panel;
+  final RhythmoGlassLevel card;
 
   /// The 2 px ring every focusable control shows under keyboard focus.
   final Color focusRing;
   final Color ambientPrimary;
   final Color ambientSecondary;
 
-  static const dark = NafirTokens();
+  static const dark = RhythmoTokens();
 
   /// The light theme: the glass levels keep their shape, the ring and the
   /// ambient light take the deeper ember.
-  static const light = NafirTokens(
-    focusRing: NafirColors.lightSeed,
-    ambientPrimary: NafirColors.lightSeed,
+  static const light = RhythmoTokens(
+    focusRing: RhythmoColors.lightSeed,
+    ambientPrimary: RhythmoColors.lightSeed,
   );
 
-  static NafirTokens of(BuildContext context) =>
-      Theme.of(context).extension<NafirTokens>() ?? dark;
+  static RhythmoTokens of(BuildContext context) =>
+      Theme.of(context).extension<RhythmoTokens>() ?? dark;
 
   @override
-  NafirTokens copyWith({
-    NafirGlassLevel? chrome,
-    NafirGlassLevel? panel,
-    NafirGlassLevel? card,
+  RhythmoTokens copyWith({
+    RhythmoGlassLevel? chrome,
+    RhythmoGlassLevel? panel,
+    RhythmoGlassLevel? card,
     Color? focusRing,
     Color? ambientPrimary,
     Color? ambientSecondary,
   }) =>
-      NafirTokens(
+      RhythmoTokens(
         chrome: chrome ?? this.chrome,
         panel: panel ?? this.panel,
         card: card ?? this.card,
@@ -280,12 +284,12 @@ class NafirTokens extends ThemeExtension<NafirTokens> {
       );
 
   @override
-  NafirTokens lerp(ThemeExtension<NafirTokens>? other, double t) {
-    if (other is! NafirTokens) return this;
-    return NafirTokens(
-      chrome: NafirGlassLevel.lerp(chrome, other.chrome, t),
-      panel: NafirGlassLevel.lerp(panel, other.panel, t),
-      card: NafirGlassLevel.lerp(card, other.card, t),
+  RhythmoTokens lerp(ThemeExtension<RhythmoTokens>? other, double t) {
+    if (other is! RhythmoTokens) return this;
+    return RhythmoTokens(
+      chrome: RhythmoGlassLevel.lerp(chrome, other.chrome, t),
+      panel: RhythmoGlassLevel.lerp(panel, other.panel, t),
+      card: RhythmoGlassLevel.lerp(card, other.card, t),
       focusRing: Color.lerp(focusRing, other.focusRing, t)!,
       ambientPrimary: Color.lerp(ambientPrimary, other.ambientPrimary, t)!,
       ambientSecondary:

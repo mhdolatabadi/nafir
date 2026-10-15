@@ -1,17 +1,17 @@
-import 'package:nafir/features/admin/data/admin_account.dart';
+import 'package:rhythmo/features/admin/data/admin_account.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
-import 'package:nafir/features/auth/data/auth_models.dart';
-import 'package:nafir/features/bots/data/messenger_bot.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/store/data/store_catalog.dart';
-import 'package:nafir/features/link_import/data/link_import.dart';
-import 'package:nafir/features/lyrics/data/lyrics.dart';
-import 'package:nafir/features/playlists/data/playlist.dart';
-import 'package:nafir/features/upload/data/upload_models.dart';
+import 'package:rhythmo/features/auth/data/auth_models.dart';
+import 'package:rhythmo/features/bots/data/messenger_bot.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/link_import/data/link_import.dart';
+import 'package:rhythmo/features/lyrics/data/lyrics.dart';
+import 'package:rhythmo/features/playlists/data/playlist.dart';
+import 'package:rhythmo/features/upload/data/upload_models.dart';
+import 'package:rhythmo/features/store/data/store_catalog.dart';
 
 class ApiException implements Exception {
   const ApiException(this.message,

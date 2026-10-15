@@ -6,21 +6,21 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:nafir/app/app_theme.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/core/design/design.dart';
-import 'package:nafir/core/format_size.dart';
-import 'package:nafir/features/history/application/recently_played_controller.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/lyrics/application/lyrics_controller.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/player/presentation/mini_player.dart';
-import 'package:nafir/features/playlists/application/playlists_controller.dart';
-import 'package:nafir/features/playlists/presentation/playlists_screen.dart';
-import 'package:nafir/features/playlists/presentation/popular_playlists_screen.dart';
-import 'package:nafir/features/store/application/store_controller.dart';
-import 'package:nafir/features/store/data/store_catalog.dart';
-import 'package:nafir/features/store/presentation/store_screen.dart';
+import 'package:rhythmo/app/app_theme.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/core/design/design.dart';
+import 'package:rhythmo/core/format_size.dart';
+import 'package:rhythmo/features/history/application/recently_played_controller.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/lyrics/application/lyrics_controller.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/player/presentation/mini_player.dart';
+import 'package:rhythmo/features/playlists/application/playlists_controller.dart';
+import 'package:rhythmo/features/playlists/presentation/playlists_screen.dart';
+import 'package:rhythmo/features/playlists/presentation/popular_playlists_screen.dart';
+import 'package:rhythmo/features/store/application/store_controller.dart';
+import 'package:rhythmo/features/store/data/store_catalog.dart';
+import 'package:rhythmo/features/store/presentation/store_screen.dart';
 
 import 'player_controller_test.dart' show FakeAudioEngine;
 import 'playlist_sharing_test.dart' show FakePlaylistsApi;
@@ -380,7 +380,7 @@ void main() {
         locale: const Locale('fa'),
         supportedLocales: const [Locale('fa')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        theme: NafirTheme.dark(),
+        theme: RhythmoTheme.dark(),
         home: StoreScreen(
           controller: store,
           player: player,
@@ -407,11 +407,11 @@ void main() {
                 .getSize(find.ancestor(
                     of: find.text(tab), matching: find.byType(Tab)))
                 .height,
-            greaterThanOrEqualTo(NafirSpace.target));
+            greaterThanOrEqualTo(RhythmoSpace.target));
       }
       final menu = tester.getSize(find.byTooltip('گزینه‌های آهنگ').first);
-      expect(menu.width, greaterThanOrEqualTo(NafirSpace.target));
-      expect(menu.height, greaterThanOrEqualTo(NafirSpace.target));
+      expect(menu.width, greaterThanOrEqualTo(RhythmoSpace.target));
+      expect(menu.height, greaterThanOrEqualTo(RhythmoSpace.target));
       // The artist, then the size, as supporting detail.
       expect(
           find.text(
@@ -435,7 +435,7 @@ void main() {
       await pump(tester, size: const Size(1440, 900));
       final row = tester.getRect(find.ancestor(
           of: find.text('Song 0'), matching: find.byType(ListTile)));
-      expect(row.width, lessThanOrEqualTo(NafirSpace.pageWidth));
+      expect(row.width, lessThanOrEqualTo(RhythmoSpace.pageWidth));
       expect((row.left - (1440 - row.right)).abs(), lessThan(2));
     });
 
@@ -556,7 +556,7 @@ void main() {
         final tile = find.ancestor(
             of: find.text(reason.label), matching: find.byType(ListTile));
         expect(tester.getSize(tile).height,
-            greaterThanOrEqualTo(NafirSpace.target));
+            greaterThanOrEqualTo(RhythmoSpace.target));
       }
     });
 
@@ -581,7 +581,7 @@ void main() {
       store = StoreController(api: api, token: () => null);
       addTearDown(store.dispose);
       await tester.pumpWidget(MaterialApp(
-        theme: NafirTheme.dark(),
+        theme: RhythmoTheme.dark(),
         home: StoreScreen(controller: store, player: player),
       ));
       await tester.pumpAndSettle();
@@ -598,7 +598,7 @@ void main() {
           locale: const Locale('fa'),
           supportedLocales: const [Locale('fa')],
           localizationsDelegates: GlobalMaterialLocalizations.delegates,
-          theme: NafirTheme.dark(),
+          theme: RhythmoTheme.dark(),
           home: home,
         );
 

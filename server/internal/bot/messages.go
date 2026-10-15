@@ -3,7 +3,7 @@ package bot
 import (
 	"fmt"
 
-	"github.com/mhdolatabadi/nafir/server/internal/display"
+	"github.com/mhdolatabadi/rhythmo/server/internal/display"
 )
 
 // Everything the bots say, in one place.

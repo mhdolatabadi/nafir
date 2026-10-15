@@ -3,15 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/app/app_theme.dart';
-import 'package:nafir/features/auth/data/token_store.dart';
-import 'package:nafir/features/history/application/recently_played_controller.dart';
-import 'package:nafir/features/library/data/local_audio_library.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/library/presentation/library_screen.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/playlists/data/playlist.dart';
-import 'package:nafir/main.dart';
+import 'package:rhythmo/app/app_theme.dart';
+import 'package:rhythmo/features/auth/data/token_store.dart';
+import 'package:rhythmo/features/history/application/recently_played_controller.dart';
+import 'package:rhythmo/features/library/data/local_audio_library.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/library/presentation/library_screen.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/playlists/data/playlist.dart';
+import 'package:rhythmo/main.dart';
 
 import 'cache_controller_test.dart' show FakeAudioCache;
 import 'library_sync_controller_test.dart'
@@ -61,7 +61,7 @@ Future<void> _pumpApp(
   FakePlaylistsApi? playlists,
   FakeAudioEngine? engine,
 }) async {
-  await tester.pumpWidget(NafirApp(
+  await tester.pumpWidget(RhythmoApp(
     healthCheck: () async {},
     authApi: FakeAuthApi(),
     tokenStore: MemoryTokenStore('valid-token'),
@@ -114,7 +114,9 @@ void main() {
 
       expect(find.text('اخیراً پخش‌شده'), findsNothing);
       expect(tester.takeException(), isNull);
-      expect(tester.getSize(find.byType(SearchBar)).height, 48);
+      // Search lives behind the header button, not above the list.
+      expect(find.byType(SearchBar), findsNothing);
+      _expectTouchTarget(tester, find.byTooltip('جست‌وجو در کتابخانه'));
       final brand = tester.getRect(find.text('ریتمو'));
       final search = tester.getRect(find.byTooltip('جست‌وجو در کتابخانه'));
       expect((brand.center.dy - search.center.dy).abs(), lessThan(4));
@@ -194,7 +196,7 @@ void main() {
       Future<void> pumpScreen(WidgetTester tester) async {
         _phone(tester);
         await tester.pumpWidget(MaterialApp(
-          theme: NafirTheme.dark(),
+          theme: RhythmoTheme.dark(),
           locale: const Locale('fa'),
           supportedLocales: const [Locale('fa')],
           localizationsDelegates: GlobalMaterialLocalizations.delegates,
@@ -366,7 +368,12 @@ void main() {
       expect(find.text('نتیجه‌ای پیدا نشد'), findsOneWidget);
       await tester.tap(find.widgetWithText(OutlinedButton, 'پاک کردن جست‌وجو'));
       await tester.pumpAndSettle();
-      expect(find.text('در همهٔ کتابخانه بگرد'), findsOneWidget);
+      // The search that led to a played track is remembered; «zzzz» found
+      // nothing and is not.
+      expect(find.text('جست‌وجوهای اخیر'), findsOneWidget);
+      expect(find.widgetWithText(ListTile, 'کلاسیک'), findsOneWidget);
+      expect(find.widgetWithText(ListTile, 'zzzz'), findsNothing);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('popular playlists loading, then failing, with a retry',

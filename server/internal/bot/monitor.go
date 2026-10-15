@@ -5,10 +5,10 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
-// WebhookStatus is what a provider reports about Nafir's webhook.
+// WebhookStatus is what a provider reports about rhythmo's webhook.
 type WebhookStatus struct {
 	Registered       bool       `json:"registered"`
 	MatchesExpected  bool       `json:"matchesExpected"`

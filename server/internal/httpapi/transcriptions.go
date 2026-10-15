@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/mhdolatabadi/nafir/server/internal/transcription"
+	"github.com/mhdolatabadi/rhythmo/server/internal/transcription"
 )
 
 func (h *LyricsHandlers) handleTranscription(w http.ResponseWriter, r *http.Request) {

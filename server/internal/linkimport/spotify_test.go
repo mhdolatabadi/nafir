@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 const spotifyPlaylistPage = `<html><head><title>Embed</title></head><body>

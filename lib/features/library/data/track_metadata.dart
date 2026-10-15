@@ -1,4 +1,4 @@
-import 'package:nafir/features/library/data/track.dart';
+import 'package:rhythmo/features/library/data/track.dart';
 
 /// The editable metadata of a cloud track, as typed in the editor. Text is
 /// kept as typed; empty optional values clear the field on save.

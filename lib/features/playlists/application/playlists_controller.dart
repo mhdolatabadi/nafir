@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/playlists/data/playlist.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/playlists/data/playlist.dart';
 
 enum PlaylistsStatus { loading, loaded, error }
 

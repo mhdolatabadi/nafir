@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/features/player/data/notification_artwork_io.dart';
+import 'package:rhythmo/features/player/data/notification_artwork_io.dart';
 
 void main() {
   late Directory dir;

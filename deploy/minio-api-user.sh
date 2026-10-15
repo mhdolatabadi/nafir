@@ -30,17 +30,17 @@ if [ "${#STORAGE_SECRET_KEY}" -lt 32 ]; then
 fi
 
 bucket=nafir-music
-policy=nafir-api
+policy=rhythmo-api
 # Every secret travels in the environment, never on a command line.
 script='
 set -e
 mc alias set nafir "$MC_ENDPOINT" "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null
 mc mb --ignore-existing "nafir/$BUCKET" >/dev/null
 mc admin user add nafir "$STORAGE_ACCESS_KEY" "$STORAGE_SECRET_KEY" >/dev/null
-cat > /tmp/nafir-api-policy.json
-mc admin policy create nafir "$POLICY" /tmp/nafir-api-policy.json >/dev/null
+cat > /tmp/rhythmo-api-policy.json
+mc admin policy create nafir "$POLICY" /tmp/rhythmo-api-policy.json >/dev/null
 mc admin policy attach nafir "$POLICY" --user "$STORAGE_ACCESS_KEY" >/dev/null 2>&1 || true
-rm -f /tmp/nafir-api-policy.json
+rm -f /tmp/rhythmo-api-policy.json
 # The bucket must stay private: audio is only served through presigned URLs.
 mc anonymous get "nafir/$BUCKET" | grep -q "private"
 '

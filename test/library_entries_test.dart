@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/features/library/application/library_entries.dart';
-import 'package:nafir/features/library/data/track.dart';
+import 'package:rhythmo/features/library/application/library_entries.dart';
+import 'package:rhythmo/features/library/data/track.dart';
 
 Track cloud(String id, {String? title, String? fileName, int size = 100}) =>
     Track(

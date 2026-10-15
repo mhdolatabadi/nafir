@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/mhdolatabadi/nafir/server/internal/linkimport"
+	"github.com/mhdolatabadi/rhythmo/server/internal/linkimport"
 )
 
 // setupYTDLP turns on imports from YouTube and Instagram when yt-dlp is

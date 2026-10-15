@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/app/app_theme.dart';
-import 'package:nafir/features/library/application/metadata_suggestions.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/library/data/track_metadata.dart';
-import 'package:nafir/features/library/presentation/track_metadata_editor.dart';
+import 'package:rhythmo/app/app_theme.dart';
+import 'package:rhythmo/features/library/application/metadata_suggestions.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/library/data/track_metadata.dart';
+import 'package:rhythmo/features/library/presentation/track_metadata_editor.dart';
 
 const _track = Track(
   id: 't1',
@@ -61,7 +61,7 @@ Future<_Host> _open(
     locale: const Locale('fa'),
     supportedLocales: const [Locale('fa')],
     localizationsDelegates: GlobalMaterialLocalizations.delegates,
-    theme: NafirTheme.dark(),
+    theme: RhythmoTheme.dark(),
     builder: (context, child) => MediaQuery(
       data: MediaQuery.of(context).copyWith(padding: padding),
       child: child!,

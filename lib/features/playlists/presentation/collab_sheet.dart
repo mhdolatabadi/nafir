@@ -1,11 +1,11 @@
-import 'package:nafir/core/persian_digits.dart';
+import 'package:rhythmo/core/persian_digits.dart';
 import 'package:flutter/material.dart';
-import 'package:nafir/core/design/design.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
+import 'package:rhythmo/core/design/design.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
 import 'package:flutter/services.dart';
-import 'package:nafir/app/app_configuration.dart';
-import 'package:nafir/features/playlists/application/playlists_controller.dart';
-import 'package:nafir/features/playlists/data/playlist.dart';
+import 'package:rhythmo/app/app_configuration.dart';
+import 'package:rhythmo/features/playlists/application/playlists_controller.dart';
+import 'package:rhythmo/features/playlists/data/playlist.dart';
 
 /// Lets the owner invite people to add their own tracks to [playlist], and
 /// manage who has joined.
@@ -65,7 +65,7 @@ class _CollabSheetState extends State<_CollabSheet> {
       }, 'باطل کردن لینک ناموفق بود. دوباره تلاش کن.');
 
   Future<void> _remove(PlaylistMember member) async {
-    final confirmed = await showNafirConfirm(
+    final confirmed = await showRhythmoConfirm(
       context,
       title: 'حذف عضو؟',
       message:
@@ -129,7 +129,7 @@ class _CollabSheetState extends State<_CollabSheet> {
                   ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('لینک دعوت کپی شد.')));
                 },
-                icon: const Icon(NafirIcons.copy),
+                icon: const Icon(RhythmoIcons.copy),
                 label: const Text('کپی لینک دعوت'),
               ),
               const SizedBox(height: 8),
@@ -139,12 +139,12 @@ class _CollabSheetState extends State<_CollabSheet> {
                 children: [
                   TextButton.icon(
                     onPressed: _busy ? null : _newLink,
-                    icon: const Icon(NafirIcons.arrowsClockwise),
+                    icon: const Icon(RhythmoIcons.arrowsClockwise),
                     label: const Text('لینک تازه'),
                   ),
                   TextButton.icon(
                     onPressed: _busy ? null : _revoke,
-                    icon: const Icon(NafirIcons.linkBreak),
+                    icon: const Icon(RhythmoIcons.linkBreak),
                     label: const Text('باطل کردن لینک'),
                   ),
                 ],
@@ -156,7 +156,7 @@ class _CollabSheetState extends State<_CollabSheet> {
             ] else
               FilledButton.icon(
                 onPressed: _busy ? null : _newLink,
-                icon: const Icon(NafirIcons.userPlus),
+                icon: const Icon(RhythmoIcons.userPlus),
                 label: const Text('ساخت لینک دعوت'),
               ),
             if (_error case final error?)
@@ -178,7 +178,7 @@ class _CollabSheetState extends State<_CollabSheet> {
               for (final member in _members)
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(NafirIcons.user),
+                  leading: const Icon(RhythmoIcons.user),
                   title: Text(
                     member.name,
                     maxLines: 1,
@@ -189,7 +189,7 @@ class _CollabSheetState extends State<_CollabSheet> {
                   trailing: IconButton(
                     tooltip: 'حذف عضو',
                     onPressed: _busy ? null : () => _remove(member),
-                    icon: const Icon(NafirIcons.userMinus),
+                    icon: const Icon(RhythmoIcons.userMinus),
                   ),
                 ),
           ],

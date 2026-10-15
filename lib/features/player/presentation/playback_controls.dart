@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:nafir/core/persian_digits.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/features/player/application/playback_settings.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/player/presentation/now_playing_screen.dart';
+import 'package:rhythmo/core/persian_digits.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/features/player/application/playback_settings.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/player/presentation/now_playing_screen.dart';
 
 /// The sleep timer's choices, in minutes.
 const sleepTimerMinutes = [15, 30, 45, 60];
@@ -52,7 +52,7 @@ class SleepTimerButton extends StatelessWidget {
         isScrollControlled: true,
         builder: (_) => SleepTimerSheet(player: player),
       ),
-      icon: Icon(active ? NafirIcons.moonStarsFill : NafirIcons.moonStars),
+      icon: Icon(active ? RhythmoIcons.moonStarsFill : RhythmoIcons.moonStars),
     );
   }
 }
@@ -105,7 +105,7 @@ class SleepTimerSheet extends StatelessWidget {
                   minTileHeight: 56,
                   contentPadding:
                       const EdgeInsetsDirectional.symmetric(horizontal: 24),
-                  leading: const Icon(NafirIcons.x),
+                  leading: const Icon(RhythmoIcons.x),
                   iconColor: theme.colorScheme.error,
                   textColor: theme.colorScheme.error,
                   title: const Text('لغو زمان‌سنج'),
@@ -260,7 +260,7 @@ class _ChoiceTile extends StatelessWidget {
       contentPadding: const EdgeInsetsDirectional.symmetric(horizontal: 24),
       selected: selected,
       title: Text(label),
-      trailing: selected ? const Icon(NafirIcons.check) : null,
+      trailing: selected ? const Icon(RhythmoIcons.check) : null,
       onTap: onTap,
     );
   }

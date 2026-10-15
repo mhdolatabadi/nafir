@@ -1,18 +1,18 @@
-import 'package:nafir/core/persian_digits.dart';
+import 'package:rhythmo/core/persian_digits.dart';
 import 'package:flutter/material.dart';
-import 'package:nafir/core/design/design.dart';
-import 'package:nafir/app/app_configuration.dart';
-import 'package:nafir/core/links/open_link.dart';
-import 'package:nafir/core/links/site_page.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/features/auth/presentation/sign_in_prompt.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/player/presentation/mini_player.dart';
-import 'package:nafir/features/playlists/application/playlists_controller.dart';
-import 'package:nafir/features/playlists/data/playlist.dart';
-import 'package:nafir/features/playlists/presentation/shared_playlist_screen.dart';
-import 'package:nafir/features/store/application/store_controller.dart';
-import 'package:nafir/features/store/presentation/store_screen.dart';
+import 'package:rhythmo/core/design/design.dart';
+import 'package:rhythmo/app/app_configuration.dart';
+import 'package:rhythmo/core/links/open_link.dart';
+import 'package:rhythmo/core/links/site_page.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/features/auth/presentation/sign_in_prompt.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/player/presentation/mini_player.dart';
+import 'package:rhythmo/features/playlists/application/playlists_controller.dart';
+import 'package:rhythmo/features/playlists/data/playlist.dart';
+import 'package:rhythmo/features/playlists/presentation/shared_playlist_screen.dart';
+import 'package:rhythmo/features/store/application/store_controller.dart';
+import 'package:rhythmo/features/store/presentation/store_screen.dart';
 
 /// Playlists their owners made public, most liked first. Link-only
 /// playlists are never listed here.
@@ -55,6 +55,34 @@ class PopularPlaylistsScreen extends StatefulWidget {
 }
 
 class _PopularPlaylistsScreenState extends State<PopularPlaylistsScreen> {
+  /// The playlist being fetched to play, so its button shows progress.
+  String? _playing;
+
+  Future<void> _play(PublicPlaylist playlist) async {
+    setState(() => _playing = playlist.shareToken);
+    try {
+      final shared = await widget.controller.openShared(playlist.shareToken);
+      if (!mounted) return;
+      if (shared.tracks.isEmpty) {
+        _say('این فهرست پخش آهنگی ندارد.');
+      } else {
+        await widget.player.playFrom(shared.tracks, 0);
+      }
+    } on SharedPlaylistUnavailable {
+      _say('این فهرست پخش دیگر عمومی نیست.');
+      await widget.controller.loadPopular();
+    } catch (_) {
+      _say('پخش این فهرست شروع نشد. دوباره تلاش کن.');
+    } finally {
+      if (mounted) setState(() => _playing = null);
+    }
+  }
+
+  void _say(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
   @override
   void initState() {
     super.initState();
@@ -119,7 +147,7 @@ class _PopularPlaylistsScreenState extends State<PopularPlaylistsScreen> {
                 ),
               ),
               tooltip: 'استور',
-              icon: const Icon(NafirIcons.storefront),
+              icon: const Icon(RhythmoIcons.storefront),
             ),
           // Readable before signing up, as the stores expect.
           if (widget.onSignIn != null && !controller.signedIn)
@@ -127,7 +155,7 @@ class _PopularPlaylistsScreenState extends State<PopularPlaylistsScreen> {
               onPressed: () => openSitePage(context, '/privacy',
                   siteUri: widget.siteUri, openLink: widget.openLink),
               tooltip: 'حریم خصوصی',
-              icon: const Icon(NafirIcons.shieldCheck),
+              icon: const Icon(RhythmoIcons.shieldCheck),
             ),
           if (widget.onSignIn != null && !controller.signedIn)
             Padding(
@@ -141,159 +169,311 @@ class _PopularPlaylistsScreenState extends State<PopularPlaylistsScreen> {
         ],
       ),
       bottomNavigationBar: MiniPlayer(player: widget.player),
-      body: NafirBackdrop(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 900),
-            child: ListenableBuilder(
-              listenable: controller,
-              builder: (context, _) {
-                final popular = controller.popular;
-                return switch (controller.popularStatus) {
-                  PlaylistsStatus.loading when popular.isEmpty =>
-                    const Center(child: CircularProgressIndicator()),
-                  PlaylistsStatus.error when popular.isEmpty => _Notice(
-                      icon: NafirIcons.cloudSlash,
-                      text: 'فهرست‌های پخش محبوب بارگذاری نشد.',
-                      action: FilledButton.icon(
-                        onPressed: controller.loadPopular,
-                        icon: const Icon(NafirIcons.arrowsClockwise),
-                        label: const Text('تلاش دوباره'),
-                      ),
-                    ),
-                  _ when popular.isEmpty => const _Notice(
-                      icon: NafirIcons.globe,
-                      text: 'هنوز فهرست پخش عمومی‌ای نیست. وقتی فهرست پخشی را '
-                          'به اشتراک می‌گذاری، «عمومی» را انتخاب کن تا اینجا '
-                          'نشان داده شود.',
-                    ),
-                  _ => RefreshIndicator(
-                      onRefresh: controller.loadPopular,
-                      child: ListView.builder(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        // Room for the mini player and system insets below.
-                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 104),
-                        itemCount: popular.length,
-                        itemBuilder: (context, index) {
-                          final playlist = popular[index];
-                          return _PopularRow(
-                            playlist: playlist,
-                            onOpen: () => _open(playlist),
-                            onLike: controller.isLiking(playlist.shareToken)
-                                ? null
-                                : () => _like(playlist),
-                          );
-                        },
-                      ),
-                    ),
-                };
-              },
-            ),
-          ),
+      body: RhythmoBackdrop(
+        child: ListenableBuilder(
+          listenable: controller,
+          builder: (context, _) {
+            final popular = controller.popular;
+            return switch (controller.popularStatus) {
+              PlaylistsStatus.loading when popular.isEmpty =>
+                const RhythmoStateView.loading(
+                    title: 'در حال دریافت فهرست‌های محبوب…'),
+              PlaylistsStatus.error when popular.isEmpty =>
+                RhythmoStateView.error(
+                  icon: RhythmoIcons.cloudSlash,
+                  title: 'فهرست‌های پخش محبوب بارگذاری نشد.',
+                  message: 'اتصال را بررسی کن و دوباره تلاش کن.',
+                  action: FilledButton.icon(
+                    onPressed: controller.loadPopular,
+                    icon: const Icon(RhythmoIcons.arrowsClockwise),
+                    label: const Text('تلاش دوباره'),
+                  ),
+                ),
+              _ when popular.isEmpty => const RhythmoStateView(
+                  icon: RhythmoIcons.globe,
+                  title: 'هنوز فهرست پخش عمومی‌ای نیست',
+                  message: 'وقتی فهرست پخشی را به اشتراک می‌گذاری، «عمومی» '
+                      'را انتخاب کن تا اینجا نشان داده شود.',
+                ),
+              _ => RefreshIndicator(
+                  onRefresh: controller.loadPopular,
+                  child: _PopularGrid(
+                    popular: popular,
+                    playing: _playing,
+                    isLiking: controller.isLiking,
+                    onOpen: _open,
+                    onPlay: _play,
+                    onLike: _like,
+                  ),
+                ),
+            };
+          },
         ),
       ),
     );
   }
 }
 
-class _PopularRow extends StatelessWidget {
-  const _PopularRow({
-    required this.playlist,
+/// The popular playlists as square tiles, two across on a phone and more
+/// on wider screens, inside a centred column.
+class _PopularGrid extends StatelessWidget {
+  const _PopularGrid({
+    required this.popular,
+    required this.playing,
+    required this.isLiking,
     required this.onOpen,
+    required this.onPlay,
+    required this.onLike,
+  });
+
+  final List<PublicPlaylist> popular;
+
+  /// The playlist whose tracks are being fetched to play, if any.
+  final String? playing;
+  final bool Function(String shareToken) isLiking;
+  final ValueChanged<PublicPlaylist> onOpen;
+  final ValueChanged<PublicPlaylist> onPlay;
+  final ValueChanged<PublicPlaylist> onLike;
+
+  /// Below the square cover: the title and count beside a 48 px like.
+  static const _textHeight =
+      RhythmoSpace.sm + RhythmoSpace.target + RhythmoSpace.xs;
+
+  @override
+  Widget build(BuildContext context) {
+    // The scaffold extends the body under the mini player and reports the
+    // player's height, with the system inset, as bottom padding.
+    final bottom = MediaQuery.paddingOf(context).bottom + RhythmoSpace.xxl;
+    return LayoutBuilder(builder: (context, constraints) {
+      final width = constraints.maxWidth.clamp(0.0, RhythmoSpace.pageWidth);
+      final gutter = width >= 600 ? RhythmoSpace.xxl : RhythmoSpace.lg;
+      final inner = width - gutter * 2;
+      final columns = (inner / 200).floor().clamp(2, 5);
+      final tile = (inner - RhythmoSpace.md * (columns - 1)) / columns;
+      final side = (constraints.maxWidth - width) / 2 + gutter;
+      return CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(side, RhythmoSpace.md, side, bottom),
+            sliver: SliverGrid.builder(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columns,
+                mainAxisSpacing: RhythmoSpace.lg,
+                crossAxisSpacing: RhythmoSpace.md,
+                mainAxisExtent: tile + _textHeight,
+              ),
+              itemCount: popular.length,
+              itemBuilder: (context, index) {
+                final playlist = popular[index];
+                return _PopularTile(
+                  playlist: playlist,
+                  rank: index + 1,
+                  loading: playing == playlist.shareToken,
+                  onOpen: () => onOpen(playlist),
+                  onPlay: () => onPlay(playlist),
+                  onLike: isLiking(playlist.shareToken)
+                      ? null
+                      : () => onLike(playlist),
+                );
+              },
+            ),
+          ),
+        ],
+      );
+    });
+  }
+}
+
+/// One popular playlist: a mosaic cover with its rank and a play button,
+/// then its name, track count and likes. The owner is never shown.
+class _PopularTile extends StatelessWidget {
+  const _PopularTile({
+    required this.playlist,
+    required this.rank,
+    required this.loading,
+    required this.onOpen,
+    required this.onPlay,
     required this.onLike,
   });
 
   final PublicPlaylist playlist;
+  final int rank;
+  final bool loading;
   final VoidCallback onOpen;
+  final VoidCallback onPlay;
   final VoidCallback? onLike;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
-    return GlassSurface(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      padding: EdgeInsets.zero,
-      blur: 16,
-      radius: 22,
-      tint: scheme.secondary,
-      child: ListTile(
-        contentPadding: const EdgeInsetsDirectional.only(start: 14, end: 8),
-        minTileHeight: 76,
-        horizontalTitleGap: 14,
-        leading: Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(NafirRadii.lg),
-            gradient: LinearGradient(
-              begin: Alignment.topRight,
-              end: Alignment.bottomLeft,
-              colors: [
-                scheme.primary.withValues(alpha: 0.9),
-                scheme.secondary.withValues(alpha: 0.72),
-              ],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: scheme.primary.withValues(alpha: 0.22),
-                offset: const Offset(0, 10),
-                blurRadius: 22,
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final count = '${persianDigits(playlist.trackCount)} آهنگ';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AspectRatio(
+          aspectRatio: 1,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Semantics(
+                  button: true,
+                  label: 'رتبهٔ ${persianDigits(rank)}: ${playlist.name}، '
+                      '$count',
+                  excludeSemantics: true,
+                  child: Material(
+                    clipBehavior: Clip.antiAlias,
+                    shape: const RoundedRectangleBorder(
+                        borderRadius: RhythmoRadii.surface),
+                    child: InkWell(
+                      onTap: onOpen,
+                      child: _MosaicCover(
+                          seed: playlist.shareToken,
+                          tiles: playlist.trackCount),
+                    ),
+                  ),
+                ),
+              ),
+              PositionedDirectional(
+                top: RhythmoSpace.sm,
+                start: RhythmoSpace.sm,
+                child: _RankBadge(rank: rank),
+              ),
+              PositionedDirectional(
+                bottom: RhythmoSpace.sm,
+                end: RhythmoSpace.sm,
+                child: IconButton.filled(
+                  tooltip: 'پخش ${playlist.name}',
+                  onPressed:
+                      loading || playlist.trackCount == 0 ? null : onPlay,
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size.square(RhythmoSpace.target),
+                    backgroundColor: scheme.primary,
+                    foregroundColor: scheme.onPrimary,
+                  ),
+                  icon: loading
+                      ? SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: scheme.onPrimary),
+                        )
+                      : const Icon(RhythmoIcons.playFill),
+                ),
               ),
             ],
           ),
-          child: const Icon(NafirIcons.playlist),
         ),
-        title: Text(
-          playlist.name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+        const SizedBox(height: RhythmoSpace.sm),
+        Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                onTap: onOpen,
+                borderRadius: RhythmoRadii.control,
+                child: Padding(
+                  padding:
+                      const EdgeInsetsDirectional.only(start: RhythmoSpace.xs),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        playlist.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall
+                            ?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                      Text(
+                        playlist.isOwner ? 'فهرست پخش خودت · $count' : count,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: scheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            PlaylistLikeButton(
+              likes: playlist.likes,
+              onPressed: onLike,
+              compact: true,
+            ),
+          ],
         ),
-        subtitle: Text(
-          [
-            playlist.isOwner ? 'فهرست پخش خودت' : playlist.owner,
-            '${persianDigits(playlist.trackCount)} آهنگ',
-          ].join(' · '),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+      ],
+    );
+  }
+}
+
+/// The playlist's place in the list, on its cover.
+class _RankBadge extends StatelessWidget {
+  const _RankBadge({required this.rank});
+
+  final int rank;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final top = rank <= 3;
+    return Container(
+      constraints: const BoxConstraints(minWidth: 32),
+      padding: const EdgeInsets.symmetric(
+          horizontal: RhythmoSpace.sm, vertical: RhythmoSpace.xxs),
+      decoration: BoxDecoration(
+        color: top ? theme.colorScheme.primary : RhythmoColors.scrim,
+        borderRadius: BorderRadius.circular(RhythmoRadii.pill),
+      ),
+      child: Text(
+        persianDigits(rank),
+        textAlign: TextAlign.center,
+        style: theme.textTheme.labelLarge?.copyWith(
+          fontWeight: FontWeight.w800,
+          color: top ? theme.colorScheme.onPrimary : RhythmoColors.onSurface,
         ),
-        trailing: PlaylistLikeButton(
-          likes: playlist.likes,
-          onPressed: onLike,
-          compact: true,
-        ),
-        onTap: onOpen,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(NafirRadii.xl)),
       ),
     );
   }
 }
 
-class _Notice extends StatelessWidget {
-  const _Notice({required this.icon, required this.text, this.action});
+/// A cover made of up to four tinted squares, one per track, seeded by the
+/// playlist so it keeps its look. The API lists no artwork for popular
+/// playlists yet, so the tints stand in for it.
+class _MosaicCover extends StatelessWidget {
+  const _MosaicCover({required this.seed, required this.tiles});
 
-  final IconData icon;
-  final String text;
-  final Widget? action;
+  final String seed;
+  final int tiles;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 40),
-            const SizedBox(height: 12),
-            Text(text, textAlign: TextAlign.center),
-            if (action != null) ...[const SizedBox(height: 16), action!],
-          ],
-        ),
-      ),
+    Widget square(int i) => ColoredBox(
+          color: artworkTint('$seed-$i'),
+          child: Center(
+            child: Icon(RhythmoIcons.musicNotes,
+                color: RhythmoColors.onSurface.withValues(alpha: 0.32)),
+          ),
+        );
+    final count = tiles.clamp(1, 4);
+    if (count < 4) {
+      // Fewer than four tracks: one tint, so the cover never looks broken.
+      return square(0);
+    }
+    return Column(
+      children: [
+        for (final row in const [0, 2])
+          Expanded(
+            child: Row(
+              children: [
+                for (final column in const [0, 1])
+                  Expanded(child: square(row + column)),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

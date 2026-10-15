@@ -1,12 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:nafir/core/design/design.dart';
+import 'package:rhythmo/core/design/design.dart';
 import 'package:flutter/services.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/features/library/application/metadata_suggestions.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/library/data/track_metadata.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/features/library/application/metadata_suggestions.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/library/data/track_metadata.dart';
 
 /// Saves a draft based on a metadata version; see
 /// `LibraryController.saveTrackMetadata`.
@@ -176,7 +176,7 @@ class _TrackMetadataEditorState extends State<TrackMetadataEditor> {
         // The choice is at the top of the form.
         if (_scroll.hasClients) {
           unawaited(_scroll.animateTo(0,
-              duration: NafirMotion.medium, curve: NafirMotion.standard));
+              duration: RhythmoMotion.medium, curve: RhythmoMotion.standard));
         }
       case MetadataInvalid(:final field):
         setState(() {
@@ -214,7 +214,7 @@ class _TrackMetadataEditorState extends State<TrackMetadataEditor> {
     final discard = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        icon: const Icon(NafirIcons.warningCircle),
+        icon: const Icon(RhythmoIcons.warningCircle),
         title: const Text('تغییرات ذخیره نشده‌اند'),
         content: const Text('اگر بیرون بروی، تغییراتی که دادی از بین می‌رود.'),
         actions: [
@@ -291,7 +291,7 @@ class _TrackMetadataEditorState extends State<TrackMetadataEditor> {
           title: const Text('ویرایش اطلاعات آهنگ'),
           leading: IconButton(
             tooltip: 'بستن',
-            icon: const Icon(NafirIcons.x),
+            icon: const Icon(RhythmoIcons.x),
             onPressed: _saving ? null : () => Navigator.maybePop(context),
           ),
         ),
@@ -607,7 +607,7 @@ class _SuggestionList extends StatelessWidget {
         key: const ValueKey('suggestions'),
         elevation: 6,
         color: scheme.surfaceContainerHigh,
-        borderRadius: NafirRadii.control,
+        borderRadius: RhythmoRadii.control,
         clipBehavior: Clip.antiAlias,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 240, maxWidth: 608),
@@ -709,14 +709,14 @@ class _ConflictNotice extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         radius: 16,
-        tint: NafirColors.primary,
-        borderColor: NafirColors.primary.withValues(alpha: 0.5),
+        tint: RhythmoColors.primary,
+        borderColor: RhythmoColors.primary.withValues(alpha: 0.5),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Row(
               children: [
-                Icon(NafirIcons.warningCircle),
+                Icon(RhythmoIcons.warningCircle),
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -769,18 +769,18 @@ class _TagStatusNotice extends StatelessWidget {
     final (IconData icon, String message, bool busy)? notice =
         switch (tags.status) {
       EmbeddedTagStatus.pending => (
-          NafirIcons.arrowsClockwise,
+          RhythmoIcons.arrowsClockwise,
           'آخرین تغییرات در حال نوشتن در خود فایل است.',
           true,
         ),
       EmbeddedTagStatus.failed => (
-          NafirIcons.warningCircle,
+          RhythmoIcons.warningCircle,
           'نوشتن اطلاعات در خود فایل ناموفق بود؛ با ذخیرهٔ دوباره، '
               'دوباره تلاش می‌شود. پخش و نام فایل درست کار می‌کنند.',
           false,
         ),
       _ when tags.unsupportedFields.isNotEmpty => (
-          NafirIcons.warningCircle,
+          RhythmoIcons.warningCircle,
           'فایل‌های $format برچسب داخلی قابل ویرایش ندارند؛ تغییرات در '
               'ریتمو و نام فایل دانلودی ذخیره می‌شود، نه داخل خود فایل.',
           false,
@@ -877,7 +877,7 @@ class _SaveBar extends StatelessWidget {
                           dimension: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(NafirIcons.check),
+                      : const Icon(RhythmoIcons.check),
                   label: Text(saving ? 'در حال ذخیره…' : 'ذخیره'),
                 ),
               ],

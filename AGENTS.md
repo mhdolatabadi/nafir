@@ -6,8 +6,8 @@ This file defines the standing rules for every contributor and coding agent work
 
 - The product name is **rhythmo** (ریتمو). Do not introduce the old name `sot` in code, copy, package names, artifacts, infrastructure, or documentation.
 - The supported clients are **Web and Android**. Do not add, restore, build, test, or maintain iOS-specific code or workflows unless the owner explicitly changes this rule.
-- Existing `nafir` package identifiers, routes, domains and storage names remain compatible until a dedicated technical migration is requested.
-- The Android application ID is `ir.mhdolatabadi.nafir`.
+- Code, packages, docs, artifacts and user-facing copy use **rhythmo**; do not introduce `nafir` in new code or copy.
+- Remaining `nafir` names are compatibility identifiers only and stay until a dedicated migration: the Android application ID and namespace `ir.mhdolatabadi.nafir` (changing it would orphan installs), platform channel names, on-device storage keys, the `nafir-music` bucket, the `nafir/*` image path, database names, `NAFIR_*` server variables and the `NafirBot` account.
 - Keep Web and Android behavior consistent where platform capabilities allow it.
 - User-facing copy is Persian and the primary layout direction is RTL.
 
@@ -24,7 +24,7 @@ This file defines the standing rules for every contributor and coding agent work
 - rhythmo uses a polished, dark, glass-like visual language. Glass effects must preserve contrast, legibility, and performance.
 - Mobile layouts need generous breathing room, safe-area awareness, and touch targets of at least 48 logical pixels.
 - Floating controls, the mini player, browser chrome, and system insets must never cover the last list item or a primary action.
-- Prefer the artist as the secondary track detail; show file size as supporting information.
+- Track rows show the artist as their only secondary detail; file size belongs in track details, not in list rows.
 - Long Persian, Arabic, and Latin titles must truncate gracefully without overflow.
 - Desktop content must use a centered maximum width and must not stick to the viewport edges.
 - Preserve accessibility semantics, visible focus, useful tooltips, and adequate contrast.
