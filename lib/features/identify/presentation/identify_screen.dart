@@ -308,7 +308,7 @@ class _Listening extends StatelessWidget {
             duration: snippetLength,
             builder: (context, value, _) => LinearProgressIndicator(
               value: value,
-              borderRadius: BorderRadius.circular(NafirRadii.xs / 2),
+              borderRadius: BorderRadius.circular(NafirRadii.bar),
               semanticsLabel: 'زمان ضبط',
             ),
           ),

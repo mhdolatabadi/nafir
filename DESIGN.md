@@ -185,8 +185,9 @@ height; Arabic-script marks must not collide.
   lists end with the bottom system inset (`nafirListBottomPadding`) plus
   the chrome's height, so the last row is never covered.
 - **Desktop:** content is centred and capped at 960px
-  (`NafirSpace.pageWidth`); reading columns such as now playing and identify
-  at 520px. Nothing touches the window edges.
+  (`NafirSpace.pageWidth`). Lists of settings rows are capped at 720px
+  (`listWidth`), and reading columns such as now playing and identify at
+  520px. Nothing touches the window edges.
 - **Spacing rhythm:** 4/8/12/16/20/24/32/48. Use tight steps (4–8) inside a
   group and generous ones (16–24) between groups, with more space above a
   heading than below it.

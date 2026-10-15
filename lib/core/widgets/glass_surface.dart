@@ -3,29 +3,17 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:nafir/core/design/tokens.dart';
 
-/// The glass colours under their original names. New code reads
-/// [NafirColors] from lib/core/design/tokens.dart instead.
-abstract final class NafirGlass {
-  static const background = NafirColors.background;
-  static const surface = NafirColors.surface;
-  static const surfaceStrong = NafirColors.surfaceStrong;
-  static const primary = NafirColors.primary;
-  static const secondary = NafirColors.secondary;
-  static const border = NafirColors.border;
-  static const softBorder = NafirColors.softBorder;
-  static const shadow = NafirColors.shadow;
-
-  static const backgroundGradient = LinearGradient(
-    begin: Alignment.topRight,
-    end: Alignment.bottomLeft,
-    colors: [
-      NafirColors.ambientTop,
-      NafirColors.ambientMiddle,
-      NafirColors.background,
-    ],
-    stops: [0, 0.48, 1],
-  );
-}
+/// The canvas: night with the ambient light rising from its top corner.
+const nafirAmbientGradient = LinearGradient(
+  begin: Alignment.topRight,
+  end: Alignment.bottomLeft,
+  colors: [
+    NafirColors.ambientTop,
+    NafirColors.ambientMiddle,
+    NafirColors.background,
+  ],
+  stops: [0, 0.48, 1],
+);
 
 /// Atmospheric animated background shared by primary app surfaces.
 class NafirBackdrop extends StatelessWidget {
@@ -37,12 +25,13 @@ class NafirBackdrop extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-          gradient: Theme.of(context).brightness == Brightness.dark
-              ? NafirGlass.backgroundGradient
-              : LinearGradient(colors: [
-                  Theme.of(context).colorScheme.surfaceContainerLow,
-                  Theme.of(context).colorScheme.surface
-                ])),
+        gradient: Theme.of(context).brightness == Brightness.dark
+            ? nafirAmbientGradient
+            : LinearGradient(colors: [
+                Theme.of(context).colorScheme.surfaceContainerLow,
+                Theme.of(context).colorScheme.surface,
+              ]),
+      ),
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -100,7 +89,7 @@ class _AmbientLightState extends State<_AmbientLight>
                   scale: 1 + (value * 0.05),
                   child: _Glow(
                     size: 430,
-                    color: NafirGlass.primary.withValues(alpha: 0.16),
+                    color: NafirColors.primary.withValues(alpha: 0.16),
                   ),
                 ),
               ),
@@ -111,7 +100,7 @@ class _AmbientLightState extends State<_AmbientLight>
                   scale: 1.04 - (value * 0.04),
                   child: _Glow(
                     size: 460,
-                    color: NafirGlass.secondary.withValues(alpha: 0.14),
+                    color: NafirColors.secondary.withValues(alpha: 0.14),
                   ),
                 ),
               ),

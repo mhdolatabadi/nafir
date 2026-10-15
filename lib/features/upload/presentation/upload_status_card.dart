@@ -1,7 +1,7 @@
 import 'package:nafir/core/persian_digits.dart';
 import 'package:flutter/material.dart';
+import 'package:nafir/core/design/design.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/features/upload/application/upload_controller.dart';
 
 /// Shows the current upload's progress, result or failure.
@@ -74,8 +74,9 @@ class UploadStatusCard extends StatelessWidget {
           padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 8, 16),
           radius: 18,
           blur: 16,
-          tint:
-              failed ? Theme.of(context).colorScheme.error : NafirGlass.primary,
+          tint: failed
+              ? Theme.of(context).colorScheme.error
+              : NafirColors.primary,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
