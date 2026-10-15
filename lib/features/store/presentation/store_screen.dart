@@ -4,6 +4,8 @@ import 'package:rhythmo/core/format_size.dart';
 import 'package:rhythmo/core/persian_digits.dart';
 import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
 import 'package:rhythmo/features/auth/presentation/sign_in_prompt.dart';
+import 'package:rhythmo/features/identify/application/identify_controller.dart';
+import 'package:rhythmo/features/identify/presentation/identify_screen.dart';
 import 'package:rhythmo/features/library/data/track.dart';
 import 'package:rhythmo/features/player/application/player_controller.dart';
 import 'package:rhythmo/features/player/presentation/mini_player.dart';
@@ -21,10 +23,15 @@ class StoreScreen extends StatefulWidget {
     required this.player,
     this.onSignIn,
     this.openSongId,
+    this.identify,
   });
 
   final StoreController controller;
   final PlayerController player;
+
+  /// «این آهنگ چیه؟», offered in the app bar; without an account it
+  /// matches against the store. Null hides it.
+  final IdentifyController? identify;
 
   /// Opens sign-in, for a guest who tries to add or report.
   final VoidCallback? onSignIn;
@@ -165,6 +172,19 @@ class _StoreScreenState extends State<StoreScreen>
       extendBody: true,
       appBar: AppBar(
         title: const Text('استور'),
+        actions: [
+          if (widget.identify != null)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: RhythmoSpace.sm),
+              child: IconButton(
+                tooltip: 'این آهنگ چیه؟',
+                onPressed: () => openIdentify(
+                    context, widget.identify!, widget.player,
+                    onSignIn: widget.onSignIn),
+                icon: const Icon(RhythmoIcons.microphoneStage),
+              ),
+            ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(
               RhythmoSpace.target * 2 + RhythmoSpace.md * 2),
