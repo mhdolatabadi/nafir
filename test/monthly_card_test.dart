@@ -4,10 +4,10 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/features/journey/application/listening_journey.dart';
-import 'package:nafir/features/journey/application/monthly_card.dart';
-import 'package:nafir/features/journey/data/monthly_card_export.dart';
-import 'package:nafir/features/journey/presentation/monthly_card_section.dart';
+import 'package:rhythmo/features/journey/application/listening_journey.dart';
+import 'package:rhythmo/features/journey/application/monthly_card.dart';
+import 'package:rhythmo/features/journey/data/monthly_card_export.dart';
+import 'package:rhythmo/features/journey/presentation/monthly_card_section.dart';
 import 'recently_played_test.dart' show track;
 
 class CardSaver implements MonthlyCardSaver {

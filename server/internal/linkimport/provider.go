@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/mhdolatabadi/nafir/server/internal/bot"
+	"github.com/mhdolatabadi/rhythmo/server/internal/bot"
 )
 
 // ProviderName is the import source recorded for link imports.
@@ -61,7 +61,7 @@ func (p *Provider) Open(ctx context.Context, fileID string) (io.ReadCloser, int6
 		return resp.Body, resp.ContentLength, nil
 	}
 	defer resp.Body.Close()
-	spool, err := os.CreateTemp("", "nafir-link-*")
+	spool, err := os.CreateTemp("", "rhythmo-link-*")
 	if err != nil {
 		return nil, 0, err
 	}

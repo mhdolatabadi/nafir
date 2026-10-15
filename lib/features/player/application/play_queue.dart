@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:nafir/features/library/data/track.dart';
+import 'package:rhythmo/features/library/data/track.dart';
 
 enum QueueRepeat { off, all, one }
 

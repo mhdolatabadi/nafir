@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/core/persian_digits.dart';
-import 'package:nafir/core/widgets/glass_surface.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/features/auth/application/auth_controller.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/core/persian_digits.dart';
+import 'package:rhythmo/core/widgets/glass_surface.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/features/auth/application/auth_controller.dart';
 
 /// What waits for a verified email, said once for the banner and the screen.
 const _gatedFeatures =
@@ -36,7 +36,7 @@ class EmailVerificationBanner extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(NafirIcons.envelopeSimple, color: scheme.primary),
+                Icon(RhythmoIcons.envelopeSimple, color: scheme.primary),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -209,7 +209,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     return Scaffold(
       appBar: AppBar(title: const Text('تأیید ایمیل')),
-      body: NafirBackdrop(
+      body: RhythmoBackdrop(
         child: Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
@@ -226,7 +226,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                       children: [
                         Row(
                           children: [
-                            Icon(NafirIcons.envelopeSimple,
+                            Icon(RhythmoIcons.envelopeSimple,
                                 color: scheme.primary),
                             const SizedBox(width: 12),
                             Expanded(
@@ -300,7 +300,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                             dimension: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(NafirIcons.checkCircle),
+                        : const Icon(RhythmoIcons.checkCircle),
                     label: const Text('تأیید'),
                   ),
                   const SizedBox(height: 12),
@@ -313,7 +313,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                         style: TextButton.styleFrom(
                             minimumSize: const Size(48, 48)),
                         onPressed: _busy || _cooldown > 0 ? null : _resend,
-                        icon: const Icon(NafirIcons.arrowsClockwise),
+                        icon: const Icon(RhythmoIcons.arrowsClockwise),
                         label: Text(_cooldown > 0
                             ? 'ارسال دوباره (${persianDigits(_cooldown)})'
                             : 'ارسال دوباره'),
@@ -322,7 +322,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                         style: TextButton.styleFrom(
                             minimumSize: const Size(48, 48)),
                         onPressed: _busy ? null : _editEmail,
-                        icon: const Icon(NafirIcons.pencilSimple),
+                        icon: const Icon(RhythmoIcons.pencilSimple),
                         label: const Text('ویرایش ایمیل'),
                       ),
                     ],

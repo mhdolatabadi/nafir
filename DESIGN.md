@@ -112,7 +112,7 @@ breathing artwork, each track's own tint, the ambient light.
 **Key Characteristics:**
 - Dark first. The dark glass theme is the brand and the default. A light
   theme (Settings → appearance, from #281) uses Material's scheme seeded
-  from a deeper ember (`NafirColors.lightSeed`): its containers are plain
+  from a deeper ember (`RhythmoColors.lightSeed`): its containers are plain
   tonal fills, not translucent glass, and its focus ring is that ember.
 - One accent at a time. Ember marks the primary action and the playing
   state; violet marks selection and secondary emphasis.
@@ -170,7 +170,7 @@ typeface.
 - **Title** (800, 20px, 1.4; titleMedium 700, 16px): section and sheet
   headings, list titles.
 - **Body** (400, 16/14px, 1.6): descriptions and lyrics. Lines stay within
-  65–75 characters (`NafirSpace.readingWidth`).
+  65–75 characters (`RhythmoSpace.readingWidth`).
 - **Label** (600, 14px; 500, 12px): buttons, chips, times. Times use
   tabular figures.
 
@@ -182,10 +182,10 @@ height; Arabic-script marks must not collide.
 
 - **Phones** (from 360px): a 16px gutter, and 24px for sheet and section
   headings. Floating chrome (the mini player, FABs) reserves its own space:
-  lists end with the bottom system inset (`nafirListBottomPadding`) plus
+  lists end with the bottom system inset (`rhythmoListBottomPadding`) plus
   the chrome's height, so the last row is never covered.
 - **Desktop:** content is centred and capped at 960px
-  (`NafirSpace.pageWidth`). Lists of settings rows are capped at 720px
+  (`RhythmoSpace.pageWidth`). Lists of settings rows are capped at 720px
   (`listWidth`), and reading columns such as now playing and identify at
   520px. Nothing touches the window edges.
 - **Spacing rhythm:** 4/8/12/16/20/24/32/48. Use tight steps (4–8) inside a
@@ -197,7 +197,7 @@ height; Arabic-script marks must not collide.
 ## Elevation & Depth
 
 Depth is a hybrid of tonal glass and a few soft shadows. Three glass levels
-(`NafirGlassLevel`):
+(`RhythmoGlassLevel`):
 
 - **Chrome** (blur 24, shadow): the mini player and anything floating over
   scrolling content.
@@ -233,21 +233,21 @@ All live in `lib/core/design/` and are exported from `design.dart`.
   - Disabled buttons fade but keep their shape.
   - The add button is the single icon-only «+» (from #251); new add actions
     join its menu instead of adding buttons.
-- **NafirTrackRow:**
+- **RhythmoTrackRow:**
   - Layout: artwork tile, title, the artist (or where it plays from), then
     supporting detail such as the file size, then actions.
   - At least 64px tall, with single-line ellipsis in any script.
   - The playing row uses the ember container tile with a waveform.
-- **NafirSectionHeader:** a title (marked as a heading for screen readers),
+- **RhythmoSectionHeader:** a title (marked as a heading for screen readers),
   an optional subtitle and an optional trailing action.
-- **NafirStateView:** the empty, error (`.error`) and loading (`.loading`)
+- **RhythmoStateView:** the empty, error (`.error`) and loading (`.loading`)
   states.
   - Each has a badge, a title, a message that says what to do next, and at
     most one action.
   - Errors and loading are announced to screen readers.
-- **NafirSheetFrame + showNafirSheet:** every bottom sheet has a heading row
+- **RhythmoSheetFrame + showRhythmoSheet:** every bottom sheet has a heading row
   and a body. Scrollable bodies end with the bottom inset.
-- **showNafirConfirm:** confirmation dialogs. «انصراف» is the safe default
+- **showRhythmoConfirm:** confirmation dialogs. «انصراف» is the safe default
   and takes keyboard focus; destructive actions are drawn in the error colour.
 - **GlassSurface / GlassSurface.level:** the glass layers above.
 - **Chips, sliders, tabs, inputs, snackbars, tooltips:** themed in
@@ -260,13 +260,13 @@ All live in `lib/core/design/` and are exported from `design.dart`.
   radii anywhere in `lib/`, and on millisecond animation durations in UI
   code. Files not yet migrated are listed there, and those lists only
   shrink.
-- **Do** run every animation through `NafirMotion.of(context, …)` so
+- **Do** run every animation through `RhythmoMotion.of(context, …)` so
   reduce-motion turns it off. Use `standard` easing for most changes and
   `emphasized` for arrivals.
 - **Do** test new UI at 360px with a 34px gesture inset, and at a desktop
   width.
 - **Don't** add a second accent, gradient text, or blur on list rows.
-- **Don't** use emoji or Unicode glyphs as icons. Use `NafirIcons`
+- **Don't** use emoji or Unicode glyphs as icons. Use `RhythmoIcons`
   (Phosphor) only, never Material `Icons.*`.
 - **Don't** put grey text on coloured containers (see *The
   No-Grey-On-Colour Rule*).

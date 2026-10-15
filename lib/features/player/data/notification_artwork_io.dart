@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/services.dart';
-import 'package:nafir/features/player/data/notification_artwork.dart';
+import 'package:rhythmo/features/player/data/notification_artwork.dart';
 import 'package:path_provider/path_provider.dart';
 
 Future<Uri?> resolveArtwork() async {
@@ -18,7 +18,7 @@ Future<Uri?> resolveArtwork() async {
 /// there, and returns its `file:` URI.
 Future<Uri> writeArtwork(Directory directory, ByteData bytes) async {
   await directory.create(recursive: true);
-  final file = File('${directory.path}/nafir_notification_artwork.png');
+  final file = File('${directory.path}/rhythmo_notification_artwork.png');
   final data =
       bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes);
   if (!await file.exists() || await file.length() != data.length) {

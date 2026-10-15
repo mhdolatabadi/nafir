@@ -24,11 +24,11 @@ The API needs PostgreSQL, MinIO and a token secret. It applies its database
 migrations on startup.
 
 ```bash
-docker run -d --name nafir-db -p 5432:5432 \
-  -e POSTGRES_USER=nafir -e POSTGRES_PASSWORD=nafir -e POSTGRES_DB=nafir postgres:16-alpine
-docker run -d --name nafir-minio -p 9000:9000 minio/minio server /data
+docker run -d --name rhythmo-db -p 5432:5432 \
+  -e POSTGRES_USER=rhythmo -e POSTGRES_PASSWORD=rhythmo -e POSTGRES_DB=rhythmo postgres:16-alpine
+docker run -d --name rhythmo-minio -p 9000:9000 minio/minio server /data
 cd server
-export DATABASE_URL='postgres://nafir:nafir@localhost:5432/nafir?sslmode=disable'
+export DATABASE_URL='postgres://rhythmo:rhythmo@localhost:5432/rhythmo?sslmode=disable'
 export AUTH_TOKEN_SECRET="$(openssl rand -hex 32)"
 export STORAGE_ENDPOINT=localhost:9000 STORAGE_PUBLIC_URL=http://localhost:9000
 export STORAGE_BUCKET=nafir-music STORAGE_ACCESS_KEY=minioadmin STORAGE_SECRET_KEY=minioadmin
@@ -78,7 +78,7 @@ sign in or register. The access token is kept in Android Keystore or encrypted
 browser storage on the web.
 
 Every push to `main` also builds a debug Android APK. Download the
-`nafir-android-debug` artifact from the corresponding **Quality checks** run in
+`rhythmo-android-debug` artifact from the corresponding **Quality checks** run in
 GitHub Actions. The Android application ID is `ir.mhdolatabadi.nafir`, and the
 artifact is retained for 14 days. The APK talks to `https://rhythmo.ir`;
 set the repository variable `NAFIR_API_BASE_URL` to point it elsewhere.
@@ -115,7 +115,7 @@ For example, encode a keystore on macOS with
 secret. Keep the keystore and passwords backed up: future updates must be
 signed with the same key. The workflow derives the app version from the tag,
 builds `ir.mhdolatabadi.nafir`, generates release notes and attaches
-`nafir-vX.Y.Z-android.apk` to the GitHub Release.
+`rhythmo-vX.Y.Z-android.apk` to the GitHub Release.
 
 ## Deploy
 

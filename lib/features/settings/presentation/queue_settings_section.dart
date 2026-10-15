@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
 
 /// Preferences for queues created after choosing a track or a play action.
 class QueueSettingsSection extends StatelessWidget {

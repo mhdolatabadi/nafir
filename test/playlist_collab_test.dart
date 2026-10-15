@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/playlists/application/playlists_controller.dart';
-import 'package:nafir/features/playlists/data/playlist.dart';
-import 'package:nafir/features/playlists/presentation/collab_sheet.dart';
-import 'package:nafir/features/playlists/presentation/playlists_screen.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/playlists/application/playlists_controller.dart';
+import 'package:rhythmo/features/playlists/data/playlist.dart';
+import 'package:rhythmo/features/playlists/presentation/collab_sheet.dart';
+import 'package:rhythmo/features/playlists/presentation/playlists_screen.dart';
 
 import 'player_controller_test.dart' show FakeAudioEngine;
 import 'playlist_sharing_test.dart' show FakePlaylistsApi;
@@ -113,12 +113,12 @@ void main() {
     test('invite links are told apart from share links', () {
       final token = 'C' * 22;
       final link =
-          collabPlaylistLink(Uri.parse('https://nafir.example.com'), token);
-      expect(link.toString(), 'https://nafir.example.com/app/?collab=$token');
+          collabPlaylistLink(Uri.parse('https://rhythmo.example.com'), token);
+      expect(link.toString(), 'https://rhythmo.example.com/app/?collab=$token');
       expect(collabTokenFrom(link.toString()), token);
-      expect(collabTokenFrom('https://nafir.example.com/app/?shared=$token'),
+      expect(collabTokenFrom('https://rhythmo.example.com/app/?shared=$token'),
           isNull);
-      expect(collabTokenFrom('https://nafir.example.com/app/?collab=short'),
+      expect(collabTokenFrom('https://rhythmo.example.com/app/?collab=short'),
           isNull);
     });
   });

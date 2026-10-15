@@ -1,11 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/upload/application/upload_controller.dart';
-import 'package:nafir/features/upload/data/storage_uploader.dart';
-import 'package:nafir/features/upload/data/upload_models.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/upload/application/upload_controller.dart';
+import 'package:rhythmo/features/upload/data/storage_uploader.dart';
+import 'package:rhythmo/features/upload/data/upload_models.dart';
 
 const _pendingTrack = Track(
   id: 't1',

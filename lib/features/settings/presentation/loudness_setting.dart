@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/player/data/loudness.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/player/data/loudness.dart';
 
 /// Loudness normalization: on by default, per track or per album. Only the
 /// playback volume changes; the files stay exactly as uploaded.
@@ -22,7 +22,7 @@ class LoudnessSetting extends StatelessWidget {
           children: [
             const Divider(),
             SwitchListTile(
-              secondary: const Icon(NafirIcons.speakerHigh),
+              secondary: const Icon(RhythmoIcons.speakerHigh),
               title: const Text('یکسان‌سازی بلندی صدا'),
               subtitle: Text(
                 on

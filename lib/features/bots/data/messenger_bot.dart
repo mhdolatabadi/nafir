@@ -1,4 +1,4 @@
-/// A messenger bot the account can be linked to, such as Nafir's Bale bot.
+/// A messenger bot the account can be linked to, such as rhythmo's Bale bot.
 class MessengerBot {
   const MessengerBot({
     required this.provider,

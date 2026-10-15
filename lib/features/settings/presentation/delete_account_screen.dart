@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/core/widgets/glass_surface.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/core/widgets/glass_surface.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
 
 /// Explains what deleting the account removes and deletes it once the
 /// password is entered again. On success the app signs out on its own.
@@ -18,7 +18,7 @@ class DeleteAccountScreen extends StatefulWidget {
   /// Deletes the account; throws when the server refuses.
   final Future<void> Function(String password) onDelete;
 
-  /// Opens a page of the Nafir site, such as `/privacy`; null hides the
+  /// Opens a page of the rhythmo site, such as `/privacy`; null hides the
   /// links.
   final void Function(String path)? onOpenPage;
 
@@ -97,7 +97,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(NafirIcons.warning, color: scheme.error),
+                          Icon(RhythmoIcons.warning, color: scheme.error),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
@@ -126,24 +126,24 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                 ),
                 const SizedBox(height: 16),
                 const _Removed(
-                  icon: NafirIcons.cloud,
+                  icon: RhythmoIcons.cloud,
                   text: 'همه‌ی موسیقی‌هایی که در فضای ابری بارگذاری کرده‌ای',
                 ),
                 const _Removed(
-                  icon: NafirIcons.playlist,
+                  icon: RhythmoIcons.playlist,
                   text: 'فهرست‌های پخشت، با لینک‌های اشتراک و پسندهایشان',
                 ),
                 const _Removed(
-                  icon: NafirIcons.musicNotesMinus,
+                  icon: RhythmoIcons.musicNotesMinus,
                   text: 'عضویتت در فهرست‌های پخش مشترک و آهنگ‌هایی که به آن‌ها '
                       'اضافه کرده‌ای',
                 ),
                 const _Removed(
-                  icon: NafirIcons.robot,
+                  icon: RhythmoIcons.robot,
                   text: 'پسندهایت و اتصال به بات‌های بله و تلگرام',
                 ),
                 const _Removed(
-                  icon: NafirIcons.userCircle,
+                  icon: RhythmoIcons.userCircle,
                   text: 'خود حساب: ایمیل و رمز عبور',
                 ),
                 const SizedBox(height: 8),
@@ -169,7 +169,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                       tooltip:
                           _obscured ? 'نمایش رمز عبور' : 'پنهان کردن رمز عبور',
                       icon: Icon(
-                          _obscured ? NafirIcons.eye : NafirIcons.eyeSlash),
+                          _obscured ? RhythmoIcons.eye : RhythmoIcons.eyeSlash),
                       onPressed: () => setState(() => _obscured = !_obscured),
                     ),
                   ),
@@ -201,7 +201,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                             color: scheme.onSurface,
                           ),
                         )
-                      : const Icon(NafirIcons.trash),
+                      : const Icon(RhythmoIcons.trash),
                   label: Text(_busy ? 'در حال حذف…' : 'حذف حساب برای همیشه'),
                 ),
                 const SizedBox(height: 8),
@@ -223,7 +223,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                           minimumSize: const Size(48, 48),
                         ),
                         onPressed: () => openPage('/privacy'),
-                        icon: const Icon(NafirIcons.shieldCheck),
+                        icon: const Icon(RhythmoIcons.shieldCheck),
                         label: const Text('حریم خصوصی'),
                       ),
                       TextButton.icon(
@@ -231,7 +231,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                           minimumSize: const Size(48, 48),
                         ),
                         onPressed: () => openPage('/delete-account'),
-                        icon: const Icon(NafirIcons.arrowSquareOut),
+                        icon: const Icon(RhythmoIcons.arrowSquareOut),
                         label: const Text('راهنمای حذف حساب'),
                       ),
                     ],

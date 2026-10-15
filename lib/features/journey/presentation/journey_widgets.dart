@@ -1,12 +1,12 @@
-import 'package:nafir/features/journey/presentation/monthly_card_section.dart';
+import 'package:rhythmo/features/journey/presentation/monthly_card_section.dart';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:nafir/core/persian_digits.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/features/journey/application/listening_journey.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
+import 'package:rhythmo/core/persian_digits.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/features/journey/application/listening_journey.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
 
 class JourneySetting extends StatelessWidget {
   const JourneySetting({super.key, required this.journey});
@@ -54,7 +54,7 @@ class JourneyCard extends StatelessWidget {
               children: [
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(NafirIcons.musicNotes),
+                  leading: const Icon(RhythmoIcons.musicNotes),
                   title: const Text('سفر شنیداری این هفته'),
                   subtitle: Text(
                     count == goal
@@ -147,7 +147,7 @@ class _JourneyScreen extends StatelessWidget {
                                 ),
                           trailing: IconButton(
                             tooltip: 'پخش ${track.title}',
-                            icon: const Icon(NafirIcons.playFill),
+                            icon: const Icon(RhythmoIcons.playFill),
                             onPressed: () => player.playFrom(
                               suggestions,
                               suggestions.indexOf(track),
@@ -168,8 +168,8 @@ class _JourneyScreen extends StatelessWidget {
                           contentPadding: EdgeInsets.zero,
                           leading: Icon(
                             journey.discoveries >= badge.$1
-                                ? NafirIcons.checkCircle
-                                : NafirIcons.musicNote,
+                                ? RhythmoIcons.checkCircle
+                                : RhythmoIcons.musicNote,
                           ),
                           title: Text(badge.$2),
                           subtitle: Text(

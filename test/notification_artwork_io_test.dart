@@ -2,12 +2,12 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/features/player/data/notification_artwork_io.dart';
+import 'package:rhythmo/features/player/data/notification_artwork_io.dart';
 
 void main() {
   late Directory dir;
 
-  setUp(() async => dir = await Directory.systemTemp.createTemp('nafir_art'));
+  setUp(() async => dir = await Directory.systemTemp.createTemp('rhythmo_art'));
   tearDown(() async => dir.delete(recursive: true));
 
   ByteData bytes(List<int> values) =>
@@ -36,7 +36,7 @@ void main() {
 
   test('the bundled logo asset exists', () async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    final logo = await rootBundle.load('assets/icon/nafir.png');
+    final logo = await rootBundle.load('assets/icon/rhythmo.png');
     expect(logo.lengthInBytes, greaterThan(0));
   });
 }

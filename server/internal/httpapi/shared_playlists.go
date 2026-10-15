@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/mhdolatabadi/nafir/server/internal/bot"
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/bot"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 // shareTokenBytes of randomness make a link nobody can guess.

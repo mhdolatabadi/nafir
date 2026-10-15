@@ -3,7 +3,7 @@ package mail
 import (
 	"html"
 
-	"github.com/mhdolatabadi/nafir/server/internal/display"
+	"github.com/mhdolatabadi/rhythmo/server/internal/display"
 )
 
 // VerificationCode is the Persian email that carries an account's code.

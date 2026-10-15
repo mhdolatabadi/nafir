@@ -3,15 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/app/app_theme.dart';
-import 'package:nafir/features/auth/data/token_store.dart';
-import 'package:nafir/features/history/application/recently_played_controller.dart';
-import 'package:nafir/features/library/data/local_audio_library.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/library/presentation/library_screen.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/playlists/data/playlist.dart';
-import 'package:nafir/main.dart';
+import 'package:rhythmo/app/app_theme.dart';
+import 'package:rhythmo/features/auth/data/token_store.dart';
+import 'package:rhythmo/features/history/application/recently_played_controller.dart';
+import 'package:rhythmo/features/library/data/local_audio_library.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/library/presentation/library_screen.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/playlists/data/playlist.dart';
+import 'package:rhythmo/main.dart';
 
 import 'cache_controller_test.dart' show FakeAudioCache;
 import 'library_sync_controller_test.dart'
@@ -61,7 +61,7 @@ Future<void> _pumpApp(
   FakePlaylistsApi? playlists,
   FakeAudioEngine? engine,
 }) async {
-  await tester.pumpWidget(NafirApp(
+  await tester.pumpWidget(RhythmoApp(
     healthCheck: () async {},
     authApi: FakeAuthApi(),
     tokenStore: MemoryTokenStore('valid-token'),
@@ -196,7 +196,7 @@ void main() {
       Future<void> pumpScreen(WidgetTester tester) async {
         _phone(tester);
         await tester.pumpWidget(MaterialApp(
-          theme: NafirTheme.dark(),
+          theme: RhythmoTheme.dark(),
           locale: const Locale('fa'),
           supportedLocales: const [Locale('fa')],
           localizationsDelegates: GlobalMaterialLocalizations.delegates,

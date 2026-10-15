@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 /// Asks to confirm an action; true only when the listener confirmed.
 /// A [destructive] action is drawn in the error colour, and «انصراف» is
 /// always the safe choice that keyboard focus starts on.
-Future<bool> showNafirConfirm(
+Future<bool> showRhythmoConfirm(
   BuildContext context, {
   required String title,
   String? message,

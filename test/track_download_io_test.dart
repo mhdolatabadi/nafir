@@ -3,9 +3,9 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/features/library/data/track_download.dart';
-import 'package:nafir/features/library/data/track_download_io.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/features/library/data/track_download.dart';
+import 'package:rhythmo/features/library/data/track_download_io.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

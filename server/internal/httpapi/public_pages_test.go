@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 func publicSite(data *sharingStore, limits AnonymousLimits) http.Handler {
@@ -19,7 +19,7 @@ func publicSite(data *sharingStore, limits AnonymousLimits) http.Handler {
 
 func get(handler http.Handler, path string) *httptest.ResponseRecorder {
 	request := httptest.NewRequest(http.MethodGet, path, nil)
-	request.Host = "nafir.example.com"
+	request.Host = "rhythmo.example.com"
 	request.Header.Set("X-Forwarded-Proto", "https")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
@@ -66,7 +66,7 @@ func TestPublicFrontPageListsPublicPlaylists(t *testing.T) {
 	}
 	for _, want := range []string{
 		`<html lang="fa" dir="rtl">`,
-		`<link rel="canonical" href="https://nafir.example.com/">`,
+		`<link rel="canonical" href="https://rhythmo.example.com/">`,
 		`<meta property="og:title"`,
 		`href="/p/` + token + `"`,
 		`<bdi>a***@example.com</bdi> · ۱ آهنگ`,
@@ -109,7 +109,7 @@ func TestPublicPlaylistPage(t *testing.T) {
 	for _, want := range []string{
 		`<title>Road trip — فهرست پخش در ریتمو</title>`,
 		`<meta name="description" content="فهرست پخش «Road trip» با ۲ آهنگ در ریتمو`,
-		`<link rel="canonical" href="https://nafir.example.com/p/` + token + `">`,
+		`<link rel="canonical" href="https://rhythmo.example.com/p/` + token + `">`,
 		`<meta property="og:type" content="music.playlist">`,
 		`src="/p/` + token + `/t/t1"`,
 		`href="/app/?shared=` + token + `"`,
@@ -174,19 +174,21 @@ func TestSitemapAndRobots(t *testing.T) {
 	for _, want := range []string{
 		`<?xml version="1.0" encoding="UTF-8"?>`,
 		`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`,
-		`<loc>https://nafir.example.com/</loc>`,
-		`<loc>https://nafir.example.com/p/` + token + `</loc>`,
+		`<loc>https://rhythmo.example.com/</loc>`,
+		`<loc>https://rhythmo.example.com/p/` + token + `</loc>`,
 	} {
 		if !strings.Contains(sitemap, want) {
 			t.Errorf("sitemap is missing %q:\n%s", want, sitemap)
 		}
 	}
 	robots := get(site, "/robots.txt").Body.String()
-	if !strings.Contains(robots, "Disallow: /app/") || !strings.Contains(robots, "Sitemap: https://nafir.example.com/sitemap.xml") {
+	if !strings.Contains(robots, "Disallow: /app/") || !strings.Contains(robots, "Sitemap: https://rhythmo.example.com/sitemap.xml") {
 		t.Fatalf("robots.txt = %s", robots)
 	}
-	if icon := get(site, "/nafir.png"); icon.Code != http.StatusOK || icon.Header().Get("Content-Type") != "image/png" {
-		t.Fatalf("icon = %d %s", icon.Code, icon.Header().Get("Content-Type"))
+	for _, path := range []string{"/rhythmo.png", "/nafir.png"} {
+		if icon := get(site, path); icon.Code != http.StatusOK || icon.Header().Get("Content-Type") != "image/png" {
+			t.Fatalf("icon %s = %d %s", path, icon.Code, icon.Header().Get("Content-Type"))
+		}
 	}
 	// Only the exact root is the front page; other paths stay 404.
 	if get(site, "/elsewhere").Code != http.StatusNotFound {
@@ -206,7 +208,7 @@ func TestPrivacyPage(t *testing.T) {
 	}
 
 	body := page(NewPublicPages(data, fixedPresigner{}, AnonymousLimits{}).WithContact("privacy@example.com"))
-	for _, want := range []string{"حریم خصوصی ریتمو", "bcrypt", `href="mailto:privacy@example.com"`, `<link rel="canonical" href="https://nafir.example.com/privacy">`} {
+	for _, want := range []string{"حریم خصوصی ریتمو", "bcrypt", `href="mailto:privacy@example.com"`, `<link rel="canonical" href="https://rhythmo.example.com/privacy">`} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("privacy page lacks %q", want)
 		}
@@ -237,7 +239,7 @@ func TestDeleteAccountPage(t *testing.T) {
 		"حذف حساب کاربری ریتمو",
 		"تنظیمات",
 		`href="mailto:privacy@example.com?subject=%D8%AD%D8%B0%D9%81%20%D8%AD%D8%B3%D8%A7%D8%A8%20%D9%86%D9%81%DB%8C%D8%B1"`,
-		`<link rel="canonical" href="https://nafir.example.com/delete-account">`,
+		`<link rel="canonical" href="https://rhythmo.example.com/delete-account">`,
 		`<a href="/privacy">`,
 	} {
 		if !strings.Contains(body, want) {
@@ -274,7 +276,7 @@ func TestPublicPagesUseTheConfiguredSiteOrigin(t *testing.T) {
 		"/delete-account": `<link rel="canonical" href="https://rhythmo.ir/delete-account">`,
 	} {
 		body := get(site, path).Body.String()
-		if !strings.Contains(body, want) || strings.Contains(body, "nafir.example.com") {
+		if !strings.Contains(body, want) || strings.Contains(body, "rhythmo.example.com") {
 			t.Errorf("%s does not use the site origin:\n%s", path, body)
 		}
 	}
@@ -294,9 +296,9 @@ func TestWithSiteIgnoresAnythingButAnOrigin(t *testing.T) {
 func TestSitemapListsTheStaticPages(t *testing.T) {
 	body := get(publicSite(&sharingStore{}, AnonymousLimits{}), "/sitemap.xml").Body.String()
 	for _, want := range []string{
-		"<loc>https://nafir.example.com/</loc>",
-		"<loc>https://nafir.example.com/privacy</loc>",
-		"<loc>https://nafir.example.com/delete-account</loc>",
+		"<loc>https://rhythmo.example.com/</loc>",
+		"<loc>https://rhythmo.example.com/privacy</loc>",
+		"<loc>https://rhythmo.example.com/delete-account</loc>",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("sitemap lacks %s:\n%s", want, body)
@@ -362,7 +364,7 @@ func TestFrontPageExplainsRhythmoWithFAQ(t *testing.T) {
 		"بله. هر حساب ۲ گیگابایت فضای ابری برای موسیقی دارد.",
 		`href="https://cafebazaar.ir/app/ir.mhdolatabadi.nafir"`,
 		`<meta name="twitter:card" content="summary_large_image">`,
-		`<meta property="og:image" content="https://nafir.example.com/social.png">`,
+		`<meta property="og:image" content="https://rhythmo.example.com/social.png">`,
 		`<meta property="og:image:width" content="1200">`,
 	} {
 		if !strings.Contains(page, want) {
@@ -376,10 +378,10 @@ func TestFrontPageExplainsRhythmoWithFAQ(t *testing.T) {
 	}
 
 	data := jsonLD(t, page)
-	if site := graphNode(t, data, "WebSite"); site["url"] != "https://nafir.example.com/" || site["inLanguage"] != "fa" {
+	if site := graphNode(t, data, "WebSite"); site["url"] != "https://rhythmo.example.com/" || site["inLanguage"] != "fa" {
 		t.Errorf("WebSite = %v", site)
 	}
-	if org := graphNode(t, data, "Organization"); org["logo"] != "https://nafir.example.com/nafir.png" {
+	if org := graphNode(t, data, "Organization"); org["logo"] != "https://rhythmo.example.com/rhythmo.png" {
 		t.Errorf("Organization = %v", org)
 	}
 	faq := graphNode(t, data, "FAQPage")

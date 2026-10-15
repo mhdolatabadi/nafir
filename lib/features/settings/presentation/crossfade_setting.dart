@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:nafir/core/persian_digits.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/features/player/application/playback_settings.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
+import 'package:rhythmo/core/persian_digits.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/features/player/application/playback_settings.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
 
 /// `خاموش`, or `۴ ثانیه`.
 String formatCrossfade(Duration value) => value == Duration.zero
@@ -28,7 +28,7 @@ class CrossfadeSetting extends StatelessWidget {
           children: [
             const Divider(),
             ListTile(
-              leading: const Icon(NafirIcons.waveform),
+              leading: const Icon(RhythmoIcons.waveform),
               title: const Text('هم‌پوشانی آهنگ‌ها'),
               subtitle: Text(
                 seconds == 0

@@ -1,4 +1,4 @@
-import 'package:nafir/features/library/data/track.dart';
+import 'package:rhythmo/features/library/data/track.dart';
 
 /// Where a library track's file is kept.
 enum TrackLocation {

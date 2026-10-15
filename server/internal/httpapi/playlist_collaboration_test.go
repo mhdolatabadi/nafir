@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/mhdolatabadi/nafir/server/internal/auth"
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/auth"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 // collabTestPool connects to TEST_DATABASE_URL, a disposable database, and
@@ -26,7 +26,7 @@ func collabTestPool(t *testing.T) *pgxpool.Pool {
 		t.Skip("TEST_DATABASE_URL is not set")
 	}
 	ctx := context.Background()
-	const schema = "nafir_httpapi_test"
+	const schema = "rhythmo_httpapi_test"
 	admin, err := pgxpool.New(ctx, url)
 	if err != nil {
 		t.Fatal(err)

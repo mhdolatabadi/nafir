@@ -4,7 +4,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY cmd cmd
 COPY internal internal
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/nafir-api ./cmd/api
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/rhythmo-api ./cmd/api
 
 FROM alpine:3.21
 # yt-dlp (pinned by hash in ytdlp-requirements.txt) with Python, ffmpeg to copy
@@ -17,8 +17,8 @@ RUN python3 -m venv /opt/yt-dlp \
     && ln -s /opt/yt-dlp/bin/yt-dlp /usr/local/bin/yt-dlp \
     && rm /tmp/ytdlp-requirements.txt \
     && yt-dlp --version
-RUN addgroup -S nafir && adduser -S -G nafir -u 10001 nafir
-COPY --from=build /out/nafir-api /usr/local/bin/nafir-api
-USER nafir
+RUN addgroup -S rhythmo && adduser -S -G rhythmo -u 10001 rhythmo
+COPY --from=build /out/rhythmo-api /usr/local/bin/rhythmo-api
+USER rhythmo
 EXPOSE 8080
-ENTRYPOINT ["/usr/local/bin/nafir-api"]
+ENTRYPOINT ["/usr/local/bin/rhythmo-api"]

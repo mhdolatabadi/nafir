@@ -3,9 +3,9 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/upload/data/storage_uploader.dart';
-import 'package:nafir/features/upload/data/upload_models.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/upload/data/storage_uploader.dart';
+import 'package:rhythmo/features/upload/data/upload_models.dart';
 
 /// Records the request and never answers until it is cancelled.
 class HangingAdapter implements HttpClientAdapter {

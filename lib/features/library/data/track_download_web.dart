@@ -1,5 +1,5 @@
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/features/library/data/track_download.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/features/library/data/track_download.dart';
 import 'package:web/web.dart' as web;
 
 /// Hands the download to the browser: the link's storage response says

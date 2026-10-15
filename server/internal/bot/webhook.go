@@ -11,7 +11,7 @@ import (
 const maxUpdateBytes = 1 << 20
 
 // Parser turns a provider's webhook body into an Update. ok is false for
-// updates Nafir does not handle, such as edits and channel posts.
+// updates rhythmo does not handle, such as edits and channel posts.
 type Parser func(body []byte) (u Update, ok bool, err error)
 
 // WebhookAuth says how a webhook request proves it comes from the provider.

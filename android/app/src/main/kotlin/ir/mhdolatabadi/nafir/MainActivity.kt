@@ -237,7 +237,7 @@ class MainActivity : AudioServiceActivity() {
         }
     }
 
-    /// Deletes a device track. Files Nafir saved are deleted directly; for
+    /// Deletes a device track. Files rhythmo saved are deleted directly; for
     /// others Android asks the user to confirm. Answers true once deleted and
     /// false when the user declined.
     private fun handleDeleteAudio(uri: String?, result: MethodChannel.Result) {

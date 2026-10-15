@@ -92,7 +92,7 @@ Changing it later signs every user out.
 
 ## Upgrading from SOT
 
-The infrastructure was previously renamed from SOT to Nafir; the display brand is now rhythmo. On a server deployed before the rename:
+The infrastructure identifiers (database, role, containers) were renamed from SOT to `nafir`, which they still use; the display brand is rhythmo. On a server deployed before that rename:
 
 1. In `deploy/.env`, rename `SOT_DOMAIN` to `NAFIR_DOMAIN` and add `NAFIR_IMAGE_REPO` from `.env.example`.
 2. PostgreSQL only reads `POSTGRES_DB` and `POSTGRES_USER` when its volume is first created, so the

@@ -1,14 +1,14 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/player/application/media_session.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/player/data/audio_engine.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/player/application/media_session.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/player/data/audio_engine.dart';
 
 import 'player_controller_test.dart' show FakeAudioEngine;
 import 'upload_controller_test.dart' show FakeTracksApi;
 
-final _artwork = Uri.file('/data/nafir_notification_artwork.png');
+final _artwork = Uri.file('/data/rhythmo_notification_artwork.png');
 
 const _tracks = [
   Track(
@@ -24,13 +24,13 @@ const _tracks = [
 void main() {
   late FakeAudioEngine engine;
   late PlayerController player;
-  late NafirAudioHandler handler;
+  late RhythmoAudioHandler handler;
 
   setUp(() {
     engine = FakeAudioEngine();
     player = PlayerController(
         api: FakeTracksApi(), engine: engine, token: () => 'tok');
-    handler = NafirAudioHandler(artwork: _artwork)..attach(player);
+    handler = RhythmoAudioHandler(artwork: _artwork)..attach(player);
   });
 
   test('the system shows the current track and its duration', () async {
@@ -149,7 +149,7 @@ void main() {
 
   test('titles are cleaned and fall back to the filename', () {
     String title(String value, {String? fileName}) =>
-        NafirAudioHandler.notificationTitle(Track(
+        RhythmoAudioHandler.notificationTitle(Track(
             id: 'x',
             title: value,
             fileName: fileName,
@@ -181,7 +181,7 @@ void main() {
   test(
       'without resolved artwork the item has no image rather than a '
       'URI the system cannot load', () async {
-    final bare = NafirAudioHandler()..attach(player);
+    final bare = RhythmoAudioHandler()..attach(player);
     await player.playFrom(_tracks, 0);
     expect(bare.mediaItem.value?.artUri, isNull);
   });

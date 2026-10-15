@@ -1,4 +1,4 @@
-import 'package:nafir/features/library/data/track.dart';
+import 'package:rhythmo/features/library/data/track.dart';
 
 /// A pending track and the presigned form that uploads its file to storage.
 class UploadTicket {

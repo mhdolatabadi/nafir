@@ -1,17 +1,17 @@
-import 'package:nafir/features/journey/application/listening_journey.dart';
+import 'package:rhythmo/features/journey/application/listening_journey.dart';
 import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/lyrics/application/lyrics_controller.dart';
-import 'package:nafir/features/player/application/favorite_tracks.dart';
-import 'package:nafir/features/player/application/playback_metrics.dart';
-import 'package:nafir/features/player/application/play_queue.dart';
-import 'package:nafir/features/player/application/playback_settings.dart';
-import 'package:nafir/features/player/data/audio_engine.dart';
-import 'package:nafir/features/player/data/loudness.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/lyrics/application/lyrics_controller.dart';
+import 'package:rhythmo/features/player/application/favorite_tracks.dart';
+import 'package:rhythmo/features/player/application/playback_metrics.dart';
+import 'package:rhythmo/features/player/application/play_queue.dart';
+import 'package:rhythmo/features/player/application/playback_settings.dart';
+import 'package:rhythmo/features/player/data/audio_engine.dart';
+import 'package:rhythmo/features/player/data/loudness.dart';
 
 enum PlayerStatus {
   idle,

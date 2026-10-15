@@ -11,8 +11,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/mhdolatabadi/nafir/server/internal/auth"
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/auth"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 const maxAuthBodyBytes = 4 << 10
@@ -83,7 +83,7 @@ type AuthHandlers struct {
 }
 
 func NewAuthHandlers(users UserStore, passwords auth.Passwords, tokens *auth.Tokens, limiters AuthRateLimiters) (*AuthHandlers, error) {
-	dummyHash, err := passwords.Hash("nafir-timing-equaliser")
+	dummyHash, err := passwords.Hash("rhythmo-timing-equaliser")
 	if err != nil {
 		return nil, err
 	}

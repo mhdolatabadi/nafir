@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:just_audio/just_audio.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/player/data/audio_cache.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/player/data/audio_cache.dart';
 import 'package:path_provider/path_provider.dart';
 
 const defaultCacheBytes = 500 * 1024 * 1024;

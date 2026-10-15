@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:nafir/core/design/design.dart';
+import 'package:rhythmo/core/design/design.dart';
 
 /// Full-screen loading state that matches the web splash in web/index.html,
 /// so startup looks like one continuous screen.
@@ -13,11 +13,11 @@ class AppLoadingScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // The app icon: a red nafir on black.
+            // The app icon: the rhythmo mark.
             ClipRRect(
-              borderRadius: BorderRadius.all(Radius.circular(NafirRadii.lg)),
+              borderRadius: BorderRadius.all(Radius.circular(RhythmoRadii.lg)),
               child: Image(
-                image: AssetImage('assets/icon/nafir.png'),
+                image: AssetImage('assets/icon/rhythmo.png'),
                 width: 72,
                 height: 72,
               ),

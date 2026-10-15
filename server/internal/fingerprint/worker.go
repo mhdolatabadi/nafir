@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 // JobStore hands out tracks to fingerprint and keeps the results;

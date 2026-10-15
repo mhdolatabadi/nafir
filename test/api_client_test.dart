@@ -5,7 +5,7 @@ import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:nafir/core/api/api_client.dart';
+import 'package:rhythmo/core/api/api_client.dart';
 
 void main() {
   test('slow link preview survives the standard request timeout', () {

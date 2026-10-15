@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/features/library/application/library_entries.dart';
-import 'package:nafir/features/library/data/track.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/features/library/application/library_entries.dart';
+import 'package:rhythmo/features/library/data/track.dart';
 
 enum RecentlyPlayedStatus { loading, loaded, error }
 

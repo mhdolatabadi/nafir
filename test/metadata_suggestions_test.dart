@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/features/library/application/metadata_suggestions.dart';
-import 'package:nafir/features/library/data/track.dart';
+import 'package:rhythmo/features/library/application/metadata_suggestions.dart';
+import 'package:rhythmo/features/library/data/track.dart';
 
 Track _t(String id, {String? artist, String? album, String? albumArtist}) =>
     Track(

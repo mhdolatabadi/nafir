@@ -1,12 +1,12 @@
 import 'package:flutter/widgets.dart';
 
-/// Nafir's icons: the Phosphor family (MIT, see
+/// rhythmo's icons: the Phosphor family (MIT, see
 /// assets/fonts/Phosphor-LICENSE.txt), bundled as fonts. Resting icons use
 /// the regular weight; active and selected states use the `…Fill` variants.
 ///
-/// Only the icons Nafir uses are listed; add more from
+/// Only the icons rhythmo uses are listed; add more from
 /// https://phosphoricons.com with the codepoint from the Phosphor font.
-abstract final class NafirIcons {
+abstract final class RhythmoIcons {
   static const IconData dotsThreeVertical =
       IconData(0xe208, fontFamily: 'Phosphor');
   static const IconData arrowSquareOut =

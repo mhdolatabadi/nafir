@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 // memStore is an in-memory store.Bots with the same rules.
