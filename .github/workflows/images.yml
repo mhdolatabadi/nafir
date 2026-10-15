@@ -37,7 +37,9 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Resolve image name
         id: image
-        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}/${{ matrix.name }}" >> "$GITHUB_OUTPUT"
+        # Fixed package path: the server pulls ghcr.io/<owner>/nafir/* and
+        # the repository has been renamed, so the repo name must not leak in.
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/nafir/${{ matrix.name }}" >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
