@@ -23,6 +23,7 @@ type Store interface {
 	AddToEntry(ctx context.Context, trackID, entryID string, points []byte, durationSeconds *float64) error
 	NewEntry(ctx context.Context, trackID, titleKey string, points []byte, durationSeconds *float64) error
 	PruneCatalog(ctx context.Context) (int64, error)
+	RefreshScores(ctx context.Context) error
 }
 
 const (
@@ -46,12 +47,15 @@ type Config struct {
 	// Settle is how long a copy waits for its fingerprint before it is
 	// grouped by name alone.
 	Settle time.Duration
+	// ScoreEvery is how often popular and trending scores are refreshed.
+	ScoreEvery time.Duration
 }
 
 // Indexer groups new copies and prunes copies that left the store.
 type Indexer struct {
 	store  Store
 	config Config
+	scored time.Time
 }
 
 func NewIndexer(s Store, config Config) *Indexer {
@@ -63,6 +67,9 @@ func NewIndexer(s Store, config Config) *Indexer {
 	}
 	if config.Settle <= 0 {
 		config.Settle = 10 * time.Minute
+	}
+	if config.ScoreEvery <= 0 {
+		config.ScoreEvery = 5 * time.Minute
 	}
 	return &Indexer{store: s, config: config}
 }
@@ -89,8 +96,8 @@ func (x *Indexer) Run(ctx context.Context) {
 	}
 }
 
-// RunOnce prunes, then groups one batch, and reports how many copies it
-// grouped.
+// RunOnce prunes, groups one batch and, every ScoreEvery, refreshes the
+// popular and trending scores; it reports how many copies it grouped.
 func (x *Indexer) RunOnce(ctx context.Context) (int, error) {
 	if _, err := x.store.PruneCatalog(ctx); err != nil {
 		return 0, err
@@ -103,6 +110,12 @@ func (x *Indexer) RunOnce(ctx context.Context) (int, error) {
 		if err := x.group(ctx, job); err != nil {
 			return 0, err
 		}
+	}
+	if time.Since(x.scored) >= x.config.ScoreEvery {
+		if err := x.store.RefreshScores(ctx); err != nil {
+			return 0, err
+		}
+		x.scored = time.Now()
 	}
 	return len(jobs), nil
 }

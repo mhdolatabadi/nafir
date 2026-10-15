@@ -327,6 +327,11 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	likeRate, err := rateLimiterEnv("LIKE_RATE", 120, 10*time.Minute)
+	if err != nil {
+		return err
+	}
+	trackLikes := store.NewTrackLikes(pool)
 	adminHandlers := httpapi.NewAdminHandlers(authHandlers, users)
 	storeHandlers := httpapi.NewCatalogHandlers(storeCatalog, tokens, objects,
 		httpapi.AnonymousLimits{View: publicViewRate, Stream: publicStreamRate}).
@@ -334,7 +339,8 @@ func run() error {
 			Objects: objects, MaxOwnerBytes: ownerQuotaBytes, Enabled: uploadsEnabled,
 		}).
 		WithReports(storeReportRate).
-		WithAdmin(adminHandlers)
+		WithAdmin(adminHandlers).
+		WithLikes(trackLikes)
 
 	var ops *httpapi.OpsHandlers
 	if opsToken := os.Getenv("OPS_TOKEN"); opsToken != "" {
@@ -358,7 +364,8 @@ func run() error {
 				MaxPending: maxPending, Enabled: uploadsEnabled,
 				ReservationUserRate: reservationUserRate, ReservationIPRate: reservationIPRate,
 				CompletionUserRate: completionUserRate, CompletionIPRate: completionIPRate,
-			}).WithImports(bots).WithTagRewrites(retags).WithEmailGate(emailGate).WithFingerprints(readyTracks),
+			}).WithImports(bots).WithTagRewrites(retags).WithEmailGate(emailGate).WithFingerprints(readyTracks).
+				WithLikes(trackLikes),
 			Playlists: httpapi.NewPlaylistHandlers(playlists, tokens).WithSharing(playlists, objects, httpapi.SavePolicy{
 				Objects: objects, MaxOwnerBytes: ownerQuotaBytes, Enabled: uploadsEnabled,
 			}).WithAnonymous(httpapi.AnonymousLimits{View: publicViewRate, Stream: publicStreamRate}).
@@ -378,6 +385,7 @@ func run() error {
 			Lyrics:   lyricsHandlers,
 			Identify: identifyHandlers,
 			Store:    storeHandlers,
+			Likes:    httpapi.NewLikeHandlers(trackLikes, tracks, tokens, likeRate),
 			Ops:      ops,
 			Webhooks: webhooks,
 		}),

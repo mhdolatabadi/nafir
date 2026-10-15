@@ -68,6 +68,9 @@ services:
       # Song identification for visitors without an account, per IP.
       IDENTIFY_ANONYMOUS_RATE_REQUESTS: ${IDENTIFY_ANONYMOUS_RATE_REQUESTS:-10}
       IDENTIFY_ANONYMOUS_RATE_WINDOW: ${IDENTIFY_ANONYMOUS_RATE_WINDOW:-10m}
+      # Likes and publish changes one account may make.
+      LIKE_RATE_REQUESTS: ${LIKE_RATE_REQUESTS:-120}
+      LIKE_RATE_WINDOW: ${LIKE_RATE_WINDOW:-10m}
       STORE_REPORT_RATE_REQUESTS: ${STORE_REPORT_RATE_REQUESTS:-20}
       STORE_REPORT_RATE_WINDOW: ${STORE_REPORT_RATE_WINDOW:-24h}
       # Plays one user may add to their recently played history.

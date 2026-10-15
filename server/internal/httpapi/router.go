@@ -28,6 +28,8 @@ type Config struct {
 	// Store is the public store: every song in a public playlist, listed
 	// once.
 	Store *CatalogHandlers
+	// Likes publishes single tracks and keeps likes (#284).
+	Likes *LikeHandlers
 	// Public serves the public HTML pages at /, /p/{token}, sitemap.xml and
 	// robots.txt.
 	Public *PublicPages
@@ -70,6 +72,9 @@ func NewHandler(config Config) http.Handler {
 	}
 	if config.Store != nil {
 		config.Store.register(mux)
+	}
+	if config.Likes != nil {
+		config.Likes.register(mux)
 	}
 	if config.Public != nil {
 		config.Public.register(mux)
