@@ -1,3 +1,6 @@
+import 'package:http/testing.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -32,6 +35,10 @@ class FakePlaylistsApi implements PlaylistsApi {
 
   String? shareToken;
   bool isPublic = false;
+
+  /// The owner isn't verified: going public only asks an admin (#322).
+  bool needsReview = false;
+  bool pending = false;
   bool shareFails = false;
   final shareCalls = <bool?>[];
   final shared = <String, SharedPlaylist>{};
@@ -56,14 +63,24 @@ class FakePlaylistsApi implements PlaylistsApi {
       {bool? public}) async {
     shareCalls.add(public);
     if (shareFails) throw const ApiException('500', statusCode: 500);
-    isPublic = public ?? isPublic;
-    return (shareToken: shareToken ??= token, isPublic: isPublic);
+    if (public == true && needsReview && !isPublic) {
+      pending = true;
+    } else if (public != null) {
+      isPublic = public;
+      pending = false;
+    }
+    return (
+      shareToken: shareToken ??= token,
+      isPublic: isPublic,
+      pending: pending
+    );
   }
 
   @override
   Future<void> unsharePlaylist(String t, String playlistId) async {
     shareToken = null;
     isPublic = false;
+    pending = false;
   }
 
   /// Who likes each shared playlist, by share token.
@@ -307,10 +324,10 @@ void main() {
       final api = FakePlaylistsApi();
       final controller = PlaylistsController(api: api, token: () => 'tok');
 
-      expect(
-          await controller.share('p1'), (shareToken: token, isPublic: false));
+      expect(await controller.share('p1'),
+          (shareToken: token, isPublic: false, pending: false));
       expect(await controller.share('p1', public: true),
-          (shareToken: token, isPublic: true));
+          (shareToken: token, isPublic: true, pending: false));
       expect(await controller.unshare('p1'), isTrue);
       expect(api.shareToken, isNull);
       expect(() => controller.openShared(token),
@@ -585,6 +602,56 @@ void main() {
       expect(api.shareCalls, [true, false]);
       expect(api.isPublic, isFalse);
       expect(api.shareToken, token);
+    });
+
+    testWidgets('an unverified owner going public waits for an admin',
+        (tester) async {
+      final api = FakePlaylistsApi()
+        ..needsReview = true
+        ..shareToken = token;
+      final controller = PlaylistsController(api: api, token: () => 'tok');
+      await tester.pumpWidget(MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => showShareSheet(context,
+                  playlist: api.playlist, controller: controller),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ));
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('با تأیید مدیر است'), findsOneWidget);
+
+      await tester.tap(find.text('عمومی'));
+      await tester.pumpAndSettle();
+      expect(api.shareCalls, [true]);
+      expect(api.isPublic, isFalse);
+      expect(find.textContaining('در انتظار تأیید مدیر'), findsOneWidget);
+      expect(find.textContaining('فهرست‌های پخش محبوب'), findsNothing);
+
+      // Going back to link-only withdraws the request.
+      await tester.tap(find.text('فقط با لینک'));
+      await tester.pumpAndSettle();
+      expect(api.shareCalls, [true, false]);
+      expect(api.pending, isFalse);
+      expect(find.textContaining('در انتظار تأیید مدیر'), findsNothing);
+    });
+
+    test('ApiClient reads a pending public request', () async {
+      final client = ApiClient(Uri.parse('https://api.example.com'),
+          httpClient: MockClient((request) async => http.Response(
+              jsonEncode({
+                'shareToken': token,
+                'public': false,
+                'publicReview': 'pending',
+              }),
+              200,
+              headers: {'content-type': 'application/json'})));
+      expect(await client.sharePlaylist('tok', 'p1', public: true),
+          (shareToken: token, isPublic: false, pending: true));
     });
 
     group('popular playlists screen', () {
