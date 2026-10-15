@@ -11,3 +11,9 @@ No backend migration or deployment configuration is needed. Rollback is revertin
 Follow-ups: #275 (exportable monthly image cards), #276 (server-backed collaborative goals and optional occasion collections).
 
 Validation: Flutter analysis, 402 unit/widget tests and the Web release build pass locally. Tests include account isolation, persistence, disabled recording, Saturday rollover, seeking, paused events and a narrow RTL screen. Android compilation requires the repository CI runner; the local environment has no Android SDK.
+
+## Monthly image cards (#275)
+
+«خاطرهٔ شنیدن» now lets the listener select the current month or any retained month, preview a 1080×1350 PNG, then explicitly save it using the platform file dialog (Web and Android). The image contains Persian numerals, monthly play/track counts and up to three available tracks, including their artists; no email, account identifier or private media URL is included. Month labels explicitly identify the Gregorian calendar used by the stored aggregates. No file is saved or sent automatically. The saved PNG can be shared with another app by the listener.
+
+Empty months cannot generate a card. Cancelled saves and failures leave the preview available for retry. Changing accounts invalidates in-flight rendering and hides old previews and the old account's journey route. Rendering uses a snapshot, so listening events cannot mutate a partially generated card. Deleted/unavailable tracks are omitted from the visible top-three list while historical totals remain accurate.

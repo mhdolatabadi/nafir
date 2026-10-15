@@ -25,6 +25,18 @@ class ListeningJourney extends ChangeNotifier {
   Future<void> _writes = Future.value();
 
   DateTime get today => _now();
+
+  /// Invalidates exports and views when the signed-in account changes.
+  int get accountGeneration => _generation;
+
+  List<String> get months {
+    final keys = {..._months.keys, monthKey(today)}.toList()
+      ..sort((a, b) => b.compareTo(a));
+    return List.unmodifiable(keys);
+  }
+
+  Map<String, int> playsForMonth(String key) =>
+      Map.unmodifiable(_months[key] ?? const <String, int>{});
   static String monthKey(DateTime date) =>
       '${date.year}-${date.month.toString().padLeft(2, '0')}';
   static String weekKey(DateTime date) {

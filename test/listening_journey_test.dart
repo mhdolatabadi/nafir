@@ -118,6 +118,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     await tester.scrollUntilVisible(find.byType(SwitchListTile), 150);
+    await tester.ensureVisible(find.byType(SwitchListTile));
+    await tester.pumpAndSettle();
     await tester.tap(find.byType(SwitchListTile));
     await tester.pumpAndSettle();
     expect(journey.enabled, isFalse);
