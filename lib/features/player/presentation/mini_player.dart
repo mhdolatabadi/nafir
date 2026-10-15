@@ -61,6 +61,7 @@ class _MiniPlayerState extends State<MiniPlayer> {
                         track: track,
                         status: status,
                         onTap: _openNowPlaying,
+                        needsTap: player.needsTap,
                       );
                       final controls = _PlaybackControls(
                         player: player,
@@ -194,7 +195,11 @@ class _CompactMiniPlayer extends StatelessWidget {
                   onTap: onOpen,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: _MiniTrackText(track: track, status: status),
+                    child: _MiniTrackText(
+                      track: track,
+                      status: status,
+                      needsTap: player.needsTap,
+                    ),
                   ),
                 ),
               ),
@@ -270,11 +275,13 @@ class _TrackSummary extends StatelessWidget {
     required this.track,
     required this.status,
     required this.onTap,
+    this.needsTap = false,
   });
 
   final Track track;
   final PlayerStatus status;
   final VoidCallback onTap;
+  final bool needsTap;
 
   @override
   Widget build(BuildContext context) {
@@ -285,7 +292,10 @@ class _TrackSummary extends StatelessWidget {
         children: [
           _MiniArtwork(track: track, status: status, size: 44),
           const SizedBox(width: 12),
-          Expanded(child: _MiniTrackText(track: track, status: status)),
+          Expanded(
+            child: _MiniTrackText(
+                track: track, status: status, needsTap: needsTap),
+          ),
         ],
       ),
     );
@@ -334,10 +344,17 @@ class _MiniArtwork extends StatelessWidget {
 }
 
 class _MiniTrackText extends StatelessWidget {
-  const _MiniTrackText({required this.track, required this.status});
+  const _MiniTrackText({
+    required this.track,
+    required this.status,
+    this.needsTap = false,
+  });
 
   final Track track;
   final PlayerStatus status;
+
+  /// The browser wants a tap before it plays audio.
+  final bool needsTap;
 
   @override
   Widget build(BuildContext context) {
@@ -358,9 +375,14 @@ class _MiniTrackText extends StatelessWidget {
         ),
         const SizedBox(height: 2),
         Text(
-          status == PlayerStatus.error
-              ? 'پخش ناموفق بود. دوباره تلاش کن.'
-              : trackSubtitle(track),
+          switch (status) {
+            PlayerStatus.error => 'پخش ناموفق بود. دوباره تلاش کن.',
+            PlayerStatus.loading ||
+            PlayerStatus.buffering =>
+              'در حال بارگذاری…',
+            _ when needsTap => 'برای پخش، دکمه‌ی پخش را بزن.',
+            _ => trackSubtitle(track),
+          },
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(

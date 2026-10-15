@@ -1,6 +1,8 @@
 import 'package:nafir/features/journey/application/listening_journey.dart';
 import 'package:flutter/foundation.dart';
+import 'package:nafir/app/app_preferences.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:nafir/features/link_import/application/link_import_controller.dart';
 import 'package:nafir/features/link_import/data/link_import.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -37,11 +39,13 @@ import 'package:nafir/features/upload/data/storage_uploader.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (kIsWeb) await BrowserContextMenu.disableContextMenu();
   final mediaSession = await startMediaSession();
   runApp(ProviderScope(child: NafirApp(mediaSession: mediaSession)));
 }
 
 class NafirApp extends StatefulWidget {
+  final AppPreferencesStore? appPreferencesStore;
   const NafirApp({
     super.key,
     this.healthCheck,
@@ -65,6 +69,7 @@ class NafirApp extends StatefulWidget {
     this.favoritesStore,
     this.playbackSettingsStore,
     this.mediaSession,
+    this.appPreferencesStore,
   });
 
   /// Test overrides; by default these talk to [AppConfiguration.apiBaseUri]
@@ -216,11 +221,15 @@ class _NafirAppState extends State<NafirApp> {
     playing: () => _player?.track?.id,
   );
 
+  late final _preferences =
+      AppPreferencesController(store: widget.appPreferencesStore);
+
   @override
   void initState() {
     super.initState();
     _auth?.addListener(_selectJourneyAccount);
     _selectJourneyAccount();
+    _preferences.load();
     final player = _player;
     if (player != null) widget.mediaSession?.attach(player);
   }
@@ -229,6 +238,7 @@ class _NafirAppState extends State<NafirApp> {
   void dispose() {
     _auth?.removeListener(_selectJourneyAccount);
     _journey.dispose();
+    _preferences.dispose();
     _player?.dispose();
     _auth?.dispose();
     _sync?.dispose();
@@ -247,40 +257,48 @@ class _NafirAppState extends State<NafirApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'rhythmo',
-      debugShowCheckedModeBanner: false,
-      // The UI is Persian only: right-to-left layout and Persian Material
-      // strings (tooltips, dialogs), whatever the device language is.
-      locale: const Locale('fa'),
-      supportedLocales: const [Locale('fa')],
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: NafirTheme.dark(),
-      home: _WebEdgeInsets(
-        child: BackendGate(
-          healthCheck: widget.healthCheck ?? _apiClient?.checkHealth,
-          child: _auth == null ||
-                  _uploads == null ||
-                  _sync == null ||
-                  _library == null ||
-                  _player == null
-              ? const SizedBox.shrink()
-              : AuthGate(
-                  controller: _auth,
-                  adminApi: _apiClient,
-                  player: _player,
-                  library: _library,
-                  playlists: _playlists,
-                  recent: _recent,
-                  localAudio: _localAudio,
-                  uploads: _uploads,
-                  sync: _sync,
-                  cache: _cache,
-                  botLinks: _botLinks,
-                  linkImports: _linkImports,
-                  identify: _identify,
-                  picker: widget.picker ?? FilePickerAudioPicker(),
-                ),
+    return AppPreferencesScope(
+      controller: _preferences,
+      child: ListenableBuilder(
+        listenable: _preferences,
+        builder: (context, _) => MaterialApp(
+          title: 'rhythmo',
+          debugShowCheckedModeBanner: false,
+          // The UI is Persian only: right-to-left layout and Persian Material
+          // strings (tooltips, dialogs), whatever the device language is.
+          locale: const Locale('fa'),
+          supportedLocales: const [Locale('fa')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          theme: NafirTheme.light(),
+          darkTheme: NafirTheme.dark(),
+          themeMode: _preferences.value.themeMode,
+          home: _WebEdgeInsets(
+            child: BackendGate(
+              healthCheck: widget.healthCheck ?? _apiClient?.checkHealth,
+              child: _auth == null ||
+                      _uploads == null ||
+                      _sync == null ||
+                      _library == null ||
+                      _player == null
+                  ? const SizedBox.shrink()
+                  : AuthGate(
+                      controller: _auth,
+                      adminApi: _apiClient,
+                      player: _player,
+                      library: _library,
+                      playlists: _playlists,
+                      recent: _recent,
+                      localAudio: _localAudio,
+                      uploads: _uploads,
+                      sync: _sync,
+                      cache: _cache,
+                      botLinks: _botLinks,
+                      linkImports: _linkImports,
+                      identify: _identify,
+                      picker: widget.picker ?? FilePickerAudioPicker(),
+                    ),
+            ),
+          ),
         ),
       ),
     );

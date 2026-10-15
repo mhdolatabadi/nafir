@@ -20,6 +20,7 @@ import (
 	"github.com/mhdolatabadi/nafir/server/internal/fingerprint"
 	"github.com/mhdolatabadi/nafir/server/internal/httpapi"
 	"github.com/mhdolatabadi/nafir/server/internal/linkimport"
+	"github.com/mhdolatabadi/nafir/server/internal/loudness"
 	"github.com/mhdolatabadi/nafir/server/internal/lyrics"
 	"github.com/mhdolatabadi/nafir/server/internal/mail"
 	"github.com/mhdolatabadi/nafir/server/internal/storage"
@@ -38,6 +39,8 @@ const (
 	defaultCleanupEvery = 10 * time.Minute
 	defaultCleanupBatch = 100
 	maxRateLimitKeys    = 10_000
+	loudnessScanEvery   = 2 * time.Minute
+	loudnessScanBatch   = 50
 	// sessionCacheTTL bounds how long a revocation takes to reach another API process.
 	sessionCacheTTL      = 30 * time.Second
 	defaultTagWorkers    = 1
@@ -142,6 +145,16 @@ func run() error {
 
 	if err := ensureBucket(ctx, objects); err != nil {
 		return fmt.Errorf("storage bucket: %w", err)
+	}
+	// Audio is only ever reachable through presigned URLs; a bucket someone
+	// made public would expose every library, so refuse to serve (#217).
+	// Failing to read the policy (a key without s3:GetBucketPolicy) is only
+	// a warning, so a missing permission can't take the site down.
+	switch err := objects.CheckPrivate(ctx); {
+	case errors.Is(err, storage.ErrPublicBucket):
+		return fmt.Errorf("storage: %w; remove it with `mc anonymous set none`", err)
+	case err != nil:
+		slog.Warn("could not check that the storage bucket is private", "error", err)
 	}
 
 	registerRate, err := rateLimiterEnv("REGISTER_RATE", 5, time.Hour)
@@ -362,6 +375,8 @@ func run() error {
 		go fingerprints.Run(ctx)
 	}
 	go cleanPendingUploads(ctx, tracks, objects, pendingTTL, cleanupEvery, cleanupBatch)
+	// Reads ReplayGain from new uploads and, once, from every older track.
+	go loudness.NewScanner(tracks, objects, loudnessScanEvery, loudnessScanBatch).Run(ctx)
 	go purgeDeletedAccounts(ctx, users, objects, cleanupEvery, cleanupBatch)
 
 	serverErr := make(chan error, 1)

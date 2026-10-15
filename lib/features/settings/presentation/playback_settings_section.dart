@@ -4,6 +4,7 @@ import 'package:nafir/features/player/application/playback_settings.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/presentation/playback_controls.dart';
 import 'package:nafir/features/settings/presentation/crossfade_setting.dart';
+import 'package:nafir/features/settings/presentation/loudness_setting.dart';
 
 /// Playback controls backed by the same controller as the now-playing screen.
 class PlaybackSettingsSection extends StatelessWidget {
@@ -71,6 +72,32 @@ class PlaybackSettingsSection extends StatelessWidget {
                         ),
                         if (player.supportsCrossfade)
                           CrossfadeSetting(player: player),
+                        LoudnessSetting(player: player),
+                        if (player.supportsSilenceSkipping)
+                          SwitchListTile(
+                            title: const Text('رد کردن سکوت'),
+                            subtitle:
+                                const Text('بخش‌های ساکت هنگام پخش رد شوند.'),
+                            value: player.skipSilence,
+                            onChanged: (value) =>
+                                player.setSystemPreferences(skipSilence: value),
+                          ),
+                        SwitchListTile(
+                          title: const Text('کنترل پخش از سیستم'),
+                          subtitle:
+                              const Text('دکمه‌های پخش در اعلان و صفحهٔ قفل'),
+                          value: player.systemControls,
+                          onChanged: (value) => player.setSystemPreferences(
+                              systemControls: value),
+                        ),
+                        SwitchListTile(
+                          title: const Text('شروع پخش با دستگاه خارجی'),
+                          subtitle: const Text(
+                              'اجازهٔ شروع پخش با هدست و دکمه‌های سیستم'),
+                          value: player.externalPlayback,
+                          onChanged: (value) => player.setSystemPreferences(
+                              externalPlayback: value),
+                        ),
                       ],
                     ),
                   ),

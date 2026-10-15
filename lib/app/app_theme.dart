@@ -6,33 +6,40 @@ abstract final class NafirTheme {
   static const _controlRadius = 14.0;
   static const _surfaceRadius = 18.0;
 
-  static ThemeData dark() {
-    final colors = ColorScheme.fromSeed(
-      seedColor: _seed,
-      brightness: Brightness.dark,
-      dynamicSchemeVariant: DynamicSchemeVariant.tonalSpot,
-    ).copyWith(
-      primary: NafirGlass.primary,
-      onPrimary: const Color(0xFF250005),
-      primaryContainer: const Color(0xFF462026),
-      onPrimaryContainer: const Color(0xFFFFDADB),
-      secondary: NafirGlass.secondary,
-      onSecondary: const Color(0xFF160F45),
-      secondaryContainer: const Color(0xFF2A2454),
-      onSecondaryContainer: const Color(0xFFE5DFFF),
-      surface: NafirGlass.background,
-      surfaceContainerLowest: NafirGlass.background,
-      surfaceContainerLow: const Color(0xE6121522),
-      surfaceContainer: const Color(0xEB151827),
-      surfaceContainerHigh: const Color(0xF0191D2D),
-      surfaceContainerHighest: const Color(0xFF23283A),
-      onSurface: const Color(0xFFF5F1F7),
-      onSurfaceVariant: const Color(0xFFD0C8D4),
-      outline: const Color(0xFF8B8290),
-      outlineVariant: const Color(0xFF3C3743),
-    );
+  static ThemeData dark() => _build(Brightness.dark);
+  static ThemeData light() => _build(Brightness.light);
+
+  static ThemeData _build(Brightness brightness) {
+    final dark = brightness == Brightness.dark;
+    final colors = dark
+        ? ColorScheme.fromSeed(
+            seedColor: _seed,
+            brightness: Brightness.dark,
+            dynamicSchemeVariant: DynamicSchemeVariant.tonalSpot,
+          ).copyWith(
+            primary: NafirGlass.primary,
+            onPrimary: const Color(0xFF250005),
+            primaryContainer: const Color(0xFF462026),
+            onPrimaryContainer: const Color(0xFFFFDADB),
+            secondary: NafirGlass.secondary,
+            onSecondary: const Color(0xFF160F45),
+            secondaryContainer: const Color(0xFF2A2454),
+            onSecondaryContainer: const Color(0xFFE5DFFF),
+            surface: NafirGlass.background,
+            surfaceContainerLowest: NafirGlass.background,
+            surfaceContainerLow: const Color(0xE6121522),
+            surfaceContainer: const Color(0xEB151827),
+            surfaceContainerHigh: const Color(0xF0191D2D),
+            surfaceContainerHighest: const Color(0xFF23283A),
+            onSurface: const Color(0xFFF5F1F7),
+            onSurfaceVariant: const Color(0xFFD0C8D4),
+            outline: const Color(0xFF8B8290),
+            outlineVariant: const Color(0xFF3C3743),
+          )
+        : ColorScheme.fromSeed(
+            seedColor: const Color(0xFFAD2638), brightness: Brightness.light);
     final base = ThemeData(
-      brightness: Brightness.dark,
+      brightness: brightness,
       colorScheme: colors,
       fontFamily: 'Vazirmatn',
       useMaterial3: true,
@@ -52,15 +59,15 @@ abstract final class NafirTheme {
     );
 
     return base.copyWith(
-      scaffoldBackgroundColor: NafirGlass.background,
-      canvasColor: NafirGlass.background,
+      scaffoldBackgroundColor: colors.surface,
+      canvasColor: colors.surface,
       dividerTheme: DividerThemeData(
         color: colors.outlineVariant,
         space: 1,
         thickness: 1,
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: NafirGlass.background.withValues(alpha: 0.58),
+        backgroundColor: colors.surface.withValues(alpha: dark ? 0.58 : 0.96),
         foregroundColor: colors.onSurface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
@@ -73,18 +80,19 @@ abstract final class NafirTheme {
         ),
       ),
       cardTheme: CardThemeData(
-        color: const Color(0xB31A1D2A),
+        color: dark ? const Color(0xB31A1D2A) : colors.surfaceContainerLow,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: surfaceShape.copyWith(
           side: BorderSide(
-            color: NafirGlass.softBorder,
+            color: dark ? NafirGlass.softBorder : colors.outlineVariant,
           ),
         ),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: const Color(0xF21B1E2D),
+        backgroundColor:
+            dark ? const Color(0xF21B1E2D) : colors.surfaceContainerHigh,
         surfaceTintColor: Colors.transparent,
         elevation: 6,
         shape: RoundedRectangleBorder(
@@ -100,7 +108,7 @@ abstract final class NafirTheme {
         ),
       ),
       popupMenuTheme: PopupMenuThemeData(
-        color: const Color(0xF21B1E2D),
+        color: dark ? const Color(0xF21B1E2D) : colors.surfaceContainerHigh,
         surfaceTintColor: Colors.transparent,
         elevation: 6,
         shape: surfaceShape,
@@ -155,7 +163,7 @@ abstract final class NafirTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: const Color(0xB31B1E2D),
+        fillColor: dark ? const Color(0xB31B1E2D) : colors.surfaceContainerLow,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: outline,
@@ -174,7 +182,8 @@ abstract final class NafirTheme {
         errorStyle: TextStyle(color: colors.error),
       ),
       searchBarTheme: SearchBarThemeData(
-        backgroundColor: const WidgetStatePropertyAll(Color(0xB31B1E2D)),
+        backgroundColor: WidgetStatePropertyAll(
+            dark ? const Color(0xB31B1E2D) : colors.surfaceContainerLow),
         surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
         elevation: const WidgetStatePropertyAll(0),
         shadowColor: const WidgetStatePropertyAll(Colors.transparent),
@@ -239,8 +248,8 @@ abstract final class NafirTheme {
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: NafirGlass.primary,
-        foregroundColor: const Color(0xFF250005),
+        backgroundColor: colors.primary,
+        foregroundColor: colors.onPrimary,
         elevation: 3,
         focusElevation: 4,
         hoverElevation: 4,

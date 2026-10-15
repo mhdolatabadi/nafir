@@ -69,6 +69,39 @@ void main() {
     expect(state.controls[1], MediaControl.play);
   });
 
+  test('system control opt-out hides controls and blocks remote commands',
+      () async {
+    await player.playFrom(_tracks, 0);
+    await player.setSystemPreferences(systemControls: false);
+    expect(handler.playbackState.value.controls, isEmpty);
+    expect(handler.playbackState.value.systemActions, isEmpty);
+    await handler.skipToNext();
+    await handler.pause();
+    expect(player.track?.id, 'a');
+    expect(player.status, PlayerStatus.playing);
+    await player.pause();
+    await handler.play();
+    expect(player.status, PlayerStatus.paused);
+    await player.resume();
+    expect(player.status, PlayerStatus.playing);
+    await player.setSystemPreferences(systemControls: true);
+    expect(handler.playbackState.value.controls, isNotEmpty);
+  });
+
+  test('external start opt-out blocks resume but keeps pause available',
+      () async {
+    await player.playFrom(_tracks, 0);
+    await player.setSystemPreferences(externalPlayback: false);
+    await handler.pause();
+    await handler.play();
+    await handler.skipToNext();
+    await handler.skipToPrevious();
+    expect(player.track?.id, 'a');
+    expect(player.status, PlayerStatus.paused);
+    await player.resume();
+    expect(player.status, PlayerStatus.playing);
+  });
+
   test('lock-screen buttons drive the player', () async {
     await player.playFrom(_tracks, 0);
 

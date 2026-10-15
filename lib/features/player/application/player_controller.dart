@@ -7,9 +7,11 @@ import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/lyrics/application/lyrics_controller.dart';
 import 'package:nafir/features/player/application/favorite_tracks.dart';
+import 'package:nafir/features/player/application/playback_metrics.dart';
 import 'package:nafir/features/player/application/play_queue.dart';
 import 'package:nafir/features/player/application/playback_settings.dart';
 import 'package:nafir/features/player/data/audio_engine.dart';
+import 'package:nafir/features/player/data/loudness.dart';
 
 enum PlayerStatus {
   idle,
@@ -85,6 +87,8 @@ class PlayerController extends ChangeNotifier {
       engine.errors.listen(_onEngineError),
       engine.advanced.listen(_onAdvanced),
     ];
+    // Normalization is on until the saved settings say otherwise.
+    unawaited(_applyLoudness(_settings.loudness));
   }
 
   final TracksApi _api;
@@ -97,6 +101,9 @@ class PlayerController extends ChangeNotifier {
 
   /// The tracks the listener liked, shown on the now-playing screen.
   final FavoriteTracks favorites;
+
+  /// Time to first audio and stalls per play; printed in debug builds.
+  final metrics = PlaybackMetrics();
 
   /// Lyrics for the now-playing screen; null where there is no server.
   final LyricsController? lyrics;
@@ -129,6 +136,8 @@ class PlayerController extends ChangeNotifier {
   int _request = 0;
 
   PlaybackSettings _settings = const PlaybackSettings();
+  bool _queueSettingsChanged = false;
+  bool _systemSettingsChanged = false;
 
   /// The track after the current one handed to the engine, and its link.
   String? _preloadedId;
@@ -143,10 +152,55 @@ class PlayerController extends ChangeNotifier {
   bool get shuffle => _shuffle;
   QueueRepeat get repeat => _repeat;
   PlayerStatus get status => _status;
+
+  /// The browser blocked audio until the listener taps play (web autoplay
+  /// rules); cleared once playback is asked for again.
+  bool get needsTap => _needsTap;
+  bool _needsTap = false;
   Duration get position => _position;
   Duration? get duration => _duration;
 
   double get speed => _settings.speed;
+  bool get playOnlySelected => _settings.playOnlySelected;
+  bool get preventDuplicates => _settings.preventDuplicates;
+
+  Future<void> setQueuePreferences({
+    bool? playOnlySelected,
+    bool? preventDuplicates,
+  }) async {
+    _queueSettingsChanged = true;
+    _settings = _settings.copyWith(
+      playOnlySelected: playOnlySelected,
+      preventDuplicates: preventDuplicates,
+    );
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  bool get systemControls => _settings.systemControls;
+  bool get externalPlayback => _settings.externalPlayback;
+  bool get skipSilence => _settings.skipSilence;
+  bool get supportsSilenceSkipping =>
+      _engine is SilenceSkippingEngine &&
+      (_engine as SilenceSkippingEngine).supportsSilenceSkipping;
+
+  Future<void> setSystemPreferences({
+    bool? systemControls,
+    bool? externalPlayback,
+    bool? skipSilence,
+  }) async {
+    _systemSettingsChanged = true;
+    if (skipSilence != null && supportsSilenceSkipping) {
+      await (_engine as SilenceSkippingEngine).setSkipSilence(skipSilence);
+    }
+    _settings = _settings.copyWith(
+      systemControls: systemControls,
+      externalPlayback: externalPlayback,
+      skipSilence: supportsSilenceSkipping ? skipSilence : null,
+    );
+    notifyListeners();
+    await _saveSettings();
+  }
 
   /// How long consecutive tracks overlap; zero when off or unsupported.
   Duration get crossfade => _settings.crossfade;
@@ -179,6 +233,27 @@ class PlayerController extends ChangeNotifier {
       if (_settings.crossfade == Duration.zero) {
         await _applyCrossfade(saved.crossfade);
       }
+      if (_settings.loudness == const PlaybackSettings().loudness) {
+        await _applyLoudness(saved.loudness);
+      }
+      if (!_systemSettingsChanged) {
+        if (supportsSilenceSkipping) {
+          await (_engine as SilenceSkippingEngine)
+              .setSkipSilence(saved.skipSilence);
+        }
+        if (!_systemSettingsChanged) {
+          _settings = _settings.copyWith(
+              systemControls: saved.systemControls,
+              externalPlayback: saved.externalPlayback,
+              skipSilence: supportsSilenceSkipping && saved.skipSilence);
+        }
+      }
+      if (!_queueSettingsChanged) {
+        _settings = _settings.copyWith(
+          playOnlySelected: saved.playOnlySelected,
+          preventDuplicates: saved.preventDuplicates,
+        );
+      }
       notifyListeners();
     } catch (error) {
       debugPrint('Playback settings unavailable: $error');
@@ -202,6 +277,22 @@ class PlayerController extends ChangeNotifier {
     // The next track is buffered differently with and without an overlap.
     await _dropPreload();
     _maybePreload();
+  }
+
+  /// How tracks are evened out in loudness; remembered between sessions.
+  LoudnessMode get loudness => _settings.loudness;
+
+  /// Turns loudness normalization off, or evens out each track or album.
+  /// The files are never changed; only each track's volume is.
+  Future<void> setLoudness(LoudnessMode mode) async {
+    await _applyLoudness(mode);
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  Future<void> _applyLoudness(LoudnessMode mode) async {
+    _settings = _settings.copyWith(loudness: mode);
+    await _engine.setTrackGain((track) => normalizationGain(track, mode));
   }
 
   Future<void> _applySpeed(double speed) async {
@@ -325,6 +416,16 @@ class PlayerController extends ChangeNotifier {
     await _start(queue.skipTo(index));
   }
 
+  /// Tapping a row respects queue mode; explicit play-all uses [playFrom].
+  Future<void> playTapped(List<Track> tracks, int index) =>
+      playOnlySelected ? playFrom([tracks[index]], 0) : playFrom(tracks, index);
+
+  List<Track> _queueTracks(List<Track> tracks) {
+    if (!preventDuplicates) return tracks;
+    final seen = <String>{};
+    return tracks.where((track) => seen.add(track.id)).toList();
+  }
+
   /// Plays [tracks] starting at [index], or toggles pause when that track
   /// is already the current one. Shuffle and repeat settings carry over.
   Future<void> playFrom(List<Track> tracks, int index) async {
@@ -332,7 +433,11 @@ class PlayerController extends ChangeNotifier {
     if (_track?.id == track.id && _status != PlayerStatus.error) {
       return toggle();
     }
-    _queue = PlayQueue(tracks, start: index, random: _random)
+    final queued = _queueTracks(tracks);
+    final start = preventDuplicates
+        ? queued.indexWhere((item) => item.id == track.id)
+        : index;
+    _queue = PlayQueue(queued, start: start, random: _random)
       ..repeat = _repeat
       ..shuffled = _shuffle;
     await _start(_queue!.current);
@@ -342,7 +447,8 @@ class PlayerController extends ChangeNotifier {
   Future<void> playShuffled(List<Track> tracks) async {
     if (tracks.isEmpty) return;
     _shuffle = true;
-    _queue = PlayQueue.shuffled(tracks, random: _random)..repeat = _repeat;
+    _queue = PlayQueue.shuffled(_queueTracks(tracks), random: _random)
+      ..repeat = _repeat;
     notifyListeners();
     await _start(_queue!.current);
   }
@@ -401,6 +507,7 @@ class PlayerController extends ChangeNotifier {
       _fadeTimer = null;
       unawaited(_engine.setVolume(1));
     }
+    metrics.started(track.id, _now());
     _setStatus(PlayerStatus.loading);
     try {
       final url =
@@ -461,6 +568,7 @@ class PlayerController extends ChangeNotifier {
     _listened = false;
     _heard = Duration.zero;
     _advancing = false;
+    metrics.started(next.id, _now(), preloaded: true);
     _refreshStatus();
   }
 
@@ -552,6 +660,7 @@ class PlayerController extends ChangeNotifier {
   /// Continues a paused track, replays a completed one from the start, or
   /// retries one that failed.
   Future<void> resume() async {
+    _needsTap = false;
     switch (_status) {
       case PlayerStatus.paused:
         if (_fadeTimer != null) {
@@ -635,6 +744,12 @@ class PlayerController extends ChangeNotifier {
   /// Stream URLs expire; when playback fails (typically on a seek after the
   /// URL expired), fetch a fresh one once and resume where it stopped.
   Future<void> _onEngineError(Object error) async {
+    if (error is PlaybackBlocked) {
+      // Nothing is wrong with the track: the browser wants a tap first.
+      _needsTap = true;
+      _refreshStatus();
+      return;
+    }
     final track = _track;
     final token = _token();
     if (track == null ||
@@ -695,7 +810,9 @@ class PlayerController extends ChangeNotifier {
   }
 
   void _setStatus(PlayerStatus status) {
+    if (status == PlayerStatus.playing) _needsTap = false;
     _status = status;
+    metrics.status(status, _now());
     notifyListeners();
   }
 

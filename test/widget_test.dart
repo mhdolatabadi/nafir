@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/app/app_preferences.dart';
 import 'package:nafir/features/settings/presentation/settings_screen.dart';
+import 'package:flutter/gestures.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/features/auth/data/auth_models.dart';
 import 'package:nafir/features/auth/data/token_store.dart';
 import 'package:nafir/features/library/data/track.dart';
+import 'package:nafir/features/library/presentation/track_metadata_editor.dart';
 import 'package:nafir/features/link_import/data/link_import.dart';
 import 'package:nafir/features/upload/data/audio_picker.dart';
 import 'package:nafir/features/upload/data/upload_models.dart';
@@ -132,9 +135,11 @@ Future<void> _pumpApp(
   PlaylistsApi? playlists,
   LinkImportsApi? linkImports,
   bool settle = true,
+  AppPreferencesStore? appPreferencesStore,
 }) async {
   await tester.pumpWidget(NafirApp(
     healthCheck: () async {},
+    appPreferencesStore: appPreferencesStore ?? MemoryAppPreferencesStore(),
     authApi: api ?? FakeAuthApi(),
     tokenStore: tokenStore,
     tracksApi: tracks ?? FakeTracksApi(),
@@ -603,6 +608,47 @@ void main() {
     expect(find.text('کتابخانهٔ شما خالی است'), findsNothing);
   });
 
+  testWidgets('settings opens playlists even when their tab is hidden',
+      (tester) async {
+    final store = MemoryAppPreferencesStore()
+      ..value = const AppPreferences(
+          hidden: {LibraryTab.playlists, LibraryTab.favorites});
+    await _pumpApp(tester,
+        tokenStore: MemoryTokenStore('valid-token'),
+        appPreferencesStore: store,
+        playlists: FakePlaylistsApi());
+    expect(find.widgetWithText(Tab, 'فهرست‌های پخش'), findsNothing);
+    await tester.tap(find.byTooltip('تنظیمات'));
+    await tester.pumpAndSettle();
+    await _revealSetting(tester, find.text('مدیریت فهرست‌های پخش'));
+    await tester.tap(find.text('مدیریت فهرست‌های پخش'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(AppBar, 'فهرست‌های پخش'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('tab preferences rebuild safely and retain the tracks tab',
+      (tester) async {
+    final store = MemoryAppPreferencesStore();
+    await _pumpApp(tester,
+        tokenStore: MemoryTokenStore('valid-token'),
+        appPreferencesStore: store);
+    final context = tester.element(find.byType(TabBar));
+    final preferences = AppPreferencesScope.maybeOf(context)!;
+    await preferences.update(
+        order: [LibraryTab.artists, LibraryTab.tracks],
+        hidden: {LibraryTab.albums, LibraryTab.playlists, LibraryTab.tracks});
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(Tab, 'آلبوم‌ها'), findsNothing);
+    expect(find.widgetWithText(Tab, 'آهنگ‌ها'), findsOneWidget);
+    expect(tester.getCenter(find.widgetWithText(Tab, 'هنرمندان')).dx,
+        greaterThan(tester.getCenter(find.widgetWithText(Tab, 'آهنگ‌ها')).dx));
+    await preferences.update(hidden: {});
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(Tab, 'علاقه‌مندی‌ها'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('the account screen shows cloud storage use on a narrow phone',
       (tester) async {
     tester.view.physicalSize = const Size(360, 740);
@@ -627,6 +673,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('تنظیمات').last);
     await tester.pumpAndSettle();
+    await _revealSetting(tester, find.text('فضای ابری'));
     expect(find.text('فضای ابری'), findsOneWidget);
     expect(find.textContaining('از ۵.۰ گیگابایت'), findsOneWidget);
     expect(
@@ -669,6 +716,82 @@ void main() {
 
     expect(find.text('۲ آهنگ'), findsOneWidget);
     expect(find.text('First song'), findsOneWidget);
+  });
+
+  testWidgets(
+      'long press selects tracks without playback and supports clear/all',
+      (tester) async {
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await _pumpApp(tester,
+        tokenStore: MemoryTokenStore('valid-token'),
+        tracks: FakeTracksApi(const [
+          Track(
+              id: 's1',
+              title: 'First',
+              contentType: 'audio/mpeg',
+              sizeBytes: 1),
+          Track(
+              id: 's2',
+              title: 'Second',
+              contentType: 'audio/mpeg',
+              sizeBytes: 1),
+        ]));
+    await tester.longPress(find.text('First'));
+    await tester.pumpAndSettle();
+    expect(find.text('۱ آهنگ انتخاب‌شده'), findsOneWidget);
+    expect(find.byType(MiniPlayer), findsOneWidget);
+    expect(find.byTooltip('توقف'), findsNothing);
+    expect(
+        tester
+            .widgetList<Checkbox>(find.byType(Checkbox))
+            .where((checkbox) => checkbox.value == true)
+            .length,
+        1);
+    await tester.tap(find.text('Second'));
+    await tester.pumpAndSettle();
+    expect(find.text('۲ آهنگ انتخاب‌شده'), findsOneWidget);
+    expect(find.byTooltip('توقف'), findsNothing);
+    await tester.tap(find.text('لغو انتخاب همه'));
+    await tester.pumpAndSettle();
+    expect(find.byType(Checkbox), findsNothing);
+    await tester.longPress(find.text('First'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('انتخاب همه'));
+    await tester.pumpAndSettle();
+    expect(find.text('۲ آهنگ انتخاب‌شده'), findsOneWidget);
+    await tester.tap(find.byTooltip('لغو انتخاب'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Second'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('توقف'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('right click opens track actions without playing the track',
+      (tester) async {
+    await _pumpApp(tester,
+        tokenStore: MemoryTokenStore('valid-token'),
+        tracks: FakeTracksApi(const [
+          Track(
+              id: 's1',
+              title: 'First',
+              contentType: 'audio/mpeg',
+              sizeBytes: 1),
+        ]));
+    final mouse = await tester.createGesture(
+        kind: PointerDeviceKind.mouse, buttons: kSecondaryMouseButton);
+    await mouse.down(tester.getCenter(find.text('First')));
+    await mouse.up();
+    await tester.pumpAndSettle();
+    expect(find.text('ویرایش اطلاعات آهنگ'), findsOneWidget);
+    expect(find.text('حذف آهنگ'), findsOneWidget);
+    expect(find.byTooltip('توقف'), findsNothing);
+    await tester.tap(find.text('ویرایش اطلاعات آهنگ'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TrackMetadataEditor), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('the track list sorts by title and artist', (tester) async {

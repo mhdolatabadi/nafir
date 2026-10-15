@@ -5,8 +5,20 @@ import 'package:just_audio/just_audio.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/player/data/audio_cache_io.dart';
 
-Track _track(String id, {int size = 100, String type = 'audio/mpeg'}) =>
-    Track(id: id, title: id, contentType: type, sizeBytes: size);
+Track _track(String id,
+        {int size = 100, String type = 'audio/mpeg', int? tagRevision}) =>
+    Track(
+      id: id,
+      title: id,
+      contentType: type,
+      sizeBytes: size,
+      embeddedTags: EmbeddedTags(
+        status: tagRevision == null
+            ? EmbeddedTagStatus.original
+            : EmbeddedTagStatus.written,
+        version: tagRevision,
+      ),
+    );
 
 void main() {
   late Directory dir;
@@ -26,7 +38,8 @@ void main() {
   List<String> names() =>
       dir.listSync().map((e) => e.uri.pathSegments.last).toList()..sort();
 
-  test('a new track streams to a file named by track id, not URL', () async {
+  test('a new track streams to a file named by id and revision, not URL',
+      () async {
     final cache = FileAudioCache(() async => dir, maxBytes: 1000);
     final source = await cache.sourceFor(_track('t1', type: 'audio/mp4'),
         Uri.parse('https://x/nafir-music/k?X-Amz-Signature=abc'));
@@ -35,19 +48,21 @@ void main() {
     expect(source, isA<LockCachingAudioSource>());
     // ignore: experimental_member_use
     final file = await (source as LockCachingAudioSource).cacheFile;
-    expect(file.path, '${dir.path}/t1.m4a');
+    expect(file.path, '${dir.path}/t1.r0.m4a');
   });
 
   test('a completed download is played from disk and marked recent', () async {
-    await put('t1.mp3', 10, 60);
+    await put('t1.r0.mp3', 10, 60);
     final cache = FileAudioCache(() async => dir, maxBytes: 1000);
 
-    final source = await cache.sourceFor(_track('t1'), Uri.parse('https://x/'));
+    final source =
+        await cache.sourceFor(_track('t1', size: 10), Uri.parse('https://x/'));
 
     expect(source, isA<ProgressiveAudioSource>());
-    expect((source as UriAudioSource).uri.toFilePath(), '${dir.path}/t1.mp3');
+    expect(
+        (source as UriAudioSource).uri.toFilePath(), '${dir.path}/t1.r0.mp3');
     final age = DateTime.now()
-        .difference(File('${dir.path}/t1.mp3').lastModifiedSync());
+        .difference(File('${dir.path}/t1.r0.mp3').lastModifiedSync());
     expect(age.inMinutes, lessThan(1));
   });
 
@@ -105,5 +120,72 @@ void main() {
     await cache.clear();
     expect(names(), isEmpty);
     expect(await cache.sizeBytes(), 0);
+  });
+
+  test('an edited track is fetched again and its old copies are dropped',
+      () async {
+    // Cached before the edit, in the old naming and as revision 0.
+    await put('t1.mp3', 100, 5);
+    await put('t1.r0.mp3', 100, 5);
+    await put('t1.r0.mp3.mime', 10, 5);
+    await put('other.r0.mp3', 100, 5);
+    final cache = FileAudioCache(() async => dir, maxBytes: 10000);
+
+    final source = await cache.sourceFor(
+        _track('t1', size: 120, tagRevision: 2), Uri.parse('https://x/'));
+
+    // ignore: experimental_member_use
+    expect(source, isA<LockCachingAudioSource>());
+    // ignore: experimental_member_use
+    final file = await (source as LockCachingAudioSource).cacheFile;
+    expect(file.path, '${dir.path}/t1.r2.mp3');
+    expect(names(), ['other.r0.mp3']);
+  });
+
+  test('a cached file of the wrong size is not played', () async {
+    await put('t1.r0.mp3', 60, 5);
+    final cache = FileAudioCache(() async => dir, maxBytes: 10000);
+
+    final source =
+        await cache.sourceFor(_track('t1', size: 100), Uri.parse('https://x/'));
+
+    // ignore: experimental_member_use
+    expect(source, isA<LockCachingAudioSource>());
+    expect(names(), isEmpty);
+  });
+
+  test('the cached file holds exactly the bytes the server sent', () async {
+    // Every byte value, in an order a transform would disturb.
+    final stored = List<int>.generate(256 * 1024, (i) => (i * 7919) % 256);
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(server.close);
+    server.listen((request) async {
+      request.response
+        ..headers.contentType = ContentType('audio', 'mpeg')
+        ..contentLength = stored.length
+        ..add(stored);
+      await request.response.close();
+    });
+    final url =
+        Uri.parse('http://127.0.0.1:${server.port}/nafir-music/u/t1.mp3');
+    final cache = FileAudioCache(() async => dir, maxBytes: 10 << 20);
+    final track = _track('t1', size: stored.length);
+
+    // ignore: experimental_member_use
+    final source = await cache.sourceFor(track, url) as LockCachingAudioSource;
+    final response = await source.request();
+    final played = await response.stream.expand((chunk) => chunk).toList();
+    await source.downloadProgressStream.firstWhere((progress) => progress >= 1);
+    final cached = File('${dir.path}/${cacheFileName(track)}');
+    for (var i = 0; i < 50 && !await cached.exists(); i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+
+    expect(played, stored);
+    expect(await cached.readAsBytes(), stored);
+
+    // Played again, the file is used as is, offline.
+    final again = await cache.sourceFor(track, url);
+    expect(again, isA<ProgressiveAudioSource>());
   });
 }

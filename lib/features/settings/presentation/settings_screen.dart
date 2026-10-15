@@ -1,5 +1,8 @@
 import 'package:nafir/features/journey/presentation/journey_widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:nafir/features/settings/presentation/device_settings_pages.dart';
+import 'package:nafir/app/app_preferences.dart';
+import 'package:nafir/features/settings/presentation/appearance_settings_section.dart';
 import 'package:nafir/app/app_configuration.dart';
 import 'package:nafir/core/links/open_link.dart';
 import 'package:nafir/core/links/site_page.dart';
@@ -10,6 +13,7 @@ import 'package:nafir/features/bots/presentation/bot_link_section.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/settings/presentation/playback_settings_section.dart';
+import 'package:nafir/features/settings/presentation/queue_settings_section.dart';
 import 'package:nafir/features/settings/application/cache_controller.dart';
 import 'package:nafir/features/settings/presentation/delete_account_screen.dart';
 import 'package:nafir/features/settings/presentation/storage_usage_card.dart';
@@ -21,6 +25,7 @@ class SettingsScreen extends StatefulWidget {
     this.botLinks,
     this.library,
     this.player,
+    this.onManagePlaylists,
     this.email,
     this.onDeleteAccount,
     this.onSignOutEverywhere,
@@ -50,6 +55,7 @@ class SettingsScreen extends StatefulWidget {
 
   /// Playback preferences; null hides them.
   final PlayerController? player;
+  final VoidCallback? onManagePlaylists;
 
   /// Null when the app has no API to ask about bots.
   final BotLinkController? botLinks;
@@ -158,6 +164,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             JourneySetting(journey: journey),
           if (widget.player case final player?)
             PlaybackSettingsSection(player: player),
+          if (widget.player case final player?)
+            QueueSettingsSection(player: player),
+          if (AppPreferencesScope.maybeOf(context) case final preferences?)
+            AppearanceSettingsSection(preferences: preferences),
+          if (widget.onManagePlaylists case final manage?)
+            ListTile(
+                leading: const Icon(NafirIcons.playlist),
+                title: const Text('مدیریت فهرست‌های پخش'),
+                onTap: manage),
           if (widget.library case final library?)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -204,6 +219,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (widget.botLinks case final botLinks?)
             BotLinkSection(controller: botLinks),
           const Divider(),
+          ListTile(
+              title: const Text('دسترسی‌ها'),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => const PermissionsScreen()))),
+          ListTile(
+              title: const Text('دربارهٔ ریتمو'),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => AboutScreen(openPage: _openPage)))),
           ListTile(
             title: const Text('حساب کاربری'),
             subtitle: widget.email == null

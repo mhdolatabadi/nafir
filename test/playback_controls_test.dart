@@ -5,6 +5,7 @@ import 'package:nafir/features/player/application/playback_settings.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/data/audio_engine.dart';
 import 'package:nafir/features/player/data/crossfade.dart';
+import 'package:nafir/features/player/data/loudness.dart';
 
 import 'player_controller_test.dart' show FakeAudioEngine;
 import 'upload_controller_test.dart' show FakeTracksApi;
@@ -46,6 +47,83 @@ void main() {
       player.dispose();
     });
   }
+
+  test('silence skipping reaches supported engines and is restored', () async {
+    final native = _SilenceEngine();
+    engine = native;
+    final player = controller();
+    expect(player.supportsSilenceSkipping, isTrue);
+    await player.setSystemPreferences(
+        skipSilence: true, systemControls: false, externalPlayback: false);
+    expect(native.skipSilence, isTrue);
+    expect(store.settings.skipSilence, isTrue);
+    player.dispose();
+    final restored = controller();
+    addTearDown(restored.dispose);
+    await restored.loadSettings();
+    expect(restored.skipSilence, isTrue);
+    expect(restored.systemControls, isFalse);
+    expect(restored.externalPlayback, isFalse);
+  });
+
+  test('unsupported engines do not enable silence skipping', () async {
+    final player = controller();
+    addTearDown(player.dispose);
+    expect(player.supportsSilenceSkipping, isFalse);
+    await player.setSystemPreferences(skipSilence: true);
+    expect(player.skipSilence, isFalse);
+  });
+
+  group('queue preferences', () {
+    test('single-row mode preserves the chosen track and explicit play-all',
+        () async {
+      final player = controller();
+      addTearDown(player.dispose);
+      await player.setQueuePreferences(playOnlySelected: true);
+      await player.playTapped(_abc, 1);
+      expect(player.track?.id, 'b');
+      expect(player.upcoming, isEmpty);
+      await player.playFrom(_abc, 0);
+      expect(player.upcoming.map((track) => track.id), ['b', 'c']);
+    });
+
+    test('duplicate prevention keeps the tapped ID after earlier duplicates',
+        () async {
+      final player = controller();
+      addTearDown(player.dispose);
+      await player.setQueuePreferences(preventDuplicates: true);
+      await player.playTapped([_a, _a, _b, _b, _c], 3);
+      expect(player.track?.id, 'b');
+      expect(player.upcoming.map((track) => track.id), ['c']);
+      await player.playShuffled([_a, _a, _b, _c, _c]);
+      final ids = [
+        player.track!.id,
+        ...player.upcoming.map((track) => track.id)
+      ];
+      expect(ids.length, 3);
+      expect(ids.toSet(), {'a', 'b', 'c'});
+    });
+
+    test('preferences persist and malformed saved values use defaults',
+        () async {
+      final player = controller();
+      await player.setQueuePreferences(
+          playOnlySelected: true, preventDuplicates: true);
+      player.dispose();
+      final restored = controller();
+      addTearDown(restored.dispose);
+      await restored.loadSettings();
+      expect(restored.playOnlySelected, isTrue);
+      expect(restored.preventDuplicates, isTrue);
+      final settings = PlaybackSettings.fromJson(store.settings.toJson());
+      expect(settings.playOnlySelected, isTrue);
+      expect(settings.preventDuplicates, isTrue);
+      final invalid = PlaybackSettings.fromJson(
+          {'playOnlySelected': 'true', 'preventDuplicates': 1});
+      expect(invalid.playOnlySelected, isFalse);
+      expect(invalid.preventDuplicates, isFalse);
+    });
+  });
 
   group('sleep timer', () {
     test('counts down, fades out over the last seconds, then pauses', () {
@@ -438,6 +516,54 @@ void main() {
     });
   });
 
+  group('loudness normalization', () {
+    const loud = Track(
+      id: 'loud',
+      title: 'L',
+      contentType: 'audio/mpeg',
+      sizeBytes: 1,
+      replayGain: ReplayGain(
+          trackGainDb: -6.0206, trackPeak: 0.9, albumGainDb: -12.0412),
+    );
+
+    test('is on, per track, from the start', () async {
+      final player = controller();
+      await pumpEventQueue();
+      expect(player.loudness, LoudnessMode.track);
+      expect(engine.trackGain(loud), closeTo(0.5, 1e-4));
+      player.dispose();
+    });
+
+    test('can be switched to album or off, and is remembered', () async {
+      final player = controller();
+      await player.setLoudness(LoudnessMode.album);
+      expect(engine.trackGain(loud), closeTo(0.25, 1e-4));
+      expect(store.settings.loudness, LoudnessMode.album);
+      await player.setLoudness(LoudnessMode.off);
+      expect(engine.trackGain(loud), 1);
+      expect(store.settings.loudness, LoudnessMode.off);
+      player.dispose();
+    });
+
+    test('a saved choice is restored at start', () async {
+      store.settings = const PlaybackSettings(loudness: LoudnessMode.off);
+      final player = controller();
+      await player.loadSettings();
+      expect(player.loudness, LoudnessMode.off);
+      expect(engine.trackGain(loud), 1);
+      player.dispose();
+    });
+
+    test('settings JSON keeps the mode and defaults to per track', () {
+      expect(PlaybackSettings.fromJson(null).loudness, LoudnessMode.track);
+      expect(PlaybackSettings.fromJson({'loudness': 'nonsense'}).loudness,
+          LoudnessMode.track);
+      const album = PlaybackSettings(loudness: LoudnessMode.album);
+      expect(PlaybackSettings.fromJson(album.toJson()).loudness,
+          LoudnessMode.album);
+    });
+  });
+
   group('crossfade timing', () {
     test('starts once the remaining time is within the overlap', () {
       const duration = Duration(minutes: 3);
@@ -495,4 +621,12 @@ void main() {
       expect(start, 1);
     });
   });
+}
+
+class _SilenceEngine extends FakeAudioEngine implements SilenceSkippingEngine {
+  bool skipSilence = false;
+  @override
+  bool get supportsSilenceSkipping => true;
+  @override
+  Future<void> setSkipSilence(bool enabled) async => skipSilence = enabled;
 }
