@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rhythmo/core/design/design.dart';
 import 'package:rhythmo/features/auth/data/token_store.dart';
 import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/library/presentation/library_screen.dart'
+    show libraryTabViewPhysics;
 import 'package:rhythmo/main.dart';
 
 import 'cache_controller_test.dart' show FakeAudioCache;
@@ -188,4 +190,10 @@ void main() {
       }
     });
   }
+
+  test('horizontal scrolling switches library tabs on phones, not on web', () {
+    expect(libraryTabViewPhysics(isWeb: false), isNull);
+    expect(libraryTabViewPhysics(isWeb: true),
+        isA<NeverScrollableScrollPhysics>());
+  });
 }
