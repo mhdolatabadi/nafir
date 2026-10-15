@@ -112,6 +112,10 @@ class StoreController extends ChangeNotifier {
         (offset) => _api.storeArtists(_token(), query: _query, offset: offset));
     albums = StoreListing<StoreAlbum>(
         (offset) => _api.storeAlbums(_token(), query: _query, offset: offset));
+    popular = StoreListing<Track>((offset) =>
+        _api.storeRanked(_token(), StoreRanking.popular, offset: offset));
+    trending = StoreListing<Track>((offset) =>
+        _api.storeRanked(_token(), StoreRanking.trending, offset: offset));
   }
 
   final StoreApi _api;
@@ -123,6 +127,15 @@ class StoreController extends ChangeNotifier {
   late final StoreListing<Track> songs;
   late final StoreListing<StoreArtist> artists;
   late final StoreListing<StoreAlbum> albums;
+
+  /// The carousels: most liked and played of all time, and of late.
+  late final StoreListing<Track> popular;
+  late final StoreListing<Track> trending;
+
+  StoreListing<Track> ranked(StoreRanking ranking) => switch (ranking) {
+        StoreRanking.popular => popular,
+        StoreRanking.trending => trending,
+      };
 
   /// How long typing rests before a search is sent.
   static const searchDelay = Duration(milliseconds: 350);
@@ -220,6 +233,8 @@ class StoreController extends ChangeNotifier {
     songs.dispose();
     artists.dispose();
     albums.dispose();
+    popular.dispose();
+    trending.dispose();
     super.dispose();
   }
 }

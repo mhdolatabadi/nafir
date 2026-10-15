@@ -40,6 +40,20 @@ class StoreAlbum {
   final int trackCount;
 }
 
+/// How store songs are ranked for the carousels (#284).
+enum StoreRanking {
+  /// All-time likes plus plays.
+  popular('popular', 'محبوب‌ترین‌ها'),
+
+  /// Likes and plays of the last two weeks, newest weighing most.
+  trending('trending', 'داغ‌ترین‌های این روزها');
+
+  const StoreRanking(this.wire, this.label);
+
+  final String wire;
+  final String label;
+}
+
 /// Why a listener reports a store song («گزارش تخلف»).
 enum StoreReportReason {
   copyright('copyright', 'نقض حق نشر'),
@@ -77,6 +91,10 @@ abstract interface class StoreApi {
 
   Future<StorePage<StoreAlbum>> storeAlbums(String? token,
       {String query = '', String? artist, int offset = 0});
+
+  /// Store songs ranked by [ranking], best first.
+  Future<StorePage<Track>> storeRanked(String? token, StoreRanking ranking,
+      {int offset = 0});
 
   /// Adds a copy of the song to the listener's own library.
   Future<Track> saveStoreTrack(String token, String id);
