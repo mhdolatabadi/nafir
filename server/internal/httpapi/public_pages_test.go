@@ -359,7 +359,7 @@ func TestFrontPageExplainsRhythmoWithFAQ(t *testing.T) {
 		"<title>ریتمو — پخش‌کننده و فضای ابری موسیقی</title>",
 		"<h1>ریتمو، کتابخانه‌ی موسیقی ابری تو</h1>",
 		"کتابخانه‌ی ابری با کیفیت اصلی",
-		`<h2 class="section">فهرست‌های پخش محبوب</h2>`,
+		`<h2 class="section" id="playlists">فهرست‌های پخش محبوب</h2>`,
 		`<h2 class="section" id="faq">پرسش‌های رایج</h2>`,
 		"بله. هر حساب ۲ گیگابایت فضای ابری برای موسیقی دارد.",
 		`href="https://cafebazaar.ir/app/ir.mhdolatabadi.nafir"`,

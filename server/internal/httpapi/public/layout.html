@@ -24,6 +24,7 @@
 <meta name="twitter:image" content="{{.Image}}">
 {{block "head" .}}{{end}}
 {{if .JSONLD}}<script type="application/ld+json">{{.JSONLD}}</script>{{end}}
+{{if .CrumbsLD}}<script type="application/ld+json">{{.CrumbsLD}}</script>{{end}}
 <style>
 :root{--bg:#070810;--surface:#121522;--strong:#191d2d;--text:#f3f4f8;--muted:#b4b8c7;--primary:#ff626a;--border:#ffffff26}
 *{box-sizing:border-box}
@@ -84,6 +85,14 @@ footer a{display:inline-block;padding:12px 4px}
 .hero .meta a{color:var(--text)}
 a.grow{text-decoration:none}
 .hero .note{margin-top:20px}
+a.title,.sub a{text-decoration:none}
+a.title:hover,.sub a:hover{text-decoration:underline}
+.crumbs ol{display:flex;flex-wrap:wrap;align-items:center;list-style:none;margin:16px 0 0;padding:0;color:var(--muted);font-size:14px}
+.crumbs li{display:flex;align-items:center;min-width:0;max-width:100%}
+.crumbs li+li::before{content:"‹";margin:0 8px}
+.crumbs a,.crumbs span{display:inline-block;max-width:16em;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding:12px 0;text-decoration:none}
+.crumbs a:hover{color:var(--text);text-decoration:underline}
+.crumbs + .hero{padding-top:16px}
 .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 @media (max-width:420px){header.site .button{padding:0 14px}}
 </style>
@@ -95,7 +104,7 @@ a.grow{text-decoration:none}
 <a class="button" href="/store">استور</a>
 <a class="button primary" href="/app/">ورود / ثبت‌نام</a>
 </div></header>
-<main class="wrap">{{template "content" .}}</main>
+<main class="wrap">{{with .Crumbs}}<nav class="crumbs" aria-label="مسیر صفحه"><ol>{{range $i, $c := .}}<li>{{if $c.Link}}<a href="{{$c.Link}}"><bdi>{{$c.Name}}</bdi></a>{{else}}<span aria-current="page"><bdi>{{$c.Name}}</bdi></span>{{end}}</li>{{end}}</ol></nav>{{end}}{{template "content" .}}</main>
 <footer class="wrap">ریتمو — پخش‌کننده‌ی موسیقی ابری · <a href="/store">استور</a> · <a href="/privacy">حریم خصوصی</a> · <a href="/delete-account">حذف حساب</a></footer>
 </body>
 </html>{{end}}

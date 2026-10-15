@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"net/http"
 	"regexp"
 	"strings"
@@ -157,5 +158,122 @@ func TestLegalTextMentionsTheStore(t *testing.T) {
 	}
 	if home := get(site, "/").Body.String(); !strings.Contains(home, "استور ریتمو چیست؟") || !strings.Contains(home, `href="/store"`) {
 		t.Error("the front page doesn't explain or link the store")
+	}
+}
+
+// ldScripts returns every JSON-LD block on the page, failing on invalid JSON.
+func ldScripts(t *testing.T, page string) []map[string]any {
+	t.Helper()
+	var blocks []map[string]any
+	for _, match := range regexp.MustCompile(`(?s)<script type="application/ld\+json">(.*?)</script>`).FindAllStringSubmatch(page, -1) {
+		var data map[string]any
+		if err := json.Unmarshal([]byte(match[1]), &data); err != nil {
+			t.Fatalf("JSON-LD is not JSON: %v\n%s", err, match[1])
+		}
+		blocks = append(blocks, data)
+	}
+	return blocks
+}
+
+// breadcrumbNames returns the page's BreadcrumbList names and links.
+func breadcrumbNames(t *testing.T, page string) []string {
+	t.Helper()
+	for _, block := range ldScripts(t, page) {
+		if block["@type"] != "BreadcrumbList" {
+			continue
+		}
+		var names []string
+		for _, item := range block["itemListElement"].([]any) {
+			entry := item.(map[string]any)
+			link, _ := entry["item"].(string)
+			names = append(names, entry["name"].(string)+"|"+link)
+		}
+		return names
+	}
+	t.Fatal("no BreadcrumbList on the page")
+	return nil
+}
+
+func TestPlaylistPageLinksItsSongsToTheStore(t *testing.T) {
+	_, catalog := storeSite(t, AnonymousLimits{})
+	token := strings.Repeat("A", 22)
+	artist := "AC/DC"
+	data := &sharingStore{token: &token, public: true, name: "Road trip", tracks: []store.Track{
+		{ID: "track-of-alice", Title: "باران", Artist: &artist, StorageKey: "k1"},
+		{ID: "not-in-store", Title: "Elsewhere", Artist: &artist, StorageKey: "k2"},
+	}}
+	site := NewHandler(Config{Public: NewPublicPages(data, fixedPresigner{}, AnonymousLimits{}).WithStore(catalog)})
+
+	page := get(site, "/p/"+token).Body.String()
+	link := `<a class="title" href="/store/t/` + storeEntryID + `" dir="auto">باران</a>`
+	if !strings.Contains(page, link) || strings.Count(page, `href="/store/artists/AC%2FDC"`) != 1 {
+		t.Errorf("the store song is not linked once with its artist:\n%s", page)
+	}
+	if !strings.Contains(page, `<span class="title" dir="auto">Elsewhere</span>`) {
+		t.Error("a song outside the store was linked")
+	}
+	tracks := jsonLD(t, page)["track"].([]any)
+	if tracks[0].(map[string]any)["url"] != "https://rhythmo.example.com/store/t/"+storeEntryID || tracks[1].(map[string]any)["url"] != nil {
+		t.Errorf("playlist structured data = %v", tracks)
+	}
+	if got := strings.Join(breadcrumbNames(t, page), ","); got != "ریتمو|https://rhythmo.example.com/,فهرست‌های پخش|https://rhythmo.example.com/#playlists,Road trip|" {
+		t.Errorf("playlist breadcrumbs = %s", got)
+	}
+
+	// Without a store, the page still lists every song, unlinked.
+	plain := get(publicSite(data, AnonymousLimits{}), "/p/"+token).Body.String()
+	if strings.Contains(plain, "/store/t/") || !strings.Contains(plain, "باران") {
+		t.Error("a page without the store linked to it")
+	}
+	data.tracks = nil
+	if empty := get(site, "/p/"+token).Body.String(); !strings.Contains(empty, "این فهرست پخش فعلاً آهنگی ندارد.") {
+		t.Error("the empty playlist copy is not Persian")
+	}
+}
+
+func TestStorePagesHaveBreadcrumbs(t *testing.T) {
+	site, _ := storeSite(t, AnonymousLimits{})
+	for path, want := range map[string]string{
+		"/store": "ریتمو|https://rhythmo.example.com/,استور|",
+		"/store/t/" + storeEntryID: "ریتمو|https://rhythmo.example.com/,استور|https://rhythmo.example.com/store," +
+			"AC/DC|https://rhythmo.example.com/store/artists/AC%2FDC,باران|",
+		"/store/artists/AC%2FDC": "ریتمو|https://rhythmo.example.com/,استور|https://rhythmo.example.com/store," +
+			"خواننده‌ها|https://rhythmo.example.com/store/artists,AC/DC|",
+		"/store/albums/Seasons": "ریتمو|https://rhythmo.example.com/,استور|https://rhythmo.example.com/store," +
+			"آلبوم‌ها|https://rhythmo.example.com/store/albums,Seasons|",
+		"/store/albums": "ریتمو|https://rhythmo.example.com/,استور|https://rhythmo.example.com/store,آلبوم‌ها|",
+	} {
+		page := get(site, path).Body.String()
+		if got := strings.Join(breadcrumbNames(t, page), ","); got != want {
+			t.Errorf("%s breadcrumbs = %s", path, got)
+		}
+		if !strings.Contains(page, `<nav class="crumbs" aria-label="مسیر صفحه">`) || !strings.Contains(page, `<span aria-current="page">`) {
+			t.Errorf("%s shows no breadcrumb trail", path)
+		}
+	}
+}
+
+func TestFrontPageLinksToStoreSongs(t *testing.T) {
+	site, catalog := storeSite(t, AnonymousLimits{})
+	page := get(site, "/").Body.String()
+	if !strings.Contains(page, "آهنگ‌های محبوب استور") || !strings.Contains(page, `href="/store/t/`+storeEntryID+`"`) ||
+		catalog.ranked != store.RankPopular {
+		t.Error("the front page does not link to popular store songs")
+	}
+	catalog.hidden = true
+	if page := get(site, "/").Body.String(); strings.Contains(page, "آهنگ‌های محبوب استور") {
+		t.Error("an empty store still has a front page section")
+	}
+}
+
+func TestSitemapListsStoreAlbumsAndSongDates(t *testing.T) {
+	site, catalog := storeSite(t, AnonymousLimits{})
+	catalog.entry.Track.CreatedAt = time.Date(2026, 3, 4, 23, 0, 0, 0, time.UTC)
+	sitemap := get(site, "/sitemap.xml").Body.String()
+	for _, want := range []string{"/store/albums/Seasons?artist=AC%2FDC</loc>",
+		"/store/t/" + storeEntryID + "</loc>\n    <lastmod>2026-03-04</lastmod>"} {
+		if !strings.Contains(sitemap, want) {
+			t.Errorf("sitemap lacks %q:\n%s", want, sitemap)
+		}
 	}
 }

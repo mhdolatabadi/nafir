@@ -29,10 +29,11 @@ const (
 	storePageSize = 50
 	// storeMaxPage keeps paging within the catalog's offset limit.
 	storeMaxPage = maxStoreOffset / storePageSize
-	// sitemapStoreTracks and sitemapStoreArtists cap the store's share of
+	// sitemapStoreTracks, sitemapStoreArtists and sitemapStoreAlbums cap the store's share of
 	// sitemap.xml.
 	sitemapStoreTracks  = 5000
 	sitemapStoreArtists = 1000
+	sitemapStoreAlbums  = 1000
 )
 
 // WithStore serves the public store as plain HTML (#243): /store lists and
@@ -59,6 +60,7 @@ func (p *PublicPages) registerStore(mux *http.ServeMux) {
 // storePageTrack is one song in a store list.
 type storePageTrack struct {
 	ID     string
+	Link   string
 	Title  string
 	Artist string
 	Size   string
@@ -130,6 +132,9 @@ func optional(s *string) string {
 	return strings.TrimSpace(*s)
 }
 
+// storeTrackLink is a store song's page.
+func storeTrackLink(entry store.StoreEntry) string { return "/store/t/" + entry.ID }
+
 func artistLink(name string) string { return "/store/artists/" + url.PathEscape(name) }
 
 func albumLink(name, artist string) string {
@@ -185,6 +190,8 @@ func storeQueryText(raw string) string {
 
 type storeListData struct {
 	pageMeta
+	// Trail is the breadcrumb trail below the store.
+	Trail      []crumb
 	Heading    string
 	Intro      string
 	Query      string
@@ -207,9 +214,9 @@ func (p *PublicPages) renderStoreList(w http.ResponseWriter, r *http.Request, qu
 	for i, entry := range entries {
 		artist := optional(entry.Track.Artist)
 		data.Tracks = append(data.Tracks, storePageTrack{
-			ID: entry.ID, Title: entry.Track.Title, Artist: artist, Size: sizeText(entry.Track.SizeBytes),
+			ID: entry.ID, Link: storeTrackLink(entry), Title: entry.Track.Title, Artist: artist, Size: sizeText(entry.Track.SizeBytes),
 		})
-		recording := map[string]any{"@type": "MusicRecording", "name": entry.Track.Title, "url": site + "/store/t/" + entry.ID}
+		recording := map[string]any{"@type": "MusicRecording", "name": entry.Track.Title, "url": site + storeTrackLink(entry)}
 		if artist != "" {
 			recording["byArtist"] = map[string]any{"@type": "MusicGroup", "name": artist}
 		}
@@ -222,6 +229,11 @@ func (p *PublicPages) renderStoreList(w http.ResponseWriter, r *http.Request, qu
 	}
 	data.Canonical, data.Image, data.OGType = canonical, site+"/social.png", "website"
 	data.JSONLD = map[string]any{"@context": "https://schema.org", "@type": "ItemList", "name": data.Heading, "itemListElement": recordings}
+	if len(data.Trail) == 0 {
+		data.setCrumbs(site, crumb{Name: "استور"})
+	} else {
+		data.setCrumbs(site, append([]crumb{{Name: "استور", Link: "/store"}}, data.Trail...)...)
+	}
 	if len(entries) == 0 && page > 1 {
 		data.NoIndex = true
 	}
@@ -268,6 +280,7 @@ func (p *PublicPages) handleStoreArtist(w http.ResponseWriter, r *http.Request) 
 		Heading: name, Intro: "آهنگ‌های " + name + " در استور ریتمو.",
 		Empty: "آهنگی از این خواننده در استور نیست.",
 	}
+	data.Trail = []crumb{{Name: "خواننده‌ها", Link: "/store/artists"}, {Name: name}}
 	data.Title = name + " — آهنگ‌ها در استور ریتمو"
 	data.Description = "آهنگ‌های " + name + " را در ریتمو بدون ثبت‌نام بشنو."
 	p.renderStoreList(w, r, store.StoreQuery{Artist: name}, data, artistLink(name), url.Values{})
@@ -290,6 +303,7 @@ func (p *PublicPages) handleStoreAlbum(w http.ResponseWriter, r *http.Request) {
 		keep.Set("artist", artist)
 	}
 	data.Intro += " در استور ریتمو."
+	data.Trail = []crumb{{Name: "آلبوم‌ها", Link: "/store/albums"}, {Name: name}}
 	data.Title = name + " — آلبوم در استور ریتمو"
 	data.Description = data.Intro + " بدون ثبت‌نام بشنو."
 	p.renderStoreList(w, r, store.StoreQuery{Album: name, Artist: artist}, data, albumLink(name, artist), keep)
@@ -312,6 +326,7 @@ func (p *PublicPages) renderStoreIndex(w http.ResponseWriter, r *http.Request, d
 		data.Canonical += "?page=" + strconv.Itoa(page)
 	}
 	data.Image, data.OGType = site+"/social.png", "website"
+	data.setCrumbs(site, crumb{Name: "استور", Link: "/store"}, crumb{Name: data.Heading})
 	w.Header().Set("Cache-Control", publicPageMaxAge)
 	p.render(w, http.StatusOK, "storeIndex", data)
 }
@@ -399,7 +414,7 @@ func (p *PublicPages) handleStoreTrack(w http.ResponseWriter, r *http.Request) {
 		track.AlbumLink = albumLink(track.Album, albumArtist)
 	}
 	site := p.origin(r)
-	canonical := site + "/store/t/" + entry.ID
+	canonical := site + storeTrackLink(entry)
 	recording := map[string]any{"@context": "https://schema.org", "@type": "MusicRecording", "name": t.Title, "url": canonical}
 	description := "«" + t.Title + "»"
 	if track.Artist != "" {
@@ -413,23 +428,26 @@ func (p *PublicPages) handleStoreTrack(w http.ResponseWriter, r *http.Request) {
 		recording["duration"] = fmt.Sprintf("PT%dM%dS", *t.DurationMS/60000, *t.DurationMS/1000%60)
 	}
 	description += " را در استور ریتمو با کیفیت اصلی و بدون ثبت‌نام بشنو."
+	meta := pageMeta{
+		Title: t.Title + func() string {
+			if track.Artist != "" {
+				return " از " + track.Artist
+			}
+			return ""
+		}() + " — استور ریتمو",
+		Description: description, Canonical: canonical, Image: site + "/social.png",
+		OGType: "music.song", JSONLD: recording,
+	}
+	trail := []crumb{{Name: "استور", Link: "/store"}}
+	if track.Artist != "" {
+		trail = append(trail, crumb{Name: track.Artist, Link: track.ArtistLink})
+	}
+	meta.setCrumbs(site, append(trail, crumb{Name: t.Title})...)
 	w.Header().Set("Cache-Control", publicPageMaxAge)
 	p.render(w, http.StatusOK, "storeTrack", struct {
 		pageMeta
 		Track storeTrackPage
-	}{
-		pageMeta: pageMeta{
-			Title: t.Title + func() string {
-				if track.Artist != "" {
-					return " از " + track.Artist
-				}
-				return ""
-			}() + " — استور ریتمو",
-			Description: description, Canonical: canonical, Image: site + "/social.png",
-			OGType: "music.song", JSONLD: recording,
-		},
-		Track: track,
-	})
+	}{pageMeta: meta, Track: track})
 }
 
 // handleStoreStream sends a player to a short-lived URL for a store song's
@@ -469,12 +487,19 @@ func (p *PublicPages) storeSitemapURLs(r *http.Request, site string) ([]sitemapU
 	for _, a := range artists {
 		urls = append(urls, sitemapURL{Loc: site + artistLink(a.Name)})
 	}
+	albums, _, err := p.catalog.StoreAlbums(r.Context(), "", "", sitemapStoreAlbums, 0)
+	if err != nil {
+		return nil, err
+	}
+	for _, a := range albums {
+		urls = append(urls, sitemapURL{Loc: site + albumLink(a.Name, optional(a.Artist))})
+	}
 	entries, _, err := p.catalog.StoreEntries(r.Context(), store.StoreQuery{Limit: sitemapStoreTracks})
 	if err != nil {
 		return nil, err
 	}
 	for _, entry := range entries {
-		urls = append(urls, sitemapURL{Loc: site + "/store/t/" + entry.ID})
+		urls = append(urls, sitemapURL{Loc: site + storeTrackLink(entry), LastMod: lastMod(entry.Track.CreatedAt)})
 	}
 	return urls, nil
 }

@@ -392,6 +392,48 @@ func TestStoreHidingAndReports(t *testing.T) {
 	}
 }
 
+func TestStoreEntriesForTracks(t *testing.T) {
+	f := newCatalogFixture(t)
+	alice, bob, admin := f.user("alice@example.com"), f.user("bob@example.com"), f.user("admin@example.com")
+	listed := f.track(alice.ID, NewTrack{Title: "listed", ContentType: "audio/mpeg"})
+	better := f.track(bob.ID, NewTrack{Title: "listed", ContentType: "audio/flac"})
+	hidden := f.track(alice.ID, NewTrack{Title: "hidden"})
+	private := f.track(alice.ID, NewTrack{Title: "private"})
+	f.playlist(alice.ID, true, listed.ID, hidden.ID)
+	f.indexAll()
+	f.playlist(bob.ID, true, better.ID)
+	entries := f.listed(StoreQuery{})
+	byTitle := map[string]string{}
+	for _, entry := range entries {
+		byTitle[entry.Track.Title] = entry.ID
+	}
+	// Group both copies of «listed» into one entry, and hide the other song.
+	if err := f.catalog.AddToEntry(f.ctx, better.ID, byTitle["listed"], nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.catalog.SetHidden(f.ctx, byTitle["hidden"], admin.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.catalog.NewEntry(f.ctx, private.ID, "stray", nil, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	found, err := f.catalog.StoreEntriesForTracks(f.ctx, []string{listed.ID, hidden.ID, private.ID, "not-a-track"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(found) != 1 {
+		t.Fatalf("found = %+v; want only the listed song", found)
+	}
+	entry := found[listed.ID]
+	if entry.ID == "" || entry.Track.ContentType != "audio/flac" {
+		t.Fatalf("entry = %+v; want the listed entry with its best copy", entry)
+	}
+	if none, err := f.catalog.StoreEntriesForTracks(f.ctx, nil); err != nil || len(none) != 0 {
+		t.Fatalf("no tracks = %v, %v", none, err)
+	}
+}
+
 func TestCatalogCandidates(t *testing.T) {
 	f := newCatalogFixture(t)
 	alice := f.user("alice@example.com")

@@ -30,6 +30,7 @@ type CatalogStore interface {
 	SetHidden(ctx context.Context, entryID, adminID string, hidden bool) error
 	RecordStorePlay(ctx context.Context, entryID, listener string) error
 	StoreRanked(ctx context.Context, ranking store.StoreRanking, limit, offset int) ([]store.StoreEntry, bool, error)
+	StoreEntriesForTracks(ctx context.Context, trackIDs []string) (map[string]store.StoreEntry, error)
 }
 
 const (

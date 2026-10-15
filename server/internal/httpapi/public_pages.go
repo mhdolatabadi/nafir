@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -31,6 +32,8 @@ var publicTemplates = map[string]*template.Template{
 const (
 	// publicListSize is how many popular playlists the front page shows.
 	publicListSize = 100
+	// homeStoreSize is how many store songs the front page shows.
+	homeStoreSize = 8
 	// sitemapSize caps the playlists listed in sitemap.xml.
 	sitemapSize = 5000
 	// publicPageMaxAge lets browsers and proxies reuse a page briefly.
@@ -161,6 +164,31 @@ type pageMeta struct {
 	// JSONLD is structured data for search engines; it is JSON-encoded
 	// safely by html/template inside its script tag.
 	JSONLD any
+	// Crumbs is the page's place in the site, shown above its content and
+	// given to search engines as a BreadcrumbList.
+	Crumbs   []crumb
+	CrumbsLD any
+}
+
+// crumb is one step of a breadcrumb trail; the last one, the page itself,
+// has no link.
+type crumb struct {
+	Name string
+	Link string
+}
+
+// setCrumbs gives the page a breadcrumb trail that starts at the front page.
+func (m *pageMeta) setCrumbs(site string, trail ...crumb) {
+	m.Crumbs = append([]crumb{{Name: "ریتمو", Link: "/"}}, trail...)
+	items := make([]map[string]any, 0, len(m.Crumbs))
+	for i, c := range m.Crumbs {
+		item := map[string]any{"@type": "ListItem", "position": i + 1, "name": c.Name}
+		if c.Link != "" {
+			item["item"] = site + c.Link
+		}
+		items = append(items, item)
+	}
+	m.CrumbsLD = map[string]any{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": items}
 }
 
 type publicListItem struct {
@@ -175,6 +203,10 @@ type publicTrack struct {
 	Title  string
 	Artist string
 	Stream string
+	// Link and ArtistLink are the song's and its artist's store pages,
+	// when the song is in the store.
+	Link       string
+	ArtistLink string
 }
 
 type publicPlaylist struct {
@@ -257,6 +289,7 @@ func (p *PublicPages) handleHome(w http.ResponseWriter, r *http.Request) {
 			"@type": "ListItem", "position": i + 1, "url": site + "/p/" + pl.ShareToken, "name": pl.Name,
 		})
 	}
+	songs := p.homeStoreSongs(r)
 	questions := p.questions()
 	faqJSON := make([]map[string]any, 0, len(questions))
 	for _, q := range questions {
@@ -273,6 +306,7 @@ func (p *PublicPages) handleHome(w http.ResponseWriter, r *http.Request) {
 		Questions  []publicQuestion
 		AndroidApp string
 		Playlists  []publicListItem
+		Songs      []storePageTrack
 	}{
 		Verify: p.verify,
 		pageMeta: pageMeta{
@@ -293,8 +327,32 @@ func (p *PublicPages) handleHome(w http.ResponseWriter, r *http.Request) {
 			},
 		},
 		Features: publicFeatures, Questions: questions, AndroidApp: p.androidApp,
-		Playlists: items,
+		Playlists: items, Songs: songs,
 	})
+}
+
+// homeStoreSongs are the store's most popular songs, or its first ones
+// while nothing has been played yet. The store only adds to the front page,
+// so a failure leaves the section out rather than failing the page.
+func (p *PublicPages) homeStoreSongs(r *http.Request) []storePageTrack {
+	if p.catalog == nil {
+		return nil
+	}
+	entries, _, err := p.catalog.StoreRanked(r.Context(), store.RankPopular, homeStoreSize, 0)
+	if err == nil && len(entries) == 0 {
+		entries, _, err = p.catalog.StoreEntries(r.Context(), store.StoreQuery{Limit: homeStoreSize})
+	}
+	if err != nil {
+		slog.Error("request failed", "action", "list front page store songs", "error", err)
+		return nil
+	}
+	songs := make([]storePageTrack, 0, len(entries))
+	for _, entry := range entries {
+		songs = append(songs, storePageTrack{
+			ID: entry.ID, Link: storeTrackLink(entry), Title: entry.Track.Title, Artist: optional(entry.Track.Artist),
+		})
+	}
+	return songs
 }
 
 // renderMissing writes the branded not-found page, which search engines
@@ -370,6 +428,7 @@ func (p *PublicPages) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 		ShareToken: token, Name: shared.Name, Owner: bot.MaskEmail(shared.OwnerEmail),
 		TrackCount: len(shared.Tracks), LikeCount: likes.Count,
 	}
+	inStore := p.storeEntriesFor(r, shared.Tracks)
 	recordings := make([]map[string]any, 0, len(shared.Tracks))
 	var artists []string
 	seen := map[string]bool{}
@@ -378,10 +437,16 @@ func (p *PublicPages) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 		if t.Artist != nil {
 			artist = strings.TrimSpace(*t.Artist)
 		}
-		page.Tracks = append(page.Tracks, publicTrack{
-			Title: t.Title, Artist: artist, Stream: "/p/" + token + "/t/" + t.ID,
-		})
+		track := publicTrack{Title: t.Title, Artist: artist, Stream: "/p/" + token + "/t/" + t.ID}
 		recording := map[string]any{"@type": "MusicRecording", "name": t.Title}
+		if entry, ok := inStore[t.ID]; ok {
+			track.Link = storeTrackLink(entry)
+			recording["url"] = site + track.Link
+			if artist != "" {
+				track.ArtistLink = artistLink(artist)
+			}
+		}
+		page.Tracks = append(page.Tracks, track)
 		if artist != "" {
 			recording["byArtist"] = map[string]any{"@type": "MusicGroup", "name": artist}
 			if !seen[strings.ToLower(artist)] && len(artists) < 5 {
@@ -397,22 +462,40 @@ func (p *PublicPages) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 	}
 	description += ". بدون ثبت‌نام بشنو."
 	canonical := site + "/p/" + token
+	meta := pageMeta{
+		Title:       shared.Name + " — فهرست پخش در ریتمو",
+		Description: description,
+		Canonical:   canonical, Image: site + "/social.png", OGType: "music.playlist",
+		JSONLD: map[string]any{
+			"@context": "https://schema.org", "@type": "MusicPlaylist",
+			"name": shared.Name, "url": canonical, "numTracks": len(shared.Tracks), "track": recordings,
+		},
+	}
+	meta.setCrumbs(site, crumb{Name: "فهرست‌های پخش", Link: "/#playlists"}, crumb{Name: shared.Name})
 	w.Header().Set("Cache-Control", publicPageMaxAge)
 	p.render(w, http.StatusOK, "playlist", struct {
 		pageMeta
 		Playlist publicPlaylist
-	}{
-		pageMeta: pageMeta{
-			Title:       shared.Name + " — فهرست پخش در ریتمو",
-			Description: description,
-			Canonical:   canonical, Image: site + "/social.png", OGType: "music.playlist",
-			JSONLD: map[string]any{
-				"@context": "https://schema.org", "@type": "MusicPlaylist",
-				"name": shared.Name, "url": canonical, "numTracks": len(shared.Tracks), "track": recordings,
-			},
-		},
-		Playlist: page,
-	})
+	}{pageMeta: meta, Playlist: page})
+}
+
+// storeEntriesFor maps the tracks that are in the store to their entries.
+// The store only adds links, so a failure leaves them out rather than
+// failing the page.
+func (p *PublicPages) storeEntriesFor(r *http.Request, tracks []store.Track) map[string]store.StoreEntry {
+	if p.catalog == nil || len(tracks) == 0 {
+		return nil
+	}
+	ids := make([]string, len(tracks))
+	for i, t := range tracks {
+		ids[i] = t.ID
+	}
+	found, err := p.catalog.StoreEntriesForTracks(r.Context(), ids)
+	if err != nil {
+		slog.Error("request failed", "action", "find playlist songs in the store", "error", err)
+		return nil
+	}
+	return found
 }
 
 // handleTrack sends a player to a short-lived URL for one track of a public
@@ -447,6 +530,14 @@ func (p *PublicPages) handleTrack(w http.ResponseWriter, r *http.Request) {
 type sitemapURL struct {
 	Loc     string `xml:"loc"`
 	LastMod string `xml:"lastmod,omitempty"`
+}
+
+// lastMod is a sitemap date, or empty for an unknown time.
+func lastMod(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.UTC().Format(time.DateOnly)
 }
 
 type sitemap struct {

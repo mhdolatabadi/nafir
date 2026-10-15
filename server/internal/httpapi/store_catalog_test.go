@@ -24,6 +24,8 @@ type fakeCatalog struct {
 	hiddenBy string
 	plays    []string
 	ranked   store.StoreRanking
+	// inStore are other track IDs grouped into the entry.
+	inStore map[string]bool
 }
 
 func (c *fakeCatalog) RecordStorePlay(_ context.Context, entryID, listener string) error {
@@ -37,6 +39,19 @@ func (c *fakeCatalog) StoreRanked(_ context.Context, ranking store.StoreRanking,
 		return nil, false, nil
 	}
 	return []store.StoreEntry{c.entry}, false, nil
+}
+
+func (c *fakeCatalog) StoreEntriesForTracks(_ context.Context, trackIDs []string) (map[string]store.StoreEntry, error) {
+	found := map[string]store.StoreEntry{}
+	if c.hidden {
+		return found, nil
+	}
+	for _, id := range trackIDs {
+		if id == c.entry.Track.ID || c.inStore[id] {
+			found[id] = c.entry
+		}
+	}
+	return found, nil
 }
 
 func (c *fakeCatalog) StoreEntries(_ context.Context, query store.StoreQuery) ([]store.StoreEntry, bool, error) {
