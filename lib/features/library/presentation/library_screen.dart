@@ -2,6 +2,7 @@ import 'package:rhythmo/features/journey/presentation/journey_widgets.dart';
 import 'package:rhythmo/core/persian_digits.dart';
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:rhythmo/core/design/design.dart';
 import 'package:rhythmo/app/app_preferences.dart';
@@ -665,6 +666,8 @@ class _LibraryScreenState extends State<LibraryScreen>
           horizontal: wide ? RhythmoSpace.xxl : RhythmoSpace.lg),
       indicatorPadding: const EdgeInsets.symmetric(vertical: RhythmoSpace.sm),
       dividerHeight: 0,
+      // Keeps the focus tint rounded like the pill.
+      splashBorderRadius: BorderRadius.circular(RhythmoRadii.pill),
       tabs: [for (final tab in _visibleTabs) _TabLabel(tab.label)],
     );
     final bar = wide
@@ -710,6 +713,7 @@ class _LibraryScreenState extends State<LibraryScreen>
           headerSliverBuilder: (context, _) => [_header(context)],
           body: TabBarView(
             controller: _tabs,
+            physics: libraryTabViewPhysics(),
             children: [
               for (final tab in _visibleTabs)
                 _Tab(key: ValueKey(tab), child: _tabBody(tab))
@@ -3124,3 +3128,10 @@ class _LibraryAddButtonLocation extends FloatingActionButtonLocation {
     );
   }
 }
+
+/// On the web a trackpad or shift-wheel horizontal scroll must not switch
+/// library tabs; there the tab bar is the only way across. Phones keep the
+/// swipe.
+@visibleForTesting
+ScrollPhysics? libraryTabViewPhysics({bool isWeb = kIsWeb}) =>
+    isWeb ? const NeverScrollableScrollPhysics() : null;
