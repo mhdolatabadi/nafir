@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/features/library/application/track_sort.dart';
-import 'package:nafir/features/library/data/track.dart';
+import 'package:rhythmo/features/library/application/track_sort.dart';
+import 'package:rhythmo/features/library/data/track.dart';
 
 Track track(String id, String title, [String? artist]) => Track(
     id: id,

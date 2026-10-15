@@ -3,7 +3,7 @@ package fingerprint
 import (
 	"context"
 
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 // MatchStore walks the fingerprinted tracks a user may play;

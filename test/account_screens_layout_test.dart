@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/core/design/design.dart';
-import 'package:nafir/features/auth/data/token_store.dart';
-import 'package:nafir/main.dart';
+import 'package:rhythmo/core/design/design.dart';
+import 'package:rhythmo/features/auth/data/token_store.dart';
+import 'package:rhythmo/main.dart';
 
 import 'cache_controller_test.dart' show FakeAudioCache;
 import 'player_controller_test.dart' show FakeAudioEngine;
@@ -19,7 +19,7 @@ void main() {
       tester.view.padding = const FakeViewPadding(top: 24, bottom: 34);
       tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 34);
       addTearDown(tester.view.reset);
-      await tester.pumpWidget(NafirApp(
+      await tester.pumpWidget(RhythmoApp(
         healthCheck: () async {},
         authApi: FakeAuthApi(),
         tokenStore: MemoryTokenStore('valid-token'),
@@ -43,13 +43,13 @@ void main() {
       expect(tester.takeException(), isNull);
 
       final list = tester.getRect(find.byType(ListView).last);
-      expect(list.width, lessThanOrEqualTo(NafirSpace.listWidth));
+      expect(list.width, lessThanOrEqualTo(RhythmoSpace.listWidth));
       expect((list.left - (size.width - list.right)).abs(), lessThan(2),
           reason: 'centred');
       for (final tile in tester.widgetList<ListTile>(find.byType(ListTile))) {
         if (tile.onTap == null) continue;
         final rect = tester.getRect(find.byWidget(tile));
-        expect(rect.height, greaterThanOrEqualTo(NafirSpace.target));
+        expect(rect.height, greaterThanOrEqualTo(RhythmoSpace.target));
       }
     });
   }

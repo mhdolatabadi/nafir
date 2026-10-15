@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:nafir/features/player/data/audio_cache.dart';
+import 'package:rhythmo/features/player/data/audio_cache.dart';
 
 /// The audio cache as the Settings screen sees it: its size, and clearing it.
 class CacheController extends ChangeNotifier {

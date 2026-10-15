@@ -1,15 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:nafir/core/design/design.dart';
+import 'package:rhythmo/core/design/design.dart';
 import 'package:flutter/rendering.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/core/persian_digits.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/lyrics/application/lyrics_controller.dart';
-import 'package:nafir/features/lyrics/data/lyrics.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/core/persian_digits.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/lyrics/application/lyrics_controller.dart';
+import 'package:rhythmo/features/lyrics/data/lyrics.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
 
 /// Opens the «متن آهنگ» sheet for whatever [player] is playing. It follows
 /// along when the track changes.
@@ -240,7 +240,7 @@ class _LyricsViewState extends State<LyricsView> {
                 TextButton.icon(
                   style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
                   onPressed: _choose,
-                  icon: const Icon(NafirIcons.magnifyingGlass),
+                  icon: const Icon(RhythmoIcons.magnifyingGlass),
                   label: const Text('متن دیگر'),
                 ),
             ],
@@ -255,7 +255,7 @@ class _LyricsViewState extends State<LyricsView> {
             child: FilledButton.tonalIcon(
               style: FilledButton.styleFrom(minimumSize: const Size(48, 48)),
               onPressed: _startingExtraction ? null : _extract,
-              icon: const Icon(NafirIcons.quotes),
+              icon: const Icon(RhythmoIcons.quotes),
               label: Text(_startingExtraction
                   ? 'در حال ثبت درخواست'
                   : _extractionState == 'failed'
@@ -276,7 +276,7 @@ class _LyricsViewState extends State<LyricsView> {
     if (track == null) return const SizedBox.shrink();
     if (_extractionState == 'queued' || _extractionState == 'processing') {
       return LyricsMessage(
-        icon: NafirIcons.quotes,
+        icon: RhythmoIcons.quotes,
         title: _extractionState == 'queued'
             ? 'در صف استخراج متن'
             : 'در حال تبدیل صدا به متن',
@@ -286,18 +286,18 @@ class _LyricsViewState extends State<LyricsView> {
     switch (widget.lyrics.unavailable(track)) {
       case LyricsUnavailable.deviceOnly:
         return const LyricsMessage(
-          icon: NafirIcons.deviceMobile,
+          icon: RhythmoIcons.deviceMobile,
           title: 'متن این آهنگ در دسترس نیست',
           detail: 'متن آهنگ فقط برای آهنگ‌های روی سرور پیدا می‌شود.',
         );
       case LyricsUnavailable.signedOut:
         return const LyricsMessage(
-          icon: NafirIcons.userCircle,
+          icon: RhythmoIcons.userCircle,
           title: 'برای دیدن متن آهنگ وارد شوید',
         );
       case LyricsUnavailable.store:
         return const LyricsMessage(
-          icon: NafirIcons.storefront,
+          icon: RhythmoIcons.storefront,
           title: 'متن آهنگ‌های استور هنوز نمایش داده نمی‌شود',
           detail: 'آهنگ را به کتابخانه‌ات اضافه کن تا متنش را ببینی.',
         );
@@ -315,14 +315,14 @@ class _LyricsViewState extends State<LyricsView> {
       final busy = _error is ApiException &&
           (_error as ApiException).code == 'lyrics_unavailable';
       return LyricsMessage(
-        icon: NafirIcons.warningCircle,
+        icon: RhythmoIcons.warningCircle,
         title:
             busy ? 'سرویس متن آهنگ الان پاسخ نمی‌دهد' : 'متن آهنگ دریافت نشد',
         detail: 'کمی بعد دوباره امتحان کنید.',
         action: FilledButton.tonalIcon(
           style: FilledButton.styleFrom(minimumSize: const Size(48, 48)),
           onPressed: _load,
-          icon: const Icon(NafirIcons.arrowsClockwise),
+          icon: const Icon(RhythmoIcons.arrowsClockwise),
           label: const Text('تلاش دوباره'),
         ),
       );
@@ -330,7 +330,7 @@ class _LyricsViewState extends State<LyricsView> {
     switch (result.status) {
       case LyricsStatus.notFound:
         return LyricsMessage(
-          icon: NafirIcons.quotes,
+          icon: RhythmoIcons.quotes,
           title: 'متنی پیدا نشد',
           detail: result.canChoose
               ? 'می‌توانید متن را با جستجو پیدا کنید.'
@@ -341,14 +341,14 @@ class _LyricsViewState extends State<LyricsView> {
                     minimumSize: const Size(48, 48),
                   ),
                   onPressed: _choose,
-                  icon: const Icon(NafirIcons.magnifyingGlass),
+                  icon: const Icon(RhythmoIcons.magnifyingGlass),
                   label: const Text('جستجوی متن'),
                 )
               : null,
         );
       case LyricsStatus.instrumental:
         return const LyricsMessage(
-          icon: NafirIcons.musicNotes,
+          icon: RhythmoIcons.musicNotes,
           title: 'این آهنگ بی‌کلام است',
         );
       case LyricsStatus.found:
@@ -368,7 +368,7 @@ class _LyricsViewState extends State<LyricsView> {
   }
 }
 
-/// A state with no lyrics to show, drawn as the shared [NafirStateView];
+/// A state with no lyrics to show, drawn as the shared [RhythmoStateView];
 /// a warning icon makes it an error.
 class LyricsMessage extends StatelessWidget {
   const LyricsMessage({
@@ -385,10 +385,10 @@ class LyricsMessage extends StatelessWidget {
   final Widget? action;
 
   @override
-  Widget build(BuildContext context) => icon == NafirIcons.warningCircle
-      ? NafirStateView.error(
+  Widget build(BuildContext context) => icon == RhythmoIcons.warningCircle
+      ? RhythmoStateView.error(
           icon: icon, title: title, message: detail, action: action)
-      : NafirStateView(
+      : RhythmoStateView(
           icon: icon, title: title, message: detail, action: action);
 }
 
@@ -484,8 +484,8 @@ class _SyncedLyricsState extends State<SyncedLyrics> {
     Scrollable.ensureVisible(
       target,
       alignment: 0.35,
-      duration: reduceMotion ? Duration.zero : NafirMotion.long,
-      curve: NafirMotion.standard,
+      duration: reduceMotion ? Duration.zero : RhythmoMotion.long,
+      curve: RhythmoMotion.standard,
     );
   }
 
@@ -575,7 +575,7 @@ class _LyricLineTile extends StatelessWidget {
       button: true,
       hint: 'پخش از این خط',
       child: InkWell(
-        borderRadius: BorderRadius.circular(NafirRadii.lg),
+        borderRadius: BorderRadius.circular(RhythmoRadii.lg),
         onTap: onTap,
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 48),
@@ -583,15 +583,15 @@ class _LyricLineTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Center(
               child: AnimatedDefaultTextStyle(
-                duration: animate ? NafirMotion.medium : Duration.zero,
-                curve: NafirMotion.standard,
+                duration: animate ? RhythmoMotion.medium : Duration.zero,
+                curve: RhythmoMotion.standard,
                 style: (style ?? const TextStyle()).copyWith(
                   color: color,
                   fontWeight: active ? FontWeight.w800 : FontWeight.w500,
                 ),
                 // An empty timed line is an instrumental break.
                 child: text.isEmpty
-                    ? Icon(NafirIcons.musicNotes, size: 22, color: color)
+                    ? Icon(RhythmoIcons.musicNotes, size: 22, color: color)
                     : Text(
                         text,
                         textAlign: TextAlign.center,
@@ -721,11 +721,11 @@ class _LyricsChooserState extends State<LyricsChooser> {
             onSubmitted: (_) => _search(),
             decoration: InputDecoration(
               hintText: 'جستجوی عنوان یا هنرمند',
-              prefixIcon: const Icon(NafirIcons.magnifyingGlass),
+              prefixIcon: const Icon(RhythmoIcons.magnifyingGlass),
               suffixIcon: IconButton(
                 tooltip: 'جستجو',
                 onPressed: _search,
-                icon: const Icon(NafirIcons.check),
+                icon: const Icon(RhythmoIcons.check),
               ),
             ),
           ),
@@ -735,7 +735,7 @@ class _LyricsChooserState extends State<LyricsChooser> {
         Expanded(
           child: _failed
               ? LyricsMessage(
-                  icon: NafirIcons.warningCircle,
+                  icon: RhythmoIcons.warningCircle,
                   title: 'جستجو انجام نشد',
                   action: FilledButton.tonal(
                     style: FilledButton.styleFrom(
@@ -749,7 +749,7 @@ class _LyricsChooserState extends State<LyricsChooser> {
                   ? const Center(child: CircularProgressIndicator())
                   : matches.isEmpty
                       ? const LyricsMessage(
-                          icon: NafirIcons.quotes,
+                          icon: RhythmoIcons.quotes,
                           title: 'متنی پیدا نشد',
                           detail: 'عنوان یا نام هنرمند را جستجو کنید.',
                         )
@@ -800,7 +800,7 @@ class _MatchTile extends StatelessWidget {
           ? Tooltip(
               message: 'متن همگام با آهنگ',
               child: Icon(
-                NafirIcons.waveform,
+                RhythmoIcons.waveform,
                 color: Theme.of(context).colorScheme.primary,
               ),
             )

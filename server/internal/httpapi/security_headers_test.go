@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 func assertHardeningHeaders(t *testing.T, header http.Header, csp string) {

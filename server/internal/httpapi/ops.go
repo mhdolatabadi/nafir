@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/mhdolatabadi/nafir/server/internal/bot"
+	"github.com/mhdolatabadi/rhythmo/server/internal/bot"
 )
 
 // BotHealthReporter reports each bot's webhook, import queue and counters.

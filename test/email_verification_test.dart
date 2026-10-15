@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/features/auth/application/auth_controller.dart';
-import 'package:nafir/features/auth/data/auth_models.dart';
-import 'package:nafir/features/auth/data/token_store.dart';
-import 'package:nafir/features/auth/presentation/email_verification_screen.dart';
-import 'package:nafir/main.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/features/auth/application/auth_controller.dart';
+import 'package:rhythmo/features/auth/data/auth_models.dart';
+import 'package:rhythmo/features/auth/data/token_store.dart';
+import 'package:rhythmo/features/auth/presentation/email_verification_screen.dart';
+import 'package:rhythmo/main.dart';
 
 import 'cache_controller_test.dart' show FakeAudioCache;
 import 'player_controller_test.dart' show FakeAudioEngine;
@@ -64,7 +64,7 @@ void _narrow(WidgetTester tester) {
 }
 
 Future<void> _pumpApp(WidgetTester tester, FakeAuthApi api) async {
-  await tester.pumpWidget(NafirApp(
+  await tester.pumpWidget(RhythmoApp(
     healthCheck: () async {},
     authApi: api,
     tokenStore: MemoryTokenStore('valid-token'),

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mhdolatabadi/nafir/server/internal/lyrics"
+	"github.com/mhdolatabadi/rhythmo/server/internal/lyrics"
 )
 
 func TestLyricsCache(t *testing.T) {

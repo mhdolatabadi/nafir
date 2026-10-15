@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:nafir/features/upload/data/upload_models.dart';
+import 'package:rhythmo/features/upload/data/upload_models.dart';
 
 /// Thrown when an upload stops because the user cancelled it.
 class UploadCancelled implements Exception {

@@ -1,23 +1,23 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:nafir/core/design/tokens.dart';
+import 'package:rhythmo/core/design/tokens.dart';
 
 /// The canvas: night with the ambient light rising from its top corner.
-const nafirAmbientGradient = LinearGradient(
+const rhythmoAmbientGradient = LinearGradient(
   begin: Alignment.topRight,
   end: Alignment.bottomLeft,
   colors: [
-    NafirColors.ambientTop,
-    NafirColors.ambientMiddle,
-    NafirColors.background,
+    RhythmoColors.ambientTop,
+    RhythmoColors.ambientMiddle,
+    RhythmoColors.background,
   ],
   stops: [0, 0.48, 1],
 );
 
 /// Atmospheric animated background shared by primary app surfaces.
-class NafirBackdrop extends StatelessWidget {
-  const NafirBackdrop({super.key, required this.child});
+class RhythmoBackdrop extends StatelessWidget {
+  const RhythmoBackdrop({super.key, required this.child});
 
   final Widget child;
 
@@ -26,7 +26,7 @@ class NafirBackdrop extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: Theme.of(context).brightness == Brightness.dark
-            ? nafirAmbientGradient
+            ? rhythmoAmbientGradient
             : LinearGradient(colors: [
                 Theme.of(context).colorScheme.surfaceContainerLow,
                 Theme.of(context).colorScheme.surface,
@@ -54,7 +54,7 @@ class _AmbientLightState extends State<_AmbientLight>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: NafirMotion.arrival,
+    duration: RhythmoMotion.arrival,
   )..forward();
 
   late final Animation<double> _drift = CurvedAnimation(
@@ -89,7 +89,7 @@ class _AmbientLightState extends State<_AmbientLight>
                   scale: 1 + (value * 0.05),
                   child: _Glow(
                     size: 430,
-                    color: NafirColors.primary.withValues(alpha: 0.16),
+                    color: RhythmoColors.primary.withValues(alpha: 0.16),
                   ),
                 ),
               ),
@@ -100,7 +100,7 @@ class _AmbientLightState extends State<_AmbientLight>
                   scale: 1.04 - (value * 0.04),
                   child: _Glow(
                     size: 460,
-                    color: NafirColors.secondary.withValues(alpha: 0.14),
+                    color: RhythmoColors.secondary.withValues(alpha: 0.14),
                   ),
                 ),
               ),
@@ -109,7 +109,7 @@ class _AmbientLightState extends State<_AmbientLight>
                 start: 30 + (value * 36),
                 child: _Glow(
                   size: 260,
-                  color: NafirColors.highlight.withValues(alpha: 0.045),
+                  color: RhythmoColors.highlight.withValues(alpha: 0.045),
                 ),
               ),
             ],
@@ -154,14 +154,14 @@ class GlassSurface extends StatelessWidget {
     this.shadow = true,
   });
 
-  /// A surface at one of the glass levels in [NafirGlassLevel].
+  /// A surface at one of the glass levels in [RhythmoGlassLevel].
   GlassSurface.level(
-    NafirGlassLevel level, {
+    RhythmoGlassLevel level, {
     super.key,
     required this.child,
     this.padding,
     this.margin,
-    this.radius = NafirRadii.xl,
+    this.radius = RhythmoRadii.xl,
     this.tint,
   })  : blur = level.blur,
         borderColor = level.border,
@@ -189,9 +189,9 @@ class GlassSurface extends StatelessWidget {
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
           colors: [
-            (tint ?? NafirColors.highlight).withValues(alpha: 0.16),
-            NafirColors.highlight.withValues(alpha: 0.055),
-            (dark ? NafirColors.surface : scheme.surfaceContainerLow)
+            (tint ?? RhythmoColors.highlight).withValues(alpha: 0.16),
+            RhythmoColors.highlight.withValues(alpha: 0.055),
+            (dark ? RhythmoColors.surface : scheme.surfaceContainerLow)
                 .withValues(alpha: 0.9),
           ],
           stops: const [0, 0.45, 1],
@@ -200,7 +200,7 @@ class GlassSurface extends StatelessWidget {
         boxShadow: shadow
             ? const [
                 BoxShadow(
-                  color: NafirColors.shadow,
+                  color: RhythmoColors.shadow,
                   offset: Offset(0, 12),
                   blurRadius: 32,
                 ),

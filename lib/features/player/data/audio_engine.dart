@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/player/data/audio_cache.dart';
-import 'package:nafir/features/player/data/crossfade.dart';
-import 'package:nafir/features/player/data/volume_ramp.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/player/data/audio_cache.dart';
+import 'package:rhythmo/features/player/data/crossfade.dart';
+import 'package:rhythmo/features/player/data/volume_ramp.dart';
 
 enum EngineState { idle, loading, buffering, ready, completed }
 

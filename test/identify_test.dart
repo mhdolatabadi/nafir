@@ -7,16 +7,16 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:nafir/app/app_theme.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/features/auth/data/token_store.dart';
-import 'package:nafir/features/identify/application/identify_controller.dart';
-import 'package:nafir/features/identify/data/snippet_recorder.dart';
-import 'package:nafir/features/identify/presentation/identify_screen.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/player/application/favorite_tracks.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/main.dart';
+import 'package:rhythmo/app/app_theme.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/features/auth/data/token_store.dart';
+import 'package:rhythmo/features/identify/application/identify_controller.dart';
+import 'package:rhythmo/features/identify/data/snippet_recorder.dart';
+import 'package:rhythmo/features/identify/presentation/identify_screen.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/player/application/favorite_tracks.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/main.dart';
 
 import 'cache_controller_test.dart' show FakeAudioCache;
 import 'player_controller_test.dart' show FakeAudioEngine;
@@ -273,7 +273,7 @@ void main() {
         locale: const Locale('fa'),
         supportedLocales: const [Locale('fa')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        theme: NafirTheme.dark(),
+        theme: RhythmoTheme.dark(),
         home: Builder(
           builder: (context) => Scaffold(
             body: TextButton(
@@ -393,7 +393,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final recorder = FakeRecorder();
-    await tester.pumpWidget(NafirApp(
+    await tester.pumpWidget(RhythmoApp(
       healthCheck: () async {},
       authApi: FakeAuthApi(),
       tokenStore: MemoryTokenStore('valid-token'),

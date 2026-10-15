@@ -8,7 +8,7 @@ import (
 	"path"
 	"time"
 
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 var (

@@ -102,17 +102,17 @@ jobs:
             --build-number="${GITHUB_RUN_NUMBER}" \
             --dart-define=API_BASE_URL=${{ vars.NAFIR_API_BASE_URL || 'https://rhythmo.ir' }}
           mv build/app/outputs/flutter-apk/app-release.apk \
-            "nafir-${{ steps.version.outputs.tag }}-android-${{ steps.signing.outputs.label }}.apk"
+            "rhythmo-${{ steps.version.outputs.tag }}-android-${{ steps.signing.outputs.label }}.apk"
           mv build/app/outputs/bundle/release/app-release.aab \
-            "nafir-${{ steps.version.outputs.tag }}-android-${{ steps.signing.outputs.label }}.aab"
+            "rhythmo-${{ steps.version.outputs.tag }}-android-${{ steps.signing.outputs.label }}.aab"
 
       - name: Upload Android packages
         uses: actions/upload-artifact@v4
         with:
-          name: nafir-${{ steps.version.outputs.tag }}-android-${{ steps.signing.outputs.label }}
+          name: rhythmo-${{ steps.version.outputs.tag }}-android-${{ steps.signing.outputs.label }}
           path: |
-            nafir-${{ steps.version.outputs.tag }}-android-${{ steps.signing.outputs.label }}.apk
-            nafir-${{ steps.version.outputs.tag }}-android-${{ steps.signing.outputs.label }}.aab
+            rhythmo-${{ steps.version.outputs.tag }}-android-${{ steps.signing.outputs.label }}.apk
+            rhythmo-${{ steps.version.outputs.tag }}-android-${{ steps.signing.outputs.label }}.aab
           if-no-files-found: error
 
       - name: Publish GitHub Release
@@ -121,12 +121,12 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           target_commitish: ${{ env.RELEASE_SHA }}
-          name: Nafir ${{ steps.version.outputs.tag }}
+          name: rhythmo ${{ steps.version.outputs.tag }}
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |
-            nafir-${{ steps.version.outputs.tag }}-android-production-signed.apk
-            nafir-${{ steps.version.outputs.tag }}-android-production-signed.aab
+            rhythmo-${{ steps.version.outputs.tag }}-android-production-signed.apk
+            rhythmo-${{ steps.version.outputs.tag }}-android-production-signed.aab
 
       - name: Submit to Cafe Bazaar
         if: steps.signing.outputs.configured == 'true' && env.CAFEBAZAAR_PUBLISH == 'true'
@@ -136,5 +136,5 @@ jobs:
           CAFEBAZAAR_ROLLOUT_PERCENT: ${{ vars.CAFEBAZAAR_ROLLOUT_PERCENT || '100' }}
         run: >-
           scripts/publish-cafebazaar.sh
-          "nafir-${{ steps.version.outputs.tag }}-android-production-signed.apk"
+          "rhythmo-${{ steps.version.outputs.tag }}-android-production-signed.apk"
           "${{ steps.version.outputs.name }}"

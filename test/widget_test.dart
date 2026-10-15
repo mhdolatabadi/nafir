@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:nafir/app/app_preferences.dart';
-import 'package:nafir/features/settings/presentation/settings_screen.dart';
+import 'package:rhythmo/app/app_preferences.dart';
+import 'package:rhythmo/features/settings/presentation/settings_screen.dart';
 import 'package:flutter/gestures.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/features/auth/data/auth_models.dart';
-import 'package:nafir/features/auth/data/token_store.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/library/presentation/track_metadata_editor.dart';
-import 'package:nafir/features/link_import/data/link_import.dart';
-import 'package:nafir/features/upload/data/audio_picker.dart';
-import 'package:nafir/features/upload/data/upload_models.dart';
-import 'package:nafir/features/library/application/library_controller.dart'
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/features/auth/data/auth_models.dart';
+import 'package:rhythmo/features/auth/data/token_store.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/library/presentation/track_metadata_editor.dart';
+import 'package:rhythmo/features/link_import/data/link_import.dart';
+import 'package:rhythmo/features/upload/data/audio_picker.dart';
+import 'package:rhythmo/features/upload/data/upload_models.dart';
+import 'package:rhythmo/features/library/application/library_controller.dart'
     show importPollDelays;
-import 'package:nafir/features/player/presentation/mini_player.dart';
-import 'package:nafir/main.dart';
+import 'package:rhythmo/features/player/presentation/mini_player.dart';
+import 'package:rhythmo/main.dart';
 
 import 'bot_link_controller_test.dart' show FakeBotsApi, linkedBale;
 import 'cache_controller_test.dart' show FakeAudioCache;
@@ -137,7 +137,7 @@ Future<void> _pumpApp(
   bool settle = true,
   AppPreferencesStore? appPreferencesStore,
 }) async {
-  await tester.pumpWidget(NafirApp(
+  await tester.pumpWidget(RhythmoApp(
     healthCheck: () async {},
     appPreferencesStore: appPreferencesStore ?? MemoryAppPreferencesStore(),
     authApi: api ?? FakeAuthApi(),
@@ -239,14 +239,14 @@ void main() {
   testWidgets('shows setup instructions without API configuration', (
     tester,
   ) async {
-    await tester.pumpWidget(const NafirApp());
+    await tester.pumpWidget(const RhythmoApp());
 
     expect(find.textContaining('API_BASE_URL'), findsOneWidget);
   });
 
   testWidgets('shows retry when the API is unavailable', (tester) async {
     await tester.pumpWidget(
-      NafirApp(healthCheck: () async => throw Exception('offline')),
+      RhythmoApp(healthCheck: () async => throw Exception('offline')),
     );
     await tester.pumpAndSettle();
 
@@ -447,7 +447,7 @@ void main() {
     final tokens = MemoryTokenStore('valid-token');
     await _pumpApp(tester, tokenStore: tokens);
 
-    await tester.tap(find.byIcon(NafirIcons.signOut));
+    await tester.tap(find.byIcon(RhythmoIcons.signOut));
     await tester.pumpAndSettle();
 
     expect(find.text('ورود به ریتمو'), findsOneWidget);
@@ -602,7 +602,8 @@ void main() {
 
     expect(find.text('Uploaded earlier'), findsOneWidget);
     expect(find.text('Artist'), findsOneWidget);
-    expect(find.textContaining('۳.۰ مگابایت'), findsWidgets);
+    // Rows show the artist only; the file size stays out of the list.
+    expect(find.textContaining('مگابایت'), findsNothing);
     // Storage use lives in the account screen, not above the tracks.
     expect(find.textContaining('از ۵.۰ گیگابایت'), findsNothing);
     expect(find.text('کتابخانهٔ شما خالی است'), findsNothing);
@@ -681,7 +682,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('search reports result count and offers a clear action', (
+  testWidgets('the search screen offers a clear action when nothing matches', (
     tester,
   ) async {
     await _pumpApp(
@@ -704,18 +705,18 @@ void main() {
     );
 
     expect(find.text('۲ آهنگ'), findsOneWidget);
+    // The library list has no search field of its own.
+    expect(find.byType(SearchBar), findsNothing);
+    await tester.tap(find.byTooltip('جست‌وجو در کتابخانه'));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(SearchBar), 'missing');
     await tester.pumpAndSettle();
 
-    expect(find.text('۰ از ۲ آهنگ'), findsOneWidget);
     expect(find.text('نتیجه‌ای پیدا نشد'), findsOneWidget);
-    await tester.ensureVisible(find.text('پاک کردن جست‌وجو'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('پاک کردن جست‌وجو'));
+    await tester.tap(find.widgetWithText(OutlinedButton, 'پاک کردن جست‌وجو'));
     await tester.pumpAndSettle();
 
-    expect(find.text('۲ آهنگ'), findsOneWidget);
-    expect(find.text('First song'), findsOneWidget);
+    expect(find.text('در همهٔ کتابخانه بگرد'), findsOneWidget);
   });
 
   testWidgets(
@@ -868,10 +869,10 @@ void main() {
             matching: find.byType(ListTile)))
         .height;
     expect(height, inInclusiveRange(56, 72));
-    // Artist first, the size after it on the same line.
+    // The artist is the only secondary detail: no file size.
     expect(
         find.text('Artist with a really long name number 0'), findsOneWidget);
-    expect(find.text(' · ۳.۰ مگابایت'), findsWidgets);
+    expect(find.textContaining('مگابایت'), findsNothing);
     expect(find.byTooltip('روی سرور'), findsWidgets);
   });
 
@@ -1310,7 +1311,7 @@ void main() {
     );
     expect(find.text('Private'), findsOneWidget);
 
-    await tester.tap(find.byIcon(NafirIcons.signOut));
+    await tester.tap(find.byIcon(RhythmoIcons.signOut));
     await tester.pumpAndSettle();
     tracks.tracks.clear();
     await _submit(tester, 'listener@example.com', 'correct horse');
@@ -1330,7 +1331,7 @@ void main() {
     final width = tester.getSize(find.byType(Scaffold).first).width;
     expect(tester.getCenter(find.byType(FloatingActionButton)).dx,
         lessThan(width / 2));
-    expect(tester.getCenter(find.byIcon(NafirIcons.signOut)).dx,
+    expect(tester.getCenter(find.byIcon(RhythmoIcons.signOut)).dx,
         lessThan(width / 2));
   });
 
@@ -1359,7 +1360,7 @@ void main() {
     expect(
         find.descendant(
             of: find.widgetWithText(ListTile, 'Song'),
-            matching: find.byIcon(NafirIcons.waveformFill)),
+            matching: find.byIcon(RhythmoIcons.waveformFill)),
         findsOneWidget);
     expect(find.bySemanticsLabel(RegExp('در حال پخش')), findsWidgets);
 
@@ -1390,6 +1391,8 @@ void main() {
       ]),
     );
     expect(find.text('پخش تصادفی'), findsOneWidget);
+    await tester.tap(find.byTooltip('جست‌وجو در کتابخانه'));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(SearchBar), 'Beta');
     await tester.pump();
     expect(find.text('پخش تصادفی نتایج'), findsOneWidget);
@@ -1540,12 +1543,12 @@ void main() {
     expect(find.byTooltip('تکرار: همه'), findsOneWidget);
     await tester.tap(find.byTooltip('تکرار: همه'));
     await tester.pumpAndSettle();
-    expect(find.byIcon(NafirIcons.repeatOnceFill), findsOneWidget);
+    expect(find.byIcon(RhythmoIcons.repeatOnceFill), findsOneWidget);
 
     await tester.tap(find.byTooltip('پخش تصادفی'));
     await tester.pumpAndSettle();
     final shuffle = tester.widget<IconButton>(find.ancestor(
-        of: find.byIcon(NafirIcons.shuffleFill),
+        of: find.byIcon(RhythmoIcons.shuffleFill),
         matching: find.byType(IconButton)));
     expect(shuffle.isSelected, isTrue);
   });

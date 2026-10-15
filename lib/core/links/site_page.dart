@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:nafir/core/links/open_link.dart';
+import 'package:rhythmo/core/links/open_link.dart';
 
 /// Where a public page of the site, such as `/privacy`, lives; null when
 /// there is no server.

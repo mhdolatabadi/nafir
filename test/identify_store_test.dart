@@ -5,12 +5,12 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:nafir/app/app_theme.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/features/identify/application/identify_controller.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/store/application/store_controller.dart';
-import 'package:nafir/features/store/presentation/store_screen.dart';
+import 'package:rhythmo/app/app_theme.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/features/identify/application/identify_controller.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/store/application/store_controller.dart';
+import 'package:rhythmo/features/store/presentation/store_screen.dart';
 
 import 'identify_test.dart' show FakeIdentifyApi, FakeRecorder;
 import 'player_controller_test.dart' show FakeAudioEngine;
@@ -102,7 +102,7 @@ void main() {
       locale: const Locale('fa'),
       supportedLocales: const [Locale('fa')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: NafirTheme.dark(),
+      theme: RhythmoTheme.dark(),
       home: StoreScreen(
         controller: store,
         player: player,
@@ -151,7 +151,7 @@ void main() {
     final store = StoreController(api: FakeStoreApi(), token: () => null);
     addTearDown(store.dispose);
     await tester.pumpWidget(MaterialApp(
-      theme: NafirTheme.dark(),
+      theme: RhythmoTheme.dark(),
       home: StoreScreen(controller: store, player: player, identify: identify),
     ));
     await tester.pumpAndSettle();

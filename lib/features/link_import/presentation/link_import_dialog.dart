@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:nafir/core/design/tokens.dart';
+import 'package:rhythmo/core/design/tokens.dart';
 import 'package:flutter/services.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/core/format_size.dart';
-import 'package:nafir/core/persian_digits.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/features/link_import/application/link_import_controller.dart';
-import 'package:nafir/features/link_import/data/link_import.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/core/format_size.dart';
+import 'package:rhythmo/core/persian_digits.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/features/link_import/application/link_import_controller.dart';
+import 'package:rhythmo/features/link_import/data/link_import.dart';
 
 /// Asks for a link to a song page, an audio file or a YouTube or Instagram
 /// video and starts importing selected files; a Spotify link becomes a
@@ -179,12 +179,12 @@ class _LinkImportDialogState extends State<_LinkImportDialog> {
                                       _selected.clear();
                                       _error = null;
                                     }),
-                            icon: const Icon(NafirIcons.pencilSimple),
+                            icon: const Icon(RhythmoIcons.pencilSimple),
                           )
                         : IconButton(
                             tooltip: 'چسباندن',
                             onPressed: busy ? null : _paste,
-                            icon: const Icon(NafirIcons.copy),
+                            icon: const Icon(RhythmoIcons.copy),
                           ),
                   ),
                 ),
@@ -259,7 +259,8 @@ class _LinkImportDialogState extends State<_LinkImportDialog> {
                       dimension: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : Icon(hasCandidates ? NafirIcons.check : NafirIcons.link),
+                  : Icon(
+                      hasCandidates ? RhythmoIcons.check : RhythmoIcons.link),
               label: Text(busy
                   ? 'در حال بررسی…'
                   : hasCandidates
@@ -289,7 +290,7 @@ class _Thumbnail extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return ClipRRect(
-      borderRadius: BorderRadius.circular(NafirRadii.xs),
+      borderRadius: BorderRadius.circular(RhythmoRadii.xs),
       child: SizedBox.square(
         dimension: 48,
         child: Image.network(
@@ -298,7 +299,7 @@ class _Thumbnail extends StatelessWidget {
           excludeFromSemantics: true,
           errorBuilder: (_, __, ___) => ColoredBox(
             color: scheme.surfaceContainerHighest,
-            child: Icon(NafirIcons.musicNote, color: scheme.onSurfaceVariant),
+            child: Icon(RhythmoIcons.musicNote, color: scheme.onSurfaceVariant),
           ),
         ),
       ),
@@ -345,7 +346,7 @@ class _SpotifyResultDialog extends StatelessWidget {
                       return ListTile(
                         dense: true,
                         contentPadding: EdgeInsets.zero,
-                        leading: Icon(NafirIcons.musicNote,
+                        leading: Icon(RhythmoIcons.musicNote,
                             color: theme.colorScheme.onSurfaceVariant),
                         title: Text(item.title,
                             maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -365,7 +366,7 @@ class _SpotifyResultDialog extends StatelessWidget {
       actions: [
         FilledButton.icon(
           onPressed: () => Navigator.pop(context, message),
-          icon: const Icon(NafirIcons.check),
+          icon: const Icon(RhythmoIcons.check),
           label: const Text('تمام'),
         ),
       ],
@@ -398,7 +399,7 @@ class LinkImportFailures extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(NafirIcons.warningCircle, color: scheme.error),
+                      Icon(RhythmoIcons.warningCircle, color: scheme.error),
                       const SizedBox(width: 8),
                       const Expanded(
                         child: Text('افزودن از لینک ناموفق بود'),
@@ -406,7 +407,7 @@ class LinkImportFailures extends StatelessWidget {
                       IconButton(
                         tooltip: 'بستن',
                         onPressed: controller.dismissFailures,
-                        icon: const Icon(NafirIcons.x),
+                        icon: const Icon(RhythmoIcons.x),
                       ),
                     ],
                   ),

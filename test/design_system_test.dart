@@ -4,15 +4,15 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/app/app_theme.dart';
-import 'package:nafir/core/design/design.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/features/debug/presentation/design_gallery.dart';
+import 'package:rhythmo/app/app_theme.dart';
+import 'package:rhythmo/core/design/design.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/features/debug/presentation/design_gallery.dart';
 
 /// WCAG contrast ratio of [fg] over [bg], blending a translucent [bg] onto
 /// the app background first.
 double contrast(Color fg, Color bg) {
-  final opaque = Color.alphaBlend(bg, NafirColors.background);
+  final opaque = Color.alphaBlend(bg, RhythmoColors.background);
   final a = Color.alphaBlend(fg, opaque).computeLuminance();
   final b = opaque.computeLuminance();
   return (max(a, b) + 0.05) / (min(a, b) + 0.05);
@@ -22,7 +22,7 @@ Widget _app(Widget home, {bool reduceMotion = false}) => MaterialApp(
       locale: const Locale('fa'),
       supportedLocales: const [Locale('fa')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: NafirTheme.dark(),
+      theme: RhythmoTheme.dark(),
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context).copyWith(disableAnimations: reduceMotion),
         child: child!,
@@ -41,60 +41,62 @@ void main() {
   group('tokens', () {
     test('text meets WCAG AA on every surface it is used on', () {
       const surfaces = [
-        NafirColors.background,
-        NafirColors.surface,
-        NafirColors.surfaceStrong,
-        NafirColors.surfaceRaised,
-        NafirColors.containerHigh,
-        NafirColors.card,
-        NafirColors.overlay,
-        NafirColors.field,
+        RhythmoColors.background,
+        RhythmoColors.surface,
+        RhythmoColors.surfaceStrong,
+        RhythmoColors.surfaceRaised,
+        RhythmoColors.containerHigh,
+        RhythmoColors.card,
+        RhythmoColors.overlay,
+        RhythmoColors.field,
       ];
       for (final surface in surfaces) {
         for (final text in [
-          NafirColors.onSurface,
-          NafirColors.onSurfaceVariant,
+          RhythmoColors.onSurface,
+          RhythmoColors.onSurfaceVariant,
         ]) {
           expect(contrast(text, surface), greaterThanOrEqualTo(4.5),
               reason: '$text on $surface');
         }
         // The accent and outlines are UI marks: 3:1.
-        expect(contrast(NafirColors.primary, surface), greaterThanOrEqualTo(3));
-        expect(contrast(NafirColors.outline, surface), greaterThanOrEqualTo(3));
+        expect(
+            contrast(RhythmoColors.primary, surface), greaterThanOrEqualTo(3));
+        expect(
+            contrast(RhythmoColors.outline, surface), greaterThanOrEqualTo(3));
       }
-      expect(contrast(NafirColors.onPrimary, NafirColors.primary),
+      expect(contrast(RhythmoColors.onPrimary, RhythmoColors.primary),
           greaterThanOrEqualTo(4.5));
       expect(
           contrast(
-              NafirColors.onPrimaryContainer, NafirColors.primaryContainer),
+              RhythmoColors.onPrimaryContainer, RhythmoColors.primaryContainer),
           greaterThanOrEqualTo(4.5));
       expect(
-          contrast(
-              NafirColors.onSecondaryContainer, NafirColors.secondaryContainer),
+          contrast(RhythmoColors.onSecondaryContainer,
+              RhythmoColors.secondaryContainer),
           greaterThanOrEqualTo(4.5));
       for (var i = 0; i < 360; i += 15) {
         // Light text stays readable on every artwork tint.
-        expect(contrast(NafirColors.onSurfaceVariant, artworkTint('seed-$i')),
+        expect(contrast(RhythmoColors.onSurfaceVariant, artworkTint('seed-$i')),
             greaterThanOrEqualTo(4.5));
       }
     });
 
     test('the theme carries the tokens and the Vazirmatn scale', () {
-      final theme = NafirTheme.dark();
-      expect(theme.extension<NafirTokens>(), isNotNull);
-      expect(theme.textTheme.bodyLarge?.fontFamily, NafirType.family);
+      final theme = RhythmoTheme.dark();
+      expect(theme.extension<RhythmoTokens>(), isNotNull);
+      expect(theme.textTheme.bodyLarge?.fontFamily, RhythmoType.family);
       expect(theme.textTheme.titleLarge?.fontWeight, FontWeight.w800);
-      expect(theme.colorScheme.primary, NafirColors.primary);
+      expect(theme.colorScheme.primary, RhythmoColors.primary);
       expect(artworkTint('a'), artworkTint('a'));
     });
 
     test('the light theme keeps text readable and the ring visible', () {
-      final theme = NafirTheme.light();
+      final theme = RhythmoTheme.light();
       final scheme = theme.colorScheme;
       expect(theme.brightness, Brightness.light);
-      expect(theme.extension<NafirTokens>(), NafirTokens.light);
+      expect(theme.extension<RhythmoTokens>(), RhythmoTokens.light);
       expect(theme.textTheme.bodyLarge?.color, scheme.onSurface);
-      expect(theme.textTheme.bodyLarge?.fontFamily, NafirType.family);
+      expect(theme.textTheme.bodyLarge?.fontFamily, RhythmoType.family);
       for (final surface in [
         scheme.surface,
         scheme.surfaceContainerLow,
@@ -103,30 +105,30 @@ void main() {
         expect(contrast(scheme.onSurface, surface), greaterThanOrEqualTo(4.5));
         expect(contrast(scheme.onSurfaceVariant, surface),
             greaterThanOrEqualTo(4.5));
-        expect(contrast(NafirTokens.light.focusRing, surface),
+        expect(contrast(RhythmoTokens.light.focusRing, surface),
             greaterThanOrEqualTo(3));
       }
       final focused =
           theme.filledButtonTheme.style!.side!.resolve({WidgetState.focused});
-      expect(focused?.color, NafirTokens.light.focusRing);
+      expect(focused?.color, RhythmoTokens.light.focusRing);
     });
 
     testWidgets('motion collapses under reduce-motion', (tester) async {
       late Duration normal, reduced;
       await tester.pumpWidget(_app(Builder(builder: (context) {
-        normal = NafirMotion.of(context, NafirMotion.medium);
+        normal = RhythmoMotion.of(context, RhythmoMotion.medium);
         return const SizedBox();
       })));
       await tester.pumpWidget(_app(Builder(builder: (context) {
-        reduced = NafirMotion.of(context, NafirMotion.medium);
+        reduced = RhythmoMotion.of(context, RhythmoMotion.medium);
         return const SizedBox();
       }), reduceMotion: true));
-      expect(normal, NafirMotion.medium);
+      expect(normal, RhythmoMotion.medium);
       expect(reduced, Duration.zero);
     });
 
     test('every button shows a 2 px focus ring', () {
-      final theme = NafirTheme.dark();
+      final theme = RhythmoTheme.dark();
       for (final style in [
         theme.filledButtonTheme.style,
         theme.outlinedButtonTheme.style,
@@ -135,7 +137,7 @@ void main() {
       ]) {
         final focused = style!.side!.resolve({WidgetState.focused});
         expect(focused?.width, 2);
-        expect(focused?.color, NafirColors.primary);
+        expect(focused?.color, RhythmoColors.primary);
       }
     });
   });
@@ -192,8 +194,8 @@ void main() {
         (tester) async {
       var retried = false;
       await tester.pumpWidget(_app(Scaffold(
-        body: NafirStateView.error(
-          icon: NafirIcons.cloudSlash,
+        body: RhythmoStateView.error(
+          icon: RhythmoIcons.cloudSlash,
           title: 'دریافت نشد',
           message: 'دوباره تلاش کنید.',
           action: FilledButton(
@@ -210,7 +212,7 @@ void main() {
       expect(retried, isTrue);
 
       await tester.pumpWidget(_app(const Scaffold(
-        body: NafirStateView.loading(title: 'در حال بارگذاری…'),
+        body: RhythmoStateView.loading(title: 'در حال بارگذاری…'),
       )));
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(find.bySemanticsLabel('در حال بارگذاری…'), findsOneWidget);
@@ -223,7 +225,7 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(_app(Scaffold(
         body: ListView(children: [
-          NafirTrackRow(
+          RhythmoTrackRow(
             seed: 'x',
             title:
                 'یک عنوان بسیار بسیار بلند که هرگز در یک خط جا نمی‌شود و ادامه دارد',
@@ -234,7 +236,7 @@ void main() {
         ]),
       )));
       expect(tester.takeException(), isNull);
-      final row = tester.getRect(find.byType(NafirTrackRow));
+      final row = tester.getRect(find.byType(RhythmoTrackRow));
       expect(row.height, greaterThanOrEqualTo(64));
       expect(find.text('هنرمند · ۳ مگابایت'), findsOneWidget);
     });
@@ -244,7 +246,7 @@ void main() {
       await tester.pumpWidget(_app(Builder(
         builder: (context) => Scaffold(
           body: TextButton(
-            onPressed: () async => answer = await showNafirConfirm(
+            onPressed: () async => answer = await showRhythmoConfirm(
               context,
               title: 'حذف؟',
               confirmLabel: 'حذف',
@@ -304,8 +306,8 @@ void main() {
         }
         // Content stays in a centred column on desktop.
         final page = tester.getRect(find.byType(ListView).first);
-        expect(page.width, lessThanOrEqualTo(NafirSpace.pageWidth));
-        if (size.width > NafirSpace.pageWidth) {
+        expect(page.width, lessThanOrEqualTo(RhythmoSpace.pageWidth));
+        if (size.width > RhythmoSpace.pageWidth) {
           expect(page.left, greaterThan(0));
         }
 

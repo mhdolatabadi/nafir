@@ -2,10 +2,10 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/player/application/play_queue.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/player/data/audio_engine.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/player/application/play_queue.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/player/data/audio_engine.dart';
 
 import 'upload_controller_test.dart' show FakeTracksApi;
 

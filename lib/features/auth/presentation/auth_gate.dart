@@ -1,29 +1,29 @@
-import 'package:nafir/features/admin/data/admin_account.dart';
-import 'package:nafir/features/admin/presentation/admin_screen.dart';
+import 'package:rhythmo/features/admin/data/admin_account.dart';
+import 'package:rhythmo/features/admin/presentation/admin_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:nafir/features/identify/application/identify_controller.dart';
-import 'package:nafir/features/history/application/recently_played_controller.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/app/app_configuration.dart';
-import 'package:nafir/core/widgets/app_loading_screen.dart';
-import 'package:nafir/features/auth/application/auth_controller.dart';
-import 'package:nafir/features/auth/presentation/email_verification_screen.dart';
-import 'package:nafir/features/auth/presentation/sign_in_prompt.dart';
-import 'package:nafir/features/auth/presentation/sign_in_screen.dart';
-import 'package:nafir/features/library/application/library_controller.dart';
-import 'package:nafir/features/library/application/library_sync_controller.dart';
-import 'package:nafir/features/library/application/local_audio_controller.dart';
-import 'package:nafir/features/library/presentation/library_screen.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/playlists/application/playlists_controller.dart';
-import 'package:nafir/features/playlists/presentation/popular_playlists_screen.dart';
-import 'package:nafir/features/store/application/store_controller.dart';
-import 'package:nafir/features/store/presentation/store_screen.dart';
-import 'package:nafir/features/bots/application/bot_link_controller.dart';
-import 'package:nafir/features/link_import/application/link_import_controller.dart';
-import 'package:nafir/features/settings/application/cache_controller.dart';
-import 'package:nafir/features/upload/application/upload_controller.dart';
-import 'package:nafir/features/upload/data/audio_picker.dart';
+import 'package:rhythmo/features/identify/application/identify_controller.dart';
+import 'package:rhythmo/features/history/application/recently_played_controller.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/app/app_configuration.dart';
+import 'package:rhythmo/core/widgets/app_loading_screen.dart';
+import 'package:rhythmo/features/auth/application/auth_controller.dart';
+import 'package:rhythmo/features/auth/presentation/email_verification_screen.dart';
+import 'package:rhythmo/features/auth/presentation/sign_in_prompt.dart';
+import 'package:rhythmo/features/auth/presentation/sign_in_screen.dart';
+import 'package:rhythmo/features/library/application/library_controller.dart';
+import 'package:rhythmo/features/library/application/library_sync_controller.dart';
+import 'package:rhythmo/features/library/application/local_audio_controller.dart';
+import 'package:rhythmo/features/library/presentation/library_screen.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/playlists/application/playlists_controller.dart';
+import 'package:rhythmo/features/playlists/presentation/popular_playlists_screen.dart';
+import 'package:rhythmo/features/bots/application/bot_link_controller.dart';
+import 'package:rhythmo/features/link_import/application/link_import_controller.dart';
+import 'package:rhythmo/features/settings/application/cache_controller.dart';
+import 'package:rhythmo/features/upload/application/upload_controller.dart';
+import 'package:rhythmo/features/upload/data/audio_picker.dart';
+import 'package:rhythmo/features/store/application/store_controller.dart';
+import 'package:rhythmo/features/store/presentation/store_screen.dart';
 
 /// Restores the saved session once, then shows the library, or for a guest
 /// the popular playlists, which they can play without an account.
@@ -268,7 +268,7 @@ class _RestoreFailedScreen extends StatelessWidget {
               const SizedBox(height: 20),
               FilledButton.icon(
                 onPressed: onRetry,
-                icon: const Icon(NafirIcons.arrowsClockwise),
+                icon: const Icon(RhythmoIcons.arrowsClockwise),
                 label: const Text('تلاش دوباره'),
               ),
             ],

@@ -1,8 +1,8 @@
-import 'package:nafir/core/persian_digits.dart';
+import 'package:rhythmo/core/persian_digits.dart';
 import 'package:flutter/material.dart';
-import 'package:nafir/core/design/design.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/features/upload/application/upload_controller.dart';
+import 'package:rhythmo/core/design/design.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/features/upload/application/upload_controller.dart';
 
 /// Shows the current upload's progress, result or failure.
 class UploadStatusCard extends StatelessWidget {
@@ -76,7 +76,7 @@ class UploadStatusCard extends StatelessWidget {
           blur: 16,
           tint: failed
               ? Theme.of(context).colorScheme.error
-              : NafirColors.primary,
+              : RhythmoColors.primary,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
@@ -85,10 +85,10 @@ class UploadStatusCard extends StatelessWidget {
                 children: [
                   Icon(
                     failed
-                        ? NafirIcons.warningCircle
+                        ? RhythmoIcons.warningCircle
                         : controller.phase == UploadPhase.done
-                            ? NafirIcons.checkCircle
-                            : NafirIcons.uploadSimple,
+                            ? RhythmoIcons.checkCircle
+                            : RhythmoIcons.uploadSimple,
                     color: failed ? Theme.of(context).colorScheme.error : null,
                   ),
                   const SizedBox(width: 12),
@@ -97,7 +97,7 @@ class UploadStatusCard extends StatelessWidget {
                     IconButton(
                       tooltip: 'بستن',
                       onPressed: controller.dismiss,
-                      icon: const Icon(NafirIcons.x),
+                      icon: const Icon(RhythmoIcons.x),
                     ),
                   if (controller.canCancel)
                     TextButton(

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mhdolatabadi/nafir/server/internal/bot"
+	"github.com/mhdolatabadi/rhythmo/server/internal/bot"
 )
 
 const token = "123456:secret-token"

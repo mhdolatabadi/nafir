@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mhdolatabadi/nafir/server/internal/auth"
-	"github.com/mhdolatabadi/nafir/server/internal/fingerprint"
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/auth"
+	"github.com/mhdolatabadi/rhythmo/server/internal/fingerprint"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 // songPoints is a made-up fingerprint for each "song" a test snippet
@@ -194,5 +194,100 @@ func TestIdentifyAPI(t *testing.T) {
 		if response.Code != http.StatusOK {
 			t.Fatalf("before the limit = %d", response.Code)
 		}
+	}
+}
+
+func TestIdentifyWithoutAnAccountMatchesOnlyTheStore(t *testing.T) {
+	pool := collabTestPool(t)
+	ctx := context.Background()
+	users, tracks, playlists := store.NewUsers(pool), store.NewTracks(pool), store.NewPlaylists(pool)
+	fps, catalog := store.NewFingerprints(pool), store.NewCatalog(pool)
+	tokens, _ := auth.NewTokens([]byte(strings.Repeat("k", auth.MinSecretBytes)), time.Hour)
+	handler := NewHandler(Config{Identify: NewIdentifyHandlers(IdentifyConfig{
+		Fingerprinter: &snippetFingerprinter{}, Matches: fps, Playlists: playlists, Copier: fps,
+		TempDir: t.TempDir(), Rate: NewRateLimiter(RateLimit{Requests: 100, Window: time.Hour}, 100),
+		Store: catalog, AnonymousRate: NewRateLimiter(RateLimit{Requests: 4, Window: time.Hour}, 100),
+	}, tokens)})
+
+	bob, _ := users.Create(ctx, "bob@example.com", "hash")
+	add := func(title, song string, inStore bool) store.Track {
+		t.Helper()
+		track, _ := tracks.Create(ctx, bob.ID, store.NewTrack{Title: title, FileName: "bob-" + title + ".mp3",
+			ContentType: "audio/mpeg", SizeBytes: 100})
+		points := fingerprint.Encode(songPoints[song])
+		if err := fps.SaveFingerprint(ctx, track.ID, points, time.Minute); err != nil {
+			t.Fatal(err)
+		}
+		if inStore {
+			if err := catalog.NewEntry(ctx, track.ID, title, points, nil); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return track
+	}
+	listed := add("Listed", "song-a", true)
+	hidden := add("Hidden", "song-b", true)
+	add("Private", "song-c", false)
+	list, _ := playlists.Create(ctx, bob.ID, "public")
+	_ = playlists.ReplaceTracks(ctx, bob.ID, list.ID, []string{listed.ID, hidden.ID})
+	shareToken, _ := newShareToken()
+	yes := true
+	_, _ = playlists.Share(ctx, bob.ID, list.ID, shareToken, &yes)
+	entries, _, _ := catalog.StoreEntries(ctx, store.StoreQuery{Limit: 10})
+	for _, entry := range entries {
+		if entry.Track.ID == hidden.ID {
+			if err := catalog.SetHidden(ctx, entry.ID, bob.ID, true); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	identify := func(song, ip string) (*httptest.ResponseRecorder, identifyResponse) {
+		t.Helper()
+		request := httptest.NewRequest("POST", "/api/v1/identify", strings.NewReader(song))
+		request.Header.Set("Content-Type", "audio/wav")
+		request.RemoteAddr = ip + ":1234"
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		var decoded identifyResponse
+		_ = json.Unmarshal(response.Body.Bytes(), &decoded)
+		return response, decoded
+	}
+	response, result := identify("song-a", "203.0.113.1")
+	if response.Code != http.StatusOK || result.Status != "found" || result.Source != "store" ||
+		result.StoreTrack == nil || result.StoreTrack.Title != "Listed" || result.Track != nil {
+		t.Fatalf("store song = %d %s", response.Code, response.Body)
+	}
+	for _, leak := range []string{listed.ID, bob.ID, "bob", "shareToken", shareToken} {
+		if strings.Contains(response.Body.String(), leak) {
+			t.Fatalf("the match shows %q: %s", leak, response.Body)
+		}
+	}
+	// Hidden and private songs are never matched for visitors.
+	for _, song := range []string{"song-b", "song-c"} {
+		if _, result := identify(song, "203.0.113.1"); result.Status != "not_found" {
+			t.Fatalf("%s = %+v", song, result)
+		}
+	}
+	// Unpublishing takes the song out of matching at once.
+	no := false
+	_, _ = playlists.Share(ctx, bob.ID, list.ID, shareToken, &no)
+	if _, result := identify("song-a", "203.0.113.1"); result.Status != "not_found" {
+		t.Fatalf("unpublished song = %+v", result)
+	}
+	if response, _ := identify("song-a", "203.0.113.1"); response.Code != http.StatusTooManyRequests {
+		t.Fatalf("past the visitor limit = %d", response.Code)
+	}
+	if response, _ := identify("song-a", "203.0.113.2"); response.Code != http.StatusOK {
+		t.Fatalf("another visitor = %d", response.Code)
+	}
+	// A bad token is refused, not treated as a visitor.
+	request := httptest.NewRequest("POST", "/api/v1/identify", strings.NewReader("song-a"))
+	request.Header.Set("Content-Type", "audio/wav")
+	request.Header.Set("Authorization", "Bearer nope")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("bad token = %d", recorder.Code)
 	}
 }

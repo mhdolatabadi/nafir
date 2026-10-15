@@ -33,7 +33,7 @@ const (
 	maxPageBytes  = 2 << 20
 	pageTimeout   = 20 * time.Second
 	headerTimeout = 20 * time.Second
-	userAgent     = "Mozilla/5.0 (compatible; NafirImporter/1.0)"
+	userAgent     = "Mozilla/5.0 (compatible; RhythmoImporter/1.0)"
 )
 
 // blockedPrefixes are non-public ranges that netip's own checks don't cover:

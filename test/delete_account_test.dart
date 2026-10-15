@@ -5,13 +5,13 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:nafir/app/app_theme.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/features/auth/application/auth_controller.dart';
-import 'package:nafir/features/auth/data/token_store.dart';
-import 'package:nafir/features/settings/presentation/delete_account_screen.dart';
-import 'package:nafir/features/settings/presentation/settings_screen.dart';
-import 'package:nafir/features/settings/application/cache_controller.dart';
+import 'package:rhythmo/app/app_theme.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/features/auth/application/auth_controller.dart';
+import 'package:rhythmo/features/auth/data/token_store.dart';
+import 'package:rhythmo/features/settings/presentation/delete_account_screen.dart';
+import 'package:rhythmo/features/settings/presentation/settings_screen.dart';
+import 'package:rhythmo/features/settings/application/cache_controller.dart';
 
 import 'cache_controller_test.dart' show FakeAudioCache;
 import 'widget_test.dart' show FakeAuthApi;
@@ -20,7 +20,7 @@ Widget _app(Widget home, {EdgeInsets padding = EdgeInsets.zero}) => MaterialApp(
       locale: const Locale('fa'),
       supportedLocales: const [Locale('fa')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: NafirTheme.dark(),
+      theme: RhythmoTheme.dark(),
       home: Builder(
         builder: (context) => MediaQuery(
           data: MediaQuery.of(context).copyWith(padding: padding),
@@ -159,7 +159,7 @@ void main() {
     expect(find.textContaining('اتصال به سرور برقرار نشد'), findsOneWidget);
   });
 
-  testWidgets('Settings links the privacy policy on the Nafir site',
+  testWidgets('Settings links the privacy policy on the rhythmo site',
       (tester) async {
     final opened = <Uri>[];
     await tester.pumpWidget(_app(SettingsScreen(

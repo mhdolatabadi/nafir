@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:nafir/core/design/design.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/features/history/application/recently_played_controller.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
+import 'package:rhythmo/core/design/design.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/features/history/application/recently_played_controller.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
 
 /// «اخیراً پخش‌شده» at the top of the library: the latest tracks as a
 /// row of cards, with play-all and a way into the full list. It stays out
@@ -44,7 +44,7 @@ class RecentlyPlayedShelf extends StatelessWidget {
               Row(
                 children: [
                   const SizedBox(width: 8),
-                  Icon(NafirIcons.clockCounterClockwise,
+                  Icon(RhythmoIcons.clockCounterClockwise,
                       size: 20, color: theme.colorScheme.primary),
                   const SizedBox(width: 8),
                   Expanded(
@@ -62,7 +62,7 @@ class RecentlyPlayedShelf extends StatelessWidget {
                   IconButton(
                     tooltip: 'پخش همهٔ اخیراً پخش‌شده‌ها',
                     onPressed: () => player.playFrom(all, 0),
-                    icon: const Icon(NafirIcons.playFill),
+                    icon: const Icon(RhythmoIcons.playFill),
                   ),
                   TextButton(
                     onPressed: onOpenAll,
@@ -126,7 +126,7 @@ class _RecentCard extends StatelessWidget {
         label: current ? 'در حال پخش: ${track.title}' : null,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(NafirRadii.lg),
+          borderRadius: BorderRadius.circular(RhythmoRadii.lg),
           child: Padding(
             padding: const EdgeInsets.all(4),
             child: Column(
@@ -136,7 +136,7 @@ class _RecentCard extends StatelessWidget {
                   aspectRatio: 1,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      borderRadius: NafirRadii.control,
+                      borderRadius: RhythmoRadii.control,
                       gradient: LinearGradient(
                         begin: AlignmentDirectional.topStart,
                         end: AlignmentDirectional.bottomEnd,
@@ -149,7 +149,9 @@ class _RecentCard extends StatelessWidget {
                       ),
                     ),
                     child: Icon(
-                      current ? NafirIcons.waveformFill : NafirIcons.musicNote,
+                      current
+                          ? RhythmoIcons.waveformFill
+                          : RhythmoIcons.musicNote,
                       size: 36,
                       color: current
                           ? colors.onPrimaryContainer

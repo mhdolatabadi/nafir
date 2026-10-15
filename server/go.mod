@@ -1,4 +1,4 @@
-module github.com/mhdolatabadi/nafir/server
+module github.com/mhdolatabadi/rhythmo/server
 
 go 1.26.9
 

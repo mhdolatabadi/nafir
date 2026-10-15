@@ -15,9 +15,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/mhdolatabadi/nafir/server/internal/storage"
-	"github.com/mhdolatabadi/nafir/server/internal/store"
-	"github.com/mhdolatabadi/nafir/server/internal/tags"
+	"github.com/mhdolatabadi/rhythmo/server/internal/storage"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/tags"
 )
 
 // newTestPool gives this package its own database, so it can run alongside

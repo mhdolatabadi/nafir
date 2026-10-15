@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:nafir/core/design/design.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/core/persian_digits.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/features/identify/application/identify_controller.dart';
-import 'package:nafir/features/auth/presentation/sign_in_prompt.dart';
-import 'package:nafir/features/identify/data/snippet_recorder.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/player/presentation/mini_player.dart';
-import 'package:nafir/features/player/presentation/now_playing_screen.dart';
+import 'package:rhythmo/core/design/design.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/core/persian_digits.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/features/identify/application/identify_controller.dart';
+import 'package:rhythmo/features/auth/presentation/sign_in_prompt.dart';
+import 'package:rhythmo/features/identify/data/snippet_recorder.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/player/presentation/mini_player.dart';
+import 'package:rhythmo/features/player/presentation/now_playing_screen.dart';
 
 /// The widest the identify column grows on desktop.
 const identifyMaxWidth = 520.0;
@@ -77,7 +77,7 @@ class _IdentifyScreenState extends State<IdentifyScreen> {
         backgroundColor: Theme.of(context).colorScheme.surface,
       ),
       bottomNavigationBar: MiniPlayer(player: widget.player),
-      body: NafirBackdrop(
+      body: RhythmoBackdrop(
         child: ListenableBuilder(
           listenable: _controller,
           builder: (context, _) => LayoutBuilder(
@@ -94,7 +94,7 @@ class _IdentifyScreenState extends State<IdentifyScreen> {
                     child: AnimatedSwitcher(
                       duration: MediaQuery.disableAnimationsOf(context)
                           ? Duration.zero
-                          : NafirMotion.medium,
+                          : RhythmoMotion.medium,
                       child: KeyedSubtree(
                         key: ValueKey(_controller.phase),
                         child: _content(context),
@@ -114,7 +114,7 @@ class _IdentifyScreenState extends State<IdentifyScreen> {
     final retry = FilledButton.icon(
       style: FilledButton.styleFrom(minimumSize: const Size(48, 52)),
       onPressed: _controller.listen,
-      icon: const Icon(NafirIcons.microphone),
+      icon: const Icon(RhythmoIcons.microphone),
       label: const Text('دوباره گوش بده'),
     );
     switch (_controller.phase) {
@@ -123,14 +123,14 @@ class _IdentifyScreenState extends State<IdentifyScreen> {
             onListen: _controller.listen, signedIn: _controller.signedIn);
       case IdentifyPhase.unsupported:
         return const _Message(
-          icon: NafirIcons.microphoneSlash,
+          icon: RhythmoIcons.microphoneSlash,
           title: 'ضبط صدا اینجا ممکن نیست',
           detail: 'این دستگاه یا مرورگر به میکروفون دسترسی نمی‌دهد. '
               'از برنامهٔ اندروید یا مرورگر دیگری امتحان کنید.',
         );
       case IdentifyPhase.permissionDenied:
         return _Message(
-          icon: NafirIcons.microphoneSlash,
+          icon: RhythmoIcons.microphoneSlash,
           title: 'دسترسی به میکروفون داده نشد',
           detail: 'برای شناختن آهنگ، ریتمو باید چند ثانیه صدای اطراف را '
               'بشنود. دسترسی میکروفون را در تنظیمات دستگاه یا مرورگر روشن '
@@ -144,7 +144,7 @@ class _IdentifyScreenState extends State<IdentifyScreen> {
         );
       case IdentifyPhase.searching:
         return const _Message(
-          icon: NafirIcons.waveform,
+          icon: RhythmoIcons.waveform,
           title: 'در حال جستجو…',
           detail: 'صدای ضبط‌شده با آهنگ‌های در دسترس شما مقایسه می‌شود.',
           busy: true,
@@ -164,7 +164,7 @@ class _IdentifyScreenState extends State<IdentifyScreen> {
         );
       case IdentifyPhase.notFound:
         return _Message(
-          icon: NafirIcons.musicNotesMinus,
+          icon: RhythmoIcons.musicNotesMinus,
           title: 'پیدا نشد',
           detail: _controller.signedIn
               ? 'فقط آهنگ‌هایی شناخته می‌شوند که در کتابخانهٔ شما، '
@@ -175,7 +175,7 @@ class _IdentifyScreenState extends State<IdentifyScreen> {
         );
       case IdentifyPhase.failed:
         return _Message(
-          icon: NafirIcons.warningCircle,
+          icon: RhythmoIcons.warningCircle,
           title: 'شناسایی انجام نشد',
           detail: _controller.error,
           action: retry,
@@ -209,7 +209,7 @@ class _Intro extends StatelessWidget {
               color: colors.primary.withValues(alpha: 0.16),
               border: Border.all(color: colors.primary.withValues(alpha: 0.4)),
             ),
-            child: Icon(NafirIcons.microphoneStage,
+            child: Icon(RhythmoIcons.microphoneStage,
                 size: 44, color: colors.primary),
           ),
         ),
@@ -239,7 +239,7 @@ class _Intro extends StatelessWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(NafirIcons.shieldCheck,
+            Icon(RhythmoIcons.shieldCheck,
                 size: 16, color: colors.onSurfaceVariant),
             const SizedBox(width: 6),
             Flexible(
@@ -255,7 +255,7 @@ class _Intro extends StatelessWidget {
         FilledButton.icon(
           style: FilledButton.styleFrom(minimumSize: const Size(160, 52)),
           onPressed: onListen,
-          icon: const Icon(NafirIcons.microphone),
+          icon: const Icon(RhythmoIcons.microphone),
           label: const Text('گوش بده'),
         ),
       ],
@@ -288,7 +288,7 @@ class _Listening extends StatelessWidget {
               alignment: Alignment.center,
               children: [
                 AnimatedContainer(
-                  duration: reduceMotion ? Duration.zero : NafirMotion.quick,
+                  duration: reduceMotion ? Duration.zero : RhythmoMotion.quick,
                   width: 120 + 48 * level,
                   height: 120 + 48 * level,
                   decoration: BoxDecoration(
@@ -303,7 +303,7 @@ class _Listening extends StatelessWidget {
                     shape: BoxShape.circle,
                     color: colors.primary,
                   ),
-                  child: Icon(NafirIcons.microphone,
+                  child: Icon(RhythmoIcons.microphone,
                       size: 48, color: colors.onPrimary),
                 ),
               ],
@@ -331,7 +331,7 @@ class _Listening extends StatelessWidget {
             duration: snippetLength,
             builder: (context, value, _) => LinearProgressIndicator(
               value: value,
-              borderRadius: BorderRadius.circular(NafirRadii.bar),
+              borderRadius: BorderRadius.circular(RhythmoRadii.bar),
               semanticsLabel: 'زمان ضبط',
             ),
           ),
@@ -397,9 +397,9 @@ class _Result extends StatelessWidget {
                   height: 72,
                   decoration: BoxDecoration(
                     color: trackTint(track),
-                    borderRadius: BorderRadius.circular(NafirRadii.lg),
+                    borderRadius: BorderRadius.circular(RhythmoRadii.lg),
                   ),
-                  child: Icon(NafirIcons.musicNote,
+                  child: Icon(RhythmoIcons.musicNote,
                       size: 32, color: colors.onSurfaceVariant),
                 ),
                 const SizedBox(width: 16),
@@ -441,7 +441,7 @@ class _Result extends StatelessWidget {
         FilledButton.icon(
           style: FilledButton.styleFrom(minimumSize: const Size(48, 52)),
           onPressed: onPlay,
-          icon: const Icon(NafirIcons.playFill),
+          icon: const Icon(RhythmoIcons.playFill),
           label: const Text('پخش'),
         ),
         if (match.canSave) ...[
@@ -449,7 +449,7 @@ class _Result extends StatelessWidget {
           FilledButton.tonalIcon(
             style: FilledButton.styleFrom(minimumSize: const Size(48, 52)),
             onPressed: saving || saved ? null : onSave,
-            icon: Icon(saved ? NafirIcons.check : NafirIcons.plus),
+            icon: Icon(saved ? RhythmoIcons.check : RhythmoIcons.plus),
             label: Text(saved
                 ? 'در کتابخانهٔ شما'
                 : saving
@@ -461,7 +461,7 @@ class _Result extends StatelessWidget {
         TextButton.icon(
           style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
           onPressed: onAgain,
-          icon: const Icon(NafirIcons.microphone),
+          icon: const Icon(RhythmoIcons.microphone),
           label: const Text('آهنگ دیگر'),
         ),
       ],
@@ -470,7 +470,7 @@ class _Result extends StatelessWidget {
 }
 
 /// A state of the screen without a result, drawn as the shared
-/// [NafirStateView].
+/// [RhythmoStateView].
 class _Message extends StatelessWidget {
   const _Message({
     required this.icon,
@@ -488,11 +488,11 @@ class _Message extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (busy) return NafirStateView.loading(title: title, message: detail);
-    return icon == NafirIcons.warningCircle
-        ? NafirStateView.error(
+    if (busy) return RhythmoStateView.loading(title: title, message: detail);
+    return icon == RhythmoIcons.warningCircle
+        ? RhythmoStateView.error(
             icon: icon, title: title, message: detail, action: action)
-        : NafirStateView(
+        : RhythmoStateView(
             icon: icon, title: title, message: detail, action: action);
   }
 }

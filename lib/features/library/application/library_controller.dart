@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/library/data/track_metadata.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/library/data/track_metadata.dart';
 
 enum LibraryStatus { loading, error, loaded }
 
@@ -69,7 +69,7 @@ class LibraryController extends ChangeNotifier {
   int get usedBytes => _usedBytes;
   int get limitBytes => _limitBytes;
 
-  /// Files sent to a Nafir bot that are still being added.
+  /// Files sent to a rhythmo bot that are still being added.
   int get importsInProgress => _importsInProgress;
   bool isDeleting(String trackId) => _deletingTrackIds.contains(trackId);
   bool isUpdating(String trackId) => _updatingTrackIds.contains(trackId);

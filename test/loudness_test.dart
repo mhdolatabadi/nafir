@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/player/data/loudness.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/player/data/loudness.dart';
 
 Track _track(ReplayGain? replayGain) => Track(
     id: 't',

@@ -1,9 +1,9 @@
-import 'package:nafir/core/persian_digits.dart';
+import 'package:rhythmo/core/persian_digits.dart';
 import 'package:flutter/material.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
 import 'package:flutter/services.dart';
-import 'package:nafir/features/bots/application/bot_link_controller.dart';
-import 'package:nafir/features/bots/data/messenger_bot.dart';
+import 'package:rhythmo/features/bots/application/bot_link_controller.dart';
+import 'package:rhythmo/features/bots/data/messenger_bot.dart';
 
 /// Settings section for linking a messenger bot chat to this account. It
 /// shows nothing when the server runs no bots.
@@ -60,7 +60,7 @@ class _BotLinkSectionState extends State<BotLinkSection> {
                 child: FilledButton.tonalIcon(
                   onPressed:
                       controller.requesting ? null : controller.requestCode,
-                  icon: const Icon(NafirIcons.linkSimple),
+                  icon: const Icon(RhythmoIcons.linkSimple),
                   label: Text(code == null ? 'دریافت کد اتصال' : 'کد تازه'),
                 ),
               ),
@@ -148,14 +148,14 @@ class _CodeCard extends StatelessWidget {
               children: [
                 OutlinedButton.icon(
                   onPressed: () => onCopy(code, 'کد کپی شد.'),
-                  icon: const Icon(NafirIcons.copy),
+                  icon: const Icon(RhythmoIcons.copy),
                   label: const Text('کپی کد'),
                 ),
                 for (final bot in bots)
                   if (bot.linkUrl case final url?)
                     OutlinedButton.icon(
                       onPressed: () => onCopy(url, 'لینک کپی شد.'),
-                      icon: const Icon(NafirIcons.arrowSquareOut),
+                      icon: const Icon(RhythmoIcons.arrowSquareOut),
                       label: Text('کپی لینک بات ${bot.name}'),
                     ),
               ],

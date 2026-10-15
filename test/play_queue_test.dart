@@ -1,8 +1,8 @@
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/player/application/play_queue.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/player/application/play_queue.dart';
 
 final _tracks = [
   for (final id in ['a', 'b', 'c', 'd', 'e'])

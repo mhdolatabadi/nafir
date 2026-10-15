@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/core/persian_digits.dart';
-import 'package:nafir/core/format_size.dart';
+import 'package:rhythmo/core/persian_digits.dart';
+import 'package:rhythmo/core/format_size.dart';
 
 void main() {
   test('converts both numeral sets and preserves surrounding text', () {
