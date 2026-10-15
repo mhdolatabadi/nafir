@@ -23,7 +23,8 @@ Track _track(String id,
 void main() {
   late Directory dir;
 
-  setUp(() async => dir = await Directory.systemTemp.createTemp('nafir_cache'));
+  setUp(
+      () async => dir = await Directory.systemTemp.createTemp('rhythmo_cache'));
   tearDown(() async {
     if (await dir.exists()) await dir.delete(recursive: true);
   });

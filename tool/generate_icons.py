@@ -54,11 +54,11 @@ def main() -> None:
 
     svg = icon_svg()
     (ROOT / 'web/icons/icon.svg').write_text(svg, encoding='utf-8')
-    (ROOT / 'android/app/src/main/res/drawable/ic_stat_nafir.xml').write_text(
+    (ROOT / 'android/app/src/main/res/drawable/ic_stat_rhythmo.xml').write_text(
         notification_xml(), encoding='utf-8'
     )
-    targets = {'assets/icon/nafir.png': 288,
-               'server/internal/httpapi/public/nafir.png': 288,
+    targets = {'assets/icon/rhythmo.png': 288,
+               'server/internal/httpapi/public/rhythmo.png': 288,
                'web/icons/icon-192.png': 192, 'web/icons/icon-512.png': 512}
     for density, size in [('mdpi', 48), ('hdpi', 72), ('xhdpi', 96),
                           ('xxhdpi', 144), ('xxxhdpi', 192)]:

@@ -24,11 +24,11 @@ The API needs PostgreSQL, MinIO and a token secret. It applies its database
 migrations on startup.
 
 ```bash
-docker run -d --name nafir-db -p 5432:5432 \
-  -e POSTGRES_USER=nafir -e POSTGRES_PASSWORD=nafir -e POSTGRES_DB=nafir postgres:16-alpine
-docker run -d --name nafir-minio -p 9000:9000 minio/minio server /data
+docker run -d --name rhythmo-db -p 5432:5432 \
+  -e POSTGRES_USER=rhythmo -e POSTGRES_PASSWORD=rhythmo -e POSTGRES_DB=rhythmo postgres:16-alpine
+docker run -d --name rhythmo-minio -p 9000:9000 minio/minio server /data
 cd server
-export DATABASE_URL='postgres://nafir:nafir@localhost:5432/nafir?sslmode=disable'
+export DATABASE_URL='postgres://rhythmo:rhythmo@localhost:5432/rhythmo?sslmode=disable'
 export AUTH_TOKEN_SECRET="$(openssl rand -hex 32)"
 export STORAGE_ENDPOINT=localhost:9000 STORAGE_PUBLIC_URL=http://localhost:9000
 export STORAGE_BUCKET=nafir-music STORAGE_ACCESS_KEY=minioadmin STORAGE_SECRET_KEY=minioadmin
