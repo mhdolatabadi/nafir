@@ -17,6 +17,12 @@ class ListeningJourney extends ChangeNotifier {
   int _generation = 0;
   bool ready = false;
   bool enabled = true;
+
+  /// The library card shows only a slim summary row.
+  bool collapsed = false;
+
+  /// The library card is hidden; progress is still recorded.
+  bool hiddenInLibrary = false;
   bool saveFailed = false;
   String _week = '';
   final Set<String> _weekly = {};
@@ -62,6 +68,8 @@ class ListeningJourney extends ChangeNotifier {
     _account = id;
     ready = false;
     enabled = true;
+    collapsed = false;
+    hiddenInLibrary = false;
     saveFailed = false;
     _week = '';
     _weekly.clear();
@@ -76,6 +84,8 @@ class ListeningJourney extends ChangeNotifier {
       if (raw != null) {
         final data = jsonDecode(raw) as Map<String, dynamic>;
         enabled = data['enabled'] != false;
+        collapsed = data['collapsed'] == true;
+        hiddenInLibrary = data['hiddenInLibrary'] == true;
         _week = data['week'] as String? ?? '';
         _weekly.addAll((data['weekly'] as List).cast<String>());
         _discovered.addAll((data['discovered'] as List).cast<String>());
@@ -102,6 +112,18 @@ class ListeningJourney extends ChangeNotifier {
 
   void setEnabled(bool value) {
     enabled = value;
+    notifyListeners();
+    _save();
+  }
+
+  void setCollapsed(bool value) {
+    collapsed = value;
+    notifyListeners();
+    _save();
+  }
+
+  void setHiddenInLibrary(bool value) {
+    hiddenInLibrary = value;
     notifyListeners();
     _save();
   }
@@ -142,6 +164,8 @@ class ListeningJourney extends ChangeNotifier {
     final generation = _generation;
     final raw = jsonEncode({
       'enabled': enabled,
+      'collapsed': collapsed,
+      'hiddenInLibrary': hiddenInLibrary,
       'week': _week,
       'weekly': _weekly.toList(),
       'discovered': _discovered.toList(),
