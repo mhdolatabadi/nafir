@@ -2,6 +2,10 @@ package httpapi
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -24,6 +28,8 @@ type CatalogStore interface {
 	ReportEntry(ctx context.Context, entryID, reporterID, reason string, details *string) error
 	OpenReports(ctx context.Context, limit int) ([]store.StoreReport, error)
 	SetHidden(ctx context.Context, entryID, adminID string, hidden bool) error
+	RecordStorePlay(ctx context.Context, entryID, listener string) error
+	StoreRanked(ctx context.Context, ranking store.StoreRanking, limit, offset int) ([]store.StoreEntry, bool, error)
 }
 
 const (
@@ -54,6 +60,8 @@ type CatalogHandlers struct {
 	admin   *AdminHandlers
 	// likes, when set, adds like counts and the viewer's likes.
 	likes LikeStore
+	// playSalt keys the visitor hashes listenerKey counts plays by.
+	playSalt []byte
 }
 
 // WithLikes adds each song's like count and whether the viewer likes it.
@@ -83,7 +91,11 @@ func (h *CatalogHandlers) withLikes(ctx context.Context, viewerID string, respon
 }
 
 func NewCatalogHandlers(catalog CatalogStore, tokens *auth.Tokens, streams StreamPresigner, anonymous AnonymousLimits) *CatalogHandlers {
-	return &CatalogHandlers{catalog: catalog, tokens: tokens, streams: streams, anonymous: anonymous}
+	salt := make([]byte, 32)
+	if _, err := rand.Read(salt); err != nil {
+		panic(err)
+	}
+	return &CatalogHandlers{catalog: catalog, tokens: tokens, streams: streams, anonymous: anonymous, playSalt: salt}
 }
 
 // WithSave lets signed-in listeners add a store song to their own library,
@@ -112,6 +124,8 @@ func (h *CatalogHandlers) register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/store/tracks/{id}/stream", h.handleStream)
 	mux.HandleFunc("GET /api/v1/store/artists", h.handleArtists)
 	mux.HandleFunc("GET /api/v1/store/albums", h.handleAlbums)
+	mux.HandleFunc("GET /api/v1/store/popular", h.handleRanked(store.RankPopular))
+	mux.HandleFunc("GET /api/v1/store/trending", h.handleRanked(store.RankTrending))
 	if h.copier != nil {
 		mux.HandleFunc("POST /api/v1/store/tracks/{id}/save", h.handleSave)
 	}
@@ -273,11 +287,17 @@ func (h *CatalogHandlers) handleTrack(w http.ResponseWriter, r *http.Request) {
 // handleStream hands out a short-lived URL for the entry's best copy, the
 // original file as uploaded.
 func (h *CatalogHandlers) handleStream(w http.ResponseWriter, r *http.Request) {
-	if _, ok := h.viewer(w, r, h.anonymous.Stream); !ok {
+	viewerID, ok := h.viewer(w, r, h.anonymous.Stream)
+	if !ok {
 		return
 	}
 	entry, ok := h.entry(w, r)
 	if !ok {
+		return
+	}
+	// A play counts toward popular and trending once per listener and day.
+	if err := h.catalog.RecordStorePlay(r.Context(), entry.ID, h.listenerKey(viewerID, r)); err != nil {
+		internalError(w, "record store play", err)
 		return
 	}
 	url, expiresAt, err := h.streams.PresignGet(r.Context(), entry.Track.StorageKey)
@@ -287,6 +307,48 @@ func (h *CatalogHandlers) handleStream(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, streamResponse{URL: url, ExpiresAt: expiresAt.UTC()})
+}
+
+// listenerKey tells plays apart without storing who played: the account
+// id for a listener, or for a visitor a keyed hash of their address that
+// changes every day and with every server start.
+func (h *CatalogHandlers) listenerKey(viewerID string, r *http.Request) string {
+	if viewerID != "" {
+		return "u:" + viewerID
+	}
+	mac := hmac.New(sha256.New, h.playSalt)
+	mac.Write([]byte(time.Now().UTC().Format(time.DateOnly) + "|" + clientIP(r)))
+	return "a:" + hex.EncodeToString(mac.Sum(nil))[:24]
+}
+
+// handleRanked lists popular or trending store songs, best first, from the
+// cached scores; anyone may see them, within the visitor limits.
+func (h *CatalogHandlers) handleRanked(ranking store.StoreRanking) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		viewerID, ok := h.viewer(w, r, h.anonymous.View)
+		if !ok {
+			return
+		}
+		limit, offset, ok := page(w, r)
+		if !ok {
+			return
+		}
+		entries, more, err := h.catalog.StoreRanked(r.Context(), ranking, limit, offset)
+		if err != nil {
+			internalError(w, "list ranked store tracks", err)
+			return
+		}
+		response := make([]storeTrackResponse, 0, len(entries))
+		for _, entry := range entries {
+			response = append(response, toStoreTrackResponse(entry))
+		}
+		if err := h.withLikes(r.Context(), viewerID, response); err != nil {
+			internalError(w, "load store likes", err)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		writeJSON(w, http.StatusOK, map[string]any{"tracks": response, "hasMore": more})
+	}
 }
 
 type storeArtistResponse struct {
