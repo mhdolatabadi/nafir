@@ -52,6 +52,34 @@ type CatalogHandlers struct {
 	// reports caps how often one account may report.
 	reports *RateLimiter
 	admin   *AdminHandlers
+	// likes, when set, adds like counts and the viewer's likes.
+	likes LikeStore
+}
+
+// WithLikes adds each song's like count and whether the viewer likes it.
+func (h *CatalogHandlers) WithLikes(likes LikeStore) *CatalogHandlers {
+	h.likes = likes
+	return h
+}
+
+// withLikes fills in the like state of responses for viewerID.
+func (h *CatalogHandlers) withLikes(ctx context.Context, viewerID string, responses []storeTrackResponse) error {
+	if h.likes == nil || len(responses) == 0 {
+		return nil
+	}
+	ids := make([]string, len(responses))
+	for i, response := range responses {
+		ids[i] = response.ID
+	}
+	states, err := h.likes.EntryStates(ctx, viewerID, ids)
+	if err != nil {
+		return err
+	}
+	for i := range responses {
+		state := states[responses[i].ID]
+		responses[i].LikeCount, responses[i].Liked = state.Count, state.Liked
+	}
+	return nil
 }
 
 func NewCatalogHandlers(catalog CatalogStore, tokens *auth.Tokens, streams StreamPresigner, anonymous AnonymousLimits) *CatalogHandlers {
@@ -126,6 +154,10 @@ type storeTrackResponse struct {
 	ReplayGain  *replayGainResponse `json:"replayGain"`
 	// Hidden is only ever true in admin views.
 	Hidden bool `json:"hidden,omitempty"`
+	// LikeCount is how many listeners like the song; Liked whether the
+	// viewer does (#284).
+	LikeCount int  `json:"likeCount"`
+	Liked     bool `json:"liked"`
 }
 
 func toStoreTrackResponse(entry store.StoreEntry) storeTrackResponse {
@@ -174,7 +206,8 @@ func searchParam(w http.ResponseWriter, r *http.Request, name string) (string, b
 // handleTracks lists store songs by title. ?q= searches title, artist and
 // album; ?artist= and ?album= pick one artist's or album's songs.
 func (h *CatalogHandlers) handleTracks(w http.ResponseWriter, r *http.Request) {
-	if _, ok := h.viewer(w, r, h.anonymous.View); !ok {
+	viewerID, ok := h.viewer(w, r, h.anonymous.View)
+	if !ok {
 		return
 	}
 	limit, offset, ok := page(w, r)
@@ -196,6 +229,10 @@ func (h *CatalogHandlers) handleTracks(w http.ResponseWriter, r *http.Request) {
 	for _, entry := range entries {
 		response = append(response, toStoreTrackResponse(entry))
 	}
+	if err := h.withLikes(r.Context(), viewerID, response); err != nil {
+		internalError(w, "load store likes", err)
+		return
+	}
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, map[string]any{"tracks": response, "hasMore": more})
 }
@@ -216,15 +253,21 @@ func (h *CatalogHandlers) entry(w http.ResponseWriter, r *http.Request) (store.S
 }
 
 func (h *CatalogHandlers) handleTrack(w http.ResponseWriter, r *http.Request) {
-	if _, ok := h.viewer(w, r, h.anonymous.View); !ok {
+	viewerID, ok := h.viewer(w, r, h.anonymous.View)
+	if !ok {
 		return
 	}
 	entry, ok := h.entry(w, r)
 	if !ok {
 		return
 	}
+	response := []storeTrackResponse{toStoreTrackResponse(entry)}
+	if err := h.withLikes(r.Context(), viewerID, response); err != nil {
+		internalError(w, "load store likes", err)
+		return
+	}
 	w.Header().Set("Cache-Control", "no-store")
-	writeJSON(w, http.StatusOK, toStoreTrackResponse(entry))
+	writeJSON(w, http.StatusOK, response[0])
 }
 
 // handleStream hands out a short-lived URL for the entry's best copy, the

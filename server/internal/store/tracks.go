@@ -63,6 +63,9 @@ type Track struct {
 	PendingStorageKey *string
 	// Loudness is the ReplayGain the file's tags carry (#253).
 	Loudness Loudness
+	// PublishedAt is when the owner published the track on its own, which
+	// lists it in the store (#284); nil while it is private.
+	PublishedAt *time.Time
 }
 
 // Loudness is ReplayGain as stored: gains in dB re -18 LUFS, peaks as
@@ -143,7 +146,7 @@ var trackColumnNames = []string{
 	"file_name", "storage_key", "content_type", "size_bytes", "source", "created_at",
 	"metadata_version", "tag_status", "tag_version", "tag_error", "tag_attempts",
 	"pending_storage_key", "replaygain_track_gain_db", "replaygain_track_peak",
-	"replaygain_album_gain_db", "replaygain_album_peak",
+	"replaygain_album_gain_db", "replaygain_album_peak", "published_at",
 }
 
 var trackColumns = strings.Join(trackColumnNames, ", ")
@@ -176,7 +179,7 @@ func trackDestinations(t *Track) []any {
 		&t.FileName, &t.StorageKey, &t.ContentType, &t.SizeBytes, &t.Source, &t.CreatedAt,
 		&t.MetadataVersion, &t.TagStatus, &t.TagVersion, &t.TagError, &t.TagAttempts,
 		&t.PendingStorageKey, &t.Loudness.TrackGainDB, &t.Loudness.TrackPeak,
-		&t.Loudness.AlbumGainDB, &t.Loudness.AlbumPeak}
+		&t.Loudness.AlbumGainDB, &t.Loudness.AlbumPeak, &t.PublishedAt}
 }
 
 // ReservePending atomically checks the owner's total reserved bytes and active

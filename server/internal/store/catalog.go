@@ -25,13 +25,14 @@ func NewCatalog(pool *pgxpool.Pool) *Catalog {
 }
 
 // storeEligible is true for a track that may be listed in the store: a
-// ready track in at least one public playlist it belongs in. Everything
-// the store shows or plays passes it at query time.
+// ready track its owner published on its own (#284), or one in at least
+// one public playlist it belongs in. Everything the store shows or plays
+// passes it at query time.
 func storeEligible(tracks string) string {
-	return `(` + tracks + `.status = 'ready' AND EXISTS (
+	return `(` + tracks + `.status = 'ready' AND (` + tracks + `.published_at IS NOT NULL OR EXISTS (
 		SELECT 1 FROM playlist_tracks spt JOIN playlists sp ON sp.id = spt.playlist_id
 		WHERE spt.track_id = ` + tracks + `.id AND sp.is_public AND sp.share_token IS NOT NULL
-		  AND ` + trackBelongs(tracks, "sp") + `))`
+		  AND ` + trackBelongs(tracks, "sp") + `)))`
 }
 
 // losslessTypes are played in preference to lossy copies of the same song.
