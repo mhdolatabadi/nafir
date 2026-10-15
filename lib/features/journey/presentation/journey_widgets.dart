@@ -2,6 +2,7 @@ import 'package:rhythmo/features/journey/presentation/monthly_card_section.dart'
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:rhythmo/core/design/tokens.dart';
 import 'package:rhythmo/core/persian_digits.dart';
 import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
 import 'package:rhythmo/features/journey/application/listening_journey.dart';
@@ -15,11 +16,25 @@ class JourneySetting extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListenableBuilder(
         listenable: journey,
-        builder: (context, _) => SwitchListTile(
-          title: const Text('سفر شنیداری'),
-          subtitle: const Text('پیشرفت و دستاوردهای خصوصی روی این دستگاه'),
-          value: journey.enabled,
-          onChanged: journey.ready ? journey.setEnabled : null,
+        builder: (context, _) => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SwitchListTile(
+              title: const Text('سفر شنیداری'),
+              subtitle: const Text('پیشرفت و دستاوردهای خصوصی روی این دستگاه'),
+              value: journey.enabled,
+              onChanged: journey.ready ? journey.setEnabled : null,
+            ),
+            if (journey.enabled)
+              SwitchListTile(
+                title: const Text('نمایش سفر شنیداری در کتابخانه'),
+                subtitle: const Text('کارت پیشرفت بالای فهرست آهنگ‌ها'),
+                value: !journey.hiddenInLibrary,
+                onChanged: journey.ready
+                    ? (show) => journey.setHiddenInLibrary(!show)
+                    : null,
+              ),
+          ],
         ),
       );
 }
@@ -39,7 +54,10 @@ class JourneyCard extends StatelessWidget {
   Widget build(BuildContext context) => ListenableBuilder(
         listenable: journey,
         builder: (context, _) {
-          if (!journey.ready || !journey.enabled || tracks.isEmpty) {
+          if (!journey.ready ||
+              !journey.enabled ||
+              journey.hiddenInLibrary ||
+              tracks.isEmpty) {
             return const SizedBox.shrink();
           }
           final goal = min(5, tracks.map((t) => t.id).toSet().length);
@@ -47,6 +65,12 @@ class JourneyCard extends StatelessWidget {
             goal,
             tracks.map((t) => t.id).toSet().where(journey.heardThisWeek).length,
           );
+          final progress = count == goal
+              ? 'سفر این هفته کامل شد'
+              : '${persianDigits(count)} از ${persianDigits(goal)} آهنگ متفاوت';
+          if (journey.collapsed) {
+            return _CollapsedJourney(journey: journey, progress: progress);
+          }
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Column(
@@ -56,23 +80,32 @@ class JourneyCard extends StatelessWidget {
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(RhythmoIcons.musicNotes),
                   title: const Text('سفر شنیداری این هفته'),
-                  subtitle: Text(
-                    count == goal
-                        ? 'سفر این هفته کامل شد'
-                        : '${persianDigits(count)} از ${persianDigits(goal)} آهنگ متفاوت',
-                  ),
-                  trailing: TextButton(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => _JourneyScreen(
-                          journey: journey,
-                          accountGeneration: journey.accountGeneration,
-                          tracks: tracks,
-                          player: player,
+                  subtitle: Text(progress),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => _JourneyScreen(
+                              journey: journey,
+                              accountGeneration: journey.accountGeneration,
+                              tracks: tracks,
+                              player: player,
+                            ),
+                          ),
                         ),
+                        child: const Text('سفر من'),
                       ),
-                    ),
-                    child: const Text('سفر من'),
+                      IconButton(
+                        tooltip: 'جمع کردن سفر شنیداری',
+                        icon: const RotatedBox(
+                          quarterTurns: 2,
+                          child: Icon(RhythmoIcons.caretDown),
+                        ),
+                        onPressed: () => journey.setCollapsed(true),
+                      ),
+                    ],
                   ),
                 ),
                 Semantics(
@@ -84,6 +117,74 @@ class JourneyCard extends StatelessWidget {
             ),
           );
         },
+      );
+}
+
+/// One slim row, so the journey stays reachable without taking space.
+class _CollapsedJourney extends StatelessWidget {
+  const _CollapsedJourney({required this.journey, required this.progress});
+  final ListeningJourney journey;
+  final String progress;
+
+  void _hide(BuildContext context) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    journey.setHiddenInLibrary(true);
+    messenger
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: const Text(
+          'سفر شنیداری پنهان شد. از تنظیمات می‌توانی دوباره نشانش بدهی.',
+        ),
+        action: SnackBarAction(
+          label: 'بازگردانی',
+          onPressed: () => journey.setHiddenInLibrary(false),
+        ),
+      ));
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: Semantics(
+                button: true,
+                label: 'باز کردن سفر شنیداری',
+                excludeSemantics: true,
+                child: InkWell(
+                  borderRadius: RhythmoRadii.control,
+                  onTap: () => journey.setCollapsed(false),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 48),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Row(
+                        children: [
+                          const Icon(RhythmoIcons.musicNotes, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'سفر شنیداری · $progress',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const Icon(RhythmoIcons.caretDown, size: 20),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: 'پنهان کردن از کتابخانه',
+              icon: const Icon(RhythmoIcons.x),
+              onPressed: () => _hide(context),
+            ),
+          ],
+        ),
       );
 }
 
