@@ -4,6 +4,7 @@ import 'package:nafir/features/player/application/playback_settings.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/presentation/playback_controls.dart';
 import 'package:nafir/features/settings/presentation/crossfade_setting.dart';
+import 'package:nafir/features/settings/presentation/loudness_setting.dart';
 
 /// Playback controls backed by the same controller as the now-playing screen.
 class PlaybackSettingsSection extends StatelessWidget {
@@ -71,6 +72,7 @@ class PlaybackSettingsSection extends StatelessWidget {
                         ),
                         if (player.supportsCrossfade)
                           CrossfadeSetting(player: player),
+                        LoudnessSetting(player: player),
                         if (player.supportsSilenceSkipping)
                           SwitchListTile(
                             title: const Text('رد کردن سکوت'),

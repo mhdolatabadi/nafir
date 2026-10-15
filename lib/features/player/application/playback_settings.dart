@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:nafir/features/player/data/loudness.dart';
 
 /// The playback speeds offered, slowest first. Pitch is kept at every speed.
 const playbackSpeeds = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
@@ -13,6 +14,7 @@ class PlaybackSettings {
   const PlaybackSettings({
     this.speed = 1,
     this.crossfade = Duration.zero,
+    this.loudness = LoudnessMode.track,
     this.playOnlySelected = false,
     this.preventDuplicates = false,
     this.skipSilence = false,
@@ -31,6 +33,9 @@ class PlaybackSettings {
 
   /// How long consecutive tracks overlap; zero is off.
   final Duration crossfade;
+
+  /// Loudness normalization; on, per track, unless the listener turns it off.
+  final LoudnessMode loudness;
 
   /// Reads saved settings, dropping values the app no longer offers.
   factory PlaybackSettings.fromJson(Object? json) {
@@ -54,12 +59,17 @@ class PlaybackSettings {
           ? Duration(
               milliseconds: crossfadeMs.clamp(0, maxCrossfade.inMilliseconds))
           : Duration.zero,
+      loudness: LoudnessMode.values.firstWhere(
+        (mode) => mode.name == json['loudness'],
+        orElse: () => LoudnessMode.track,
+      ),
     );
   }
 
   Map<String, Object> toJson() => {
         'speed': speed,
         'crossfadeMs': crossfade.inMilliseconds,
+        'loudness': loudness.name,
         'playOnlySelected': playOnlySelected,
         'preventDuplicates': preventDuplicates,
         'skipSilence': skipSilence,
@@ -74,7 +84,8 @@ class PlaybackSettings {
           bool? preventDuplicates,
           bool? skipSilence,
           bool? systemControls,
-          bool? externalPlayback}) =>
+          bool? externalPlayback,
+          LoudnessMode? loudness}) =>
       PlaybackSettings(
         playOnlySelected: playOnlySelected ?? this.playOnlySelected,
         preventDuplicates: preventDuplicates ?? this.preventDuplicates,
@@ -83,6 +94,7 @@ class PlaybackSettings {
         externalPlayback: externalPlayback ?? this.externalPlayback,
         speed: speed ?? this.speed,
         crossfade: crossfade ?? this.crossfade,
+        loudness: loudness ?? this.loudness,
       );
 }
 

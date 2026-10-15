@@ -10,6 +10,7 @@ import 'package:nafir/features/player/application/playback_metrics.dart';
 import 'package:nafir/features/player/application/play_queue.dart';
 import 'package:nafir/features/player/application/playback_settings.dart';
 import 'package:nafir/features/player/data/audio_engine.dart';
+import 'package:nafir/features/player/data/loudness.dart';
 
 enum PlayerStatus {
   idle,
@@ -84,6 +85,8 @@ class PlayerController extends ChangeNotifier {
       engine.errors.listen(_onEngineError),
       engine.advanced.listen(_onAdvanced),
     ];
+    // Normalization is on until the saved settings say otherwise.
+    unawaited(_applyLoudness(_settings.loudness));
   }
 
   final TracksApi _api;
@@ -145,6 +148,11 @@ class PlayerController extends ChangeNotifier {
   bool get shuffle => _shuffle;
   QueueRepeat get repeat => _repeat;
   PlayerStatus get status => _status;
+
+  /// The browser blocked audio until the listener taps play (web autoplay
+  /// rules); cleared once playback is asked for again.
+  bool get needsTap => _needsTap;
+  bool _needsTap = false;
   Duration get position => _position;
   Duration? get duration => _duration;
 
@@ -221,6 +229,9 @@ class PlayerController extends ChangeNotifier {
       if (_settings.crossfade == Duration.zero) {
         await _applyCrossfade(saved.crossfade);
       }
+      if (_settings.loudness == const PlaybackSettings().loudness) {
+        await _applyLoudness(saved.loudness);
+      }
       if (!_systemSettingsChanged) {
         if (supportsSilenceSkipping) {
           await (_engine as SilenceSkippingEngine)
@@ -262,6 +273,22 @@ class PlayerController extends ChangeNotifier {
     // The next track is buffered differently with and without an overlap.
     await _dropPreload();
     _maybePreload();
+  }
+
+  /// How tracks are evened out in loudness; remembered between sessions.
+  LoudnessMode get loudness => _settings.loudness;
+
+  /// Turns loudness normalization off, or evens out each track or album.
+  /// The files are never changed; only each track's volume is.
+  Future<void> setLoudness(LoudnessMode mode) async {
+    await _applyLoudness(mode);
+    notifyListeners();
+    await _saveSettings();
+  }
+
+  Future<void> _applyLoudness(LoudnessMode mode) async {
+    _settings = _settings.copyWith(loudness: mode);
+    await _engine.setTrackGain((track) => normalizationGain(track, mode));
   }
 
   Future<void> _applySpeed(double speed) async {
@@ -629,6 +656,7 @@ class PlayerController extends ChangeNotifier {
   /// Continues a paused track, replays a completed one from the start, or
   /// retries one that failed.
   Future<void> resume() async {
+    _needsTap = false;
     switch (_status) {
       case PlayerStatus.paused:
         if (_fadeTimer != null) {
@@ -712,6 +740,12 @@ class PlayerController extends ChangeNotifier {
   /// Stream URLs expire; when playback fails (typically on a seek after the
   /// URL expired), fetch a fresh one once and resume where it stopped.
   Future<void> _onEngineError(Object error) async {
+    if (error is PlaybackBlocked) {
+      // Nothing is wrong with the track: the browser wants a tap first.
+      _needsTap = true;
+      _refreshStatus();
+      return;
+    }
     final track = _track;
     final token = _token();
     if (track == null ||
@@ -771,6 +805,7 @@ class PlayerController extends ChangeNotifier {
   }
 
   void _setStatus(PlayerStatus status) {
+    if (status == PlayerStatus.playing) _needsTap = false;
     _status = status;
     metrics.status(status, _now());
     notifyListeners();

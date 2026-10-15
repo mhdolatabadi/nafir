@@ -36,6 +36,34 @@ class EmbeddedTags {
 
 enum EmbeddedTagStatus { original, pending, written, failed, unsupported }
 
+/// The ReplayGain a cloud track's own tags carry, read once by the server:
+/// gains in dB relative to -18 LUFS, peaks as linear amplitude (1 is full
+/// scale). Null fields are unknown.
+class ReplayGain {
+  const ReplayGain({
+    this.trackGainDb,
+    this.trackPeak,
+    this.albumGainDb,
+    this.albumPeak,
+  });
+
+  static ReplayGain? fromJson(Map<String, dynamic>? json) {
+    if (json == null) return null;
+    double? number(String key) => (json[key] as num?)?.toDouble();
+    return ReplayGain(
+      trackGainDb: number('trackGainDb'),
+      trackPeak: number('trackPeak'),
+      albumGainDb: number('albumGainDb'),
+      albumPeak: number('albumPeak'),
+    );
+  }
+
+  final double? trackGainDb;
+  final double? trackPeak;
+  final double? albumGainDb;
+  final double? albumPeak;
+}
+
 class Track {
   const Track({
     required this.id,
@@ -59,6 +87,7 @@ class Track {
     this.viaPlaylist,
     this.version = 1,
     this.embeddedTags = const EmbeddedTags(),
+    this.replayGain,
   });
 
   /// [viaPlaylist] is the collaborative playlist a track someone else added
@@ -87,6 +116,8 @@ class Track {
         version: (json['version'] as num?)?.toInt() ?? 1,
         embeddedTags: EmbeddedTags.fromJson(
             json['embeddedTags'] as Map<String, dynamic>?),
+        replayGain:
+            ReplayGain.fromJson(json['replayGain'] as Map<String, dynamic>?),
       );
 
   final String id;
@@ -109,6 +140,9 @@ class Track {
 
   /// Whether the stored file's own tags match this metadata yet.
   final EmbeddedTags embeddedTags;
+
+  /// Loudness from the file's tags, for normalization; null when unknown.
+  final ReplayGain? replayGain;
 
   /// This track with the shared-playlist context of [other] kept, for
   /// replacing a stale copy after the server returns fresh metadata.
@@ -134,6 +168,7 @@ class Track {
         viaPlaylist: other.viaPlaylist,
         version: version,
         embeddedTags: embeddedTags,
+        replayGain: replayGain,
       );
 
   /// Original filename when the platform exposes it. Local uploads use this
@@ -183,6 +218,8 @@ class Track {
         addedBy: addedBy,
         viaPlaylist: viaPlaylist,
         version: version,
+        // The same file, so the same loudness.
+        replayGain: replayGain,
       );
 
   /// The messenger a bot imported this track from, for people; null for

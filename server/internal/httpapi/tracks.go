@@ -139,6 +139,28 @@ type trackResponse struct {
 	Version int64 `json:"version"`
 	// EmbeddedTags says whether the file itself carries the metadata.
 	EmbeddedTags embeddedTagsResponse `json:"embeddedTags"`
+	// ReplayGain is the loudness the file's tags carry, or null when they
+	// carry none or have not been read yet (#253).
+	ReplayGain *replayGainResponse `json:"replayGain"`
+}
+
+// replayGainResponse holds gains in dB re -18 LUFS and peaks as linear
+// amplitude; a missing value is null.
+type replayGainResponse struct {
+	TrackGainDB *float64 `json:"trackGainDb"`
+	TrackPeak   *float64 `json:"trackPeak"`
+	AlbumGainDB *float64 `json:"albumGainDb"`
+	AlbumPeak   *float64 `json:"albumPeak"`
+}
+
+func toReplayGain(l store.Loudness) *replayGainResponse {
+	if l.TrackGainDB == nil && l.TrackPeak == nil && l.AlbumGainDB == nil && l.AlbumPeak == nil {
+		return nil
+	}
+	return &replayGainResponse{
+		TrackGainDB: l.TrackGainDB, TrackPeak: l.TrackPeak,
+		AlbumGainDB: l.AlbumGainDB, AlbumPeak: l.AlbumPeak,
+	}
 }
 
 // embeddedTagsResponse reports the stored file's tags. Status is original,
@@ -162,6 +184,7 @@ func toTrackResponse(t store.Track) trackResponse {
 			Status: t.TagStatus, Version: t.TagVersion, Error: t.TagError,
 			UnsupportedFields: tags.UnsupportedFields(t.FileName),
 		},
+		ReplayGain: toReplayGain(t.Loudness),
 	}
 }
 
