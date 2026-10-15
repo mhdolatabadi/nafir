@@ -14,6 +14,7 @@ import 'package:nafir/features/history/application/recently_played_controller.da
 import 'package:nafir/features/library/application/library_controller.dart';
 import 'package:nafir/features/library/application/library_entries.dart';
 import 'package:nafir/features/library/application/library_sync_controller.dart';
+import 'package:nafir/features/library/application/metadata_suggestions.dart';
 import 'package:nafir/features/link_import/application/link_import_controller.dart';
 import 'package:nafir/features/link_import/presentation/link_import_dialog.dart';
 import 'package:nafir/features/library/application/track_groups.dart';
@@ -351,6 +352,7 @@ class _LibraryScreenState extends State<LibraryScreen>
     final saved = await showTrackMetadataEditor(
       context,
       track: track,
+      suggestions: MetadataSuggestions.fromTracks(widget.library.tracks),
       onSave: (draft, version) =>
           widget.library.saveTrackMetadata(track.id, draft, version: version),
     );

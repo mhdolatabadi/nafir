@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nafir/app/app_theme.dart';
+import 'package:nafir/features/library/application/metadata_suggestions.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/library/data/track_metadata.dart';
 import 'package:nafir/features/library/presentation/track_metadata_editor.dart';
@@ -53,6 +54,7 @@ Future<_Host> _open(
   Track track = _track,
   EdgeInsets padding = EdgeInsets.zero,
   bool settle = true,
+  MetadataSuggestions suggestions = MetadataSuggestions.empty,
 }) async {
   final host = _Host();
   await tester.pumpWidget(MaterialApp(
@@ -70,7 +72,7 @@ Future<_Host> _open(
           child: FilledButton(
             onPressed: () async {
               host.result = await showTrackMetadataEditor(context,
-                  track: track, onSave: saves.call);
+                  track: track, onSave: saves.call, suggestions: suggestions);
               host.closed = true;
             },
             child: const Text('باز کردن'),
@@ -377,5 +379,57 @@ void main() {
     expect(directionOf('Song آهنگ'), TextDirection.ltr);
     expect(directionOf('2024 Mix'), TextDirection.ltr);
     expect(directionOf('۱۴۰۳'), TextDirection.rtl);
+  });
+
+  group('suggestions', () {
+    const suggestions = MetadataSuggestions(
+      artists: ['محمود کریمی', 'محمد الجنامی', 'Salar Aghili'],
+      albums: ['ای ایران'],
+    );
+
+    testWidgets('typing in a field offers library values and picks one',
+        (tester) async {
+      tester.view.physicalSize = const Size(360, 780);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final saves = _Saves();
+      await _open(tester, saves, suggestions: suggestions);
+
+      final artist = find.byKey(const ValueKey('artist'));
+      await tester.enterText(
+          find.descendant(of: artist, matching: find.byType(EditableText)),
+          'محم');
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('suggestions')), findsOneWidget);
+      expect(find.text('محمود کریمی'), findsOneWidget);
+      expect(find.text('محمد الجنامی'), findsOneWidget);
+      expect(find.text('Salar Aghili'), findsNothing);
+      // Every row is a comfortable touch target.
+      expect(
+          tester
+              .getSize(find.ancestor(
+                  of: find.text('محمد الجنامی'),
+                  matching: find.byType(InkWell)))
+              .height,
+          greaterThanOrEqualTo(48));
+
+      await tester.tap(find.text('محمد الجنامی'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('suggestions')), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('save')));
+      await tester.pumpAndSettle();
+      expect(saves.calls.single.$1.artist, 'محمد الجنامی');
+    });
+
+    testWidgets('fields without library values show no list', (tester) async {
+      await _open(tester, _Saves(), suggestions: suggestions);
+      final genre = find.byKey(const ValueKey('genre'));
+      await tester.enterText(
+          find.descendant(of: genre, matching: find.byType(EditableText)),
+          'پاپ');
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('suggestions')), findsNothing);
+    });
   });
 }
