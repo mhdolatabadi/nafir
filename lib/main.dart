@@ -1,3 +1,4 @@
+import 'package:nafir/features/journey/application/listening_journey.dart';
 import 'package:flutter/foundation.dart';
 import 'package:nafir/app/app_preferences.dart';
 import 'package:flutter/material.dart';
@@ -169,6 +170,12 @@ class _NafirAppState extends State<NafirApp> {
       ? null
       : LibraryController(api: _tracksApi, token: () => _auth?.token);
 
+  final ListeningJourney _journey = ListeningJourney();
+
+  void _selectJourneyAccount() {
+    _journey.selectAccount(_auth?.user?.id);
+  }
+
   // One cache shared by playback and the Settings screen.
   late final AudioCache _audioCache = widget.audioCache ?? createAudioCache();
 
@@ -184,6 +191,7 @@ class _NafirAppState extends State<NafirApp> {
           settingsStore:
               widget.playbackSettingsStore ?? SecurePlaybackSettingsStore(),
           // A real listen goes into the recently played history.
+          journey: _journey,
           onListened: (track) => _recent?.record(track),
           lyrics: _lyrics,
         )..loadSettings());
@@ -219,6 +227,8 @@ class _NafirAppState extends State<NafirApp> {
   @override
   void initState() {
     super.initState();
+    _auth?.addListener(_selectJourneyAccount);
+    _selectJourneyAccount();
     _preferences.load();
     final player = _player;
     if (player != null) widget.mediaSession?.attach(player);
@@ -226,6 +236,8 @@ class _NafirAppState extends State<NafirApp> {
 
   @override
   void dispose() {
+    _auth?.removeListener(_selectJourneyAccount);
+    _journey.dispose();
     _preferences.dispose();
     _player?.dispose();
     _auth?.dispose();

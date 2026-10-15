@@ -1,3 +1,4 @@
+import 'package:nafir/features/journey/presentation/journey_widgets.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:nafir/core/design/design.dart';
@@ -143,6 +144,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               bottom: 24 + MediaQuery.paddingOf(context).bottom,
             ),
             children: [
+              if (widget.player?.journey case final journey?)
+                JourneySetting(journey: journey),
               if (widget.player case final player?)
                 PlaybackSettingsSection(player: player),
               if (widget.player case final player?)

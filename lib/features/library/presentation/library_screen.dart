@@ -1,3 +1,4 @@
+import 'package:nafir/features/journey/presentation/journey_widgets.dart';
 import 'package:nafir/core/persian_digits.dart';
 import 'dart:async';
 
@@ -812,6 +813,12 @@ class _LibraryScreenState extends State<LibraryScreen>
             children: [
               if (widget.onVerifyEmail case final verify?)
                 EmailVerificationBanner(onOpen: verify),
+              if (widget.player.journey case final journey?)
+                JourneyCard(
+                  journey: journey,
+                  tracks: tracks,
+                  player: widget.player,
+                ),
               UploadStatusCard(controller: widget.uploads),
               if (widget.linkImports case final links?)
                 LinkImportFailures(controller: links),

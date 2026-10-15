@@ -1,3 +1,4 @@
+import 'package:nafir/features/journey/application/listening_journey.dart';
 import 'dart:async';
 import 'dart:math';
 
@@ -54,6 +55,7 @@ class PlayerController extends ChangeNotifier {
     PlaybackSettingsStore? settingsStore,
     DateTime Function()? now,
     this.onListened,
+    this.journey,
     this.lyrics,
   })  : _api = api,
         _engine = engine,
@@ -109,6 +111,8 @@ class PlayerController extends ChangeNotifier {
   /// Called once each time a track has played long enough to count, see
   /// [listenThreshold].
   final void Function(Track track)? onListened;
+
+  final ListeningJourney? journey;
 
   /// Whether the current play of the track has been counted.
   bool _listened = false;
@@ -777,11 +781,12 @@ class PlayerController extends ChangeNotifier {
 
   void _countHeard(Duration step) {
     final track = _track;
-    if (_listened || track == null || _loading) return;
+    if (_listened || track == null || _loading || !_playing) return;
     if (step <= Duration.zero || step > _maxStep) return;
     _heard += step;
     if (_heard < listenThreshold(_duration)) return;
     _listened = true;
+    journey?.record(track);
     onListened?.call(track);
   }
 
