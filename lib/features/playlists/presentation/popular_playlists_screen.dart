@@ -91,7 +91,11 @@ class _PopularPlaylistsScreenState extends State<PopularPlaylistsScreen> {
   @override
   void initState() {
     super.initState();
-    widget.controller.loadPopular();
+    // After this build: the controller also drives the screen underneath,
+    // which must not be marked dirty while this route is being built.
+    Future.microtask(() {
+      if (mounted) widget.controller.loadPopular();
+    });
     final shareToken = widget.openShareToken;
     if (shareToken != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {

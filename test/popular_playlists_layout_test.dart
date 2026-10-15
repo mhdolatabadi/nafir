@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rhythmo/app/app_theme.dart';
+import 'package:rhythmo/core/design/design.dart';
 import 'package:rhythmo/core/persian_digits.dart';
 import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
 import 'package:rhythmo/features/player/application/player_controller.dart';
@@ -113,23 +114,24 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('the playlists tab leads with a popular entry at $label',
-        (tester) async {
+    testWidgets(
+        'the top bar offers popular playlists as an orange flame '
+        'at $label', (tester) async {
       _size(tester, size);
       var opened = 0;
       await tester.pumpWidget(_app(Scaffold(
-        body: Center(
-          child: SizedBox(
-            width: size.width > 900 ? 900 : size.width,
-            child: PopularPlaylistsEntry(onOpen: () => opened++),
-          ),
+        appBar: AppBar(
+          actions: [PopularPlaylistsButton(onOpen: () => opened++)],
         ),
       )));
       expect(tester.takeException(), isNull);
-      final entry = find.byType(PopularPlaylistsEntry);
-      expect(tester.getSize(entry).height, greaterThanOrEqualTo(72));
-      expect(find.text('فهرست‌های پخش محبوب'), findsOneWidget);
-      await tester.tap(entry);
+      final button = find.byTooltip('فهرست‌های پخش محبوب');
+      _expectTarget(tester, button);
+      final flame = tester.widget<Icon>(
+          find.descendant(of: button, matching: find.byType(Icon)));
+      expect(flame.icon, RhythmoIcons.fire);
+      expect(flame.color, RhythmoColors.fire);
+      await tester.tap(button);
       expect(opened, 1);
     });
   }

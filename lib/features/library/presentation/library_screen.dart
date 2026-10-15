@@ -31,6 +31,8 @@ import 'package:rhythmo/features/playlists/presentation/shared_playlist_screen.d
 import 'package:rhythmo/features/playlists/application/playlists_controller.dart';
 import 'package:rhythmo/features/playlists/data/playlist.dart';
 import 'package:rhythmo/features/playlists/presentation/playlists_screen.dart';
+import 'package:rhythmo/features/playlists/presentation/popular_playlists_screen.dart';
+import 'package:rhythmo/features/store/presentation/store_screen.dart';
 import 'package:rhythmo/features/bots/application/bot_link_controller.dart';
 import 'package:rhythmo/features/bots/data/messenger_bot.dart';
 import 'package:rhythmo/features/identify/application/identify_controller.dart';
@@ -458,7 +460,18 @@ class _LibraryScreenState extends State<LibraryScreen>
     if (playlists == null) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
         builder: (_) => Scaffold(
-              appBar: AppBar(title: const Text('فهرست‌های پخش')),
+              appBar: AppBar(
+                title: const Text('فهرست‌های پخش'),
+                actions: [
+                  if (widget.store != null)
+                    IconButton(
+                      tooltip: 'استور',
+                      onPressed: _openStore,
+                      icon: const Icon(RhythmoIcons.storefront),
+                    ),
+                  PopularPlaylistsButton(onOpen: _openPopular),
+                ],
+              ),
               bottomNavigationBar: MiniPlayer(player: widget.player),
               body: RhythmoBackdrop(
                   child: PlaylistsView(
@@ -468,6 +481,28 @@ class _LibraryScreenState extends State<LibraryScreen>
                       store: widget.store,
                       onSharedSaved: widget.library.load)),
             )));
+  }
+
+  Future<void> _openPopular() async {
+    final playlists = widget.playlists;
+    if (playlists == null) return;
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => PopularPlaylistsScreen(
+        controller: playlists,
+        player: widget.player,
+        onSaved: widget.library.load,
+      ),
+    ));
+    if (mounted) playlists.load();
+  }
+
+  void _openStore() {
+    final store = widget.store;
+    if (store == null) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => StoreScreen(
+          controller: store, player: widget.player, identify: widget.identify),
+    ));
   }
 
   void _openSettings() {
@@ -543,8 +578,20 @@ class _LibraryScreenState extends State<LibraryScreen>
             onPressed: () => openIdentify(context, identify, widget.player),
             icon: const Icon(RhythmoIcons.microphoneStage),
           );
+    final popular = widget.playlists == null
+        ? null
+        : PopularPlaylistsButton(onOpen: _openPopular);
+    final storeButton = widget.store == null
+        ? null
+        : IconButton(
+            tooltip: 'استور',
+            onPressed: _openStore,
+            icon: const Icon(RhythmoIcons.storefront),
+          );
     if (MediaQuery.sizeOf(context).width >= wideActions) {
       return [
+        if (popular != null) popular,
+        if (storeButton != null) storeButton,
         if (identifySong != null) identifySong,
         search,
         const SizedBox(width: 8),
@@ -574,6 +621,8 @@ class _LibraryScreenState extends State<LibraryScreen>
       ];
     }
     return [
+      if (popular != null) popular,
+      if (storeButton != null) storeButton,
       if (identifySong != null) identifySong,
       search,
       PopupMenuButton<_HeaderAction>(
