@@ -2,8 +2,8 @@ import 'package:nafir/core/persian_digits.dart';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:nafir/core/design/design.dart';
 import 'package:nafir/core/format_size.dart';
-import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/lyrics/presentation/lyrics_sheet.dart';
@@ -23,18 +23,17 @@ Future<void> openNowPlaying(BuildContext context, PlayerController player) {
     PageRouteBuilder<void>(
       // The page underneath shows while the screen is dragged down.
       opaque: false,
-      barrierColor: Colors.black54,
-      transitionDuration:
-          reduceMotion ? Duration.zero : const Duration(milliseconds: 360),
+      barrierColor: NafirColors.barrier,
+      transitionDuration: reduceMotion ? Duration.zero : NafirMotion.enter,
       reverseTransitionDuration:
-          reduceMotion ? Duration.zero : const Duration(milliseconds: 240),
+          reduceMotion ? Duration.zero : NafirMotion.medium,
       pageBuilder: (_, __, ___) => NowPlayingScreen(player: player),
       transitionsBuilder: (_, animation, __, child) => SlideTransition(
         position: Tween(begin: const Offset(0, 1), end: Offset.zero).animate(
           CurvedAnimation(
             parent: animation,
-            curve: Curves.easeOutQuart,
-            reverseCurve: Curves.easeInCubic,
+            curve: NafirMotion.emphasized,
+            reverseCurve: NafirMotion.exit,
           ),
         ),
         child: child,
@@ -57,17 +56,8 @@ String formatPlaybackTime(Duration value) {
   return persianDigits('$minutes:$seconds');
 }
 
-/// A dark, saturated color picked from the track's id, standing in for
-/// cover art until tracks have it. Every hue stays dark enough for light
-/// text on top of it.
-Color trackTint(Track track) {
-  // FNV-1a, so a track keeps its color across launches.
-  var hash = 0x811c9dc5;
-  for (final unit in track.id.codeUnits) {
-    hash = ((hash ^ unit) * 0x01000193) & 0xffffffff;
-  }
-  return HSLColor.fromAHSL(1, (hash % 360).toDouble(), 0.42, 0.2).toColor();
-}
+/// The track's artwork colour, see [artworkTint].
+Color trackTint(Track track) => artworkTint(track.id);
 
 /// WCAG contrast ratio between two opaque colors.
 double contrastRatio(Color a, Color b) {
@@ -95,7 +85,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
   double _drag = 0;
   late final AnimationController _settle = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 220),
+    duration: NafirMotion.short,
   )..addListener(() => setState(() => _drag = _settleFrom * _settle.value));
   late final AnimationController _ambient = AnimationController(
     vsync: this,
@@ -136,7 +126,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
     }
     _settleFrom = _drag;
     _settle.value = 1;
-    _settle.animateTo(0, curve: Curves.easeOutCubic);
+    _settle.animateTo(0, curve: NafirMotion.standard);
   }
 
   void _openQueue() {
@@ -197,7 +187,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                     Theme.of(context).brightness == Brightness.dark
                         ? tint
                         : Theme.of(context).colorScheme.primaryContainer,
-                    Theme.of(context).colorScheme.surface
+                    Theme.of(context).colorScheme.surface,
                   ],
                   stops: const [0, 0.78],
                 ),
@@ -322,7 +312,8 @@ class _PlaybackBackdropPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final phase = animation.value * 2 * pi;
     final glow = Paint()
-      ..color = Color.lerp(tint, Colors.white, 0.35)!.withValues(alpha: 0.09);
+      ..color = Color.lerp(tint, NafirColors.highlight, 0.35)!
+          .withValues(alpha: 0.09);
     canvas.drawCircle(
       Offset(size.width * (0.25 + 0.08 * sin(phase)),
           size.height * (0.35 + 0.04 * cos(phase))),
@@ -331,7 +322,7 @@ class _PlaybackBackdropPainter extends CustomPainter {
     );
     final paint = Paint()
       ..style = PaintingStyle.stroke
-      ..color = Colors.white.withValues(alpha: 0.045)
+      ..color = NafirColors.highlight.withValues(alpha: 0.045)
       ..strokeWidth = 2;
     for (var band = 0; band < 5; band++) {
       final path = Path();
@@ -440,8 +431,8 @@ class NowPlayingArtwork extends StatelessWidget {
       scale: active ? 1 : 0.9,
       duration: MediaQuery.disableAnimationsOf(context)
           ? Duration.zero
-          : const Duration(milliseconds: 420),
-      curve: Curves.easeOutQuart,
+          : NafirMotion.long,
+      curve: NafirMotion.emphasized,
       child: Container(
         width: size,
         height: size,
@@ -451,16 +442,16 @@ class NowPlayingArtwork extends StatelessWidget {
             begin: Alignment.topRight,
             end: Alignment.bottomLeft,
             colors: [
-              Color.lerp(tint, Colors.white, 0.14)!,
+              Color.lerp(tint, NafirColors.highlight, 0.14)!,
               Theme.of(context).brightness == Brightness.dark
-                  ? Color.lerp(tint, NafirGlass.background, 0.35)!
+                  ? Color.lerp(tint, NafirColors.background, 0.35)!
                   : colors.primaryContainer,
             ],
           ),
-          border: Border.all(color: NafirGlass.softBorder),
+          border: Border.all(color: NafirColors.softBorder),
           boxShadow: const [
             BoxShadow(
-              color: NafirGlass.shadow,
+              color: NafirColors.shadow,
               offset: Offset(0, 18),
               blurRadius: 42,
             ),
@@ -797,7 +788,7 @@ class _ModeToggle extends StatelessWidget {
           active ? colors.onSecondaryContainer : colors.onSurfaceVariant,
         ),
         backgroundColor: WidgetStatePropertyAll(
-          active ? colors.secondaryContainer : Colors.transparent,
+          active ? colors.secondaryContainer : NafirColors.transparent,
         ),
       ),
       icon: Icon(icon),
@@ -815,7 +806,6 @@ class QueueSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final bottom = MediaQuery.viewPaddingOf(context).bottom;
     return FractionallySizedBox(
       heightFactor: 0.75,
       child: ListenableBuilder(
@@ -823,106 +813,56 @@ class QueueSheet extends StatelessWidget {
         builder: (context, _) {
           final current = player.track;
           final upcoming = player.upcoming;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsetsDirectional.fromSTEB(24, 0, 24, 8),
-                child: Text(
-                  'صف پخش',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
+          return NafirSheetFrame(
+            title: 'صف پخش',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (current != null)
+                  NafirTrackRow(
+                    seed: current.id,
+                    title: current.title,
+                    subtitle: 'در حال پخش · ${trackSubtitle(current)}',
+                    active: true,
+                  ),
+                Padding(
+                  padding: const EdgeInsetsDirectional.fromSTEB(NafirSpace.xxl,
+                      NafirSpace.md, NafirSpace.xxl, NafirSpace.xs),
+                  child: Text(
+                    upcoming.isEmpty
+                        ? 'بعدی'
+                        : 'بعدی · ${persianDigits(upcoming.length)} آهنگ',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
-              ),
-              if (current != null)
-                _QueueTile(
-                  track: current,
-                  label: 'در حال پخش',
-                  current: true,
-                ),
-              Padding(
-                padding: const EdgeInsetsDirectional.fromSTEB(24, 12, 24, 4),
-                child: Text(
-                  upcoming.isEmpty
-                      ? 'بعدی'
-                      : 'بعدی · ${persianDigits(upcoming.length)} آهنگ',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: upcoming.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(
-                            'آهنگ دیگری در صف نیست.',
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
+                Expanded(
+                  child: upcoming.isEmpty
+                      ? const NafirStateView(
+                          icon: NafirIcons.playlist,
+                          title: 'آهنگ دیگری در صف نیست.',
+                          message:
+                              'آهنگ بعدی را از کتابخانه یا فهرست پخش انتخاب کنید.',
+                        )
+                      : ListView.builder(
+                          padding: nafirListBottomPadding(context),
+                          itemCount: upcoming.length,
+                          itemBuilder: (context, index) {
+                            final track = upcoming[index];
+                            return NafirTrackRow(
+                              seed: track.id,
+                              title: track.title,
+                              subtitle: trackSubtitle(track),
+                              onTap: () => player.skipTo(index),
+                            );
+                          },
                         ),
-                      )
-                    : ListView.builder(
-                        padding: EdgeInsets.only(bottom: bottom + 16),
-                        itemCount: upcoming.length,
-                        itemBuilder: (context, index) => _QueueTile(
-                          track: upcoming[index],
-                          onTap: () => player.skipTo(index),
-                        ),
-                      ),
-              ),
-            ],
+                ),
+              ],
+            ),
           );
         },
-      ),
-    );
-  }
-}
-
-class _QueueTile extends StatelessWidget {
-  const _QueueTile({
-    required this.track,
-    this.label,
-    this.current = false,
-    this.onTap,
-  });
-
-  final Track track;
-  final String? label;
-  final bool current;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return ListTile(
-      minTileHeight: 64,
-      contentPadding: const EdgeInsetsDirectional.symmetric(horizontal: 24),
-      onTap: onTap,
-      selected: current,
-      leading: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: current ? colors.primaryContainer : trackTint(track),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(
-          current ? NafirIcons.waveformFill : NafirIcons.musicNote,
-          size: 20,
-          color: current ? colors.onPrimaryContainer : colors.onSurfaceVariant,
-        ),
-      ),
-      title: Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(
-        label == null
-            ? trackSubtitle(track)
-            : '$label · ${trackSubtitle(track)}',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
       ),
     );
   }
@@ -952,25 +892,21 @@ class _TrackDetailsSheet extends StatelessWidget {
     ];
     return SingleChildScrollView(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.viewPaddingOf(context).bottom + 16,
+        bottom: MediaQuery.viewPaddingOf(context).bottom + NafirSpace.lg,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsetsDirectional.fromSTEB(24, 0, 24, 8),
-            child: Text(
-              'جزئیات آهنگ',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-            ),
+          const NafirSectionHeader(
+            title: 'جزئیات آهنگ',
+            padding: EdgeInsetsDirectional.fromSTEB(
+                NafirSpace.xxl, 0, NafirSpace.xxl, NafirSpace.sm),
           ),
           for (final (label, value) in rows)
             if (value?.trim().isNotEmpty == true)
               ListTile(
-                contentPadding:
-                    const EdgeInsetsDirectional.symmetric(horizontal: 24),
+                contentPadding: const EdgeInsetsDirectional.symmetric(
+                    horizontal: NafirSpace.xxl),
                 title: Text(label),
                 subtitle:
                     Text(value!, maxLines: 2, overflow: TextOverflow.ellipsis),

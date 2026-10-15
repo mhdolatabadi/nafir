@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:nafir/core/design/design.dart';
 import 'package:nafir/core/persian_digits.dart';
 import 'package:nafir/features/library/data/track.dart';
 
@@ -57,14 +58,14 @@ class MonthlyListeningCard {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     canvas.drawRect(const Rect.fromLTWH(0, 0, width, height),
-        Paint()..color = const Color(0xFF0C0D14));
+        Paint()..color = NafirColors.background);
     canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            const Rect.fromLTWH(64, 64, 952, 1222), const Radius.circular(32)),
-        Paint()..color = const Color(0xFF171A26));
+        RRect.fromRectAndRadius(const Rect.fromLTWH(64, 64, 952, 1222),
+            const Radius.circular(NafirRadii.sheet)),
+        Paint()..color = NafirColors.surface);
     void text(String value, double top,
         {double size = 36,
-        Color color = const Color(0xFFF4F1F5),
+        Color color = NafirColors.onSurface,
         int lines = 2,
         FontWeight weight = FontWeight.normal}) {
       final painter = TextPainter(
@@ -87,21 +88,20 @@ class MonthlyListeningCard {
 
     text('خاطرهٔ شنیدن من', 132, size: 58, weight: FontWeight.w700);
     text(listeningMonthLabel(month), 230,
-        size: 30, color: const Color(0xFFD0C9D8));
+        size: 30, color: NafirColors.onSurfaceVariant);
     canvas.drawLine(
         const Offset(128, 320),
         const Offset(952, 320),
         Paint()
-          ..color = const Color(0xFF49404D)
+          ..color = NafirColors.outlineVariant
           ..strokeWidth = 2);
     text('$total بار شنیدن معنادار', 366, size: 44);
     text('${plays.length} آهنگ متفاوت', 448,
-        size: 36, color: const Color(0xFFD0C9D8));
-    text('همراه‌های محبوب این ماه', 578,
-        size: 34, color: const Color(0xFFFFA3AE));
+        size: 36, color: NafirColors.onSurfaceVariant);
+    text('همراه‌های محبوب این ماه', 578, size: 34, color: NafirColors.primary);
     if (topTracks.isEmpty) {
       text('نام آهنگ‌ها در کتابخانهٔ فعلی در دسترس نیست.', 660,
-          size: 30, color: const Color(0xFFD0C9D8));
+          size: 30, color: NafirColors.onSurfaceVariant);
     }
     for (var i = 0; i < topTracks.length; i++) {
       final track = topTracks[i];
@@ -113,7 +113,7 @@ class MonthlyListeningCard {
           720 + i * 140,
           size: 26,
           lines: 1,
-          color: const Color(0xFFD0C9D8));
+          color: NafirColors.onSurfaceVariant);
     }
     text('ریتمو', 1166, size: 38, weight: FontWeight.w700);
     final picture = recorder.endRecording();

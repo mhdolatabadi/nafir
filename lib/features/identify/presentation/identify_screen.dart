@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/core/design/design.dart';
 import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/core/persian_digits.dart';
-import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/features/identify/application/identify_controller.dart';
 import 'package:nafir/features/identify/data/snippet_recorder.dart';
@@ -82,7 +82,7 @@ class _IdentifyScreenState extends State<IdentifyScreen> {
                     child: AnimatedSwitcher(
                       duration: MediaQuery.disableAnimationsOf(context)
                           ? Duration.zero
-                          : const Duration(milliseconds: 240),
+                          : NafirMotion.medium,
                       child: KeyedSubtree(
                         key: ValueKey(_controller.phase),
                         child: _content(context),
@@ -265,9 +265,7 @@ class _Listening extends StatelessWidget {
               alignment: Alignment.center,
               children: [
                 AnimatedContainer(
-                  duration: reduceMotion
-                      ? Duration.zero
-                      : const Duration(milliseconds: 120),
+                  duration: reduceMotion ? Duration.zero : NafirMotion.quick,
                   width: 120 + 48 * level,
                   height: 120 + 48 * level,
                   decoration: BoxDecoration(
@@ -310,7 +308,7 @@ class _Listening extends StatelessWidget {
             duration: snippetLength,
             builder: (context, value, _) => LinearProgressIndicator(
               value: value,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(NafirRadii.bar),
               semanticsLabel: 'زمان ضبط',
             ),
           ),
@@ -375,7 +373,7 @@ class _Result extends StatelessWidget {
                   height: 72,
                   decoration: BoxDecoration(
                     color: trackTint(track),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(NafirRadii.lg),
                   ),
                   child: Icon(NafirIcons.musicNote,
                       size: 32, color: colors.onSurfaceVariant),
@@ -447,6 +445,8 @@ class _Result extends StatelessWidget {
   }
 }
 
+/// A state of the screen without a result, drawn as the shared
+/// [NafirStateView].
 class _Message extends StatelessWidget {
   const _Message({
     required this.icon,
@@ -464,40 +464,11 @@ class _Message extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (busy)
-          const SizedBox.square(
-            dimension: 56,
-            child: CircularProgressIndicator(strokeWidth: 3),
-          )
-        else
-          Icon(icon, size: 56, color: theme.colorScheme.onSurfaceVariant),
-        const SizedBox(height: 20),
-        Text(
-          title,
-          textAlign: TextAlign.center,
-          style:
-              theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-        ),
-        if (detail != null) ...[
-          const SizedBox(height: 10),
-          Text(
-            detail!,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              height: 1.7,
-            ),
-          ),
-        ],
-        if (action != null) ...[
-          const SizedBox(height: 24),
-          action!,
-        ],
-      ],
-    );
+    if (busy) return NafirStateView.loading(title: title, message: detail);
+    return icon == NafirIcons.warningCircle
+        ? NafirStateView.error(
+            icon: icon, title: title, message: detail, action: action)
+        : NafirStateView(
+            icon: icon, title: title, message: detail, action: action);
   }
 }

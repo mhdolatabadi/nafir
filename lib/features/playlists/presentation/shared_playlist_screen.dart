@@ -1,9 +1,9 @@
 import 'package:nafir/core/persian_digits.dart';
 import 'package:flutter/material.dart';
+import 'package:nafir/core/design/design.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:nafir/app/app_configuration.dart';
-import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/features/auth/presentation/sign_in_prompt.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/presentation/mini_player.dart';
@@ -128,7 +128,8 @@ class _SharedPlaylistScreenState extends State<SharedPlaylistScreen> {
       bottomNavigationBar: MiniPlayer(player: widget.player),
       body: NafirBackdrop(
         child: switch (_state) {
-          _Load.loading => const Center(child: CircularProgressIndicator()),
+          _Load.loading =>
+            const NafirStateView.loading(title: 'در حال بارگذاری فهرست پخش…'),
           _Load.unavailable => const _Message(
               icon: NafirIcons.linkBreak,
               text:
@@ -200,7 +201,7 @@ class _Contents extends StatelessWidget {
                     width: 54,
                     height: 54,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: NafirRadii.surface,
                       gradient: LinearGradient(
                         begin: Alignment.topRight,
                         end: Alignment.bottomLeft,
@@ -369,6 +370,8 @@ class PlaylistLikeButton extends StatelessWidget {
   }
 }
 
+/// A state of the shared playlist with nothing to list, drawn as the
+/// shared [NafirStateView]; a failure to load is an error.
 class _Message extends StatelessWidget {
   const _Message({required this.icon, required this.text, this.action});
 
@@ -377,22 +380,9 @@ class _Message extends StatelessWidget {
   final Widget? action;
 
   @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 40),
-            const SizedBox(height: 12),
-            Text(text, textAlign: TextAlign.center),
-            if (action != null) ...[const SizedBox(height: 16), action!],
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => action != null
+      ? NafirStateView.error(icon: icon, title: text, action: action)
+      : NafirStateView(icon: icon, title: text);
 }
 
 /// Lets the owner share a playlist by link, copy it, or stop sharing.

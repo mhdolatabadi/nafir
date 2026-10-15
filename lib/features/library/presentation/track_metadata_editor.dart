@@ -1,9 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:nafir/core/design/design.dart';
 import 'package:flutter/services.dart';
-import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
+import 'package:nafir/features/library/application/metadata_suggestions.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/library/data/track_metadata.dart';
 
@@ -18,9 +19,11 @@ Future<Track?> showTrackMetadataEditor(
   BuildContext context, {
   required Track track,
   required SaveTrackMetadata onSave,
+  MetadataSuggestions suggestions = MetadataSuggestions.empty,
 }) =>
     Navigator.of(context).push(MaterialPageRoute<Track>(
-      builder: (_) => TrackMetadataEditor(track: track, onSave: onSave),
+      builder: (_) => TrackMetadataEditor(
+          track: track, onSave: onSave, suggestions: suggestions),
     ));
 
 /// Limits the server enforces; checked here first so mistakes show at once.
@@ -35,10 +38,14 @@ class TrackMetadataEditor extends StatefulWidget {
     super.key,
     required this.track,
     required this.onSave,
+    this.suggestions = MetadataSuggestions.empty,
   });
 
   final Track track;
   final SaveTrackMetadata onSave;
+
+  /// Values used elsewhere in the library, offered as the user types.
+  final MetadataSuggestions suggestions;
 
   @override
   State<TrackMetadataEditor> createState() => _TrackMetadataEditorState();
@@ -169,8 +176,7 @@ class _TrackMetadataEditorState extends State<TrackMetadataEditor> {
         // The choice is at the top of the form.
         if (_scroll.hasClients) {
           unawaited(_scroll.animateTo(0,
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeOutCubic));
+              duration: NafirMotion.medium, curve: NafirMotion.standard));
         }
       case MetadataInvalid(:final field):
         setState(() {
@@ -344,6 +350,7 @@ class _TrackMetadataEditorState extends State<TrackMetadataEditor> {
                         ),
                         _Field(
                           key: const ValueKey('artist'),
+                          options: widget.suggestions.artists,
                           controller: _artist,
                           label: 'خواننده',
                           enabled: !_saving,
@@ -351,6 +358,7 @@ class _TrackMetadataEditorState extends State<TrackMetadataEditor> {
                         ),
                         _Field(
                           key: const ValueKey('album'),
+                          options: widget.suggestions.albums,
                           controller: _album,
                           label: 'آلبوم',
                           enabled: !_saving,
@@ -358,6 +366,7 @@ class _TrackMetadataEditorState extends State<TrackMetadataEditor> {
                         ),
                         _Field(
                           key: const ValueKey('albumArtist'),
+                          options: widget.suggestions.artists,
                           controller: _albumArtist,
                           label: 'خوانندهٔ آلبوم',
                           enabled: !_saving,
@@ -365,6 +374,7 @@ class _TrackMetadataEditorState extends State<TrackMetadataEditor> {
                         ),
                         _Field(
                           key: const ValueKey('composer'),
+                          options: widget.suggestions.composers,
                           controller: _composer,
                           label: 'آهنگساز',
                           enabled: !_saving,
@@ -372,6 +382,7 @@ class _TrackMetadataEditorState extends State<TrackMetadataEditor> {
                         ),
                         _Field(
                           key: const ValueKey('genre'),
+                          options: widget.suggestions.genres,
                           controller: _genre,
                           label: 'سبک',
                           enabled: !_saving,
@@ -480,7 +491,7 @@ class _Section extends StatelessWidget {
             child: Text(
               title,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.78),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w700,
                   ),
             ),
@@ -496,7 +507,7 @@ class _Section extends StatelessWidget {
   }
 }
 
-class _Field extends StatelessWidget {
+class _Field extends StatefulWidget {
   const _Field({
     super.key,
     required this.controller,
@@ -507,6 +518,7 @@ class _Field extends StatelessWidget {
     this.suffix,
     this.maxLines = 1,
     this.maxLength,
+    this.options = const [],
   });
 
   final TextEditingController controller;
@@ -518,27 +530,111 @@ class _Field extends StatelessWidget {
   final int? maxLength;
   final FormFieldValidator<String> validator;
 
+  /// Library values to suggest while typing, most used first.
+  final List<String> options;
+
+  @override
+  State<_Field> createState() => _FieldState();
+}
+
+class _FieldState extends State<_Field> {
+  final _focus = FocusNode();
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (widget.options.isEmpty) return _input(context);
+    return RawAutocomplete<String>(
+      textEditingController: widget.controller,
+      focusNode: _focus,
+      optionsBuilder: (value) => matchSuggestions(widget.options, value.text),
+      fieldViewBuilder: (context, _, __, onSubmitted) =>
+          _input(context, onSubmitted: onSubmitted),
+      optionsViewBuilder: (context, onSelected, options) =>
+          _SuggestionList(options: options, onSelected: onSelected),
+    );
+  }
+
+  Widget _input(BuildContext context, {VoidCallback? onSubmitted}) {
+    final controller = widget.controller;
     return ValueListenableBuilder<TextEditingValue>(
       valueListenable: controller,
       builder: (context, value, _) => TextFormField(
         controller: controller,
-        enabled: enabled,
-        validator: validator,
+        focusNode: widget.options.isEmpty ? null : _focus,
+        onFieldSubmitted: onSubmitted == null ? null : (_) => onSubmitted(),
+        enabled: widget.enabled,
+        validator: widget.validator,
         autovalidateMode: AutovalidateMode.onUserInteraction,
         textDirection: directionOf(value.text),
         minLines: 1,
-        maxLines: maxLines,
-        maxLength: maxLength,
-        textInputAction:
-            maxLines > 1 ? TextInputAction.newline : TextInputAction.next,
+        maxLines: widget.maxLines,
+        maxLength: widget.maxLength,
+        textInputAction: widget.maxLines > 1
+            ? TextInputAction.newline
+            : TextInputAction.next,
         decoration: InputDecoration(
-          labelText: label,
-          helperText: helper,
+          labelText: widget.label,
+          helperText: widget.helper,
           helperMaxLines: 3,
           errorMaxLines: 3,
-          suffixText: suffix,
+          suffixText: widget.suffix,
+        ),
+      ),
+    );
+  }
+}
+
+/// The dropdown under a field: one 48-pixel row per suggestion.
+class _SuggestionList extends StatelessWidget {
+  const _SuggestionList({required this.options, required this.onSelected});
+
+  final Iterable<String> options;
+  final AutocompleteOnSelected<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final highlighted = AutocompleteHighlightedOption.of(context);
+    return Align(
+      alignment: AlignmentDirectional.topStart,
+      child: Material(
+        key: const ValueKey('suggestions'),
+        elevation: 6,
+        color: scheme.surfaceContainerHigh,
+        borderRadius: NafirRadii.control,
+        clipBehavior: Clip.antiAlias,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 240, maxWidth: 608),
+          child: ListView(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            shrinkWrap: true,
+            children: [
+              for (final (index, option) in options.indexed)
+                InkWell(
+                  onTap: () => onSelected(option),
+                  child: Container(
+                    constraints: const BoxConstraints(minHeight: 48),
+                    color: index == highlighted
+                        ? scheme.onSurface.withValues(alpha: 0.08)
+                        : null,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      option,
+                      textDirection: directionOf(option),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -613,8 +709,8 @@ class _ConflictNotice extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         radius: 16,
-        tint: NafirGlass.primary,
-        borderColor: NafirGlass.primary.withValues(alpha: 0.5),
+        tint: NafirColors.primary,
+        borderColor: NafirColors.primary.withValues(alpha: 0.5),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

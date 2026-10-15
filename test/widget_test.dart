@@ -602,7 +602,8 @@ void main() {
 
     expect(find.text('Uploaded earlier'), findsOneWidget);
     expect(find.text('Artist'), findsOneWidget);
-    expect(find.textContaining('۳.۰ مگابایت'), findsWidgets);
+    // Rows show the artist only; the file size stays out of the list.
+    expect(find.textContaining('مگابایت'), findsNothing);
     // Storage use lives in the account screen, not above the tracks.
     expect(find.textContaining('از ۵.۰ گیگابایت'), findsNothing);
     expect(find.text('کتابخانهٔ شما خالی است'), findsNothing);
@@ -681,7 +682,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('search reports result count and offers a clear action', (
+  testWidgets('the search screen offers a clear action when nothing matches', (
     tester,
   ) async {
     await _pumpApp(
@@ -704,18 +705,18 @@ void main() {
     );
 
     expect(find.text('۲ آهنگ'), findsOneWidget);
+    // The library list has no search field of its own.
+    expect(find.byType(SearchBar), findsNothing);
+    await tester.tap(find.byTooltip('جست‌وجو در کتابخانه'));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(SearchBar), 'missing');
     await tester.pumpAndSettle();
 
-    expect(find.text('۰ از ۲ آهنگ'), findsOneWidget);
     expect(find.text('نتیجه‌ای پیدا نشد'), findsOneWidget);
-    await tester.ensureVisible(find.text('پاک کردن جست‌وجو'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('پاک کردن جست‌وجو'));
+    await tester.tap(find.widgetWithText(OutlinedButton, 'پاک کردن جست‌وجو'));
     await tester.pumpAndSettle();
 
-    expect(find.text('۲ آهنگ'), findsOneWidget);
-    expect(find.text('First song'), findsOneWidget);
+    expect(find.text('در همهٔ کتابخانه بگرد'), findsOneWidget);
   });
 
   testWidgets(
@@ -868,10 +869,10 @@ void main() {
             matching: find.byType(ListTile)))
         .height;
     expect(height, inInclusiveRange(56, 72));
-    // Artist first, the size after it on the same line.
+    // The artist is the only secondary detail: no file size.
     expect(
         find.text('Artist with a really long name number 0'), findsOneWidget);
-    expect(find.text(' · ۳.۰ مگابایت'), findsWidgets);
+    expect(find.textContaining('مگابایت'), findsNothing);
     expect(find.byTooltip('روی سرور'), findsWidgets);
   });
 
@@ -1390,6 +1391,8 @@ void main() {
       ]),
     );
     expect(find.text('پخش تصادفی'), findsOneWidget);
+    await tester.tap(find.byTooltip('جست‌وجو در کتابخانه'));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(SearchBar), 'Beta');
     await tester.pump();
     expect(find.text('پخش تصادفی نتایج'), findsOneWidget);

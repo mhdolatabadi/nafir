@@ -1,5 +1,7 @@
 import 'package:nafir/features/journey/presentation/journey_widgets.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:nafir/core/design/design.dart';
 import 'package:nafir/features/settings/presentation/device_settings_pages.dart';
 import 'package:nafir/app/app_preferences.dart';
 import 'package:nafir/features/settings/presentation/appearance_settings_section.dart';
@@ -10,6 +12,7 @@ import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/core/format_size.dart';
 import 'package:nafir/features/bots/application/bot_link_controller.dart';
 import 'package:nafir/features/bots/presentation/bot_link_section.dart';
+import 'package:nafir/features/debug/presentation/design_gallery.dart';
 import 'package:nafir/features/library/application/library_controller.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/settings/presentation/playback_settings_section.dart';
@@ -72,27 +75,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _clear() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('کش پاک شود؟'),
-        content: const Text(
+    final confirmed = await showNafirConfirm(
+      context,
+      title: 'کش پاک شود؟',
+      message:
           'موسیقی‌های کتابخانه‌ات در فضای ابری می‌مانند و دفعه‌ی بعد دوباره '
           'از اینترنت پخش می‌شوند.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('انصراف'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('پاک کن'),
-          ),
-        ],
-      ),
+      confirmLabel: 'پاک کن',
+      destructive: false,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     final ok = await widget.cache.clear();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -101,27 +93,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _signOutEverywhere(Future<void> Function() signOut) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('از همه‌ی دستگاه‌ها خارج شوی؟'),
-        content: const Text(
-          'روی همه‌ی گوشی‌ها و مرورگرهای دیگر از حسابت خارج می‌شوی و باید '
+    final confirmed = await showNafirConfirm(
+      context,
+      title: 'از همه‌ی دستگاه‌ها خارج شوی؟',
+      message: 'روی همه‌ی گوشی‌ها و مرورگرهای دیگر از حسابت خارج می‌شوی و باید '
           'دوباره وارد شوی. این دستگاه وارد می‌ماند.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('انصراف'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('خروج از بقیه'),
-          ),
-        ],
-      ),
+      confirmLabel: 'خروج از بقیه',
+      destructive: false,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     var ok = true;
     try {
       await signOut();
@@ -154,121 +134,140 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final error = Theme.of(context).colorScheme.error;
     return Scaffold(
       appBar: AppBar(title: const Text('تنظیمات')),
-      body: ListView(
-        // System navigation never covers the last item.
-        padding: EdgeInsets.only(
-          bottom: 24 + MediaQuery.paddingOf(context).bottom,
-        ),
-        children: [
-          if (widget.player?.journey case final journey?)
-            JourneySetting(journey: journey),
-          if (widget.player case final player?)
-            PlaybackSettingsSection(player: player),
-          if (widget.player case final player?)
-            QueueSettingsSection(player: player),
-          if (AppPreferencesScope.maybeOf(context) case final preferences?)
-            AppearanceSettingsSection(preferences: preferences),
-          if (widget.onManagePlaylists case final manage?)
-            ListTile(
-                leading: const Icon(NafirIcons.playlist),
-                title: const Text('مدیریت فهرست‌های پخش'),
-                onTap: manage),
-          if (widget.library case final library?)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: ListenableBuilder(
-                listenable: library,
-                builder: (context, _) => StorageUsageCard(
-                  usedBytes: library.usedBytes,
-                  limitBytes: library.limitBytes,
+      // Centred and capped on desktop, so rows never span the window.
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: NafirSpace.listWidth),
+          child: ListView(
+            // System navigation never covers the last item.
+            padding: EdgeInsets.only(
+              bottom: 24 + MediaQuery.paddingOf(context).bottom,
+            ),
+            children: [
+              if (widget.player?.journey case final journey?)
+                JourneySetting(journey: journey),
+              if (widget.player case final player?)
+                PlaybackSettingsSection(player: player),
+              if (widget.player case final player?)
+                QueueSettingsSection(player: player),
+              if (AppPreferencesScope.maybeOf(context) case final preferences?)
+                AppearanceSettingsSection(preferences: preferences),
+              if (widget.onManagePlaylists case final manage?)
+                ListTile(
+                  leading: const Icon(NafirIcons.playlist),
+                  title: const Text('مدیریت فهرست‌های پخش'),
+                  onTap: manage,
+                ),
+              if (widget.library case final library?)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: ListenableBuilder(
+                    listenable: library,
+                    builder: (context, _) => StorageUsageCard(
+                      usedBytes: library.usedBytes,
+                      limitBytes: library.limitBytes,
+                    ),
+                  ),
+                ),
+              const ListTile(
+                title: Text('کش موسیقی'),
+                subtitle: Text(
+                  'آهنگ‌هایی که پخش کرده‌ای روی همین دستگاه نگه داشته می‌شوند تا '
+                  'دفعه‌ی بعد سریع‌تر و بدون اینترنت پخش شوند.',
                 ),
               ),
-            ),
-          const ListTile(
-            title: Text('کش موسیقی'),
-            subtitle: Text(
-              'آهنگ‌هایی که پخش کرده‌ای روی همین دستگاه نگه داشته می‌شوند تا '
-              'دفعه‌ی بعد سریع‌تر و بدون اینترنت پخش شوند.',
-            ),
-          ),
-          if (widget.cache.isManaged)
-            ListenableBuilder(
-              listenable: widget.cache,
-              builder: (context, _) {
-                final cache = widget.cache;
-                final size = cache.sizeBytes;
-                return ListTile(
-                  leading: const Icon(NafirIcons.database),
-                  title: Text(switch ((size, cache.failed)) {
-                    (_, true) => 'حجم کش معلوم نشد',
-                    (null, _) => 'در حال محاسبه…',
-                    (final int bytes, _) => 'حجم کش: ${formatSize(bytes)}',
-                  }),
-                  trailing: OutlinedButton(
-                    onPressed: cache.busy || size == 0 ? null : _clear,
-                    child: const Text('پاک کردن کش'),
-                  ),
-                );
-              },
-            )
-          else
-            const ListTile(
-              leading: Icon(NafirIcons.globe),
-              title: Text('در نسخه‌ی وب، کش را خود مرورگر مدیریت می‌کند.'),
-            ),
-          if (widget.botLinks case final botLinks?)
-            BotLinkSection(controller: botLinks),
-          const Divider(),
-          ListTile(
-              title: const Text('دسترسی‌ها'),
-              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                  builder: (_) => const PermissionsScreen()))),
-          ListTile(
-              title: const Text('دربارهٔ ریتمو'),
-              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                  builder: (_) => AboutScreen(openPage: _openPage)))),
-          ListTile(
-            title: const Text('حساب کاربری'),
-            subtitle: widget.email == null
-                ? null
-                : Text(
-                    widget.email!,
-                    textDirection: TextDirection.ltr,
-                    textAlign: TextAlign.end,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-          ),
-          ListTile(
-            leading: const Icon(NafirIcons.shieldCheck),
-            title: const Text('حریم خصوصی'),
-            subtitle: const Text('چه چیزهایی نگه می‌داریم و چه کسی می‌بیند'),
-            trailing: const Icon(NafirIcons.arrowSquareOut, size: 20),
-            onTap: () => _openPage('/privacy'),
-          ),
-          if (widget.onSignOutEverywhere case final signOut?)
-            ListTile(
-              leading: const Icon(NafirIcons.signOut),
-              title: const Text('خروج از همه‌ی دستگاه‌ها'),
-              subtitle: const Text(
-                'اگر گوشی یا رمزت دست کس دیگری افتاده، بقیه‌ی نشست‌ها را ببند',
+              if (widget.cache.isManaged)
+                ListenableBuilder(
+                  listenable: widget.cache,
+                  builder: (context, _) {
+                    final cache = widget.cache;
+                    final size = cache.sizeBytes;
+                    return ListTile(
+                      leading: const Icon(NafirIcons.database),
+                      title: Text(switch ((size, cache.failed)) {
+                        (_, true) => 'حجم کش معلوم نشد',
+                        (null, _) => 'در حال محاسبه…',
+                        (final int bytes, _) => 'حجم کش: ${formatSize(bytes)}',
+                      }),
+                      trailing: OutlinedButton(
+                        onPressed: cache.busy || size == 0 ? null : _clear,
+                        child: const Text('پاک کردن کش'),
+                      ),
+                    );
+                  },
+                )
+              else
+                const ListTile(
+                  leading: Icon(NafirIcons.globe),
+                  title: Text('در نسخه‌ی وب، کش را خود مرورگر مدیریت می‌کند.'),
+                ),
+              if (widget.botLinks case final botLinks?)
+                BotLinkSection(controller: botLinks),
+              const Divider(),
+              ListTile(
+                title: const Text('دسترسی‌ها'),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => const PermissionsScreen())),
               ),
-              onTap: () => _signOutEverywhere(signOut),
-            ),
-          if ((widget.email, widget.onDeleteAccount)
-              case (final String email, final delete?))
-            ListTile(
-              leading: Icon(NafirIcons.userCircleMinus, color: error),
-              iconColor: error,
-              textColor: error,
-              title: const Text('حذف حساب کاربری'),
-              subtitle: const Text(
-                'حساب، موسیقی‌های ابری و فهرست‌های پخشت برای همیشه پاک می‌شوند',
+              ListTile(
+                title: const Text('دربارهٔ ریتمو'),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => AboutScreen(openPage: _openPage))),
               ),
-              trailing: const Icon(NafirIcons.caretLeft, size: 20),
-              onTap: () => _openDeleteAccount(email, delete),
-            ),
-        ],
+              ListTile(
+                title: const Text('حساب کاربری'),
+                subtitle: widget.email == null
+                    ? null
+                    : Text(
+                        widget.email!,
+                        textDirection: TextDirection.ltr,
+                        textAlign: TextAlign.end,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+              ),
+              ListTile(
+                leading: const Icon(NafirIcons.shieldCheck),
+                title: const Text('حریم خصوصی'),
+                subtitle:
+                    const Text('چه چیزهایی نگه می‌داریم و چه کسی می‌بیند'),
+                trailing: const Icon(NafirIcons.arrowSquareOut, size: 20),
+                onTap: () => _openPage('/privacy'),
+              ),
+              if (widget.onSignOutEverywhere case final signOut?)
+                ListTile(
+                  leading: const Icon(NafirIcons.signOut),
+                  title: const Text('خروج از همه‌ی دستگاه‌ها'),
+                  subtitle: const Text(
+                    'اگر گوشی یا رمزت دست کس دیگری افتاده، بقیه‌ی نشست‌ها را ببند',
+                  ),
+                  onTap: () => _signOutEverywhere(signOut),
+                ),
+              if ((widget.email, widget.onDeleteAccount)
+                  case (final String email, final delete?))
+                ListTile(
+                  leading: Icon(NafirIcons.userCircleMinus, color: error),
+                  iconColor: error,
+                  textColor: error,
+                  title: const Text('حذف حساب کاربری'),
+                  subtitle: const Text(
+                    'حساب، موسیقی‌های ابری و فهرست‌های پخشت برای همیشه پاک می‌شوند',
+                  ),
+                  trailing: const Icon(NafirIcons.caretLeft, size: 20),
+                  onTap: () => _openDeleteAccount(email, delete),
+                ),
+              // Debug builds only: every token and component on one page.
+              if (kDebugMode)
+                ListTile(
+                  leading: const Icon(NafirIcons.gauge),
+                  title: const Text('سامانهٔ طراحی'),
+                  subtitle: const Text('فقط در نسخهٔ آزمایشی'),
+                  trailing: const Icon(NafirIcons.caretLeft, size: 20),
+                  onTap: () => openDesignGallery(context),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

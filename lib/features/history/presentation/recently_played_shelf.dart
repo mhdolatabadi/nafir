@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/core/design/design.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/features/history/application/recently_played_controller.dart';
 import 'package:nafir/features/library/data/track.dart';
@@ -125,7 +126,7 @@ class _RecentCard extends StatelessWidget {
         label: current ? 'در حال پخش: ${track.title}' : null,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(NafirRadii.lg),
           child: Padding(
             padding: const EdgeInsets.all(4),
             child: Column(
@@ -135,7 +136,7 @@ class _RecentCard extends StatelessWidget {
                   aspectRatio: 1,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: NafirRadii.control,
                       gradient: LinearGradient(
                         begin: AlignmentDirectional.topStart,
                         end: AlignmentDirectional.bottomEnd,

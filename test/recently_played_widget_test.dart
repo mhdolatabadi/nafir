@@ -114,7 +114,9 @@ void main() {
 
       expect(find.text('اخیراً پخش‌شده'), findsNothing);
       expect(tester.takeException(), isNull);
-      expect(tester.getSize(find.byType(SearchBar)).height, 48);
+      // Search lives behind the header button, not above the list.
+      expect(find.byType(SearchBar), findsNothing);
+      _expectTouchTarget(tester, find.byTooltip('جست‌وجو در کتابخانه'));
       final brand = tester.getRect(find.text('ریتمو'));
       final search = tester.getRect(find.byTooltip('جست‌وجو در کتابخانه'));
       expect((brand.center.dy - search.center.dy).abs(), lessThan(4));
@@ -366,7 +368,12 @@ void main() {
       expect(find.text('نتیجه‌ای پیدا نشد'), findsOneWidget);
       await tester.tap(find.widgetWithText(OutlinedButton, 'پاک کردن جست‌وجو'));
       await tester.pumpAndSettle();
-      expect(find.text('در همهٔ کتابخانه بگرد'), findsOneWidget);
+      // The search that led to a played track is remembered; «zzzz» found
+      // nothing and is not.
+      expect(find.text('جست‌وجوهای اخیر'), findsOneWidget);
+      expect(find.widgetWithText(ListTile, 'کلاسیک'), findsOneWidget);
+      expect(find.widgetWithText(ListTile, 'zzzz'), findsNothing);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('popular playlists loading, then failing, with a retry',

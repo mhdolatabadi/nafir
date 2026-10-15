@@ -24,7 +24,7 @@ This file defines the standing rules for every contributor and coding agent work
 - rhythmo uses a polished, dark, glass-like visual language. Glass effects must preserve contrast, legibility, and performance.
 - Mobile layouts need generous breathing room, safe-area awareness, and touch targets of at least 48 logical pixels.
 - Floating controls, the mini player, browser chrome, and system insets must never cover the last list item or a primary action.
-- Prefer the artist as the secondary track detail; show file size as supporting information.
+- Track rows show the artist as their only secondary detail; file size belongs in track details, not in list rows.
 - Long Persian, Arabic, and Latin titles must truncate gracefully without overflow.
 - Desktop content must use a centered maximum width and must not stick to the viewport edges.
 - Preserve accessibility semantics, visible focus, useful tooltips, and adequate contrast.

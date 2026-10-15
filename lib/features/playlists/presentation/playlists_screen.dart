@@ -1,8 +1,8 @@
 import 'package:nafir/core/search_text.dart';
 import 'package:nafir/core/persian_digits.dart';
 import 'package:flutter/material.dart';
+import 'package:nafir/core/design/design.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/playlists/application/playlists_controller.dart';
@@ -201,25 +201,27 @@ class _PlaylistsViewState extends State<PlaylistsView> {
   Widget build(BuildContext context) {
     final actions = Padding(
       padding: const EdgeInsets.fromLTRB(4, 12, 4, 4),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        crossAxisAlignment: WrapCrossAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          FilledButton.tonalIcon(
-            onPressed: _create,
-            icon: const Icon(NafirIcons.listPlus),
-            label: const Text('فهرست پخش جدید'),
-          ),
-          OutlinedButton.icon(
-            onPressed: _openPopular,
-            icon: const Icon(NafirIcons.fire),
-            label: const Text('فهرست‌های پخش محبوب'),
-          ),
-          IconButton(
-            tooltip: 'باز کردن لینک اشتراک',
-            onPressed: _openLink,
-            icon: const Icon(NafirIcons.link),
+          PopularPlaylistsEntry(onOpen: _openPopular),
+          const SizedBox(height: NafirSpace.md),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              FilledButton.tonalIcon(
+                onPressed: _create,
+                icon: const Icon(NafirIcons.listPlus),
+                label: const Text('فهرست پخش جدید'),
+              ),
+              IconButton(
+                tooltip: 'باز کردن لینک اشتراک',
+                onPressed: _openLink,
+                icon: const Icon(NafirIcons.link),
+              ),
+            ],
           ),
         ],
       ),
@@ -283,6 +285,73 @@ class _PlaylistsViewState extends State<PlaylistsView> {
           ),
         );
       },
+    );
+  }
+}
+
+/// The way into the popular playlists: a full-width card at the top of
+/// the playlists tab, rather than one button among several.
+class PopularPlaylistsEntry extends StatelessWidget {
+  const PopularPlaylistsEntry({super.key, required this.onOpen});
+
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Material(
+      color: scheme.primaryContainer,
+      shape: const RoundedRectangleBorder(borderRadius: NafirRadii.surface),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onOpen,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 72),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: NafirSpace.lg, vertical: NafirSpace.md),
+            child: Row(
+              children: [
+                Container(
+                  width: NafirSpace.target,
+                  height: NafirSpace.target,
+                  decoration: BoxDecoration(
+                    color: scheme.primary,
+                    borderRadius: NafirRadii.control,
+                  ),
+                  child: Icon(NafirIcons.fire, color: scheme.onPrimary),
+                ),
+                const SizedBox(width: NafirSpace.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'فهرست‌های پخش محبوب',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: scheme.onPrimaryContainer,
+                        ),
+                      ),
+                      Text(
+                        'پرطرفدارترین فهرست‌های عمومی را بشنو و بپسند',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: scheme.onPrimaryContainer),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(NafirIcons.caretLeft, color: scheme.onPrimaryContainer),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -381,7 +450,7 @@ class _PlaylistFeatureCard extends StatelessWidget {
     return SizedBox(
       width: 148,
       child: InkWell(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(NafirRadii.xl),
         onTap: onTap,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -497,25 +566,15 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   Future<void> _leave() async {
     final current = playlist;
     if (current == null) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('ترک فهرست پخش؟'),
-        content: const Text(
-            'آهنگ‌هایی که به این فهرست پخش اضافه کرده‌ای از آن بیرون می‌روند؛ در کتابخانه‌ات می‌مانند.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('انصراف'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('ترک'),
-          ),
-        ],
-      ),
+    final confirmed = await showNafirConfirm(
+      context,
+      title: 'ترک فهرست پخش؟',
+      message:
+          'آهنگ‌هایی که به این فهرست پخش اضافه کرده‌ای از آن بیرون می‌روند؛ در کتابخانه‌ات می‌مانند.',
+      confirmLabel: 'ترک',
+      destructive: true,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     final left = await widget.controller.leave(current.id);
     if (!mounted) return;
     if (left) {
@@ -567,24 +626,14 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   Future<void> _delete() async {
     final current = playlist;
     if (current == null) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('حذف فهرست پخش؟'),
-        content: const Text('آهنگ‌های کتابخانه حذف نمی‌شوند.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('انصراف'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('حذف'),
-          ),
-        ],
-      ),
+    final confirmed = await showNafirConfirm(
+      context,
+      title: 'حذف فهرست پخش؟',
+      message: 'آهنگ‌های کتابخانه حذف نمی‌شوند.',
+      confirmLabel: 'حذف',
+      destructive: true,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     final deleted = await widget.controller.delete(current.id);
     if (!mounted) return;
     if (deleted) {
@@ -826,11 +875,11 @@ class _PlaylistCover extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
-          colors: [NafirGlass.primary, Color(0xFF4E3B8D)],
+          colors: [NafirColors.primary, NafirColors.secondaryDeep],
         ),
         boxShadow: [
           BoxShadow(
-            color: NafirGlass.primary.withValues(alpha: 0.2),
+            color: NafirColors.primary.withValues(alpha: 0.2),
             offset: const Offset(0, 10),
             blurRadius: 24,
           ),
@@ -842,7 +891,7 @@ class _PlaylistCover extends StatelessWidget {
           Icon(
             trackCount == 0 ? NafirIcons.playlist : NafirIcons.musicNotes,
             size: size * 0.36,
-            color: const Color(0xFFFFF5F5),
+            color: NafirColors.onBrand,
           ),
           PositionedDirectional(
             end: 10,
@@ -850,7 +899,7 @@ class _PlaylistCover extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: colors.surface.withValues(alpha: 0.66),
-                borderRadius: BorderRadius.circular(999),
+                borderRadius: BorderRadius.circular(NafirRadii.pill),
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
@@ -1035,28 +1084,13 @@ class _PlaylistEmptyState extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: GlassSurface(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(NafirIcons.playlist, size: 40),
-              const SizedBox(height: 16),
-              Text(message, textAlign: TextAlign.center),
-              const SizedBox(height: 20),
-              FilledButton.icon(
-                onPressed: onPressed,
-                icon: const Icon(NafirIcons.plus),
-                label: Text(action),
-              ),
-            ],
-          ),
+  Widget build(BuildContext context) => NafirStateView(
+        icon: NafirIcons.playlist,
+        title: message,
+        action: FilledButton.icon(
+          onPressed: onPressed,
+          icon: const Icon(NafirIcons.plus),
+          label: Text(action),
         ),
-      ),
-    );
-  }
+      );
 }
