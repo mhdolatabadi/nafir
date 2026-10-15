@@ -16,7 +16,6 @@ import 'package:rhythmo/features/lyrics/application/lyrics_controller.dart';
 import 'package:rhythmo/features/player/application/player_controller.dart';
 import 'package:rhythmo/features/player/presentation/mini_player.dart';
 import 'package:rhythmo/features/playlists/application/playlists_controller.dart';
-import 'package:rhythmo/features/playlists/presentation/playlists_screen.dart';
 import 'package:rhythmo/features/playlists/presentation/popular_playlists_screen.dart';
 import 'package:rhythmo/features/store/application/store_controller.dart';
 import 'package:rhythmo/features/store/data/store_catalog.dart';
@@ -635,26 +634,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(StoreScreen), findsOneWidget);
       expect(find.text('Song 0'), findsOneWidget);
-    });
-
-    testWidgets('from the playlists tab', (tester) async {
-      final player = PlayerController(
-          api: FakeTracksApi(), engine: FakeAudioEngine(), token: () => 'tok');
-      final store = StoreController(api: FakeStoreApi(), token: () => 'tok');
-      addTearDown(store.dispose);
-      await tester.pumpWidget(app(Scaffold(
-        body: PlaylistsView(
-          controller:
-              PlaylistsController(api: FakePlaylistsApi(), token: () => 'tok'),
-          libraryTracks: const [],
-          player: player,
-          store: store,
-        ),
-      )));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('استور'));
-      await tester.pumpAndSettle();
-      expect(find.byType(StoreScreen), findsOneWidget);
     });
   });
 }

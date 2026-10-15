@@ -27,6 +27,9 @@ abstract final class RhythmoColors {
   // Accents.
   static const primary = Color(0xFFFF626A);
 
+  /// The orange flame of the popular playlists button in the app bar.
+  static const fire = Color(0xFFFF8A1F);
+
   /// The deep end of the brand mark's ember gradient, and the light mark on it.
   static const primaryDeep = Color(0xFFB72E50);
   static const onBrand = Color(0xFFFFF5F5);

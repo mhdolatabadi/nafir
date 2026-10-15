@@ -8,13 +8,11 @@ import 'package:rhythmo/features/player/application/player_controller.dart';
 import 'package:rhythmo/features/playlists/application/playlists_controller.dart';
 import 'package:rhythmo/features/playlists/data/playlist.dart';
 import 'package:rhythmo/features/playlists/presentation/collab_sheet.dart';
-import 'package:rhythmo/features/playlists/presentation/popular_playlists_screen.dart';
 import 'package:rhythmo/features/playlists/presentation/shared_playlist_screen.dart';
 import 'package:rhythmo/features/likes/presentation/liked_songs_screen.dart';
 import 'package:rhythmo/features/store/application/store_controller.dart';
 import 'package:rhythmo/features/store/data/store_catalog.dart';
 import 'package:rhythmo/features/store/presentation/store_carousel.dart';
-import 'package:rhythmo/features/store/presentation/store_screen.dart';
 
 /// Joins the collaborative playlist with [collabToken] and opens it, or
 /// says why it couldn't.
@@ -76,8 +74,8 @@ class PlaylistsScreen extends StatelessWidget {
   }
 }
 
-/// The user's playlists with actions to make one, discover popular ones and
-/// open a share link. It is the «فهرست‌های پخش» tab of the library.
+/// The user's playlists with actions to make one and open a share link.
+/// It is the «فهرست‌های پخش» tab of the library.
 class PlaylistsView extends StatefulWidget {
   const PlaylistsView({
     super.key,
@@ -93,7 +91,7 @@ class PlaylistsView extends StatefulWidget {
   final List<Track> libraryTracks;
   final PlayerController player;
 
-  /// The public store; null hides its entry.
+  /// The public store; null hides its carousels.
   final StoreController? store;
 
   /// Called after a shared playlist was saved, bringing its tracks along.
@@ -202,24 +200,6 @@ class _PlaylistsViewState extends State<PlaylistsView> {
     ));
   }
 
-  void _openStore() {
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) =>
-          StoreScreen(controller: widget.store!, player: widget.player),
-    ));
-  }
-
-  Future<void> _openPopular() async {
-    await Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => PopularPlaylistsScreen(
-        controller: widget.controller,
-        player: widget.player,
-        onSaved: widget.onSharedSaved,
-      ),
-    ));
-    if (mounted) widget.controller.load();
-  }
-
   @override
   Widget build(BuildContext context) {
     final actions = Padding(
@@ -232,8 +212,6 @@ class _PlaylistsViewState extends State<PlaylistsView> {
             libraryTracks: widget.libraryTracks,
             onOpen: _openLiked,
           ),
-          const SizedBox(height: RhythmoSpace.sm),
-          PopularPlaylistsEntry(onOpen: _openPopular),
           if (widget.store case final store?)
             for (final ranking in StoreRanking.values.reversed)
               StoreCarousel(
@@ -253,12 +231,6 @@ class _PlaylistsViewState extends State<PlaylistsView> {
                 icon: const Icon(RhythmoIcons.listPlus),
                 label: const Text('فهرست پخش جدید'),
               ),
-              if (widget.store != null)
-                OutlinedButton.icon(
-                  onPressed: _openStore,
-                  icon: const Icon(RhythmoIcons.storefront),
-                  label: const Text('استور'),
-                ),
               IconButton(
                 tooltip: 'باز کردن لینک اشتراک',
                 onPressed: _openLink,
@@ -332,69 +304,18 @@ class _PlaylistsViewState extends State<PlaylistsView> {
   }
 }
 
-/// The way into the popular playlists: a full-width card at the top of
-/// the playlists tab, rather than one button among several.
-class PopularPlaylistsEntry extends StatelessWidget {
-  const PopularPlaylistsEntry({super.key, required this.onOpen});
+/// The way into the popular playlists: an orange flame in the app bar.
+class PopularPlaylistsButton extends StatelessWidget {
+  const PopularPlaylistsButton({super.key, required this.onOpen});
 
   final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Material(
-      color: scheme.primaryContainer,
-      shape: const RoundedRectangleBorder(borderRadius: RhythmoRadii.surface),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onOpen,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 72),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-                horizontal: RhythmoSpace.lg, vertical: RhythmoSpace.md),
-            child: Row(
-              children: [
-                Container(
-                  width: RhythmoSpace.target,
-                  height: RhythmoSpace.target,
-                  decoration: BoxDecoration(
-                    color: scheme.primary,
-                    borderRadius: RhythmoRadii.control,
-                  ),
-                  child: Icon(RhythmoIcons.fire, color: scheme.onPrimary),
-                ),
-                const SizedBox(width: RhythmoSpace.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'فهرست‌های پخش محبوب',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: scheme.onPrimaryContainer,
-                        ),
-                      ),
-                      Text(
-                        'پرطرفدارترین فهرست‌های عمومی را بشنو و بپسند',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: scheme.onPrimaryContainer),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(RhythmoIcons.caretLeft, color: scheme.onPrimaryContainer),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return IconButton(
+      tooltip: 'فهرست‌های پخش محبوب',
+      onPressed: onOpen,
+      icon: const Icon(RhythmoIcons.fire, color: RhythmoColors.fire),
     );
   }
 }
