@@ -96,6 +96,8 @@ abstract final class RhythmoIcons {
   static const IconData minusCircle = IconData(0xe32c, fontFamily: 'Phosphor');
   static const IconData usersFill =
       IconData(0xe4d6, fontFamily: 'PhosphorFill');
+  static const IconData checkCircleFill =
+      IconData(0xe184, fontFamily: 'PhosphorFill');
   static const IconData heartFill =
       IconData(0xe2a8, fontFamily: 'PhosphorFill');
   static const IconData moonStarsFill =
