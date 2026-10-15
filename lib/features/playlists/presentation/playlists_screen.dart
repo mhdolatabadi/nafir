@@ -10,6 +10,8 @@ import 'package:rhythmo/features/playlists/data/playlist.dart';
 import 'package:rhythmo/features/playlists/presentation/collab_sheet.dart';
 import 'package:rhythmo/features/playlists/presentation/popular_playlists_screen.dart';
 import 'package:rhythmo/features/playlists/presentation/shared_playlist_screen.dart';
+import 'package:rhythmo/features/store/application/store_controller.dart';
+import 'package:rhythmo/features/store/presentation/store_screen.dart';
 
 /// Joins the collaborative playlist with [collabToken] and opens it, or
 /// says why it couldn't.
@@ -81,11 +83,15 @@ class PlaylistsView extends StatefulWidget {
     required this.player,
     this.onSharedSaved,
     this.underHeader = false,
+    this.store,
   });
 
   final PlaylistsController controller;
   final List<Track> libraryTracks;
   final PlayerController player;
+
+  /// The public store; null hides its entry.
+  final StoreController? store;
 
   /// Called after a shared playlist was saved, bringing its tracks along.
   final VoidCallback? onSharedSaved;
@@ -186,6 +192,13 @@ class _PlaylistsViewState extends State<PlaylistsView> {
     ));
   }
 
+  void _openStore() {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) =>
+          StoreScreen(controller: widget.store!, player: widget.player),
+    ));
+  }
+
   Future<void> _openPopular() async {
     await Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => PopularPlaylistsScreen(
@@ -216,6 +229,12 @@ class _PlaylistsViewState extends State<PlaylistsView> {
                 icon: const Icon(RhythmoIcons.listPlus),
                 label: const Text('فهرست پخش جدید'),
               ),
+              if (widget.store != null)
+                OutlinedButton.icon(
+                  onPressed: _openStore,
+                  icon: const Icon(RhythmoIcons.storefront),
+                  label: const Text('استور'),
+                ),
               IconButton(
                 tooltip: 'باز کردن لینک اشتراک',
                 onPressed: _openLink,

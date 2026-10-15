@@ -33,6 +33,7 @@ abstract final class RhythmoIcons {
   static const IconData eye = IconData(0xe220, fontFamily: 'Phosphor');
   static const IconData eyeSlash = IconData(0xe224, fontFamily: 'Phosphor');
   static const IconData fire = IconData(0xe242, fontFamily: 'Phosphor');
+  static const IconData flag = IconData(0xe244, fontFamily: 'Phosphor');
   static const IconData folderSimpleDashed =
       IconData(0xec2a, fontFamily: 'Phosphor');
   static const IconData gear = IconData(0xe270, fontFamily: 'Phosphor');
@@ -72,6 +73,7 @@ abstract final class RhythmoIcons {
   static const IconData shuffle = IconData(0xe422, fontFamily: 'Phosphor');
   static const IconData signOut = IconData(0xe42a, fontFamily: 'Phosphor');
   static const IconData speakerHigh = IconData(0xe44a, fontFamily: 'Phosphor');
+  static const IconData storefront = IconData(0xe470, fontFamily: 'Phosphor');
   static const IconData sortAscending =
       IconData(0xe444, fontFamily: 'Phosphor');
   static const IconData trash = IconData(0xe4a6, fontFamily: 'Phosphor');

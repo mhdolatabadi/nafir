@@ -1,0 +1,787 @@
+import 'package:flutter/material.dart';
+import 'package:rhythmo/core/design/design.dart';
+import 'package:rhythmo/core/format_size.dart';
+import 'package:rhythmo/core/persian_digits.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/features/auth/presentation/sign_in_prompt.dart';
+import 'package:rhythmo/features/identify/application/identify_controller.dart';
+import 'package:rhythmo/features/identify/presentation/identify_screen.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/player/presentation/mini_player.dart';
+import 'package:rhythmo/features/store/application/store_controller.dart';
+import 'package:rhythmo/features/store/data/store_catalog.dart';
+
+/// «استور»: every song in rhythmo's public playlists, once, by title,
+/// artist and album. Anyone can search and play; adding a song to the
+/// library and reporting one need an account. Whose copy a song is is
+/// never shown.
+class StoreScreen extends StatefulWidget {
+  const StoreScreen({
+    super.key,
+    required this.controller,
+    required this.player,
+    this.onSignIn,
+    this.openSongId,
+    this.identify,
+  });
+
+  final StoreController controller;
+  final PlayerController player;
+
+  /// «این آهنگ چیه؟», offered in the app bar; without an account it
+  /// matches against the store. Null hides it.
+  final IdentifyController? identify;
+
+  /// Opens sign-in, for a guest who tries to add or report.
+  final VoidCallback? onSignIn;
+
+  /// A store song the app was opened with (`/app/?store=…`), offered on
+  /// top at once.
+  final String? openSongId;
+
+  @override
+  State<StoreScreen> createState() => _StoreScreenState();
+}
+
+class _StoreScreenState extends State<StoreScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabs = TabController(length: 3, vsync: this)
+    ..addListener(_loadTab);
+  late final TextEditingController _search =
+      TextEditingController(text: widget.controller.query);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTab();
+    final id = widget.openSongId;
+    if (id != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _openSong(id);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabs.dispose();
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _loadTab() {
+    final controller = widget.controller;
+    final listing = switch (_tabs.index) {
+      1 => controller.artists,
+      2 => controller.albums,
+      _ => controller.songs,
+    };
+    listing.ensureLoaded();
+  }
+
+  Future<void> _openSong(String id) async {
+    Track? song;
+    try {
+      song = await widget.controller.song(id);
+    } catch (_) {
+      if (mounted) _say('این آهنگ بارگذاری نشد. اتصال اینترنت را بررسی کن.');
+      return;
+    }
+    if (!mounted) return;
+    if (song == null) {
+      _say('این آهنگ دیگر در استور نیست.');
+      return;
+    }
+    final found = song;
+    await showRhythmoSheet<void>(
+      context,
+      heightFactor: 0.6,
+      builder: (context) => RhythmoSheetFrame(
+        title: found.title,
+        subtitle: found.artist,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+                  RhythmoSpace.xxl, RhythmoSpace.sm, RhythmoSpace.xxl, 0)
+              .add(rhythmoListBottomPadding(context)),
+          children: [
+            Text(
+              'این آهنگ در فهرست‌های پخش عمومی ریتمو هست و با کیفیت فایل '
+              'اصلی پخش می‌شود.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: RhythmoSpace.xl),
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.of(context).pop();
+                widget.player.play(found);
+              },
+              icon: const Icon(RhythmoIcons.playFill),
+              label: const Text('پخش'),
+            ),
+            const SizedBox(height: RhythmoSpace.sm),
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _save(found);
+              },
+              icon: const Icon(RhythmoIcons.plusCircle),
+              label: const Text('افزودن به کتابخانه‌ی من'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _say(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _save(Track song) =>
+      saveStoreSong(context, widget.controller, song,
+          onSignIn: widget.onSignIn);
+
+  Future<void> _report(Track song) =>
+      reportStoreSong(context, widget.controller, song,
+          onSignIn: widget.onSignIn);
+
+  void _openSongs(
+      {required String title,
+      String? subtitle,
+      String? artist,
+      String? album}) {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => StoreSongsScreen(
+        title: title,
+        subtitle: subtitle,
+        listing: widget.controller.songsOf(artist: artist, album: album),
+        controller: widget.controller,
+        player: widget.player,
+        onSignIn: widget.onSignIn,
+      ),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    return Scaffold(
+      extendBody: true,
+      appBar: AppBar(
+        title: const Text('استور'),
+        actions: [
+          if (widget.identify != null)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: RhythmoSpace.sm),
+              child: IconButton(
+                tooltip: 'این آهنگ چیه؟',
+                onPressed: () => openIdentify(
+                    context, widget.identify!, widget.player,
+                    onSignIn: widget.onSignIn),
+                icon: const Icon(RhythmoIcons.microphoneStage),
+              ),
+            ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(
+              RhythmoSpace.target * 2 + RhythmoSpace.md * 2),
+          child: Center(
+            child: ConstrainedBox(
+              constraints:
+                  const BoxConstraints(maxWidth: RhythmoSpace.pageWidth),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                        RhythmoSpace.lg, 0, RhythmoSpace.lg, RhythmoSpace.md),
+                    child: TextField(
+                      controller: _search,
+                      textInputAction: TextInputAction.search,
+                      maxLength: 100,
+                      decoration: InputDecoration(
+                        hintText: 'نام آهنگ، خواننده یا آلبوم',
+                        prefixIcon: const Icon(RhythmoIcons.magnifyingGlass),
+                        counterText: '',
+                        suffixIcon: ListenableBuilder(
+                          listenable: _search,
+                          builder: (context, _) => _search.text.isEmpty
+                              ? const SizedBox.shrink()
+                              : IconButton(
+                                  tooltip: 'پاک کردن جستجو',
+                                  onPressed: () {
+                                    _search.clear();
+                                    controller.search('');
+                                  },
+                                  icon: const Icon(RhythmoIcons.x),
+                                ),
+                        ),
+                      ),
+                      onChanged: controller.searchSoon,
+                      onSubmitted: controller.search,
+                    ),
+                  ),
+                  TabBar(
+                    controller: _tabs,
+                    tabs: const [
+                      Tab(height: RhythmoSpace.target, text: 'آهنگ‌ها'),
+                      Tab(height: RhythmoSpace.target, text: 'خواننده‌ها'),
+                      Tab(height: RhythmoSpace.target, text: 'آلبوم‌ها'),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+      bottomNavigationBar: MiniPlayer(player: widget.player),
+      body: RhythmoBackdrop(
+        child: TabBarView(
+          controller: _tabs,
+          children: [
+            _SongList(
+              listing: controller.songs,
+              controller: controller,
+              player: widget.player,
+              empty: () => controller.query.isEmpty
+                  ? const _Empty(
+                      icon: RhythmoIcons.storefront,
+                      title: 'استور هنوز خالی است',
+                      message: 'وقتی کسی فهرست پخشی را عمومی کند، '
+                          'آهنگ‌هایش اینجا می‌آیند.',
+                    )
+                  : const _Empty(
+                      icon: RhythmoIcons.magnifyingGlassMinus,
+                      title: 'آهنگی پیدا نشد',
+                      message: 'املای دیگری را امتحان کن یا نام خواننده را '
+                          'بنویس.',
+                    ),
+              onSave: _save,
+              onReport: _report,
+            ),
+            _Listing<StoreArtist>(
+              listing: controller.artists,
+              emptyTitle: 'خواننده‌ای پیدا نشد',
+              row: (artist) => _IndexRow(
+                icon: RhythmoIcons.microphoneStage,
+                seed: 'artist:${artist.name}',
+                title: artist.name,
+                subtitle: '${persianDigits(artist.trackCount)} آهنگ',
+                onTap: () =>
+                    _openSongs(title: artist.name, artist: artist.name),
+              ),
+            ),
+            _Listing<StoreAlbum>(
+              listing: controller.albums,
+              emptyTitle: 'آلبومی پیدا نشد',
+              row: (album) => _IndexRow(
+                icon: RhythmoIcons.vinylRecord,
+                seed: 'album:${album.name}:${album.artist}',
+                title: album.name,
+                subtitle: [
+                  if (album.artist != null) album.artist!,
+                  '${persianDigits(album.trackCount)} آهنگ',
+                ].join(' · '),
+                onTap: () => _openSongs(
+                  title: album.name,
+                  subtitle: album.artist,
+                  album: album.name,
+                  artist: album.artist,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One artist's or album's store songs.
+class StoreSongsScreen extends StatefulWidget {
+  const StoreSongsScreen({
+    super.key,
+    required this.title,
+    this.subtitle,
+    required this.listing,
+    required this.controller,
+    required this.player,
+    this.onSignIn,
+  });
+
+  final String title;
+  final String? subtitle;
+  final StoreListing<Track> listing;
+  final StoreController controller;
+  final PlayerController player;
+  final VoidCallback? onSignIn;
+
+  @override
+  State<StoreSongsScreen> createState() => _StoreSongsScreenState();
+}
+
+class _StoreSongsScreenState extends State<StoreSongsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    widget.listing.ensureLoaded();
+  }
+
+  @override
+  void dispose() {
+    widget.listing.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final subtitle = widget.subtitle;
+    return Scaffold(
+      extendBody: true,
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+            if (subtitle != null)
+              Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: MiniPlayer(player: widget.player),
+      body: RhythmoBackdrop(
+        child: _SongList(
+          listing: widget.listing,
+          controller: widget.controller,
+          player: widget.player,
+          empty: () => const _Empty(
+            icon: RhythmoIcons.musicNotesMinus,
+            title: 'آهنگی در استور نمانده',
+            message: 'ممکن است از فهرست‌های پخش عمومی برداشته شده باشد.',
+          ),
+          onSave: (song) => saveStoreSong(context, widget.controller, song,
+              onSignIn: widget.onSignIn),
+          onReport: (song) => reportStoreSong(context, widget.controller, song,
+              onSignIn: widget.onSignIn),
+        ),
+      ),
+    );
+  }
+}
+
+/// Adds [song] to the listener's library, or asks a guest to sign in, and
+/// says how it went.
+Future<void> saveStoreSong(
+    BuildContext context, StoreController controller, Track song,
+    {VoidCallback? onSignIn}) async {
+  if (!controller.signedIn) {
+    askToSignIn(context, action: 'افزودن به کتابخانه', onSignIn: onSignIn);
+    return;
+  }
+  final messenger = ScaffoldMessenger.of(context);
+  final result = await controller.save(song);
+  messenger
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(
+      content: Text(switch (result) {
+        StoreSaveResult.saved =>
+          '«${song.title}» به کتابخانه‌ات اضافه شد. این نسخه مال خودت است.',
+        StoreSaveResult.alreadyYours => 'این آهنگ در کتابخانه‌ی خودت هست.',
+        StoreSaveResult.noSpace =>
+          'فضای کافی در حسابت نیست. چند آهنگ را حذف کن و دوباره امتحان کن.',
+        StoreSaveResult.uploadsDisabled =>
+          'افزودن آهنگ فعلاً غیرفعال است. کمی بعد دوباره امتحان کن.',
+        StoreSaveResult.gone => 'این آهنگ دیگر در استور نیست.',
+        StoreSaveResult.failed => 'افزودن ناموفق بود. دوباره تلاش کن.',
+      }),
+    ));
+}
+
+/// «گزارش تخلف»: asks what is wrong with [song] and sends it to the
+/// admins, or asks a guest to sign in.
+Future<void> reportStoreSong(
+    BuildContext context, StoreController controller, Track song,
+    {VoidCallback? onSignIn}) async {
+  if (!controller.signedIn) {
+    askToSignIn(context, action: 'گزارش تخلف', onSignIn: onSignIn);
+    return;
+  }
+  final messenger = ScaffoldMessenger.of(context);
+  final report = await showRhythmoSheet<_Report>(
+    context,
+    heightFactor: 0.85,
+    builder: (context) => _ReportSheet(song: song),
+  );
+  if (report == null) return;
+  final result =
+      await controller.report(song, report.reason, details: report.details);
+  messenger
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(
+      content: Text(switch (result) {
+        StoreReportResult.sent =>
+          'گزارشت فرستاده شد. مدیران ریتمو آن را بررسی می‌کنند.',
+        StoreReportResult.gone => 'این آهنگ دیگر در استور نیست.',
+        StoreReportResult.tooMany =>
+          'امروز گزارش زیادی فرستاده‌ای. فردا دوباره امتحان کن.',
+        StoreReportResult.failed => 'گزارش فرستاده نشد. دوباره تلاش کن.',
+      }),
+    ));
+}
+
+class _Report {
+  const _Report(this.reason, this.details);
+
+  final StoreReportReason reason;
+  final String? details;
+}
+
+class _ReportSheet extends StatefulWidget {
+  const _ReportSheet({required this.song});
+
+  final Track song;
+
+  @override
+  State<_ReportSheet> createState() => _ReportSheetState();
+}
+
+class _ReportSheetState extends State<_ReportSheet> {
+  StoreReportReason? _reason;
+  final _details = TextEditingController();
+
+  @override
+  void dispose() {
+    _details.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reason = _reason;
+    return RhythmoSheetFrame(
+      title: 'گزارش تخلف',
+      subtitle: widget.song.title,
+      child: ListView(
+        padding:
+            const EdgeInsets.fromLTRB(RhythmoSpace.lg, 0, RhythmoSpace.lg, 0)
+                .add(rhythmoListBottomPadding(context)),
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: RhythmoSpace.sm, vertical: RhythmoSpace.sm),
+            child: Text(
+              'چه مشکلی در این آهنگ هست؟ مدیران ریتمو گزارش را می‌بینند و '
+              'ممکن است آهنگ را از استور پنهان کنند. نامت به کسی نشان داده '
+              'نمی‌شود.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+          RadioGroup<StoreReportReason>(
+            groupValue: reason,
+            onChanged: (value) => setState(() => _reason = value),
+            child: Column(
+              children: [
+                for (final option in StoreReportReason.values)
+                  RadioListTile<StoreReportReason>(
+                    value: option,
+                    title: Text(option.label),
+                    minTileHeight: RhythmoSpace.target + RhythmoSpace.sm,
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: RhythmoSpace.sm),
+          TextField(
+            controller: _details,
+            maxLength: 1000,
+            minLines: 2,
+            maxLines: 5,
+            decoration: const InputDecoration(
+              labelText: 'توضیح (اختیاری)',
+              hintText: 'مثلاً صاحب اصلی اثر یا مشکل مشخصات',
+            ),
+          ),
+          const SizedBox(height: RhythmoSpace.md),
+          FilledButton.icon(
+            onPressed: reason == null
+                ? null
+                : () => Navigator.of(context).pop(_Report(
+                    reason,
+                    _details.text.trim().isEmpty
+                        ? null
+                        : _details.text.trim())),
+            icon: const Icon(RhythmoIcons.flag),
+            label: const Text('فرستادن گزارش'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SongList extends StatelessWidget {
+  const _SongList({
+    required this.listing,
+    required this.controller,
+    required this.player,
+    required this.empty,
+    required this.onSave,
+    required this.onReport,
+  });
+
+  final StoreListing<Track> listing;
+  final StoreController controller;
+  final PlayerController player;
+  final Widget Function() empty;
+  final void Function(Track) onSave;
+  final void Function(Track) onReport;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Listing<Track>(
+      listing: listing,
+      emptyTitle: 'آهنگی پیدا نشد',
+      empty: empty,
+      row: (song) => ListenableBuilder(
+        listenable: player,
+        builder: (context, _) {
+          final songs = listing.items;
+          return RhythmoTrackRow(
+            seed: song.id,
+            title: song.title,
+            subtitle: song.artist ?? 'خواننده‌ی نامشخص',
+            detail: formatSize(song.sizeBytes),
+            active: player.track?.id == song.id && player.track!.fromStore,
+            onTap: () => player.playTapped(songs, songs.indexOf(song)),
+            trailing: _SongMenu(
+              saving: controller.isSaving(song),
+              onSave: () => onSave(song),
+              onReport: () => onReport(song),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+enum _SongAction { save, report }
+
+class _SongMenu extends StatelessWidget {
+  const _SongMenu({
+    required this.saving,
+    required this.onSave,
+    required this.onReport,
+  });
+
+  final bool saving;
+  final VoidCallback onSave;
+  final VoidCallback onReport;
+
+  @override
+  Widget build(BuildContext context) {
+    if (saving) {
+      return const SizedBox.square(
+        dimension: RhythmoSpace.target,
+        child: Center(
+          child: SizedBox.square(
+            dimension: RhythmoSpace.xl,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+    return PopupMenuButton<_SongAction>(
+      tooltip: 'گزینه‌های آهنگ',
+      icon: const Icon(RhythmoIcons.dotsThreeVertical),
+      onSelected: (action) => switch (action) {
+        _SongAction.save => onSave(),
+        _SongAction.report => onReport(),
+      },
+      itemBuilder: (context) => const [
+        PopupMenuItem(
+          value: _SongAction.save,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(RhythmoIcons.plusCircle),
+            title: Text('افزودن به کتابخانه‌ی من'),
+          ),
+        ),
+        PopupMenuItem(
+          value: _SongAction.report,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(RhythmoIcons.flag),
+            title: Text('گزارش تخلف'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _IndexRow extends StatelessWidget {
+  const _IndexRow({
+    required this.icon,
+    required this.seed,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String seed;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return RhythmoTrackRow(
+      seed: seed,
+      leadingIcon: icon,
+      title: title,
+      subtitle: subtitle,
+      onTap: onTap,
+      trailing: const Padding(
+        padding: EdgeInsetsDirectional.only(end: RhythmoSpace.md),
+        child: Icon(RhythmoIcons.caretLeft),
+      ),
+    );
+  }
+}
+
+/// A paged listing with its loading, error and empty states; the next
+/// page loads as the end comes into view. The last row stays clear of the
+/// mini player and the system insets.
+class _Listing<T> extends StatelessWidget {
+  const _Listing({
+    required this.listing,
+    required this.row,
+    required this.emptyTitle,
+    this.empty,
+  });
+
+  final StoreListing<T> listing;
+  final Widget Function(T item) row;
+  final String emptyTitle;
+  final Widget Function()? empty;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: listing,
+      builder: (context, _) {
+        final items = listing.items;
+        return switch (listing.status) {
+          StoreStatus.idle ||
+          StoreStatus.loading when items.isEmpty =>
+            const RhythmoStateView.loading(title: 'در حال بارگذاری استور…'),
+          StoreStatus.error when items.isEmpty => RhythmoStateView.error(
+              icon: RhythmoIcons.cloudSlash,
+              title: 'استور بارگذاری نشد',
+              message: 'اتصال اینترنت را بررسی کن و دوباره تلاش کن.',
+              action: FilledButton.icon(
+                onPressed: listing.refresh,
+                icon: const Icon(RhythmoIcons.arrowsClockwise),
+                label: const Text('تلاش دوباره'),
+              ),
+            ),
+          _ when items.isEmpty => empty?.call() ??
+              _Empty(
+                  icon: RhythmoIcons.magnifyingGlassMinus, title: emptyTitle),
+          _ => RefreshIndicator(
+              onRefresh: listing.refresh,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints:
+                      const BoxConstraints(maxWidth: RhythmoSpace.pageWidth),
+                  child: ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    // extendBody puts the mini player's height in the
+                    // bottom padding, with the system inset.
+                    padding: EdgeInsets.only(
+                      top: RhythmoSpace.sm,
+                      bottom: MediaQuery.paddingOf(context).bottom +
+                          RhythmoSpace.lg,
+                    ),
+                    itemCount: items.length + (listing.hasMore ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index < items.length) return row(items[index]);
+                      return _MoreRow(listing: listing);
+                    },
+                  ),
+                ),
+              ),
+            ),
+        };
+      },
+    );
+  }
+}
+
+/// The end of a listing with more to come: it asks for the next page as
+/// it comes into view, and offers a retry when that failed.
+class _MoreRow extends StatelessWidget {
+  const _MoreRow({required this.listing});
+
+  final StoreListing<Object?> listing;
+
+  @override
+  Widget build(BuildContext context) {
+    if (listing.moreFailed) {
+      return Padding(
+        padding: const EdgeInsets.all(RhythmoSpace.lg),
+        child: Center(
+          child: OutlinedButton.icon(
+            onPressed: listing.loadMore,
+            icon: const Icon(RhythmoIcons.arrowsClockwise),
+            label: const Text('بارگذاری بقیه'),
+          ),
+        ),
+      );
+    }
+    if (!listing.loadingMore) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => listing.loadMore());
+    }
+    return const Padding(
+      padding: EdgeInsets.all(RhythmoSpace.lg),
+      child: Center(
+        child: SizedBox.square(
+          dimension: RhythmoSpace.xxl,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+    );
+  }
+}
+
+class _Empty extends StatelessWidget {
+  const _Empty({required this.icon, required this.title, this.message});
+
+  final IconData icon;
+  final String title;
+  final String? message;
+
+  @override
+  Widget build(BuildContext context) {
+    // Scrollable, so pull to refresh still works on an empty listing.
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: RhythmoStateView(icon: icon, title: title, message: message),
+        ),
+      ),
+    );
+  }
+}

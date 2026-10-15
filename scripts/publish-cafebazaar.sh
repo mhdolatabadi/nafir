@@ -3,7 +3,7 @@
 # submits it for review (#95). The flow follows the Pishkhan release API:
 # reuse or create an uncommitted release, upload the package, commit it.
 #
-#   CAFEBAZAAR_API_SECRET=… scripts/publish-cafebazaar.sh nafir.apk 0.1.42
+#   CAFEBAZAAR_API_SECRET=… scripts/publish-cafebazaar.sh rhythmo.apk 0.1.42
 #
 # Optional: CAFEBAZAAR_AUTO_PUBLISH (true|false, default false: publish by
 # hand in the panel after review), CAFEBAZAAR_ROLLOUT_PERCENT (default 100),

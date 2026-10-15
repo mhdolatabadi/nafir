@@ -26,7 +26,7 @@ func collabTestPool(t *testing.T) *pgxpool.Pool {
 		t.Skip("TEST_DATABASE_URL is not set")
 	}
 	ctx := context.Background()
-	const schema = "nafir_httpapi_test"
+	const schema = "rhythmo_httpapi_test"
 	admin, err := pgxpool.New(ctx, url)
 	if err != nil {
 		t.Fatal(err)

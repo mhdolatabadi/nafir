@@ -11,6 +11,7 @@ import 'package:rhythmo/features/link_import/data/link_import.dart';
 import 'package:rhythmo/features/lyrics/data/lyrics.dart';
 import 'package:rhythmo/features/playlists/data/playlist.dart';
 import 'package:rhythmo/features/upload/data/upload_models.dart';
+import 'package:rhythmo/features/store/data/store_catalog.dart';
 
 class ApiException implements Exception {
   const ApiException(this.message,
@@ -154,6 +155,9 @@ abstract interface class TracksApi {
   /// playlist the user belongs to.
   Future<StreamLink> playlistStreamLink(
       String token, String playlistId, String trackId);
+
+  /// A playback link for a public store song; no account is needed.
+  Future<StreamLink> storeStreamLink(String? token, String id);
 }
 
 abstract interface class PlaylistsApi {
@@ -249,6 +253,14 @@ class SongMatch {
   });
 
   factory SongMatch.fromJson(Map<String, dynamic> json) {
+    final storeTrack = json['storeTrack'];
+    if (json['source'] == 'store' && storeTrack is Map<String, dynamic>) {
+      return SongMatch(
+        track: Track.fromStoreJson(storeTrack),
+        confidence: (json['confidence'] as num?)?.toDouble() ?? 0,
+        source: SongMatchSource.store,
+      );
+    }
     final shareToken = json['shareToken'] as String?;
     return SongMatch(
       track: Track.fromJson(json['track'] as Map<String, dynamic>,
@@ -274,14 +286,16 @@ class SongMatch {
 }
 
 /// Where a recognised song was found: the listener's own library, a
-/// collaborative playlist they belong to, or a public playlist.
-enum SongMatchSource { library, playlist, public }
+/// collaborative playlist they belong to, a public playlist, or (for a
+/// listener without an account) the public store.
+enum SongMatchSource { library, playlist, public, store }
 
 /// «این آهنگ چیه؟»: recognises a recorded snippet among the songs in
 /// rhythmo the listener may play.
 abstract interface class IdentifyApi {
-  /// The best match for [wav], or null when nothing matched.
-  Future<SongMatch?> identifySong(String token, Uint8List wav);
+  /// The best match for [wav], or null when nothing matched. Without a
+  /// [token] only the public store is searched.
+  Future<SongMatch?> identifySong(String? token, Uint8List wav);
 
   /// Copies a song found in someone else's playlist into the library.
   Future<Track> saveIdentifiedSong(String token, SongMatch match);
@@ -312,6 +326,7 @@ class ApiClient
         LyricsApi,
         TranscriptionApi,
         IdentifyApi,
+        StoreApi,
         AdminApi {
   ApiClient(this.baseUri, {http.Client? httpClient})
       : _httpClient = httpClient ?? http.Client();
@@ -592,6 +607,119 @@ class ApiClient
   }
 
   @override
+  Future<StreamLink> storeStreamLink(String? token, String id) async {
+    final body = await _send(
+        'GET', '/api/v1/store/tracks/${Uri.encodeComponent(id)}/stream',
+        token: token);
+    return StreamLink(Uri.parse(body['url'] as String),
+        DateTime.parse(body['expiresAt'] as String));
+  }
+
+  /// [path] with the non-empty [query] parameters.
+  static String _withQuery(String path, Map<String, String?> query) {
+    final kept = {
+      for (final entry in query.entries)
+        if (entry.value != null && entry.value!.isNotEmpty)
+          entry.key: entry.value!,
+    };
+    return kept.isEmpty ? path : '$path?${Uri(queryParameters: kept).query}';
+  }
+
+  @override
+  Future<StorePage<Track>> storeTracks(
+    String? token, {
+    String query = '',
+    String? artist,
+    String? album,
+    int offset = 0,
+  }) async {
+    final body = await _send(
+        'GET',
+        _withQuery('/api/v1/store/tracks', {
+          'q': query.trim(),
+          'artist': artist,
+          'album': album,
+          if (offset > 0) 'offset': '$offset',
+        }),
+        token: token);
+    return StorePage(
+      [
+        for (final json in body['tracks'] as List<dynamic>)
+          Track.fromStoreJson(json as Map<String, dynamic>),
+      ],
+      hasMore: body['hasMore'] == true,
+    );
+  }
+
+  @override
+  Future<Track> storeTrack(String? token, String id) async {
+    final body = await _send(
+        'GET', '/api/v1/store/tracks/${Uri.encodeComponent(id)}',
+        token: token);
+    return Track.fromStoreJson(body);
+  }
+
+  @override
+  Future<StorePage<StoreArtist>> storeArtists(String? token,
+      {String query = '', int offset = 0}) async {
+    final body = await _send(
+        'GET',
+        _withQuery('/api/v1/store/artists',
+            {'q': query.trim(), if (offset > 0) 'offset': '$offset'}),
+        token: token);
+    return StorePage(
+      [
+        for (final json in body['artists'] as List<dynamic>)
+          StoreArtist.fromJson(json as Map<String, dynamic>),
+      ],
+      hasMore: body['hasMore'] == true,
+    );
+  }
+
+  @override
+  Future<StorePage<StoreAlbum>> storeAlbums(String? token,
+      {String query = '', String? artist, int offset = 0}) async {
+    final body = await _send(
+        'GET',
+        _withQuery('/api/v1/store/albums', {
+          'q': query.trim(),
+          'artist': artist,
+          if (offset > 0) 'offset': '$offset',
+        }),
+        token: token);
+    return StorePage(
+      [
+        for (final json in body['albums'] as List<dynamic>)
+          StoreAlbum.fromJson(json as Map<String, dynamic>),
+      ],
+      hasMore: body['hasMore'] == true,
+    );
+  }
+
+  @override
+  Future<Track> saveStoreTrack(String token, String id) async {
+    final body = await _send(
+        'POST', '/api/v1/store/tracks/${Uri.encodeComponent(id)}/save',
+        token: token);
+    return Track.fromJson(body);
+  }
+
+  @override
+  Future<void> reportStoreTrack(
+      String token, String id, StoreReportReason reason,
+      {String? details}) async {
+    await _send(
+        'POST', '/api/v1/store/tracks/${Uri.encodeComponent(id)}/report',
+        token: token,
+        body: {
+          'reason': reason.wire,
+          if (details != null && details.trim().isNotEmpty)
+            'details': details.trim(),
+        },
+        expectBody: false);
+  }
+
+  @override
   Future<String> createCollabLink(String token, String playlistId) async {
     final body = await _send(
         'POST', '/api/v1/playlists/${Uri.encodeComponent(playlistId)}/collab',
@@ -814,11 +942,11 @@ class ApiClient
   static const _identifyTimeout = Duration(seconds: 45);
 
   @override
-  Future<SongMatch?> identifySong(String token, Uint8List wav) async {
+  Future<SongMatch?> identifySong(String? token, Uint8List wav) async {
     final request = http.Request('POST', baseUri.resolve('/api/v1/identify'))
-      ..headers['Authorization'] = 'Bearer $token'
       ..headers['Content-Type'] = 'audio/wav'
       ..bodyBytes = wav;
+    if (token != null) request.headers['Authorization'] = 'Bearer $token';
     final response = await http.Response.fromStream(
       await _httpClient.send(request).timeout(_identifyTimeout),
     );
@@ -838,6 +966,9 @@ class ApiClient
   @override
   Future<Track> saveIdentifiedSong(String token, SongMatch match) async {
     final track = match.track;
+    if (match.source == SongMatchSource.store) {
+      return saveStoreTrack(token, track.id);
+    }
     final body =
         await _send('POST', '/api/v1/identify/save', token: token, body: {
       'trackId': track.id,

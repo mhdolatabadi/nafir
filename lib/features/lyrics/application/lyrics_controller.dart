@@ -10,6 +10,9 @@ enum LyricsUnavailable {
 
   /// Signed out, and the track isn't from a public playlist.
   signedOut,
+
+  /// A public store song: lyrics come once it is added to the library.
+  store,
 }
 
 /// Loads lyrics from the server and keeps them for the session, so going
@@ -26,6 +29,7 @@ class LyricsController extends ChangeNotifier {
   /// Why [track] can have no lyrics, or null when it can.
   LyricsUnavailable? unavailable(Track track) {
     if (track.id.startsWith('device:')) return LyricsUnavailable.deviceOnly;
+    if (track.fromStore) return LyricsUnavailable.store;
     if (_token() == null && track.sharedVia == null) {
       return LyricsUnavailable.signedOut;
     }

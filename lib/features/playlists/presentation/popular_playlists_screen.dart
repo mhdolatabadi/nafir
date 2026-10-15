@@ -11,6 +11,9 @@ import 'package:rhythmo/features/player/presentation/mini_player.dart';
 import 'package:rhythmo/features/playlists/application/playlists_controller.dart';
 import 'package:rhythmo/features/playlists/data/playlist.dart';
 import 'package:rhythmo/features/playlists/presentation/shared_playlist_screen.dart';
+import 'package:rhythmo/features/identify/application/identify_controller.dart';
+import 'package:rhythmo/features/store/application/store_controller.dart';
+import 'package:rhythmo/features/store/presentation/store_screen.dart';
 
 /// Playlists their owners made public, most liked first. Link-only
 /// playlists are never listed here.
@@ -22,6 +25,8 @@ class PopularPlaylistsScreen extends StatefulWidget {
     this.onSaved,
     this.onSignIn,
     this.openShareToken,
+    this.store,
+    this.identify,
     this.siteUri = AppConfiguration.sitePage,
     this.openLink = openExternalLink,
   });
@@ -38,6 +43,12 @@ class PopularPlaylistsScreen extends StatefulWidget {
 
   /// A shared playlist link the app was opened with, shown on top at once.
   final String? openShareToken;
+
+  /// The public store, offered in the app bar; null hides it.
+  final StoreController? store;
+
+  /// «این آهنگ چیه؟», offered inside the store; null hides it.
+  final IdentifyController? identify;
 
   /// Where the guest's privacy policy link points.
   final SitePageResolver siteUri;
@@ -129,6 +140,21 @@ class _PopularPlaylistsScreenState extends State<PopularPlaylistsScreen> {
       appBar: AppBar(
         title: const Text('فهرست‌های پخش محبوب'),
         actions: [
+          if (widget.store != null)
+            IconButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => StoreScreen(
+                    controller: widget.store!,
+                    player: widget.player,
+                    onSignIn: widget.onSignIn,
+                    identify: widget.identify,
+                  ),
+                ),
+              ),
+              tooltip: 'استور',
+              icon: const Icon(RhythmoIcons.storefront),
+            ),
           // Readable before signing up, as the stores expect.
           if (widget.onSignIn != null && !controller.signedIn)
             IconButton(
