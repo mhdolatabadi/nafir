@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/app/app_theme.dart';
-import 'package:nafir/core/design/design.dart';
-import 'package:nafir/features/identify/application/identify_controller.dart';
-import 'package:nafir/features/identify/presentation/identify_screen.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/player/application/favorite_tracks.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/player/presentation/now_playing_screen.dart';
+import 'package:rhythmo/app/app_theme.dart';
+import 'package:rhythmo/core/design/design.dart';
+import 'package:rhythmo/features/identify/application/identify_controller.dart';
+import 'package:rhythmo/features/identify/presentation/identify_screen.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/player/application/favorite_tracks.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/player/presentation/now_playing_screen.dart';
 
 import 'identify_test.dart' show FakeIdentifyApi, FakeRecorder;
 import 'player_controller_test.dart' show FakeAudioEngine;
@@ -30,7 +30,7 @@ void main() {
         locale: const Locale('fa'),
         supportedLocales: const [Locale('fa')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        theme: NafirTheme.dark(),
+        theme: RhythmoTheme.dark(),
         home: home,
       );
 
@@ -56,10 +56,10 @@ void main() {
       expect(tester.takeException(), isNull);
       final listen =
           tester.getRect(find.widgetWithText(FilledButton, 'گوش بده'));
-      expect(listen.height, greaterThanOrEqualTo(NafirSpace.target));
+      expect(listen.height, greaterThanOrEqualTo(RhythmoSpace.target));
       expect(listen.bottom, lessThanOrEqualTo(size.height - 34));
       final title = tester.getRect(find.text('آهنگی که پخش می‌شود را بشناسید'));
-      expect(title.width, lessThanOrEqualTo(NafirSpace.readingWidth));
+      expect(title.width, lessThanOrEqualTo(RhythmoSpace.readingWidth));
       // Centred: equal room on both sides, within a pixel.
       expect((title.left - (size.width - title.right)).abs(), lessThan(2));
     });
@@ -90,8 +90,8 @@ void main() {
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      expect(find.byType(NafirTrackRow), findsOneWidget);
-      expect(find.byType(NafirStateView), findsOneWidget,
+      expect(find.byType(RhythmoTrackRow), findsOneWidget);
+      expect(find.byType(RhythmoStateView), findsOneWidget,
           reason: 'nothing comes next');
       expect(find.text('در حال پخش · هنرمند'), findsOneWidget);
     });

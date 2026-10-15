@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mhdolatabadi/nafir/server/internal/audio"
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/audio"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 // Import failure reasons. They are stored with the import and chosen so the

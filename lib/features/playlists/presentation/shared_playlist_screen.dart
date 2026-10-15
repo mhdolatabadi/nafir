@@ -1,14 +1,14 @@
-import 'package:nafir/core/persian_digits.dart';
+import 'package:rhythmo/core/persian_digits.dart';
 import 'package:flutter/material.dart';
-import 'package:nafir/core/design/design.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
+import 'package:rhythmo/core/design/design.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
 import 'package:flutter/services.dart';
-import 'package:nafir/app/app_configuration.dart';
-import 'package:nafir/features/auth/presentation/sign_in_prompt.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/player/presentation/mini_player.dart';
-import 'package:nafir/features/playlists/application/playlists_controller.dart';
-import 'package:nafir/features/playlists/data/playlist.dart';
+import 'package:rhythmo/app/app_configuration.dart';
+import 'package:rhythmo/features/auth/presentation/sign_in_prompt.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/player/presentation/mini_player.dart';
+import 'package:rhythmo/features/playlists/application/playlists_controller.dart';
+import 'package:rhythmo/features/playlists/data/playlist.dart';
 
 /// A playlist someone shared by link: its tracks can be played, not changed.
 class SharedPlaylistScreen extends StatefulWidget {
@@ -126,21 +126,21 @@ class _SharedPlaylistScreenState extends State<SharedPlaylistScreen> {
         ),
       ),
       bottomNavigationBar: MiniPlayer(player: widget.player),
-      body: NafirBackdrop(
+      body: RhythmoBackdrop(
         child: switch (_state) {
           _Load.loading =>
-            const NafirStateView.loading(title: 'در حال بارگذاری فهرست پخش…'),
+            const RhythmoStateView.loading(title: 'در حال بارگذاری فهرست پخش…'),
           _Load.unavailable => const _Message(
-              icon: NafirIcons.linkBreak,
+              icon: RhythmoIcons.linkBreak,
               text:
                   'این لینک اشتباه است یا صاحبش اشتراک‌گذاری را لغو کرده است.',
             ),
           _Load.failed => _Message(
-              icon: NafirIcons.cloudSlash,
+              icon: RhythmoIcons.cloudSlash,
               text: 'بارگذاری فهرست پخش ناموفق بود.',
               action: FilledButton.icon(
                 onPressed: _load,
-                icon: const Icon(NafirIcons.arrowsClockwise),
+                icon: const Icon(RhythmoIcons.arrowsClockwise),
                 label: const Text('تلاش دوباره'),
               ),
             ),
@@ -201,7 +201,7 @@ class _Contents extends StatelessWidget {
                     width: 54,
                     height: 54,
                     decoration: BoxDecoration(
-                      borderRadius: NafirRadii.surface,
+                      borderRadius: RhythmoRadii.surface,
                       gradient: LinearGradient(
                         begin: Alignment.topRight,
                         end: Alignment.bottomLeft,
@@ -211,7 +211,7 @@ class _Contents extends StatelessWidget {
                         ],
                       ),
                     ),
-                    child: const Icon(NafirIcons.playlist),
+                    child: const Icon(RhythmoIcons.playlist),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -253,7 +253,7 @@ class _Contents extends StatelessWidget {
                   if (tracks.isNotEmpty)
                     FilledButton.icon(
                       onPressed: () => player.playFrom(tracks, 0),
-                      icon: const Icon(NafirIcons.playFill),
+                      icon: const Icon(RhythmoIcons.playFill),
                       label: const Text('پخش همه'),
                     ),
                   PlaylistLikeButton(likes: playlist.likes, onPressed: onLike),
@@ -265,7 +265,7 @@ class _Contents extends StatelessWidget {
                               dimension: 18,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Icon(NafirIcons.plusCircle),
+                          : const Icon(RhythmoIcons.plusCircle),
                       label: const Text('افزودن به حساب من'),
                     ),
                 ],
@@ -274,7 +274,7 @@ class _Contents extends StatelessWidget {
             if (tracks.isEmpty)
               const Expanded(
                 child: _Message(
-                  icon: NafirIcons.musicNotesMinus,
+                  icon: RhythmoIcons.musicNotesMinus,
                   text: 'این فهرست پخش فعلاً آهنگی ندارد.',
                 ),
               )
@@ -293,7 +293,7 @@ class _Contents extends StatelessWidget {
                         radius: 18,
                         tint: Theme.of(context).colorScheme.secondary,
                         child: ListTile(
-                          leading: const Icon(NafirIcons.musicNote),
+                          leading: const Icon(RhythmoIcons.musicNote),
                           title: Text(track.title,
                               maxLines: 1, overflow: TextOverflow.ellipsis),
                           subtitle: track.artist == null
@@ -338,7 +338,7 @@ class PlaylistLikeButton extends StatelessWidget {
     final count = likes.likeCount;
     final color = liked ? Theme.of(context).colorScheme.primary : null;
     final icon =
-        Icon(liked ? NafirIcons.heartFill : NafirIcons.heart, color: color);
+        Icon(liked ? RhythmoIcons.heartFill : RhythmoIcons.heart, color: color);
     final tooltip = liked ? 'برداشتن پسند' : 'پسندیدن این فهرست پخش';
     return Tooltip(
       message: tooltip,
@@ -371,7 +371,7 @@ class PlaylistLikeButton extends StatelessWidget {
 }
 
 /// A state of the shared playlist with nothing to list, drawn as the
-/// shared [NafirStateView]; a failure to load is an error.
+/// shared [RhythmoStateView]; a failure to load is an error.
 class _Message extends StatelessWidget {
   const _Message({required this.icon, required this.text, this.action});
 
@@ -381,8 +381,8 @@ class _Message extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => action != null
-      ? NafirStateView.error(icon: icon, title: text, action: action)
-      : NafirStateView(icon: icon, title: text);
+      ? RhythmoStateView.error(icon: icon, title: text, action: action)
+      : RhythmoStateView(icon: icon, title: text);
 }
 
 /// Lets the owner share a playlist by link, copy it, or stop sharing.
@@ -499,12 +499,12 @@ class _ShareSheetState extends State<_ShareSheet> {
               segments: const [
                 ButtonSegment(
                   value: false,
-                  icon: Icon(NafirIcons.linkSimple),
+                  icon: Icon(RhythmoIcons.linkSimple),
                   label: Text('فقط با لینک'),
                 ),
                 ButtonSegment(
                   value: true,
-                  icon: Icon(NafirIcons.globe),
+                  icon: Icon(RhythmoIcons.globe),
                   label: Text('عمومی'),
                 ),
               ],
@@ -537,13 +537,13 @@ class _ShareSheetState extends State<_ShareSheet> {
                   ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('لینک کپی شد.')));
                 },
-                icon: const Icon(NafirIcons.copy),
+                icon: const Icon(RhythmoIcons.copy),
                 label: const Text('کپی لینک'),
               ),
               const SizedBox(height: 8),
               TextButton.icon(
                 onPressed: _busy ? null : _unshare,
-                icon: const Icon(NafirIcons.linkBreak),
+                icon: const Icon(RhythmoIcons.linkBreak),
                 label: const Text('لغو اشتراک (لینک فعلی باطل می‌شود)'),
               ),
             ] else
@@ -553,7 +553,7 @@ class _ShareSheetState extends State<_ShareSheet> {
                     : () => _share(
                         public: _public,
                         failure: 'ساخت لینک ناموفق بود. دوباره تلاش کن.'),
-                icon: const Icon(NafirIcons.linkSimple),
+                icon: const Icon(RhythmoIcons.linkSimple),
                 label: const Text('ساخت لینک اشتراک'),
               ),
             if (_error case final error?)

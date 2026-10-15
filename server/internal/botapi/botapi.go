@@ -16,11 +16,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mhdolatabadi/nafir/server/internal/bot"
+	"github.com/mhdolatabadi/rhythmo/server/internal/bot"
 )
 
 type Config struct {
-	// Name is the provider name Nafir uses, for example "bale".
+	// Name is the provider name rhythmo uses, for example "bale".
 	Name string
 	// BaseURL is the API origin, for example https://tapi.bale.ai. Methods
 	// are called at {BaseURL}/bot{token}/{method} and files are downloaded

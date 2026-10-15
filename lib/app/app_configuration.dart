@@ -16,7 +16,7 @@ abstract final class AppConfiguration {
     return uri;
   }
 
-  /// A public page of the Nafir site, such as `/privacy`, which is served
+  /// A public page of the rhythmo site, such as `/privacy`, which is served
   /// from the same origin as the API.
   static Uri? sitePage(String path) => apiBaseUri?.resolve(path);
 

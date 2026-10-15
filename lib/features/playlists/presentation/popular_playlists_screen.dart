@@ -1,16 +1,16 @@
-import 'package:nafir/core/persian_digits.dart';
+import 'package:rhythmo/core/persian_digits.dart';
 import 'package:flutter/material.dart';
-import 'package:nafir/core/design/design.dart';
-import 'package:nafir/app/app_configuration.dart';
-import 'package:nafir/core/links/open_link.dart';
-import 'package:nafir/core/links/site_page.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/features/auth/presentation/sign_in_prompt.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/player/presentation/mini_player.dart';
-import 'package:nafir/features/playlists/application/playlists_controller.dart';
-import 'package:nafir/features/playlists/data/playlist.dart';
-import 'package:nafir/features/playlists/presentation/shared_playlist_screen.dart';
+import 'package:rhythmo/core/design/design.dart';
+import 'package:rhythmo/app/app_configuration.dart';
+import 'package:rhythmo/core/links/open_link.dart';
+import 'package:rhythmo/core/links/site_page.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/features/auth/presentation/sign_in_prompt.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/player/presentation/mini_player.dart';
+import 'package:rhythmo/features/playlists/application/playlists_controller.dart';
+import 'package:rhythmo/features/playlists/data/playlist.dart';
+import 'package:rhythmo/features/playlists/presentation/shared_playlist_screen.dart';
 
 /// Playlists their owners made public, most liked first. Link-only
 /// playlists are never listed here.
@@ -135,7 +135,7 @@ class _PopularPlaylistsScreenState extends State<PopularPlaylistsScreen> {
               onPressed: () => openSitePage(context, '/privacy',
                   siteUri: widget.siteUri, openLink: widget.openLink),
               tooltip: 'حریم خصوصی',
-              icon: const Icon(NafirIcons.shieldCheck),
+              icon: const Icon(RhythmoIcons.shieldCheck),
             ),
           if (widget.onSignIn != null && !controller.signedIn)
             Padding(
@@ -149,28 +149,28 @@ class _PopularPlaylistsScreenState extends State<PopularPlaylistsScreen> {
         ],
       ),
       bottomNavigationBar: MiniPlayer(player: widget.player),
-      body: NafirBackdrop(
+      body: RhythmoBackdrop(
         child: ListenableBuilder(
           listenable: controller,
           builder: (context, _) {
             final popular = controller.popular;
             return switch (controller.popularStatus) {
               PlaylistsStatus.loading when popular.isEmpty =>
-                const NafirStateView.loading(
+                const RhythmoStateView.loading(
                     title: 'در حال دریافت فهرست‌های محبوب…'),
               PlaylistsStatus.error when popular.isEmpty =>
-                NafirStateView.error(
-                  icon: NafirIcons.cloudSlash,
+                RhythmoStateView.error(
+                  icon: RhythmoIcons.cloudSlash,
                   title: 'فهرست‌های پخش محبوب بارگذاری نشد.',
                   message: 'اتصال را بررسی کن و دوباره تلاش کن.',
                   action: FilledButton.icon(
                     onPressed: controller.loadPopular,
-                    icon: const Icon(NafirIcons.arrowsClockwise),
+                    icon: const Icon(RhythmoIcons.arrowsClockwise),
                     label: const Text('تلاش دوباره'),
                   ),
                 ),
-              _ when popular.isEmpty => const NafirStateView(
-                  icon: NafirIcons.globe,
+              _ when popular.isEmpty => const RhythmoStateView(
+                  icon: RhythmoIcons.globe,
                   title: 'هنوز فهرست پخش عمومی‌ای نیست',
                   message: 'وقتی فهرست پخشی را به اشتراک می‌گذاری، «عمومی» '
                       'را انتخاب کن تا اینجا نشان داده شود.',
@@ -216,30 +216,31 @@ class _PopularGrid extends StatelessWidget {
   final ValueChanged<PublicPlaylist> onLike;
 
   /// Below the square cover: the title and count beside a 48 px like.
-  static const _textHeight = NafirSpace.sm + NafirSpace.target + NafirSpace.xs;
+  static const _textHeight =
+      RhythmoSpace.sm + RhythmoSpace.target + RhythmoSpace.xs;
 
   @override
   Widget build(BuildContext context) {
     // The scaffold extends the body under the mini player and reports the
     // player's height, with the system inset, as bottom padding.
-    final bottom = MediaQuery.paddingOf(context).bottom + NafirSpace.xxl;
+    final bottom = MediaQuery.paddingOf(context).bottom + RhythmoSpace.xxl;
     return LayoutBuilder(builder: (context, constraints) {
-      final width = constraints.maxWidth.clamp(0.0, NafirSpace.pageWidth);
-      final gutter = width >= 600 ? NafirSpace.xxl : NafirSpace.lg;
+      final width = constraints.maxWidth.clamp(0.0, RhythmoSpace.pageWidth);
+      final gutter = width >= 600 ? RhythmoSpace.xxl : RhythmoSpace.lg;
       final inner = width - gutter * 2;
       final columns = (inner / 200).floor().clamp(2, 5);
-      final tile = (inner - NafirSpace.md * (columns - 1)) / columns;
+      final tile = (inner - RhythmoSpace.md * (columns - 1)) / columns;
       final side = (constraints.maxWidth - width) / 2 + gutter;
       return CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverPadding(
-            padding: EdgeInsets.fromLTRB(side, NafirSpace.md, side, bottom),
+            padding: EdgeInsets.fromLTRB(side, RhythmoSpace.md, side, bottom),
             sliver: SliverGrid.builder(
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: columns,
-                mainAxisSpacing: NafirSpace.lg,
-                crossAxisSpacing: NafirSpace.md,
+                mainAxisSpacing: RhythmoSpace.lg,
+                crossAxisSpacing: RhythmoSpace.md,
                 mainAxisExtent: tile + _textHeight,
               ),
               itemCount: popular.length,
@@ -304,7 +305,7 @@ class _PopularTile extends StatelessWidget {
                   child: Material(
                     clipBehavior: Clip.antiAlias,
                     shape: const RoundedRectangleBorder(
-                        borderRadius: NafirRadii.surface),
+                        borderRadius: RhythmoRadii.surface),
                     child: InkWell(
                       onTap: onOpen,
                       child: _MosaicCover(
@@ -315,19 +316,19 @@ class _PopularTile extends StatelessWidget {
                 ),
               ),
               PositionedDirectional(
-                top: NafirSpace.sm,
-                start: NafirSpace.sm,
+                top: RhythmoSpace.sm,
+                start: RhythmoSpace.sm,
                 child: _RankBadge(rank: rank),
               ),
               PositionedDirectional(
-                bottom: NafirSpace.sm,
-                end: NafirSpace.sm,
+                bottom: RhythmoSpace.sm,
+                end: RhythmoSpace.sm,
                 child: IconButton.filled(
                   tooltip: 'پخش ${playlist.name}',
                   onPressed:
                       loading || playlist.trackCount == 0 ? null : onPlay,
                   style: IconButton.styleFrom(
-                    minimumSize: const Size.square(NafirSpace.target),
+                    minimumSize: const Size.square(RhythmoSpace.target),
                     backgroundColor: scheme.primary,
                     foregroundColor: scheme.onPrimary,
                   ),
@@ -337,22 +338,22 @@ class _PopularTile extends StatelessWidget {
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: scheme.onPrimary),
                         )
-                      : const Icon(NafirIcons.playFill),
+                      : const Icon(RhythmoIcons.playFill),
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: NafirSpace.sm),
+        const SizedBox(height: RhythmoSpace.sm),
         Row(
           children: [
             Expanded(
               child: InkWell(
                 onTap: onOpen,
-                borderRadius: NafirRadii.control,
+                borderRadius: RhythmoRadii.control,
                 child: Padding(
                   padding:
-                      const EdgeInsetsDirectional.only(start: NafirSpace.xs),
+                      const EdgeInsetsDirectional.only(start: RhythmoSpace.xs),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -401,17 +402,17 @@ class _RankBadge extends StatelessWidget {
     return Container(
       constraints: const BoxConstraints(minWidth: 32),
       padding: const EdgeInsets.symmetric(
-          horizontal: NafirSpace.sm, vertical: NafirSpace.xxs),
+          horizontal: RhythmoSpace.sm, vertical: RhythmoSpace.xxs),
       decoration: BoxDecoration(
-        color: top ? theme.colorScheme.primary : NafirColors.scrim,
-        borderRadius: BorderRadius.circular(NafirRadii.pill),
+        color: top ? theme.colorScheme.primary : RhythmoColors.scrim,
+        borderRadius: BorderRadius.circular(RhythmoRadii.pill),
       ),
       child: Text(
         persianDigits(rank),
         textAlign: TextAlign.center,
         style: theme.textTheme.labelLarge?.copyWith(
           fontWeight: FontWeight.w800,
-          color: top ? theme.colorScheme.onPrimary : NafirColors.onSurface,
+          color: top ? theme.colorScheme.onPrimary : RhythmoColors.onSurface,
         ),
       ),
     );
@@ -432,8 +433,8 @@ class _MosaicCover extends StatelessWidget {
     Widget square(int i) => ColoredBox(
           color: artworkTint('$seed-$i'),
           child: Center(
-            child: Icon(NafirIcons.musicNotes,
-                color: NafirColors.onSurface.withValues(alpha: 0.32)),
+            child: Icon(RhythmoIcons.musicNotes,
+                color: RhythmoColors.onSurface.withValues(alpha: 0.32)),
           ),
         );
     final count = tiles.clamp(1, 4);

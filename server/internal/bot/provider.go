@@ -1,4 +1,4 @@
-// Package bot lets people sign in to Nafir and import audio from messenger
+// Package bot lets people sign in to rhythmo and import audio from messenger
 // bots. It knows nothing about any one messenger: each is a Provider, and the
 // same commands, login flow and import pipeline serve all of them.
 package bot
@@ -9,7 +9,7 @@ import (
 	"io"
 )
 
-// Update is one incoming message, already reduced to what Nafir uses.
+// Update is one incoming message, already reduced to what rhythmo uses.
 type Update struct {
 	// ID is the provider's update ID; redeliveries repeat it.
 	ID        string

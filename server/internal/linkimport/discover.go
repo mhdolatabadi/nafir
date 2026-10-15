@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mhdolatabadi/nafir/server/internal/audio"
+	"github.com/mhdolatabadi/rhythmo/server/internal/audio"
 	"golang.org/x/net/html"
 )
 

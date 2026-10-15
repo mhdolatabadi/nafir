@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mhdolatabadi/nafir/server/internal/auth"
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/auth"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 func TestHistoryAPI(t *testing.T) {

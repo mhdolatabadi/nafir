@@ -1,4 +1,4 @@
-import 'package:nafir/features/library/data/track.dart';
+import 'package:rhythmo/features/library/data/track.dart';
 
 /// Tracks that share an album or an artist.
 class TrackGroup {

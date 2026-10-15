@@ -3,8 +3,8 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/features/library/data/track_download.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/features/library/data/track_download.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// Downloads into the app's cache as a `.part` file, checks that every byte
@@ -30,7 +30,7 @@ class AndroidTrackDownloader implements TrackDownloader {
   final MethodChannel _channel;
 
   static Future<Directory> _defaultWorkDirectory() async =>
-      Directory('${(await getTemporaryDirectory()).path}/nafir_downloads');
+      Directory('${(await getTemporaryDirectory()).path}/rhythmo_downloads');
 
   @override
   bool get savesToDevice => _android;

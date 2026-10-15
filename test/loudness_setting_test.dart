@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/app/app_theme.dart';
-import 'package:nafir/features/player/application/playback_settings.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/player/data/loudness.dart';
-import 'package:nafir/features/settings/presentation/loudness_setting.dart';
+import 'package:rhythmo/app/app_theme.dart';
+import 'package:rhythmo/features/player/application/playback_settings.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/player/data/loudness.dart';
+import 'package:rhythmo/features/settings/presentation/loudness_setting.dart';
 
 import 'player_controller_test.dart' show FakeAudioEngine;
 import 'upload_controller_test.dart' show FakeTracksApi;
@@ -27,7 +27,7 @@ void main() {
       locale: const Locale('fa'),
       supportedLocales: const [Locale('fa')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: NafirTheme.dark(),
+      theme: RhythmoTheme.dark(),
       home:
           Scaffold(body: ListView(children: [LoudnessSetting(player: player)])),
     ));

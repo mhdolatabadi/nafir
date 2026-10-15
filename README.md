@@ -78,7 +78,7 @@ sign in or register. The access token is kept in Android Keystore or encrypted
 browser storage on the web.
 
 Every push to `main` also builds a debug Android APK. Download the
-`nafir-android-debug` artifact from the corresponding **Quality checks** run in
+`rhythmo-android-debug` artifact from the corresponding **Quality checks** run in
 GitHub Actions. The Android application ID is `ir.mhdolatabadi.nafir`, and the
 artifact is retained for 14 days. The APK talks to `https://rhythmo.ir`;
 set the repository variable `NAFIR_API_BASE_URL` to point it elsewhere.
@@ -115,7 +115,7 @@ For example, encode a keystore on macOS with
 secret. Keep the keystore and passwords backed up: future updates must be
 signed with the same key. The workflow derives the app version from the tag,
 builds `ir.mhdolatabadi.nafir`, generates release notes and attaches
-`nafir-vX.Y.Z-android.apk` to the GitHub Release.
+`rhythmo-vX.Y.Z-android.apk` to the GitHub Release.
 
 ## Deploy
 

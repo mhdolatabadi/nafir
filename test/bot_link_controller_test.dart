@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/features/bots/application/bot_link_controller.dart';
-import 'package:nafir/features/bots/data/messenger_bot.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/features/bots/application/bot_link_controller.dart';
+import 'package:rhythmo/features/bots/data/messenger_bot.dart';
 
 const baleBot =
     MessengerBot(provider: 'bale', name: 'بله', username: 'NafirBot');

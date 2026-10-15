@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/features/settings/data/device_settings.dart';
-import 'package:nafir/features/settings/presentation/device_settings_pages.dart';
+import 'package:rhythmo/features/settings/data/device_settings.dart';
+import 'package:rhythmo/features/settings/presentation/device_settings_pages.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

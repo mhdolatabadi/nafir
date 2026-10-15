@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:nafir/features/library/data/track.dart';
+import 'package:rhythmo/features/library/data/track.dart';
 
 /// Account-scoped progress on this device. No listening data is published.
 class ListeningJourney extends ChangeNotifier {

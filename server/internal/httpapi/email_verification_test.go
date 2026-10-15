@@ -13,9 +13,9 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/mhdolatabadi/nafir/server/internal/auth"
-	"github.com/mhdolatabadi/nafir/server/internal/mail"
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/auth"
+	"github.com/mhdolatabadi/rhythmo/server/internal/mail"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 // fakeMailer keeps what would have been sent.

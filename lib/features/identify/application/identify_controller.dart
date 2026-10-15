@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/features/identify/data/snippet_recorder.dart';
-import 'package:nafir/features/library/data/track.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/features/identify/data/snippet_recorder.dart';
+import 'package:rhythmo/features/library/data/track.dart';
 
 enum IdentifyPhase {
   /// Explains what happens before the microphone is asked for.

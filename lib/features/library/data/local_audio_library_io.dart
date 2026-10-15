@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/services.dart';
-import 'package:nafir/features/library/data/local_audio_library.dart';
-import 'package:nafir/features/library/data/track.dart';
+import 'package:rhythmo/features/library/data/local_audio_library.dart';
+import 'package:rhythmo/features/library/data/track.dart';
 
 class AndroidLocalAudioLibrary implements LocalAudioLibrary {
   static const _channel = MethodChannel('ir.mhdolatabadi.nafir/local_audio');

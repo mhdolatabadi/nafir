@@ -10,9 +10,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/mhdolatabadi/nafir/server/internal/storage"
-	"github.com/mhdolatabadi/nafir/server/internal/store"
-	"github.com/mhdolatabadi/nafir/server/internal/tags"
+	"github.com/mhdolatabadi/rhythmo/server/internal/storage"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/tags"
 )
 
 // Store is the queue of tracks to scan; *store.Tracks implements it.

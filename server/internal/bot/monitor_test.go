@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 type fakeInspector struct {

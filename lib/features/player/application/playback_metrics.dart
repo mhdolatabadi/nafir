@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
 
 /// How one play of a track went: how long from asking to hearing it, and how
 /// often it stopped to buffer afterwards.

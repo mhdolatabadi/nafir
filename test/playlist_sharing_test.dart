@@ -1,15 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/playlists/application/playlists_controller.dart';
-import 'package:nafir/features/playlists/data/playlist.dart';
-import 'package:nafir/features/playlists/presentation/popular_playlists_screen.dart';
-import 'package:nafir/features/playlists/presentation/shared_playlist_screen.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/playlists/application/playlists_controller.dart';
+import 'package:rhythmo/features/playlists/data/playlist.dart';
+import 'package:rhythmo/features/playlists/presentation/popular_playlists_screen.dart';
+import 'package:rhythmo/features/playlists/presentation/shared_playlist_screen.dart';
 
 import 'player_controller_test.dart' show FakeAudioEngine;
 import 'upload_controller_test.dart' show FakeTracksApi;
@@ -528,11 +528,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('پسندیدن · ۰'), findsOneWidget);
-      expect(find.byIcon(NafirIcons.heart), findsOneWidget);
+      expect(find.byIcon(RhythmoIcons.heart), findsOneWidget);
       await tester.tap(find.text('پسندیدن · ۰'));
       await tester.pumpAndSettle();
       expect(find.text('پسندیدی · ۱'), findsOneWidget);
-      expect(find.byIcon(NafirIcons.heartFill), findsOneWidget);
+      expect(find.byIcon(RhythmoIcons.heartFill), findsOneWidget);
       expect(find.bySemanticsLabel('پسندیده‌ای، ۱ پسند'), findsOneWidget);
 
       api.likeStatus = 503;
@@ -609,7 +609,7 @@ void main() {
         await tester.tap(find.text('۵'));
         await tester.pumpAndSettle();
         expect(api.likeCalls, [true]);
-        expect(find.byIcon(NafirIcons.heartFill), findsOneWidget);
+        expect(find.byIcon(RhythmoIcons.heartFill), findsOneWidget);
       });
 
       testWidgets('a guest opens a shared link and plays it', (tester) async {

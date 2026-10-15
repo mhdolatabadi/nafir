@@ -1,6 +1,6 @@
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/features/player/data/volume_ramp.dart';
+import 'package:rhythmo/features/player/data/volume_ramp.dart';
 
 void main() {
   test('fades smoothly to the target over the given time', () {

@@ -1,4 +1,4 @@
--- Messenger bots: which Nafir account a private chat is linked to, the
+-- Messenger bots: which rhythmo account a private chat is linked to, the
 -- one-time codes that link them, processed updates, and audio imports.
 CREATE TABLE IF NOT EXISTS bot_chats (
     provider text NOT NULL,

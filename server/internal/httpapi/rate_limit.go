@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const clientIPHeader = "X-Nafir-Client-IP"
+const clientIPHeader = "X-rhythmo-Client-IP"
 
 type RateLimit struct {
 	Requests int
@@ -22,7 +22,7 @@ type rateBucket struct {
 }
 
 // RateLimiter is a bounded in-memory fixed-window limiter. Limits are local to
-// one API process; Nafir currently deploys one API replica.
+// one API process; rhythmo currently deploys one API replica.
 type RateLimiter struct {
 	mu         sync.Mutex
 	limit      RateLimit
@@ -99,7 +99,7 @@ func enforceRateLimit(w http.ResponseWriter, limiter *RateLimiter, key string) b
 }
 
 // clientIP is the client's identity for per-IP rate limits. It trusts only a
-// private header overwritten by Nafir's Caddy config; RemoteAddr remains the
+// private header overwritten by rhythmo's Caddy config; RemoteAddr remains the
 // safe fallback for local development and tests. An IPv6 client is limited
 // by its /64, since one host usually controls a whole /64 (#215).
 func clientIP(r *http.Request) string {

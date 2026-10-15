@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:nafir/app/app_preferences.dart';
-import 'package:nafir/features/settings/presentation/settings_screen.dart';
+import 'package:rhythmo/app/app_preferences.dart';
+import 'package:rhythmo/features/settings/presentation/settings_screen.dart';
 import 'package:flutter/gestures.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/features/auth/data/auth_models.dart';
-import 'package:nafir/features/auth/data/token_store.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/library/presentation/track_metadata_editor.dart';
-import 'package:nafir/features/link_import/data/link_import.dart';
-import 'package:nafir/features/upload/data/audio_picker.dart';
-import 'package:nafir/features/upload/data/upload_models.dart';
-import 'package:nafir/features/library/application/library_controller.dart'
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/features/auth/data/auth_models.dart';
+import 'package:rhythmo/features/auth/data/token_store.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/library/presentation/track_metadata_editor.dart';
+import 'package:rhythmo/features/link_import/data/link_import.dart';
+import 'package:rhythmo/features/upload/data/audio_picker.dart';
+import 'package:rhythmo/features/upload/data/upload_models.dart';
+import 'package:rhythmo/features/library/application/library_controller.dart'
     show importPollDelays;
-import 'package:nafir/features/player/presentation/mini_player.dart';
-import 'package:nafir/main.dart';
+import 'package:rhythmo/features/player/presentation/mini_player.dart';
+import 'package:rhythmo/main.dart';
 
 import 'bot_link_controller_test.dart' show FakeBotsApi, linkedBale;
 import 'cache_controller_test.dart' show FakeAudioCache;
@@ -137,7 +137,7 @@ Future<void> _pumpApp(
   bool settle = true,
   AppPreferencesStore? appPreferencesStore,
 }) async {
-  await tester.pumpWidget(NafirApp(
+  await tester.pumpWidget(RhythmoApp(
     healthCheck: () async {},
     appPreferencesStore: appPreferencesStore ?? MemoryAppPreferencesStore(),
     authApi: api ?? FakeAuthApi(),
@@ -239,14 +239,14 @@ void main() {
   testWidgets('shows setup instructions without API configuration', (
     tester,
   ) async {
-    await tester.pumpWidget(const NafirApp());
+    await tester.pumpWidget(const RhythmoApp());
 
     expect(find.textContaining('API_BASE_URL'), findsOneWidget);
   });
 
   testWidgets('shows retry when the API is unavailable', (tester) async {
     await tester.pumpWidget(
-      NafirApp(healthCheck: () async => throw Exception('offline')),
+      RhythmoApp(healthCheck: () async => throw Exception('offline')),
     );
     await tester.pumpAndSettle();
 
@@ -447,7 +447,7 @@ void main() {
     final tokens = MemoryTokenStore('valid-token');
     await _pumpApp(tester, tokenStore: tokens);
 
-    await tester.tap(find.byIcon(NafirIcons.signOut));
+    await tester.tap(find.byIcon(RhythmoIcons.signOut));
     await tester.pumpAndSettle();
 
     expect(find.text('ورود به ریتمو'), findsOneWidget);
@@ -1311,7 +1311,7 @@ void main() {
     );
     expect(find.text('Private'), findsOneWidget);
 
-    await tester.tap(find.byIcon(NafirIcons.signOut));
+    await tester.tap(find.byIcon(RhythmoIcons.signOut));
     await tester.pumpAndSettle();
     tracks.tracks.clear();
     await _submit(tester, 'listener@example.com', 'correct horse');
@@ -1331,7 +1331,7 @@ void main() {
     final width = tester.getSize(find.byType(Scaffold).first).width;
     expect(tester.getCenter(find.byType(FloatingActionButton)).dx,
         lessThan(width / 2));
-    expect(tester.getCenter(find.byIcon(NafirIcons.signOut)).dx,
+    expect(tester.getCenter(find.byIcon(RhythmoIcons.signOut)).dx,
         lessThan(width / 2));
   });
 
@@ -1360,7 +1360,7 @@ void main() {
     expect(
         find.descendant(
             of: find.widgetWithText(ListTile, 'Song'),
-            matching: find.byIcon(NafirIcons.waveformFill)),
+            matching: find.byIcon(RhythmoIcons.waveformFill)),
         findsOneWidget);
     expect(find.bySemanticsLabel(RegExp('در حال پخش')), findsWidgets);
 
@@ -1543,12 +1543,12 @@ void main() {
     expect(find.byTooltip('تکرار: همه'), findsOneWidget);
     await tester.tap(find.byTooltip('تکرار: همه'));
     await tester.pumpAndSettle();
-    expect(find.byIcon(NafirIcons.repeatOnceFill), findsOneWidget);
+    expect(find.byIcon(RhythmoIcons.repeatOnceFill), findsOneWidget);
 
     await tester.tap(find.byTooltip('پخش تصادفی'));
     await tester.pumpAndSettle();
     final shuffle = tester.widget<IconButton>(find.ancestor(
-        of: find.byIcon(NafirIcons.shuffleFill),
+        of: find.byIcon(RhythmoIcons.shuffleFill),
         matching: find.byType(IconButton)));
     expect(shuffle.isSelected, isTrue);
   });

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:nafir/app/app_preferences.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
+import 'package:rhythmo/app/app_preferences.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
 
 String themeModeLabel(ThemeMode mode) => switch (mode) {
       ThemeMode.system => 'همراه تنظیم دستگاه',
@@ -111,7 +111,8 @@ class ManageTabsScreen extends StatelessWidget {
                                 message: 'برای جابه‌جایی بکش',
                                 child: SizedBox.square(
                                     dimension: 48,
-                                    child: Icon(NafirIcons.dotsSixVertical)))));
+                                    child:
+                                        Icon(RhythmoIcons.dotsSixVertical)))));
                   });
             }),
       );

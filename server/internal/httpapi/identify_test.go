@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mhdolatabadi/nafir/server/internal/auth"
-	"github.com/mhdolatabadi/nafir/server/internal/fingerprint"
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/auth"
+	"github.com/mhdolatabadi/rhythmo/server/internal/fingerprint"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 // songPoints is a made-up fingerprint for each "song" a test snippet

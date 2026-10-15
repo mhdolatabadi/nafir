@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:nafir/core/search_text.dart';
+import 'package:rhythmo/core/search_text.dart';
 
 /// Where recent searches are kept between launches.
 abstract interface class RecentSearchesStore {

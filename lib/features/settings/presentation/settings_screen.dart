@@ -1,25 +1,25 @@
-import 'package:nafir/features/journey/presentation/journey_widgets.dart';
+import 'package:rhythmo/features/journey/presentation/journey_widgets.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:nafir/core/design/design.dart';
-import 'package:nafir/features/settings/presentation/device_settings_pages.dart';
-import 'package:nafir/app/app_preferences.dart';
-import 'package:nafir/features/settings/presentation/appearance_settings_section.dart';
-import 'package:nafir/app/app_configuration.dart';
-import 'package:nafir/core/links/open_link.dart';
-import 'package:nafir/core/links/site_page.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/core/format_size.dart';
-import 'package:nafir/features/bots/application/bot_link_controller.dart';
-import 'package:nafir/features/bots/presentation/bot_link_section.dart';
-import 'package:nafir/features/debug/presentation/design_gallery.dart';
-import 'package:nafir/features/library/application/library_controller.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/settings/presentation/playback_settings_section.dart';
-import 'package:nafir/features/settings/presentation/queue_settings_section.dart';
-import 'package:nafir/features/settings/application/cache_controller.dart';
-import 'package:nafir/features/settings/presentation/delete_account_screen.dart';
-import 'package:nafir/features/settings/presentation/storage_usage_card.dart';
+import 'package:rhythmo/core/design/design.dart';
+import 'package:rhythmo/features/settings/presentation/device_settings_pages.dart';
+import 'package:rhythmo/app/app_preferences.dart';
+import 'package:rhythmo/features/settings/presentation/appearance_settings_section.dart';
+import 'package:rhythmo/app/app_configuration.dart';
+import 'package:rhythmo/core/links/open_link.dart';
+import 'package:rhythmo/core/links/site_page.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/core/format_size.dart';
+import 'package:rhythmo/features/bots/application/bot_link_controller.dart';
+import 'package:rhythmo/features/bots/presentation/bot_link_section.dart';
+import 'package:rhythmo/features/debug/presentation/design_gallery.dart';
+import 'package:rhythmo/features/library/application/library_controller.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/settings/presentation/playback_settings_section.dart';
+import 'package:rhythmo/features/settings/presentation/queue_settings_section.dart';
+import 'package:rhythmo/features/settings/application/cache_controller.dart';
+import 'package:rhythmo/features/settings/presentation/delete_account_screen.dart';
+import 'package:rhythmo/features/settings/presentation/storage_usage_card.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
@@ -45,7 +45,7 @@ class SettingsScreen extends StatefulWidget {
   /// Ends the account's sessions on every other device; null hides it.
   final Future<void> Function()? onSignOutEverywhere;
 
-  /// Where a page of the Nafir site, such as `/privacy`, lives; null when
+  /// Where a page of the rhythmo site, such as `/privacy`, lives; null when
   /// there is no server.
   final SitePageResolver siteUri;
 
@@ -75,7 +75,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _clear() async {
-    final confirmed = await showNafirConfirm(
+    final confirmed = await showRhythmoConfirm(
       context,
       title: 'کش پاک شود؟',
       message:
@@ -93,7 +93,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _signOutEverywhere(Future<void> Function() signOut) async {
-    final confirmed = await showNafirConfirm(
+    final confirmed = await showRhythmoConfirm(
       context,
       title: 'از همه‌ی دستگاه‌ها خارج شوی؟',
       message: 'روی همه‌ی گوشی‌ها و مرورگرهای دیگر از حسابت خارج می‌شوی و باید '
@@ -137,7 +137,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // Centred and capped on desktop, so rows never span the window.
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: NafirSpace.listWidth),
+          constraints: const BoxConstraints(maxWidth: RhythmoSpace.listWidth),
           child: ListView(
             // System navigation never covers the last item.
             padding: EdgeInsets.only(
@@ -154,7 +154,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 AppearanceSettingsSection(preferences: preferences),
               if (widget.onManagePlaylists case final manage?)
                 ListTile(
-                  leading: const Icon(NafirIcons.playlist),
+                  leading: const Icon(RhythmoIcons.playlist),
                   title: const Text('مدیریت فهرست‌های پخش'),
                   onTap: manage,
                 ),
@@ -183,7 +183,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     final cache = widget.cache;
                     final size = cache.sizeBytes;
                     return ListTile(
-                      leading: const Icon(NafirIcons.database),
+                      leading: const Icon(RhythmoIcons.database),
                       title: Text(switch ((size, cache.failed)) {
                         (_, true) => 'حجم کش معلوم نشد',
                         (null, _) => 'در حال محاسبه…',
@@ -198,7 +198,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 )
               else
                 const ListTile(
-                  leading: Icon(NafirIcons.globe),
+                  leading: Icon(RhythmoIcons.globe),
                   title: Text('در نسخه‌ی وب، کش را خود مرورگر مدیریت می‌کند.'),
                 ),
               if (widget.botLinks case final botLinks?)
@@ -227,16 +227,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
               ),
               ListTile(
-                leading: const Icon(NafirIcons.shieldCheck),
+                leading: const Icon(RhythmoIcons.shieldCheck),
                 title: const Text('حریم خصوصی'),
                 subtitle:
                     const Text('چه چیزهایی نگه می‌داریم و چه کسی می‌بیند'),
-                trailing: const Icon(NafirIcons.arrowSquareOut, size: 20),
+                trailing: const Icon(RhythmoIcons.arrowSquareOut, size: 20),
                 onTap: () => _openPage('/privacy'),
               ),
               if (widget.onSignOutEverywhere case final signOut?)
                 ListTile(
-                  leading: const Icon(NafirIcons.signOut),
+                  leading: const Icon(RhythmoIcons.signOut),
                   title: const Text('خروج از همه‌ی دستگاه‌ها'),
                   subtitle: const Text(
                     'اگر گوشی یا رمزت دست کس دیگری افتاده، بقیه‌ی نشست‌ها را ببند',
@@ -246,23 +246,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
               if ((widget.email, widget.onDeleteAccount)
                   case (final String email, final delete?))
                 ListTile(
-                  leading: Icon(NafirIcons.userCircleMinus, color: error),
+                  leading: Icon(RhythmoIcons.userCircleMinus, color: error),
                   iconColor: error,
                   textColor: error,
                   title: const Text('حذف حساب کاربری'),
                   subtitle: const Text(
                     'حساب، موسیقی‌های ابری و فهرست‌های پخشت برای همیشه پاک می‌شوند',
                   ),
-                  trailing: const Icon(NafirIcons.caretLeft, size: 20),
+                  trailing: const Icon(RhythmoIcons.caretLeft, size: 20),
                   onTap: () => _openDeleteAccount(email, delete),
                 ),
               // Debug builds only: every token and component on one page.
               if (kDebugMode)
                 ListTile(
-                  leading: const Icon(NafirIcons.gauge),
+                  leading: const Icon(RhythmoIcons.gauge),
                   title: const Text('سامانهٔ طراحی'),
                   subtitle: const Text('فقط در نسخهٔ آزمایشی'),
-                  trailing: const Icon(NafirIcons.caretLeft, size: 20),
+                  trailing: const Icon(RhythmoIcons.caretLeft, size: 20),
                   onTap: () => openDesignGallery(context),
                 ),
             ],
