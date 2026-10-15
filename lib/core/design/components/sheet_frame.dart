@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:nafir/core/design/components/section_header.dart';
-import 'package:nafir/core/design/tokens.dart';
+import 'package:rhythmo/core/design/components/section_header.dart';
+import 'package:rhythmo/core/design/tokens.dart';
 
 /// The inside of a bottom sheet: a heading, optional actions, then the
-/// body filling the rest. Pair it with [showNafirSheet].
-class NafirSheetFrame extends StatelessWidget {
-  const NafirSheetFrame({
+/// body filling the rest. Pair it with [showRhythmoSheet].
+class RhythmoSheetFrame extends StatelessWidget {
+  const RhythmoSheetFrame({
     super.key,
     required this.title,
     this.subtitle,
@@ -26,12 +26,12 @@ class NafirSheetFrame extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        NafirSectionHeader(
+        RhythmoSectionHeader(
           title: title,
           subtitle: subtitle,
           trailing: trailing,
           padding: const EdgeInsetsDirectional.fromSTEB(
-              NafirSpace.xxl, 0, NafirSpace.md, NafirSpace.sm),
+              RhythmoSpace.xxl, 0, RhythmoSpace.md, RhythmoSpace.sm),
         ),
         Expanded(child: child),
       ],
@@ -41,7 +41,7 @@ class NafirSheetFrame extends StatelessWidget {
 
 /// Opens a modal sheet [heightFactor] of the screen tall, inside the safe
 /// area, with the theme's drag handle.
-Future<T?> showNafirSheet<T>(
+Future<T?> showRhythmoSheet<T>(
   BuildContext context, {
   required WidgetBuilder builder,
   double heightFactor = 0.75,
@@ -59,6 +59,6 @@ Future<T?> showNafirSheet<T>(
 
 /// Bottom padding for a scrollable list inside a sheet or page, so its last
 /// row clears the gesture bar.
-EdgeInsets nafirListBottomPadding(BuildContext context,
-        {double extra = NafirSpace.lg}) =>
+EdgeInsets rhythmoListBottomPadding(BuildContext context,
+        {double extra = RhythmoSpace.lg}) =>
     EdgeInsets.only(bottom: MediaQuery.viewPaddingOf(context).bottom + extra);

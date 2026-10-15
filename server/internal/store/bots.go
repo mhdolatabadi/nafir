@@ -17,7 +17,7 @@ var (
 )
 
 // BotChat is one private chat with a bot. UserID is set while it is linked
-// to a Nafir account.
+// to a rhythmo account.
 type BotChat struct {
 	Provider string
 	ChatID   string

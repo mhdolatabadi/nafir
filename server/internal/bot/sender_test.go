@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 // newSendHarness links the listener's chat and stores one ready track.

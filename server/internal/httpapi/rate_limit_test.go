@@ -29,7 +29,7 @@ func TestRateLimiterAllowsThenResets(t *testing.T) {
 	}
 }
 
-func TestClientIPUsesOnlyNafirProxyHeader(t *testing.T) {
+func TestClientIPUsesOnlyRhythmoProxyHeader(t *testing.T) {
 	request := httptest.NewRequest("GET", "/", nil)
 	request.RemoteAddr = "192.0.2.10:1234"
 	request.Header.Set("X-Forwarded-For", "203.0.113.99")

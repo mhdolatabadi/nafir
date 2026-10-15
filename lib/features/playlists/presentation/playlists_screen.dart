@@ -1,15 +1,15 @@
-import 'package:nafir/core/search_text.dart';
-import 'package:nafir/core/persian_digits.dart';
+import 'package:rhythmo/core/search_text.dart';
+import 'package:rhythmo/core/persian_digits.dart';
 import 'package:flutter/material.dart';
-import 'package:nafir/core/design/design.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/playlists/application/playlists_controller.dart';
-import 'package:nafir/features/playlists/data/playlist.dart';
-import 'package:nafir/features/playlists/presentation/collab_sheet.dart';
-import 'package:nafir/features/playlists/presentation/popular_playlists_screen.dart';
-import 'package:nafir/features/playlists/presentation/shared_playlist_screen.dart';
+import 'package:rhythmo/core/design/design.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/playlists/application/playlists_controller.dart';
+import 'package:rhythmo/features/playlists/data/playlist.dart';
+import 'package:rhythmo/features/playlists/presentation/collab_sheet.dart';
+import 'package:rhythmo/features/playlists/presentation/popular_playlists_screen.dart';
+import 'package:rhythmo/features/playlists/presentation/shared_playlist_screen.dart';
 
 /// Joins the collaborative playlist with [collabToken] and opens it, or
 /// says why it couldn't.
@@ -205,7 +205,7 @@ class _PlaylistsViewState extends State<PlaylistsView> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           PopularPlaylistsEntry(onOpen: _openPopular),
-          const SizedBox(height: NafirSpace.md),
+          const SizedBox(height: RhythmoSpace.md),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -213,13 +213,13 @@ class _PlaylistsViewState extends State<PlaylistsView> {
             children: [
               FilledButton.tonalIcon(
                 onPressed: _create,
-                icon: const Icon(NafirIcons.listPlus),
+                icon: const Icon(RhythmoIcons.listPlus),
                 label: const Text('فهرست پخش جدید'),
               ),
               IconButton(
                 tooltip: 'باز کردن لینک اشتراک',
                 onPressed: _openLink,
-                icon: const Icon(NafirIcons.link),
+                icon: const Icon(RhythmoIcons.link),
               ),
             ],
           ),
@@ -302,7 +302,7 @@ class PopularPlaylistsEntry extends StatelessWidget {
     final scheme = theme.colorScheme;
     return Material(
       color: scheme.primaryContainer,
-      shape: const RoundedRectangleBorder(borderRadius: NafirRadii.surface),
+      shape: const RoundedRectangleBorder(borderRadius: RhythmoRadii.surface),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onOpen,
@@ -310,19 +310,19 @@ class PopularPlaylistsEntry extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 72),
           child: Padding(
             padding: const EdgeInsets.symmetric(
-                horizontal: NafirSpace.lg, vertical: NafirSpace.md),
+                horizontal: RhythmoSpace.lg, vertical: RhythmoSpace.md),
             child: Row(
               children: [
                 Container(
-                  width: NafirSpace.target,
-                  height: NafirSpace.target,
+                  width: RhythmoSpace.target,
+                  height: RhythmoSpace.target,
                   decoration: BoxDecoration(
                     color: scheme.primary,
-                    borderRadius: NafirRadii.control,
+                    borderRadius: RhythmoRadii.control,
                   ),
-                  child: Icon(NafirIcons.fire, color: scheme.onPrimary),
+                  child: Icon(RhythmoIcons.fire, color: scheme.onPrimary),
                 ),
-                const SizedBox(width: NafirSpace.md),
+                const SizedBox(width: RhythmoSpace.md),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -346,7 +346,7 @@ class PopularPlaylistsEntry extends StatelessWidget {
                     ],
                   ),
                 ),
-                Icon(NafirIcons.caretLeft, color: scheme.onPrimaryContainer),
+                Icon(RhythmoIcons.caretLeft, color: scheme.onPrimaryContainer),
               ],
             ),
           ),
@@ -420,14 +420,14 @@ class _PlaylistsOverview extends StatelessWidget {
                       padding: EdgeInsetsDirectional.only(start: 6),
                       child: Tooltip(
                         message: 'با لینک به اشتراک گذاشته شده',
-                        child: Icon(NafirIcons.linkSimple, size: 16),
+                        child: Icon(RhythmoIcons.linkSimple, size: 16),
                       ),
                     ),
                 ],
               ),
               subtitle: Text(
                   '${persianDigits(playlist.displayTrackCount)} قطعه موسیقی'),
-              trailing: const Icon(NafirIcons.caretLeft),
+              trailing: const Icon(RhythmoIcons.caretLeft),
               onTap: () => onOpen(playlist),
             ),
         ],
@@ -450,7 +450,7 @@ class _PlaylistFeatureCard extends StatelessWidget {
     return SizedBox(
       width: 148,
       child: InkWell(
-        borderRadius: BorderRadius.circular(NafirRadii.xl),
+        borderRadius: BorderRadius.circular(RhythmoRadii.xl),
         onTap: onTap,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -566,7 +566,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   Future<void> _leave() async {
     final current = playlist;
     if (current == null) return;
-    final confirmed = await showNafirConfirm(
+    final confirmed = await showRhythmoConfirm(
       context,
       title: 'ترک فهرست پخش؟',
       message:
@@ -626,7 +626,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   Future<void> _delete() async {
     final current = playlist;
     if (current == null) return;
-    final confirmed = await showNafirConfirm(
+    final confirmed = await showRhythmoConfirm(
       context,
       title: 'حذف فهرست پخش؟',
       message: 'آهنگ‌های کتابخانه حذف نمی‌شوند.',
@@ -660,39 +660,39 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
             IconButton(
               tooltip: 'ترک فهرست پخش',
               onPressed: _leave,
-              icon: const Icon(NafirIcons.signOut),
+              icon: const Icon(RhythmoIcons.signOut),
             )
           else ...[
             IconButton(
               tooltip: 'دعوت دوستان و مدیریت اعضا',
               onPressed: current == null ? null : _collab,
               icon: Icon(current?.collabToken == null
-                  ? NafirIcons.userPlus
-                  : NafirIcons.usersFill),
+                  ? RhythmoIcons.userPlus
+                  : RhythmoIcons.usersFill),
             ),
             IconButton(
               tooltip: 'اشتراک‌گذاری',
               onPressed: current == null ? null : _share,
               icon: Icon(current?.shareToken == null
-                  ? NafirIcons.shareNetwork
-                  : NafirIcons.link),
+                  ? RhythmoIcons.shareNetwork
+                  : RhythmoIcons.link),
             ),
             IconButton(
               tooltip: 'تغییر نام',
               onPressed: current == null ? null : _rename,
-              icon: const Icon(NafirIcons.pencilSimple),
+              icon: const Icon(RhythmoIcons.pencilSimple),
             ),
             IconButton(
               tooltip: 'حذف',
               onPressed: current == null ? null : _delete,
-              icon: const Icon(NafirIcons.trash),
+              icon: const Icon(RhythmoIcons.trash),
             ),
           ],
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: current == null || busy ? null : _selectTracks,
-        icon: const Icon(NafirIcons.plusCircle),
+        icon: const Icon(RhythmoIcons.plusCircle),
         label: const Text('مدیریت آهنگ‌ها'),
       ),
       body: busy
@@ -764,7 +764,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                               onPressed: () =>
                                                   _removeTrack(track),
                                               icon: const Icon(
-                                                  NafirIcons.minusCircle),
+                                                  RhythmoIcons.minusCircle),
                                             )
                                           : null,
                                       onTap: () => widget.player
@@ -837,14 +837,14 @@ class _PlaylistDetailHeader extends StatelessWidget {
                     children: [
                       FilledButton.icon(
                         onPressed: playlist.tracks.isEmpty ? null : onPlay,
-                        icon: const Icon(NafirIcons.playFill),
+                        icon: const Icon(RhythmoIcons.playFill),
                         label: const Text('پخش'),
                       ),
                       const SizedBox(width: 8),
                       IconButton.filledTonal(
                         tooltip: 'پخش تصادفی',
                         onPressed: playlist.tracks.isEmpty ? null : onShuffle,
-                        icon: const Icon(NafirIcons.shuffle),
+                        icon: const Icon(RhythmoIcons.shuffle),
                       ),
                     ],
                   ),
@@ -875,11 +875,11 @@ class _PlaylistCover extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
-          colors: [NafirColors.primary, NafirColors.secondaryDeep],
+          colors: [RhythmoColors.primary, RhythmoColors.secondaryDeep],
         ),
         boxShadow: [
           BoxShadow(
-            color: NafirColors.primary.withValues(alpha: 0.2),
+            color: RhythmoColors.primary.withValues(alpha: 0.2),
             offset: const Offset(0, 10),
             blurRadius: 24,
           ),
@@ -889,9 +889,9 @@ class _PlaylistCover extends StatelessWidget {
         alignment: Alignment.center,
         children: [
           Icon(
-            trackCount == 0 ? NafirIcons.playlist : NafirIcons.musicNotes,
+            trackCount == 0 ? RhythmoIcons.playlist : RhythmoIcons.musicNotes,
             size: size * 0.36,
-            color: NafirColors.onBrand,
+            color: RhythmoColors.onBrand,
           ),
           PositionedDirectional(
             end: 10,
@@ -899,7 +899,7 @@ class _PlaylistCover extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: colors.surface.withValues(alpha: 0.66),
-                borderRadius: BorderRadius.circular(NafirRadii.pill),
+                borderRadius: BorderRadius.circular(RhythmoRadii.pill),
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
@@ -927,7 +927,7 @@ class _PlaylistTrackHandle extends StatelessWidget {
     return const SizedBox(
       width: 40,
       height: 40,
-      child: Icon(NafirIcons.dotsSixVertical),
+      child: Icon(RhythmoIcons.dotsSixVertical),
     );
   }
 }
@@ -962,7 +962,7 @@ class _TrackPickerState extends State<_TrackPicker> {
             TextField(
               decoration: const InputDecoration(
                 labelText: 'جست‌وجوی عنوان یا هنرمند',
-                prefixIcon: Icon(NafirIcons.magnifyingGlass),
+                prefixIcon: Icon(RhythmoIcons.magnifyingGlass),
               ),
               onChanged: (value) => setState(() => query = value),
             ),
@@ -1065,7 +1065,7 @@ class _Retry extends StatelessWidget {
   Widget build(BuildContext context) => Center(
         child: FilledButton.icon(
           onPressed: onRetry,
-          icon: const Icon(NafirIcons.arrowsClockwise),
+          icon: const Icon(RhythmoIcons.arrowsClockwise),
           label: const Text('تلاش دوباره'),
         ),
       );
@@ -1084,12 +1084,12 @@ class _PlaylistEmptyState extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => NafirStateView(
-        icon: NafirIcons.playlist,
+  Widget build(BuildContext context) => RhythmoStateView(
+        icon: RhythmoIcons.playlist,
         title: message,
         action: FilledButton.icon(
           onPressed: onPressed,
-          icon: const Icon(NafirIcons.plus),
+          icon: const Icon(RhythmoIcons.plus),
           label: Text(action),
         ),
       );

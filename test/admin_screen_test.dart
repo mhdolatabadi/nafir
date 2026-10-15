@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/app/app_theme.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/features/admin/data/admin_account.dart';
-import 'package:nafir/features/admin/presentation/admin_screen.dart';
-import 'package:nafir/features/auth/data/auth_models.dart';
+import 'package:rhythmo/app/app_theme.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/features/admin/data/admin_account.dart';
+import 'package:rhythmo/features/admin/presentation/admin_screen.dart';
+import 'package:rhythmo/features/auth/data/auth_models.dart';
 
 class FakeAdminApi implements AdminApi {
   bool verified = false;
@@ -42,7 +42,7 @@ void main() {
       locale: const Locale('fa'),
       supportedLocales: const [Locale('fa')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: NafirTheme.dark(),
+      theme: RhythmoTheme.dark(),
       home: AdminScreen(api: api, token: () => 'token'),
     ));
     await tester.pumpAndSettle();

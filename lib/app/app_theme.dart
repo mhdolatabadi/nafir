@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:nafir/core/design/tokens.dart';
+import 'package:rhythmo/core/design/tokens.dart';
 
-abstract final class NafirTheme {
-  static const _seed = NafirColors.primary;
-  static const _controlRadius = NafirRadii.md;
-  static const _surfaceRadius = NafirRadii.lg;
+abstract final class RhythmoTheme {
+  static const _seed = RhythmoColors.primary;
+  static const _controlRadius = RhythmoRadii.md;
+  static const _surfaceRadius = RhythmoRadii.lg;
 
   static ThemeData dark() => _build(Brightness.dark);
   static ThemeData light() => _build(Brightness.light);
@@ -14,30 +14,30 @@ abstract final class NafirTheme {
     brightness: Brightness.dark,
     dynamicSchemeVariant: DynamicSchemeVariant.tonalSpot,
   ).copyWith(
-    primary: NafirColors.primary,
-    onPrimary: NafirColors.onPrimary,
-    primaryContainer: NafirColors.primaryContainer,
-    onPrimaryContainer: NafirColors.onPrimaryContainer,
-    secondary: NafirColors.secondary,
-    onSecondary: NafirColors.onSecondary,
-    secondaryContainer: NafirColors.secondaryContainer,
-    onSecondaryContainer: NafirColors.onSecondaryContainer,
-    surface: NafirColors.background,
-    surfaceContainerLowest: NafirColors.background,
-    surfaceContainerLow: NafirColors.containerLow,
-    surfaceContainer: NafirColors.container,
-    surfaceContainerHigh: NafirColors.containerHigh,
-    surfaceContainerHighest: NafirColors.surfaceRaised,
-    onSurface: NafirColors.onSurface,
-    onSurfaceVariant: NafirColors.onSurfaceVariant,
-    outline: NafirColors.outline,
-    outlineVariant: NafirColors.outlineVariant,
+    primary: RhythmoColors.primary,
+    onPrimary: RhythmoColors.onPrimary,
+    primaryContainer: RhythmoColors.primaryContainer,
+    onPrimaryContainer: RhythmoColors.onPrimaryContainer,
+    secondary: RhythmoColors.secondary,
+    onSecondary: RhythmoColors.onSecondary,
+    secondaryContainer: RhythmoColors.secondaryContainer,
+    onSecondaryContainer: RhythmoColors.onSecondaryContainer,
+    surface: RhythmoColors.background,
+    surfaceContainerLowest: RhythmoColors.background,
+    surfaceContainerLow: RhythmoColors.containerLow,
+    surfaceContainer: RhythmoColors.container,
+    surfaceContainerHigh: RhythmoColors.containerHigh,
+    surfaceContainerHighest: RhythmoColors.surfaceRaised,
+    onSurface: RhythmoColors.onSurface,
+    onSurfaceVariant: RhythmoColors.onSurfaceVariant,
+    outline: RhythmoColors.outline,
+    outlineVariant: RhythmoColors.outlineVariant,
   );
 
   /// The light scheme is Material's own, seeded from a deeper ember so the
   /// accent keeps its contrast on light surfaces.
   static final _lightScheme = ColorScheme.fromSeed(
-    seedColor: NafirColors.lightSeed,
+    seedColor: RhythmoColors.lightSeed,
     brightness: Brightness.light,
   );
 
@@ -47,24 +47,24 @@ abstract final class NafirTheme {
     final material = ThemeData(
       brightness: brightness,
       colorScheme: colors,
-      fontFamily: NafirType.family,
+      fontFamily: RhythmoType.family,
       useMaterial3: true,
       materialTapTargetSize: MaterialTapTargetSize.padded,
       visualDensity: VisualDensity.standard,
     );
-    final tokens = dark ? NafirTokens.dark : NafirTokens.light;
+    final tokens = dark ? RhythmoTokens.dark : RhythmoTokens.light;
     final base = material.copyWith(
-      textTheme: NafirType.apply(material.textTheme, color: colors.onSurface),
+      textTheme: RhythmoType.apply(material.textTheme, color: colors.onSurface),
       extensions: [tokens],
       focusColor: colors.primary.withValues(alpha: 0.24),
     );
 
     // Translucent glass on the dark canvas; plain tonal containers in light.
-    final card = dark ? NafirColors.card : colors.surfaceContainerLow;
-    final overlay = dark ? NafirColors.overlay : colors.surfaceContainerHigh;
-    final field = dark ? NafirColors.field : colors.surfaceContainerLow;
-    final softBorder = dark ? NafirColors.softBorder : colors.outlineVariant;
-    final divider = dark ? NafirColors.divider : colors.outlineVariant;
+    final card = dark ? RhythmoColors.card : colors.surfaceContainerLow;
+    final overlay = dark ? RhythmoColors.overlay : colors.surfaceContainerHigh;
+    final field = dark ? RhythmoColors.field : colors.surfaceContainerLow;
+    final softBorder = dark ? RhythmoColors.softBorder : colors.outlineVariant;
+    final divider = dark ? RhythmoColors.divider : colors.outlineVariant;
 
     // Keyboard focus draws a 2 px ring on every button, on top of the
     // state layer, so it shows on any surface.
@@ -96,7 +96,7 @@ abstract final class NafirTheme {
       appBarTheme: AppBarTheme(
         backgroundColor: colors.surface.withValues(alpha: dark ? 0.58 : 0.96),
         foregroundColor: colors.onSurface,
-        surfaceTintColor: NafirColors.transparent,
+        surfaceTintColor: RhythmoColors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
@@ -106,7 +106,7 @@ abstract final class NafirTheme {
       ),
       cardTheme: CardThemeData(
         color: card,
-        surfaceTintColor: NafirColors.transparent,
+        surfaceTintColor: RhythmoColors.transparent,
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: surfaceShape.copyWith(
@@ -117,10 +117,10 @@ abstract final class NafirTheme {
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: overlay,
-        surfaceTintColor: NafirColors.transparent,
+        surfaceTintColor: RhythmoColors.transparent,
         elevation: 6,
         shape: RoundedRectangleBorder(
-          borderRadius: NafirRadii.panel,
+          borderRadius: RhythmoRadii.panel,
         ),
         titleTextStyle: base.textTheme.headlineSmall?.copyWith(
           color: colors.onSurface,
@@ -133,7 +133,7 @@ abstract final class NafirTheme {
       ),
       popupMenuTheme: PopupMenuThemeData(
         color: overlay,
-        surfaceTintColor: NafirColors.transparent,
+        surfaceTintColor: RhythmoColors.transparent,
         elevation: 6,
         shape: surfaceShape,
         position: PopupMenuPosition.under,
@@ -151,9 +151,9 @@ abstract final class NafirTheme {
         ),
       ),
       tabBarTheme: TabBarThemeData(
-        dividerColor: NafirColors.transparent,
+        dividerColor: RhythmoColors.transparent,
         indicator: BoxDecoration(
-          borderRadius: BorderRadius.circular(NafirRadii.pill),
+          borderRadius: BorderRadius.circular(RhythmoRadii.pill),
           color: colors.primary.withValues(alpha: 0.18),
           border: Border.all(color: colors.primary.withValues(alpha: 0.42)),
         ),
@@ -172,10 +172,10 @@ abstract final class NafirTheme {
           color: colors.outlineVariant.withValues(alpha: 0.7),
         ),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(NafirRadii.sm),
+          borderRadius: BorderRadius.circular(RhythmoRadii.sm),
         ),
         padding: const EdgeInsets.symmetric(
-            horizontal: NafirSpace.sm, vertical: NafirSpace.xs + 2),
+            horizontal: RhythmoSpace.sm, vertical: RhythmoSpace.xs + 2),
       ),
       listTileTheme: ListTileThemeData(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -208,9 +208,10 @@ abstract final class NafirTheme {
       ),
       searchBarTheme: SearchBarThemeData(
         backgroundColor: WidgetStatePropertyAll(field),
-        surfaceTintColor: const WidgetStatePropertyAll(NafirColors.transparent),
+        surfaceTintColor:
+            const WidgetStatePropertyAll(RhythmoColors.transparent),
         elevation: const WidgetStatePropertyAll(0),
-        shadowColor: const WidgetStatePropertyAll(NafirColors.transparent),
+        shadowColor: const WidgetStatePropertyAll(RhythmoColors.transparent),
         shape: WidgetStatePropertyAll(
           RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(_surfaceRadius),
@@ -280,7 +281,7 @@ abstract final class NafirTheme {
         hoverElevation: 4,
         highlightElevation: 2,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(NafirRadii.lg),
+          borderRadius: BorderRadius.circular(RhythmoRadii.lg),
         ),
       ),
       sliderTheme: base.sliderTheme.copyWith(
@@ -291,7 +292,7 @@ abstract final class NafirTheme {
         trackHeight: 3,
       ),
       scrollbarTheme: ScrollbarThemeData(
-        radius: const Radius.circular(NafirRadii.xs),
+        radius: const Radius.circular(RhythmoRadii.xs),
         thickness: const WidgetStatePropertyAll(6),
         thumbColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.hovered)
@@ -301,12 +302,12 @@ abstract final class NafirTheme {
       ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: colors.surfaceContainerHigh,
-        surfaceTintColor: NafirColors.transparent,
+        surfaceTintColor: RhythmoColors.transparent,
         modalBackgroundColor: colors.surfaceContainerHigh,
-        modalBarrierColor: NafirColors.scrim,
+        modalBarrierColor: RhythmoColors.scrim,
         shape: const RoundedRectangleBorder(
           borderRadius:
-              BorderRadius.vertical(top: Radius.circular(NafirRadii.sheet)),
+              BorderRadius.vertical(top: Radius.circular(RhythmoRadii.sheet)),
         ),
         showDragHandle: true,
       ),
@@ -318,13 +319,13 @@ abstract final class NafirTheme {
       tooltipTheme: TooltipThemeData(
         decoration: BoxDecoration(
           color: colors.inverseSurface,
-          borderRadius: BorderRadius.circular(NafirRadii.xs),
+          borderRadius: BorderRadius.circular(RhythmoRadii.xs),
         ),
         textStyle: base.textTheme.bodySmall?.copyWith(
           color: colors.onInverseSurface,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        waitDuration: NafirMotion.tooltipWait,
+        waitDuration: RhythmoMotion.tooltipWait,
       ),
     );
   }

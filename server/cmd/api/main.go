@@ -15,19 +15,19 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/mhdolatabadi/nafir/server/internal/auth"
-	"github.com/mhdolatabadi/nafir/server/internal/bot"
-	"github.com/mhdolatabadi/nafir/server/internal/catalog"
-	"github.com/mhdolatabadi/nafir/server/internal/fingerprint"
-	"github.com/mhdolatabadi/nafir/server/internal/httpapi"
-	"github.com/mhdolatabadi/nafir/server/internal/linkimport"
-	"github.com/mhdolatabadi/nafir/server/internal/loudness"
-	"github.com/mhdolatabadi/nafir/server/internal/lyrics"
-	"github.com/mhdolatabadi/nafir/server/internal/mail"
-	"github.com/mhdolatabadi/nafir/server/internal/storage"
-	"github.com/mhdolatabadi/nafir/server/internal/store"
-	"github.com/mhdolatabadi/nafir/server/internal/tagwriter"
-	"github.com/mhdolatabadi/nafir/server/internal/transcription"
+	"github.com/mhdolatabadi/rhythmo/server/internal/auth"
+	"github.com/mhdolatabadi/rhythmo/server/internal/bot"
+	"github.com/mhdolatabadi/rhythmo/server/internal/catalog"
+	"github.com/mhdolatabadi/rhythmo/server/internal/fingerprint"
+	"github.com/mhdolatabadi/rhythmo/server/internal/httpapi"
+	"github.com/mhdolatabadi/rhythmo/server/internal/linkimport"
+	"github.com/mhdolatabadi/rhythmo/server/internal/loudness"
+	"github.com/mhdolatabadi/rhythmo/server/internal/lyrics"
+	"github.com/mhdolatabadi/rhythmo/server/internal/mail"
+	"github.com/mhdolatabadi/rhythmo/server/internal/storage"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/tagwriter"
+	"github.com/mhdolatabadi/rhythmo/server/internal/transcription"
 )
 
 const (
@@ -50,7 +50,7 @@ const (
 
 func main() {
 	if err := run(); err != nil {
-		slog.Error("Nafir API failed", "error", err)
+		slog.Error("rhythmo API failed", "error", err)
 		os.Exit(1)
 	}
 }
@@ -400,7 +400,7 @@ func run() error {
 
 	serverErr := make(chan error, 1)
 	go func() {
-		slog.Info("Nafir API started", "address", server.Addr)
+		slog.Info("rhythmo API started", "address", server.Addr)
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			serverErr <- err
 		}
@@ -417,7 +417,7 @@ func run() error {
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		return fmt.Errorf("graceful shutdown: %w", err)
 	}
-	slog.Info("Nafir API stopped")
+	slog.Info("rhythmo API stopped")
 	return nil
 }
 

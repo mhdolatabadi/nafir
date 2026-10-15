@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:nafir/app/app_configuration.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/core/links/open_link.dart';
-import 'package:nafir/core/links/site_page.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/features/auth/application/auth_controller.dart';
+import 'package:rhythmo/app/app_configuration.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/core/links/open_link.dart';
+import 'package:rhythmo/core/links/site_page.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/features/auth/application/auth_controller.dart';
 
 const _minPasswordLength = 8;
 
@@ -159,7 +159,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     TextButton.icon(
                       onPressed: () => openSitePage(context, '/privacy',
                           siteUri: widget.siteUri, openLink: widget.openLink),
-                      icon: const Icon(NafirIcons.shieldCheck, size: 20),
+                      icon: const Icon(RhythmoIcons.shieldCheck, size: 20),
                       label: const Text('حریم خصوصی'),
                     ),
                   ],

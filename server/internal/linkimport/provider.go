@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/mhdolatabadi/nafir/server/internal/bot"
+	"github.com/mhdolatabadi/rhythmo/server/internal/bot"
 )
 
 // ProviderName is the import source recorded for link imports.

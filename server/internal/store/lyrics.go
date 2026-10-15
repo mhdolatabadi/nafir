@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/mhdolatabadi/nafir/server/internal/lyrics"
+	"github.com/mhdolatabadi/rhythmo/server/internal/lyrics"
 )
 
 // Lyrics caches each track's LRCLIB lyrics; it implements lyrics.Cache.

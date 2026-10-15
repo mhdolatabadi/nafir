@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:nafir/features/player/application/media_session.dart';
-import 'package:nafir/main.dart' as app;
+import 'package:rhythmo/features/player/application/media_session.dart';
+import 'package:rhythmo/main.dart' as app;
 
 /// Runs on a real device or emulator: the real entry point with all
 /// platform plugins. CI points API_BASE_URL at a port nothing listens on, so

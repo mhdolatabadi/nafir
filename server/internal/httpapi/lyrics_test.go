@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mhdolatabadi/nafir/server/internal/auth"
-	"github.com/mhdolatabadi/nafir/server/internal/lyrics"
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/auth"
+	"github.com/mhdolatabadi/rhythmo/server/internal/lyrics"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 // fakeLRCLIB answers like LRCLIB for a fixed catalogue; down makes it fail.

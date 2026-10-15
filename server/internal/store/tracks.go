@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/mhdolatabadi/nafir/server/internal/audio"
+	"github.com/mhdolatabadi/rhythmo/server/internal/audio"
 )
 
 type TrackStatus string

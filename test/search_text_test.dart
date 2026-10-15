@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/core/search_text.dart';
+import 'package:rhythmo/core/search_text.dart';
 
 void main() {
   test('Arabic letter forms match their Persian ones', () {

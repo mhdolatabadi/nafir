@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/features/library/application/recent_searches.dart';
+import 'package:rhythmo/features/library/application/recent_searches.dart';
 
 void main() {
   test('newest first, without repeats in any letter form or case', () {

@@ -12,7 +12,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 var (
@@ -42,7 +42,7 @@ var DefaultLinkLimits = LinkLimits{
 	SessionTTL: 180 * 24 * time.Hour,
 }
 
-// Linker connects bot chats to Nafir accounts. Someone signed in to the app
+// Linker connects bot chats to rhythmo accounts. Someone signed in to the app
 // asks for a short-lived one-time code and sends it to the bot, so proving
 // who they are never happens in the chat and needs no password or email.
 // Only an HMAC of each code is stored.

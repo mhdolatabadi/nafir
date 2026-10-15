@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/features/player/application/playback_settings.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/player/presentation/playback_controls.dart';
-import 'package:nafir/features/settings/presentation/crossfade_setting.dart';
-import 'package:nafir/features/settings/presentation/loudness_setting.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/features/player/application/playback_settings.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/player/presentation/playback_controls.dart';
+import 'package:rhythmo/features/settings/presentation/crossfade_setting.dart';
+import 'package:rhythmo/features/settings/presentation/loudness_setting.dart';
 
 /// Playback controls backed by the same controller as the now-playing screen.
 class PlaybackSettingsSection extends StatelessWidget {
@@ -34,7 +34,7 @@ class PlaybackSettingsSection extends StatelessWidget {
                     child: Column(
                       children: [
                         ListTile(
-                          leading: const Icon(NafirIcons.moonStars),
+                          leading: const Icon(RhythmoIcons.moonStars),
                           title: const Text('زمان‌سنج خواب'),
                           subtitle: Text(sleepTimerStatus(player) ?? 'خاموش'),
                           onTap: () => showModalBottomSheet<void>(
@@ -46,7 +46,7 @@ class PlaybackSettingsSection extends StatelessWidget {
                         ),
                         const Divider(height: 1, indent: 16, endIndent: 16),
                         ListTile(
-                          leading: const Icon(NafirIcons.gauge),
+                          leading: const Icon(RhythmoIcons.gauge),
                           title: const Text('سرعت پخش'),
                           trailing: Text(formatSpeed(player.speed)),
                         ),

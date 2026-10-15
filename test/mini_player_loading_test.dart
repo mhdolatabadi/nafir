@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/app/app_theme.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/player/data/audio_engine.dart';
-import 'package:nafir/features/player/presentation/mini_player.dart';
+import 'package:rhythmo/app/app_theme.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/player/data/audio_engine.dart';
+import 'package:rhythmo/features/player/presentation/mini_player.dart';
 
 import 'player_controller_test.dart' show FakeAudioEngine;
 import 'upload_controller_test.dart' show FakeTracksApi;
@@ -31,7 +31,7 @@ void main() {
       locale: const Locale('fa'),
       supportedLocales: const [Locale('fa')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: NafirTheme.dark(),
+      theme: RhythmoTheme.dark(),
       home: Scaffold(bottomNavigationBar: MiniPlayer(player: player)),
     ));
 

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/features/auth/data/token_store.dart';
-import 'package:nafir/features/library/data/local_audio_library.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/main.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/features/auth/data/token_store.dart';
+import 'package:rhythmo/features/library/data/local_audio_library.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/main.dart';
 
 import 'cache_controller_test.dart' show FakeAudioCache;
-import 'package:nafir/features/library/data/track_download.dart';
+import 'package:rhythmo/features/library/data/track_download.dart';
 
 import 'library_sync_controller_test.dart'
     show FakeTrackDownloader, FakeUploadSource;
@@ -33,7 +33,7 @@ Future<void> _pump(
   FakeUploadSource? source,
   FakeTrackDownloader? downloader,
 }) async {
-  await tester.pumpWidget(NafirApp(
+  await tester.pumpWidget(RhythmoApp(
     healthCheck: () async {},
     authApi: FakeAuthApi(),
     tokenStore: MemoryTokenStore('valid-token'),

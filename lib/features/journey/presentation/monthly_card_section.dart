@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:nafir/core/persian_digits.dart';
-import 'package:nafir/features/journey/application/listening_journey.dart';
-import 'package:nafir/features/journey/application/monthly_card.dart';
-import 'package:nafir/features/journey/data/monthly_card_export.dart';
-import 'package:nafir/features/library/data/track.dart';
+import 'package:rhythmo/core/persian_digits.dart';
+import 'package:rhythmo/features/journey/application/listening_journey.dart';
+import 'package:rhythmo/features/journey/application/monthly_card.dart';
+import 'package:rhythmo/features/journey/data/monthly_card_export.dart';
+import 'package:rhythmo/features/library/data/track.dart';
 
 class MonthlyCardSection extends StatefulWidget {
   const MonthlyCardSection(

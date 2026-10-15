@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/features/auth/data/auth_models.dart';
-import 'package:nafir/features/auth/data/token_store.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/features/auth/data/auth_models.dart';
+import 'package:rhythmo/features/auth/data/token_store.dart';
 
 enum AuthStatus { restoring, restoreFailed, signedOut, signedIn }
 

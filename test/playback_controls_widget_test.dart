@@ -3,15 +3,15 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/app/app_theme.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/player/application/playback_settings.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/player/presentation/now_playing_screen.dart';
-import 'package:nafir/features/player/presentation/playback_controls.dart';
-import 'package:nafir/features/settings/application/cache_controller.dart';
-import 'package:nafir/features/settings/presentation/settings_screen.dart';
-import 'package:nafir/features/settings/presentation/queue_settings_section.dart';
+import 'package:rhythmo/app/app_theme.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/player/application/playback_settings.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/player/presentation/now_playing_screen.dart';
+import 'package:rhythmo/features/player/presentation/playback_controls.dart';
+import 'package:rhythmo/features/settings/application/cache_controller.dart';
+import 'package:rhythmo/features/settings/presentation/settings_screen.dart';
+import 'package:rhythmo/features/settings/presentation/queue_settings_section.dart';
 
 import 'cache_controller_test.dart' show FakeAudioCache;
 import 'now_playing_screen_test.dart' show advanceUi;
@@ -33,7 +33,7 @@ Widget _app(Widget home) => MaterialApp(
       locale: const Locale('fa'),
       supportedLocales: const [Locale('fa')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: NafirTheme.dark(),
+      theme: RhythmoTheme.dark(),
       home: home,
     );
 

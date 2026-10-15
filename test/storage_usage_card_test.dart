@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/features/settings/presentation/storage_usage_card.dart';
+import 'package:rhythmo/features/settings/presentation/storage_usage_card.dart';
 
 void main() {
   Future<void> pump(WidgetTester tester, int used, int limit) =>

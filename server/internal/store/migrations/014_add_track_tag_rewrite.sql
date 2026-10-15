@@ -3,7 +3,7 @@
 -- playable object until the new one is uploaded and verified.
 --
 -- tag_status:
---   original    the file's tags were never rewritten by Nafir
+--   original    the file's tags were never rewritten by rhythmo
 --   pending     an edit is waiting for (or in) a rewrite
 --   written     the object's tags match metadata version tag_version
 --   failed      rewriting gave up; tag_error says why

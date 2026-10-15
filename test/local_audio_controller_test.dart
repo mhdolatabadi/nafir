@@ -1,8 +1,8 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/features/library/application/local_audio_controller.dart';
-import 'package:nafir/features/library/data/local_audio_library.dart';
-import 'package:nafir/features/library/data/track.dart';
+import 'package:rhythmo/features/library/application/local_audio_controller.dart';
+import 'package:rhythmo/features/library/data/local_audio_library.dart';
+import 'package:rhythmo/features/library/data/track.dart';
 
 class FakeLocalAudioLibrary implements LocalAudioLibrary {
   FakeLocalAudioLibrary(this.result, {this.supported = true});

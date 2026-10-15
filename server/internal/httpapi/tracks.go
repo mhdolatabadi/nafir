@@ -12,11 +12,11 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/mhdolatabadi/nafir/server/internal/audio"
-	"github.com/mhdolatabadi/nafir/server/internal/auth"
-	"github.com/mhdolatabadi/nafir/server/internal/storage"
-	"github.com/mhdolatabadi/nafir/server/internal/store"
-	"github.com/mhdolatabadi/nafir/server/internal/tags"
+	"github.com/mhdolatabadi/rhythmo/server/internal/audio"
+	"github.com/mhdolatabadi/rhythmo/server/internal/auth"
+	"github.com/mhdolatabadi/rhythmo/server/internal/storage"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/tags"
 )
 
 const (

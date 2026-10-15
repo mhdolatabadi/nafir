@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/app/app_preferences.dart';
-import 'package:nafir/app/app_theme.dart';
+import 'package:rhythmo/app/app_preferences.dart';
+import 'package:rhythmo/app/app_theme.dart';
 
 void main() {
   test('invalid saved tabs are normalized and tracks cannot be hidden', () {
@@ -34,7 +34,7 @@ void main() {
   });
 
   test('light theme keeps readable text on its primary surfaces', () {
-    final theme = NafirTheme.light();
+    final theme = RhythmoTheme.light();
     final colors = theme.colorScheme;
     double contrast(Color a, Color b) {
       final x = a.computeLuminance(), y = b.computeLuminance();

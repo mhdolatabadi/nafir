@@ -10,8 +10,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/mhdolatabadi/nafir/server/internal/display"
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/display"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 func init() {

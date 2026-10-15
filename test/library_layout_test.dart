@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/core/design/design.dart';
-import 'package:nafir/features/auth/data/token_store.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/main.dart';
+import 'package:rhythmo/core/design/design.dart';
+import 'package:rhythmo/features/auth/data/token_store.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/main.dart';
 
 import 'cache_controller_test.dart' show FakeAudioCache;
 import 'player_controller_test.dart' show FakeAudioEngine;
@@ -16,7 +16,7 @@ Future<void> _pump(WidgetTester tester, Size size, List<Track> tracks) async {
   tester.view.padding = const FakeViewPadding(top: 24, bottom: 34);
   tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 34);
   addTearDown(tester.view.reset);
-  await tester.pumpWidget(NafirApp(
+  await tester.pumpWidget(RhythmoApp(
     healthCheck: () async {},
     authApi: FakeAuthApi(),
     tokenStore: MemoryTokenStore('valid-token'),
@@ -36,7 +36,7 @@ void main() {
     testWidgets('an empty library says what to do at $label', (tester) async {
       await _pump(tester, size, const []);
       expect(tester.takeException(), isNull);
-      expect(find.byType(NafirStateView), findsWidgets);
+      expect(find.byType(RhythmoStateView), findsWidgets);
       expect(find.text('کتابخانهٔ شما خالی است'), findsOneWidget);
     });
 
@@ -71,9 +71,9 @@ void main() {
       final row = tester.getRect(last);
       expect(row.bottom, lessThanOrEqualTo(mini.top),
           reason: 'the last row ends above the mini player');
-      if (size.width > NafirSpace.pageWidth) {
+      if (size.width > RhythmoSpace.pageWidth) {
         // Desktop content keeps away from the window edges.
-        expect(row.left, greaterThan(NafirSpace.lg));
+        expect(row.left, greaterThan(RhythmoSpace.lg));
       }
     });
 
@@ -157,8 +157,9 @@ void main() {
       expect(tester.getSize(hairlines.first).height, 1);
 
       // Each tab is a 48 px target; its pill stays inside the gutter.
-      final gutter =
-          size.width > NafirSpace.pageWidth ? NafirSpace.xxl : NafirSpace.lg;
+      final gutter = size.width > RhythmoSpace.pageWidth
+          ? RhythmoSpace.xxl
+          : RhythmoSpace.lg;
       final tab = find.byType(Tab).first;
       expect(tester.getSize(tab).height, 48);
       final bar = tester.getRect(find.byType(TabBar));

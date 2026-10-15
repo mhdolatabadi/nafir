@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/mhdolatabadi/nafir/server/internal/auth"
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/auth"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 // collabTestPool connects to TEST_DATABASE_URL, a disposable database, and

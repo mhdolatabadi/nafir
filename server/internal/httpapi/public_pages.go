@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mhdolatabadi/nafir/server/internal/bot"
-	"github.com/mhdolatabadi/nafir/server/internal/display"
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/bot"
+	"github.com/mhdolatabadi/rhythmo/server/internal/display"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 //go:embed public/*.html public/nafir.png public/social.png
