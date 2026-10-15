@@ -1,52 +1,54 @@
-import 'package:nafir/features/journey/application/listening_journey.dart';
+import 'package:rhythmo/features/journey/application/listening_journey.dart';
 import 'package:flutter/foundation.dart';
-import 'package:nafir/app/app_preferences.dart';
+import 'package:rhythmo/app/app_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:nafir/features/link_import/application/link_import_controller.dart';
-import 'package:nafir/features/link_import/data/link_import.dart';
+import 'package:rhythmo/features/link_import/application/link_import_controller.dart';
+import 'package:rhythmo/features/link_import/data/link_import.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:nafir/app/app_configuration.dart';
-import 'package:nafir/app/app_theme.dart';
-import 'package:nafir/app/backend_gate.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/features/auth/application/auth_controller.dart';
-import 'package:nafir/features/auth/data/token_store.dart';
-import 'package:nafir/features/auth/presentation/auth_gate.dart';
-import 'package:nafir/features/bots/application/bot_link_controller.dart';
-import 'package:nafir/features/identify/application/identify_controller.dart';
-import 'package:nafir/features/identify/data/snippet_recorder.dart';
-import 'package:nafir/features/history/application/recently_played_controller.dart';
-import 'package:nafir/features/library/application/library_controller.dart';
-import 'package:nafir/features/library/application/library_sync_controller.dart';
-import 'package:nafir/features/library/application/local_audio_controller.dart';
-import 'package:nafir/features/library/data/local_audio_library.dart';
-import 'package:nafir/features/library/data/local_audio_upload.dart';
-import 'package:nafir/features/library/data/track_download.dart';
-import 'package:nafir/features/lyrics/application/lyrics_controller.dart';
-import 'package:nafir/features/player/application/favorite_tracks.dart';
-import 'package:nafir/features/player/application/media_session.dart';
-import 'package:nafir/features/player/application/playback_settings.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/player/data/audio_cache.dart';
-import 'package:nafir/features/player/data/audio_engine.dart';
-import 'package:nafir/features/playlists/application/playlists_controller.dart';
-import 'package:nafir/features/settings/application/cache_controller.dart';
-import 'package:nafir/features/upload/application/upload_controller.dart';
-import 'package:nafir/features/upload/data/audio_picker.dart';
-import 'package:nafir/features/upload/data/storage_uploader.dart';
+import 'package:rhythmo/app/app_configuration.dart';
+import 'package:rhythmo/app/app_theme.dart';
+import 'package:rhythmo/app/backend_gate.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/features/auth/application/auth_controller.dart';
+import 'package:rhythmo/features/auth/data/token_store.dart';
+import 'package:rhythmo/features/auth/presentation/auth_gate.dart';
+import 'package:rhythmo/features/bots/application/bot_link_controller.dart';
+import 'package:rhythmo/features/identify/application/identify_controller.dart';
+import 'package:rhythmo/features/identify/data/snippet_recorder.dart';
+import 'package:rhythmo/features/history/application/recently_played_controller.dart';
+import 'package:rhythmo/features/library/application/library_controller.dart';
+import 'package:rhythmo/features/library/application/library_sync_controller.dart';
+import 'package:rhythmo/features/library/application/local_audio_controller.dart';
+import 'package:rhythmo/features/library/data/local_audio_library.dart';
+import 'package:rhythmo/features/library/data/local_audio_upload.dart';
+import 'package:rhythmo/features/library/data/track_download.dart';
+import 'package:rhythmo/features/lyrics/application/lyrics_controller.dart';
+import 'package:rhythmo/features/player/application/favorite_tracks.dart';
+import 'package:rhythmo/features/player/application/media_session.dart';
+import 'package:rhythmo/features/player/application/playback_settings.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/player/data/audio_cache.dart';
+import 'package:rhythmo/features/player/data/audio_engine.dart';
+import 'package:rhythmo/features/playlists/application/playlists_controller.dart';
+import 'package:rhythmo/features/settings/application/cache_controller.dart';
+import 'package:rhythmo/features/upload/application/upload_controller.dart';
+import 'package:rhythmo/features/upload/data/audio_picker.dart';
+import 'package:rhythmo/features/upload/data/storage_uploader.dart';
+import 'package:rhythmo/features/store/application/store_controller.dart';
+import 'package:rhythmo/features/store/data/store_catalog.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (kIsWeb) await BrowserContextMenu.disableContextMenu();
   final mediaSession = await startMediaSession();
-  runApp(ProviderScope(child: NafirApp(mediaSession: mediaSession)));
+  runApp(ProviderScope(child: RhythmoApp(mediaSession: mediaSession)));
 }
 
-class NafirApp extends StatefulWidget {
+class RhythmoApp extends StatefulWidget {
   final AppPreferencesStore? appPreferencesStore;
-  const NafirApp({
+  const RhythmoApp({
     super.key,
     this.healthCheck,
     this.authApi,
@@ -56,6 +58,7 @@ class NafirApp extends StatefulWidget {
     this.botsApi,
     this.linkImportsApi,
     this.identifyApi,
+    this.storeApi,
     this.snippetRecorder,
     this.historyApi,
     this.lyricsApi,
@@ -82,6 +85,7 @@ class NafirApp extends StatefulWidget {
   final BotsApi? botsApi;
   final LinkImportsApi? linkImportsApi;
   final IdentifyApi? identifyApi;
+  final StoreApi? storeApi;
   final SnippetRecorder? snippetRecorder;
   final HistoryApi? historyApi;
   final LyricsApi? lyricsApi;
@@ -96,13 +100,13 @@ class NafirApp extends StatefulWidget {
   final PlaybackSettingsStore? playbackSettingsStore;
 
   /// System media controls; null in tests and where they are unavailable.
-  final NafirAudioHandler? mediaSession;
+  final RhythmoAudioHandler? mediaSession;
 
   @override
-  State<NafirApp> createState() => _NafirAppState();
+  State<RhythmoApp> createState() => _RhythmoAppState();
 }
 
-class _NafirAppState extends State<NafirApp> {
+class _RhythmoAppState extends State<RhythmoApp> {
   late final ApiClient? _apiClient = AppConfiguration.apiBaseUri == null
       ? null
       : ApiClient(AppConfiguration.apiBaseUri!);
@@ -141,6 +145,16 @@ class _NafirAppState extends State<NafirApp> {
           recorder: widget.snippetRecorder ?? MicSnippetRecorder(),
           token: () => _auth?.token,
           // A song added from a playlist shows up in the library.
+          onSaved: () async => _library?.load(),
+        );
+
+  late final StoreApi? _storeApi = widget.storeApi ?? _apiClient;
+  late final StoreController? _store = _storeApi == null
+      ? null
+      : StoreController(
+          api: _storeApi,
+          token: () => _auth?.token,
+          // A song added from the store shows up in the library.
           onSaved: () async => _library?.load(),
         );
 
@@ -250,6 +264,7 @@ class _NafirAppState extends State<NafirApp> {
     _botLinks?.dispose();
     _linkImports?.dispose();
     _identify?.dispose();
+    _store?.dispose();
     _localAudio.dispose();
     _cache.dispose();
     super.dispose();
@@ -269,8 +284,8 @@ class _NafirAppState extends State<NafirApp> {
           locale: const Locale('fa'),
           supportedLocales: const [Locale('fa')],
           localizationsDelegates: GlobalMaterialLocalizations.delegates,
-          theme: NafirTheme.light(),
-          darkTheme: NafirTheme.dark(),
+          theme: RhythmoTheme.light(),
+          darkTheme: RhythmoTheme.dark(),
           themeMode: _preferences.value.themeMode,
           home: _WebEdgeInsets(
             child: BackendGate(
@@ -295,6 +310,7 @@ class _NafirAppState extends State<NafirApp> {
                       botLinks: _botLinks,
                       linkImports: _linkImports,
                       identify: _identify,
+                      store: _store,
                       picker: widget.picker ?? FilePickerAudioPicker(),
                     ),
             ),

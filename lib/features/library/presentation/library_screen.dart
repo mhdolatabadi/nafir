@@ -1,44 +1,45 @@
-import 'package:nafir/features/journey/presentation/journey_widgets.dart';
-import 'package:nafir/core/persian_digits.dart';
+import 'package:rhythmo/features/journey/presentation/journey_widgets.dart';
+import 'package:rhythmo/core/persian_digits.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:nafir/core/design/design.dart';
-import 'package:nafir/app/app_preferences.dart';
+import 'package:rhythmo/core/design/design.dart';
+import 'package:rhythmo/app/app_preferences.dart';
 import 'package:flutter/services.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/core/widgets/nafir_mark.dart';
-import 'package:nafir/app/app_configuration.dart';
-import 'package:nafir/core/search_text.dart';
-import 'package:nafir/features/auth/presentation/email_verification_screen.dart';
-import 'package:nafir/features/history/application/recently_played_controller.dart';
-import 'package:nafir/features/library/application/library_controller.dart';
-import 'package:nafir/features/library/application/library_entries.dart';
-import 'package:nafir/features/library/application/library_sync_controller.dart';
-import 'package:nafir/features/library/application/recent_searches.dart';
-import 'package:nafir/features/library/application/metadata_suggestions.dart';
-import 'package:nafir/features/link_import/application/link_import_controller.dart';
-import 'package:nafir/features/link_import/presentation/link_import_dialog.dart';
-import 'package:nafir/features/library/application/track_groups.dart';
-import 'package:nafir/features/library/application/track_sort.dart';
-import 'package:nafir/features/library/application/local_audio_controller.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/library/presentation/track_metadata_editor.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/player/presentation/mini_player.dart';
-import 'package:nafir/features/playlists/presentation/shared_playlist_screen.dart';
-import 'package:nafir/features/playlists/application/playlists_controller.dart';
-import 'package:nafir/features/playlists/data/playlist.dart';
-import 'package:nafir/features/playlists/presentation/playlists_screen.dart';
-import 'package:nafir/features/bots/application/bot_link_controller.dart';
-import 'package:nafir/features/bots/data/messenger_bot.dart';
-import 'package:nafir/features/identify/application/identify_controller.dart';
-import 'package:nafir/features/identify/presentation/identify_screen.dart';
-import 'package:nafir/features/settings/application/cache_controller.dart';
-import 'package:nafir/features/settings/presentation/settings_screen.dart';
-import 'package:nafir/features/upload/application/upload_controller.dart';
-import 'package:nafir/features/upload/data/audio_picker.dart';
-import 'package:nafir/features/upload/presentation/upload_status_card.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/core/widgets/rhythmo_mark.dart';
+import 'package:rhythmo/app/app_configuration.dart';
+import 'package:rhythmo/core/search_text.dart';
+import 'package:rhythmo/features/auth/presentation/email_verification_screen.dart';
+import 'package:rhythmo/features/history/application/recently_played_controller.dart';
+import 'package:rhythmo/features/library/application/library_controller.dart';
+import 'package:rhythmo/features/library/application/library_entries.dart';
+import 'package:rhythmo/features/library/application/library_sync_controller.dart';
+import 'package:rhythmo/features/library/application/recent_searches.dart';
+import 'package:rhythmo/features/library/application/metadata_suggestions.dart';
+import 'package:rhythmo/features/link_import/application/link_import_controller.dart';
+import 'package:rhythmo/features/link_import/presentation/link_import_dialog.dart';
+import 'package:rhythmo/features/library/application/track_groups.dart';
+import 'package:rhythmo/features/library/application/track_sort.dart';
+import 'package:rhythmo/features/library/application/local_audio_controller.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/library/presentation/track_metadata_editor.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/player/presentation/mini_player.dart';
+import 'package:rhythmo/features/playlists/presentation/shared_playlist_screen.dart';
+import 'package:rhythmo/features/playlists/application/playlists_controller.dart';
+import 'package:rhythmo/features/playlists/data/playlist.dart';
+import 'package:rhythmo/features/playlists/presentation/playlists_screen.dart';
+import 'package:rhythmo/features/bots/application/bot_link_controller.dart';
+import 'package:rhythmo/features/bots/data/messenger_bot.dart';
+import 'package:rhythmo/features/identify/application/identify_controller.dart';
+import 'package:rhythmo/features/identify/presentation/identify_screen.dart';
+import 'package:rhythmo/features/settings/application/cache_controller.dart';
+import 'package:rhythmo/features/settings/presentation/settings_screen.dart';
+import 'package:rhythmo/features/upload/application/upload_controller.dart';
+import 'package:rhythmo/features/upload/data/audio_picker.dart';
+import 'package:rhythmo/features/upload/presentation/upload_status_card.dart';
+import 'package:rhythmo/features/store/application/store_controller.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({
@@ -59,6 +60,7 @@ class LibraryScreen extends StatefulWidget {
     this.botLinks,
     this.linkImports,
     this.identify,
+    this.store,
     required this.picker,
     required this.player,
     this.recent,
@@ -93,6 +95,9 @@ class LibraryScreen extends StatefulWidget {
 
   /// «این آهنگ چیه؟»; null hides the action.
   final IdentifyController? identify;
+
+  /// The public store; null hides it.
+  final StoreController? store;
   final AudioPicker picker;
 
   /// The account's recently played tracks; null hides them.
@@ -177,7 +182,7 @@ class _LibraryScreenState extends State<LibraryScreen>
           children: [
             ListTile(
               minVerticalPadding: 16,
-              leading: const Icon(NafirIcons.uploadSimple),
+              leading: const Icon(RhythmoIcons.uploadSimple),
               title: const Text('افزودن از فایل'),
               enabled: !widget.uploads.isBusy,
               onTap: widget.uploads.isBusy
@@ -187,7 +192,7 @@ class _LibraryScreenState extends State<LibraryScreen>
             if (widget.linkImports != null)
               ListTile(
                 minVerticalPadding: 16,
-                leading: const Icon(NafirIcons.link),
+                leading: const Icon(RhythmoIcons.link),
                 title: const Text('افزودن از لینک'),
                 onTap: () => Navigator.pop(context, 'link'),
               ),
@@ -318,7 +323,7 @@ class _LibraryScreenState extends State<LibraryScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        icon: const Icon(NafirIcons.deviceMobile),
+        icon: const Icon(RhythmoIcons.deviceMobile),
         title: Text('حذف «${track.title}» از دستگاه؟'),
         content: Text(synced
             ? 'فایل از حافظهٔ دستگاه پاک می‌شود و نسخهٔ سرور می‌ماند.'
@@ -388,7 +393,7 @@ class _LibraryScreenState extends State<LibraryScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        icon: const Icon(NafirIcons.trash),
+        icon: const Icon(RhythmoIcons.trash),
         title: Text('حذف «${track.title}»؟'),
         content: Text(locationOf(track) == TrackLocation.synced
             ? 'نسخهٔ سرور برای همیشه از فضای ابری و فهرست‌های پخش حذف می‌شود؛ '
@@ -439,11 +444,12 @@ class _LibraryScreenState extends State<LibraryScreen>
         builder: (_) => Scaffold(
               appBar: AppBar(title: const Text('فهرست‌های پخش')),
               bottomNavigationBar: MiniPlayer(player: widget.player),
-              body: NafirBackdrop(
+              body: RhythmoBackdrop(
                   child: PlaylistsView(
                       controller: playlists,
                       libraryTracks: widget.library.tracks,
                       player: widget.player,
+                      store: widget.store,
                       onSharedSaved: widget.library.load)),
             )));
   }
@@ -511,7 +517,7 @@ class _LibraryScreenState extends State<LibraryScreen>
     final search = IconButton(
       tooltip: 'جست‌وجو در کتابخانه',
       onPressed: _openSearch,
-      icon: const Icon(NafirIcons.magnifyingGlass),
+      icon: const Icon(RhythmoIcons.magnifyingGlass),
     );
     final identify = widget.identify;
     final identifySong = identify == null
@@ -519,7 +525,7 @@ class _LibraryScreenState extends State<LibraryScreen>
         : IconButton(
             tooltip: 'این آهنگ چیه؟',
             onPressed: () => openIdentify(context, identify, widget.player),
-            icon: const Icon(NafirIcons.microphoneStage),
+            icon: const Icon(RhythmoIcons.microphoneStage),
           );
     if (MediaQuery.sizeOf(context).width >= wideActions) {
       return [
@@ -530,12 +536,12 @@ class _LibraryScreenState extends State<LibraryScreen>
         if (widget.verified)
           const Tooltip(
             message: 'حساب تأییدشده',
-            child: Icon(NafirIcons.checkCircle),
+            child: Icon(RhythmoIcons.checkCircle),
           ),
         if (widget.onAdmin != null)
           TextButton.icon(
             onPressed: widget.onAdmin,
-            icon: const Icon(NafirIcons.usersFill),
+            icon: const Icon(RhythmoIcons.usersFill),
             label: const Text('مدیریت حساب‌ها'),
           ),
         const SizedBox(width: 8),
@@ -543,7 +549,7 @@ class _LibraryScreenState extends State<LibraryScreen>
           message: 'تنظیمات',
           child: FilledButton.tonalIcon(
             onPressed: _openSettings,
-            icon: const Icon(NafirIcons.gear, size: 19),
+            icon: const Icon(RhythmoIcons.gear, size: 19),
             label: const Text('تنظیمات'),
           ),
         ),
@@ -552,7 +558,7 @@ class _LibraryScreenState extends State<LibraryScreen>
           message: 'خروج',
           child: OutlinedButton.icon(
             onPressed: widget.onLogout,
-            icon: const Icon(NafirIcons.signOut, size: 19),
+            icon: const Icon(RhythmoIcons.signOut, size: 19),
             label: const Text('خروج'),
           ),
         ),
@@ -564,7 +570,7 @@ class _LibraryScreenState extends State<LibraryScreen>
       search,
       PopupMenuButton<_HeaderAction>(
         tooltip: 'حساب و تنظیمات',
-        icon: const Icon(NafirIcons.userCircle),
+        icon: const Icon(RhythmoIcons.userCircle),
         onSelected: (action) {
           switch (action) {
             case _HeaderAction.settings:
@@ -594,7 +600,7 @@ class _LibraryScreenState extends State<LibraryScreen>
               value: _HeaderAction.admin,
               child: ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: Icon(NafirIcons.usersFill),
+                leading: Icon(RhythmoIcons.usersFill),
                 title: Text('مدیریت حساب‌ها'),
               ),
             ),
@@ -603,7 +609,7 @@ class _LibraryScreenState extends State<LibraryScreen>
             value: _HeaderAction.settings,
             child: ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: Icon(NafirIcons.gear),
+              leading: Icon(RhythmoIcons.gear),
               title: Text('تنظیمات'),
             ),
           ),
@@ -611,7 +617,7 @@ class _LibraryScreenState extends State<LibraryScreen>
             value: _HeaderAction.logout,
             child: ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: Icon(NafirIcons.signOut),
+              leading: Icon(RhythmoIcons.signOut),
               title: Text('خروج از حساب'),
             ),
           ),
@@ -643,13 +649,13 @@ class _LibraryScreenState extends State<LibraryScreen>
       // Phone tabs share a narrow width: tighter padding, and a label that
       // still does not fit shrinks a little instead of being clipped.
       labelPadding: wide
-          ? const EdgeInsets.symmetric(horizontal: NafirSpace.lg)
-          : const EdgeInsets.symmetric(horizontal: NafirSpace.xs),
+          ? const EdgeInsets.symmetric(horizontal: RhythmoSpace.lg)
+          : const EdgeInsets.symmetric(horizontal: RhythmoSpace.xs),
       // Compact: the pill sits inside the page gutter and is shorter than
       // the 48 px row it lives in, which stays the touch target.
       padding: EdgeInsets.symmetric(
-          horizontal: wide ? NafirSpace.xxl : NafirSpace.lg),
-      indicatorPadding: const EdgeInsets.symmetric(vertical: NafirSpace.sm),
+          horizontal: wide ? RhythmoSpace.xxl : RhythmoSpace.lg),
+      indicatorPadding: const EdgeInsets.symmetric(vertical: RhythmoSpace.sm),
       dividerHeight: 0,
       tabs: [for (final tab in _visibleTabs) _TabLabel(tab.label)],
     );
@@ -658,14 +664,14 @@ class _LibraryScreenState extends State<LibraryScreen>
             pinned: true,
             toolbarHeight: 76,
             titleSpacing: 32,
-            title: const _NafirBrand(compact: false),
+            title: const _RhythmoBrand(compact: false),
             actions: _accountActions(context),
             bottom: tabs,
           )
         : SliverAppBar(
             pinned: true,
             titleSpacing: 16,
-            title: const _NafirBrand(compact: true),
+            title: const _RhythmoBrand(compact: true),
             // Opaque, because the lists scroll underneath it.
             backgroundColor: Theme.of(context).colorScheme.surface,
             actions: _accountActions(context),
@@ -688,9 +694,9 @@ class _LibraryScreenState extends State<LibraryScreen>
               heroTag: 'add-music',
               tooltip: 'افزودن موسیقی',
               onPressed: _showAddMenu,
-              child: const Icon(NafirIcons.plus),
+              child: const Icon(RhythmoIcons.plus),
             ),
-      body: NafirBackdrop(
+      body: RhythmoBackdrop(
         child: NestedScrollView(
           headerSliverBuilder: (context, _) => [_header(context)],
           body: TabBarView(
@@ -712,6 +718,7 @@ class _LibraryScreenState extends State<LibraryScreen>
             libraryTracks: widget.library.tracks,
             player: widget.player,
             onSharedSaved: widget.library.load,
+            store: widget.store,
             underHeader: true),
         LibraryTab.albums => _groupsTab(albums: true),
         LibraryTab.artists => _groupsTab(albums: false),
@@ -880,8 +887,8 @@ enum _TrackAction {
   delete,
 }
 
-class _NafirBrand extends StatelessWidget {
-  const _NafirBrand({required this.compact});
+class _RhythmoBrand extends StatelessWidget {
+  const _RhythmoBrand({required this.compact});
 
   final bool compact;
 
@@ -893,7 +900,7 @@ class _NafirBrand extends StatelessWidget {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            NafirMark(size: compact ? 32 : 44),
+            RhythmoMark(size: compact ? 32 : 44),
             const SizedBox(width: 12),
             Flexible(
               child: showSubtitle
@@ -955,7 +962,7 @@ class _AccountChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(NafirIcons.userCircle, size: 19),
+              const Icon(RhythmoIcons.userCircle, size: 19),
               const SizedBox(width: 7),
               Flexible(
                 child: Text(
@@ -1019,7 +1026,7 @@ class _GroupList extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(8, 56, 8, 0),
             sliver: SliverToBoxAdapter(
               child: _LibraryState(
-                icon: albums ? NafirIcons.vinylRecord : NafirIcons.user,
+                icon: albums ? RhythmoIcons.vinylRecord : RhythmoIcons.user,
                 title: albums ? 'هنوز آلبومی نیست' : 'هنوز خواننده‌ای نیست',
                 message: 'با افزودن موسیقی، آلبوم‌ها و خواننده‌ها اینجا '
                     'دسته‌بندی می‌شوند.',
@@ -1078,7 +1085,7 @@ class _GroupList extends StatelessWidget {
                 style: theme.textTheme.bodySmall
                     ?.copyWith(color: colors.onSurfaceVariant),
               ),
-              trailing: const Icon(NafirIcons.caretLeft),
+              trailing: const Icon(RhythmoIcons.caretLeft),
               onTap: () => onOpen(group),
             );
           },
@@ -1110,7 +1117,7 @@ class _GroupArt extends StatelessWidget {
         ),
       ),
       child: Icon(
-        albums ? NafirIcons.vinylRecord : NafirIcons.user,
+        albums ? RhythmoIcons.vinylRecord : RhythmoIcons.user,
         size: size * 0.45,
         color: colors.onSurfaceVariant,
       ),
@@ -1129,7 +1136,7 @@ class _AlbumCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     return InkWell(
-      borderRadius: BorderRadius.circular(NafirRadii.lg),
+      borderRadius: BorderRadius.circular(RhythmoRadii.lg),
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1202,12 +1209,12 @@ class _TrackGroupScreen extends StatelessWidget {
             ),
           ),
           bottomNavigationBar: MiniPlayer(player: player),
-          body: NafirBackdrop(
+          body: RhythmoBackdrop(
             child: group == null
                 ? const Padding(
                     padding: EdgeInsets.all(24),
                     child: _LibraryState(
-                      icon: NafirIcons.musicNotesMinus,
+                      icon: RhythmoIcons.musicNotesMinus,
                       title: 'آهنگی نمانده است',
                       message: 'آهنگ‌های این بخش حذف یا ویرایش شده‌اند.',
                     ),
@@ -1257,13 +1264,13 @@ class _TrackGroupScreen extends StatelessWidget {
                                       FilledButton.icon(
                                         onPressed: () =>
                                             player.playFrom(groupTracks, 0),
-                                        icon: const Icon(NafirIcons.playFill),
+                                        icon: const Icon(RhythmoIcons.playFill),
                                         label: const Text('پخش همه'),
                                       ),
                                       OutlinedButton.icon(
                                         onPressed: () =>
                                             player.playShuffled(groupTracks),
-                                        icon: const Icon(NafirIcons.shuffle),
+                                        icon: const Icon(RhythmoIcons.shuffle),
                                         label: const Text('پخش تصادفی'),
                                       ),
                                     ],
@@ -1375,7 +1382,7 @@ class _TrackListState extends State<_TrackList> {
         IconButton(
           tooltip: 'لغو انتخاب',
           onPressed: () => setState(_selectedIds.clear),
-          icon: const Icon(NafirIcons.x),
+          icon: const Icon(RhythmoIcons.x),
         ),
         Semantics(
           liveRegion: true,
@@ -1402,7 +1409,7 @@ class _TrackListState extends State<_TrackList> {
                   widget.player.playFrom(selected, 0);
                   setState(_selectedIds.clear);
                 },
-          icon: const Icon(NafirIcons.playFill),
+          icon: const Icon(RhythmoIcons.playFill),
         ),
         if (selected.length == 1)
           if (_actionsFor(context, selected.single) case final actions?)
@@ -1468,48 +1475,48 @@ class _TrackListState extends State<_TrackList> {
       if (operation != null && operation.active)
         item(
           _TrackAction.cancelSync,
-          NafirIcons.x,
+          RhythmoIcons.x,
           'لغو ${_syncVerb(operation.kind)}',
           enabled: sync!.canCancel(track.id),
         ),
       if (operation != null && !operation.active) ...[
-        item(_TrackAction.retrySync, NafirIcons.arrowsClockwise,
+        item(_TrackAction.retrySync, RhythmoIcons.arrowsClockwise,
             'تلاش دوباره برای ${_syncVerb(operation.kind)}'),
-        item(_TrackAction.dismissSync, NafirIcons.x, 'بستن خطا'),
+        item(_TrackAction.dismissSync, RhythmoIcons.x, 'بستن خطا'),
       ],
       if (sync != null && operation == null && location == TrackLocation.device)
-        item(_TrackAction.uploadToServer, NafirIcons.cloudArrowUp,
+        item(_TrackAction.uploadToServer, RhythmoIcons.cloudArrowUp,
             'آپلود به سرور'),
       if (sync != null && operation == null && location == TrackLocation.server)
         item(
           _TrackAction.downloadToDevice,
-          NafirIcons.cloudArrowDown,
+          RhythmoIcons.cloudArrowDown,
           sync.downloadsToDevice ? 'دانلود روی دستگاه' : 'دانلود فایل',
         ),
       if (onServer) ...[
-        item(_TrackAction.editMetadata, NafirIcons.pencilSimple,
+        item(_TrackAction.editMetadata, RhythmoIcons.pencilSimple,
             'ویرایش اطلاعات آهنگ'),
         if (widget.playlists != null)
-          item(_TrackAction.addToPlaylist, NafirIcons.listPlus,
+          item(_TrackAction.addToPlaylist, RhythmoIcons.listPlus,
               'افزودن به فهرست پخش'),
         for (final bot in widget.linkedBots)
           PopupMenuItem(
             value: (_TrackAction.sendToBot, bot),
             child: ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(NafirIcons.paperPlaneTilt),
+              leading: const Icon(RhythmoIcons.paperPlaneTilt),
               title: Text('ارسال به ${bot.name}'),
             ),
           ),
       ],
       if (onDevice && widget.onRemoveFromDevice != null && operation == null)
-        item(_TrackAction.removeFromDevice, NafirIcons.deviceMobile,
+        item(_TrackAction.removeFromDevice, RhythmoIcons.deviceMobile,
             'حذف از دستگاه',
             destructive: location == TrackLocation.device),
       if (onServer && widget.onDelete != null)
         item(
           _TrackAction.delete,
-          NafirIcons.trash,
+          RhythmoIcons.trash,
           location == TrackLocation.synced ? 'حذف از سرور' : 'حذف آهنگ',
           destructive: true,
         ),
@@ -1569,7 +1576,7 @@ class _TrackListState extends State<_TrackList> {
                       Navigator.pop(context, _createPlaylistAction),
                   child: const ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: Icon(NafirIcons.plus),
+                    leading: Icon(RhythmoIcons.plus),
                     title: Text('فهرست پخش جدید'),
                   ),
                 ),
@@ -1579,7 +1586,7 @@ class _TrackListState extends State<_TrackList> {
                     onPressed: () => Navigator.pop(context, playlist.id),
                     child: ListTile(
                       contentPadding: EdgeInsets.zero,
-                      leading: const Icon(NafirIcons.playlist),
+                      leading: const Icon(RhythmoIcons.playlist),
                       title: Text(playlist.name),
                       subtitle: Text(
                           '${persianDigits(playlist.displayTrackCount)} قطعه موسیقی'),
@@ -1787,7 +1794,7 @@ class _TrackListHeader extends StatelessWidget {
           PopupMenuButton<TrackSort>(
             tooltip: 'مرتب‌سازی: ${sort.label}',
             onSelected: onSort,
-            icon: const Icon(NafirIcons.sortAscending),
+            icon: const Icon(RhythmoIcons.sortAscending),
             itemBuilder: (context) => [
               for (final option in TrackSort.values)
                 CheckedPopupMenuItem(
@@ -1799,7 +1806,7 @@ class _TrackListHeader extends StatelessWidget {
           ),
           TextButton.icon(
             onPressed: onShuffle,
-            icon: const Icon(NafirIcons.shuffle, size: 20),
+            icon: const Icon(RhythmoIcons.shuffle, size: 20),
             label: const Text('پخش تصادفی'),
           ),
         ],
@@ -1890,7 +1897,7 @@ class _TrackRow extends StatelessWidget {
                 if (current) ...[
                   Semantics(
                     label: 'در حال پخش',
-                    child: Icon(NafirIcons.waveformFill,
+                    child: Icon(RhythmoIcons.waveformFill,
                         size: 18, color: colors.primary),
                   ),
                   const SizedBox(width: 4),
@@ -1960,7 +1967,7 @@ class _TrackArtwork extends StatelessWidget {
     final (where, Widget badge) = switch (sync) {
       SyncOperation(:final kind, phase: SyncPhase.failed) => (
           '${_syncVerb(kind)} ناموفق',
-          Icon(NafirIcons.warningCircle, size: 13, color: colors.error),
+          Icon(RhythmoIcons.warningCircle, size: 13, color: colors.error),
         ),
       SyncOperation(:final kind, :final phase, :final progress) => (
           phase == SyncPhase.queued
@@ -1978,20 +1985,22 @@ class _TrackArtwork extends StatelessWidget {
       null => switch ((location, track.importedFrom)) {
           (TrackLocation.device, _) => (
               'فقط روی دستگاه',
-              Icon(NafirIcons.deviceMobile,
+              Icon(RhythmoIcons.deviceMobile,
                   size: 13, color: colors.onSurfaceVariant),
             ),
           (TrackLocation.synced, _) => (
               'روی دستگاه و سرور',
-              Icon(NafirIcons.checkCircle, size: 13, color: colors.primary),
+              Icon(RhythmoIcons.checkCircle, size: 13, color: colors.primary),
             ),
           (TrackLocation.server, final String from) => (
               'از $from',
-              Icon(NafirIcons.robot, size: 13, color: colors.onSurfaceVariant),
+              Icon(RhythmoIcons.robot,
+                  size: 13, color: colors.onSurfaceVariant),
             ),
           (TrackLocation.server, _) => (
               'روی سرور',
-              Icon(NafirIcons.cloud, size: 13, color: colors.onSurfaceVariant),
+              Icon(RhythmoIcons.cloud,
+                  size: 13, color: colors.onSurfaceVariant),
             ),
         },
     };
@@ -2007,10 +2016,10 @@ class _TrackArtwork extends StatelessWidget {
               color: current
                   ? colors.primaryContainer
                   : colors.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(NafirRadii.sm),
+              borderRadius: BorderRadius.circular(RhythmoRadii.sm),
             ),
             child: Icon(
-              NafirIcons.musicNote,
+              RhythmoIcons.musicNote,
               color:
                   current ? colors.onPrimaryContainer : colors.onSurfaceVariant,
             ),
@@ -2057,12 +2066,12 @@ class _DeviceNotice {
     if (!supported || status == LocalAudioViewStatus.loaded) return null;
     return switch (status) {
       LocalAudioViewStatus.permissionDenied => const _DeviceNotice(
-          icon: NafirIcons.folderSimpleDashed,
+          icon: RhythmoIcons.folderSimpleDashed,
           message: 'برای نمایش آهنگ‌های دستگاه، اجازهٔ دسترسی صوتی لازم است.',
           actionLabel: 'از تنظیمات دستگاه اجازه بده',
         ),
       LocalAudioViewStatus.error => const _DeviceNotice(
-          icon: NafirIcons.warningCircle,
+          icon: RhythmoIcons.warningCircle,
           message:
               'خواندن آهنگ‌های دستگاه ناموفق بود؛ آهنگ‌های سرور همچنان دیده می‌شوند.',
           actionLabel: 'صفحه را پایین بکش',
@@ -2071,7 +2080,7 @@ class _DeviceNotice {
       LocalAudioViewStatus.idle ||
       LocalAudioViewStatus.loading =>
         const _DeviceNotice(
-          icon: NafirIcons.arrowsClockwise,
+          icon: RhythmoIcons.arrowsClockwise,
           message: 'در حال بررسی آهنگ‌های روی دستگاه…',
           actionLabel: 'Library یکپارچه می‌ماند',
         ),
@@ -2150,7 +2159,7 @@ class _ImportsInProgress extends StatelessWidget {
 }
 
 /// An empty or failed state of a library list, drawn as the shared
-/// [NafirStateView]; a cloud or warning icon makes it an error.
+/// [RhythmoStateView]; a cloud or warning icon makes it an error.
 class _LibraryState extends StatelessWidget {
   const _LibraryState({
     required this.icon,
@@ -2166,10 +2175,10 @@ class _LibraryState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      icon == NafirIcons.cloudSlash || icon == NafirIcons.warningCircle
-          ? NafirStateView.error(
+      icon == RhythmoIcons.cloudSlash || icon == RhythmoIcons.warningCircle
+          ? RhythmoStateView.error(
               icon: icon, title: title, message: message, action: action)
-          : NafirStateView(
+          : RhythmoStateView(
               icon: icon, title: title, message: message, action: action);
 }
 
@@ -2187,7 +2196,7 @@ class _EmptyLibrary extends StatelessWidget {
           const SizedBox(height: 16),
         ],
         const _LibraryState(
-          icon: NafirIcons.musicNotes,
+          icon: RhythmoIcons.musicNotes,
           title: 'کتابخانهٔ شما خالی است',
           message:
               'با «افزودن موسیقی» آهنگ آپلود کن یا اجازه بده ریتمو آهنگ‌های دستگاه را هم همین‌جا نشان بدهد.',
@@ -2207,12 +2216,12 @@ class _LoadError extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(24),
       child: _LibraryState(
-        icon: NafirIcons.cloudSlash,
+        icon: RhythmoIcons.cloudSlash,
         title: 'کتابخانه دریافت نشد',
         message: 'اتصال اینترنت را بررسی کن و دوباره تلاش کن.',
         action: FilledButton.icon(
           onPressed: onRetry,
-          icon: const Icon(NafirIcons.arrowsClockwise),
+          icon: const Icon(RhythmoIcons.arrowsClockwise),
           label: const Text('تلاش دوباره'),
         ),
       ),
@@ -2259,14 +2268,14 @@ class _PlayAllHeader extends StatelessWidget {
           ),
           FilledButton.icon(
             onPressed: count == 0 ? null : onPlay,
-            icon: const Icon(NafirIcons.playFill),
+            icon: const Icon(RhythmoIcons.playFill),
             label: const Text('پخش همه'),
           ),
           const SizedBox(width: 4),
           IconButton(
             tooltip: 'پخش تصادفی',
             onPressed: count == 0 ? null : onShuffle,
-            icon: const Icon(NafirIcons.shuffle),
+            icon: const Icon(RhythmoIcons.shuffle),
           ),
         ],
       ),
@@ -2300,7 +2309,7 @@ class RecentlyPlayedScreen extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        icon: const Icon(NafirIcons.clockCounterClockwise),
+        icon: const Icon(RhythmoIcons.clockCounterClockwise),
         title: const Text('پاک کردن تاریخچهٔ پخش؟'),
         content: const Text(
             'فهرست «اخیراً پخش‌شده» روی همهٔ دستگاه‌هایت خالی می‌شود. آهنگ‌ها سر جایشان می‌مانند.'),
@@ -2350,17 +2359,17 @@ class RecentlyPlayedScreen extends StatelessWidget {
                     semanticsLabel: 'در حال دریافت تاریخچه'),
               ),
             RecentlyPlayedStatus.error => state(_LibraryState(
-                icon: NafirIcons.cloudSlash,
+                icon: RhythmoIcons.cloudSlash,
                 title: 'تاریخچه دریافت نشد',
                 message: 'اتصال اینترنت را بررسی کن و دوباره تلاش کن.',
                 action: FilledButton.icon(
                   onPressed: recent.load,
-                  icon: const Icon(NafirIcons.arrowsClockwise),
+                  icon: const Icon(RhythmoIcons.arrowsClockwise),
                   label: const Text('تلاش دوباره'),
                 ),
               )),
             RecentlyPlayedStatus.loaded => state(const _LibraryState(
-                icon: NafirIcons.clockCounterClockwise,
+                icon: RhythmoIcons.clockCounterClockwise,
                 title: 'هنوز آهنگی پخش نشده',
                 message:
                     'هر آهنگی که دست‌کم نیم دقیقه بشنوی این‌جا می‌آید؛ روی وب و اندروید یکسان.',
@@ -2375,13 +2384,13 @@ class RecentlyPlayedScreen extends StatelessWidget {
                 IconButton(
                   tooltip: 'پاک کردن تاریخچه',
                   onPressed: () => _confirmClear(context),
-                  icon: const Icon(NafirIcons.trash),
+                  icon: const Icon(RhythmoIcons.trash),
                 ),
               const SizedBox(width: 8),
             ],
           ),
           bottomNavigationBar: MiniPlayer(player: player),
-          body: NafirBackdrop(child: body),
+          body: RhythmoBackdrop(child: body),
         );
       },
     );
@@ -2499,7 +2508,7 @@ class _LibrarySearchScreenState extends State<LibrarySearchScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('جست‌وجو')),
       bottomNavigationBar: MiniPlayer(player: widget.player),
-      body: NafirBackdrop(
+      body: RhythmoBackdrop(
         child: LayoutBuilder(
           builder: (context, constraints) {
             final side = constraints.maxWidth >= 900
@@ -2514,14 +2523,14 @@ class _LibrarySearchScreenState extends State<LibrarySearchScreen> {
                     controller: _field,
                     autoFocus: true,
                     hintText: 'آهنگ، خواننده، آلبوم یا فهرست پخش',
-                    leading: const Icon(NafirIcons.magnifyingGlass),
+                    leading: const Icon(RhythmoIcons.magnifyingGlass),
                     textInputAction: TextInputAction.search,
                     trailing: [
                       if (_query.isNotEmpty)
                         IconButton(
                           tooltip: 'پاک کردن جست‌وجو',
                           onPressed: _clear,
-                          icon: const Icon(NafirIcons.x),
+                          icon: const Icon(RhythmoIcons.x),
                         ),
                     ],
                     onChanged: (value) => setState(() => _query = value),
@@ -2564,7 +2573,7 @@ class _LibrarySearchScreenState extends State<LibrarySearchScreen> {
         );
       }
       return centered(const _LibraryState(
-        icon: NafirIcons.magnifyingGlass,
+        icon: RhythmoIcons.magnifyingGlass,
         title: 'در همهٔ کتابخانه بگرد',
         message:
             'آهنگ‌ها، فهرست‌های پخش خودت و فهرست‌های محبوب، همه با یک جست‌وجو.',
@@ -2604,12 +2613,12 @@ class _LibrarySearchScreenState extends State<LibrarySearchScreen> {
         mineState == PlaylistsStatus.loaded &&
         popularState == PlaylistsStatus.loaded) {
       return centered(_LibraryState(
-        icon: NafirIcons.magnifyingGlassMinus,
+        icon: RhythmoIcons.magnifyingGlassMinus,
         title: 'نتیجه‌ای پیدا نشد',
         message: 'عبارت دیگری را امتحان کن یا جست‌وجو را پاک کن.',
         action: OutlinedButton.icon(
           onPressed: _clear,
-          icon: const Icon(NafirIcons.x),
+          icon: const Icon(RhythmoIcons.x),
           label: const Text('پاک کردن جست‌وجو'),
         ),
       ));
@@ -2661,7 +2670,7 @@ class _LibrarySearchScreenState extends State<LibrarySearchScreen> {
                 itemBuilder: (context, index) {
                   final playlist = mine[index];
                   return _PlaylistResult(
-                    icon: NafirIcons.playlist,
+                    icon: RhythmoIcons.playlist,
                     title: playlist.name,
                     subtitle: [
                       '${persianDigits(playlist.displayTrackCount)} قطعه موسیقی',
@@ -2685,7 +2694,7 @@ class _LibrarySearchScreenState extends State<LibrarySearchScreen> {
                 itemBuilder: (context, index) {
                   final playlist = popular[index];
                   return _PlaylistResult(
-                    icon: NafirIcons.fire,
+                    icon: RhythmoIcons.fire,
                     title: playlist.name,
                     // Owners stay private: no email, even masked.
                     subtitle: [
@@ -2725,11 +2734,11 @@ class _RecentSearches extends StatelessWidget {
     final theme = Theme.of(context);
     return ListView(
       // Room for the mini player under the last search.
-      padding: EdgeInsets.fromLTRB(side, NafirSpace.xs, side, 128),
+      padding: EdgeInsets.fromLTRB(side, RhythmoSpace.xs, side, 128),
       children: [
         Padding(
           padding: const EdgeInsetsDirectional.fromSTEB(
-              NafirSpace.sm, NafirSpace.md, 0, NafirSpace.xs),
+              RhythmoSpace.sm, RhythmoSpace.md, 0, RhythmoSpace.xs),
           child: Row(
             children: [
               Expanded(
@@ -2753,16 +2762,16 @@ class _RecentSearches extends StatelessWidget {
           if (index > 0) const _Hairline(indent: 56),
           ListTile(
             minTileHeight: 52,
-            contentPadding:
-                const EdgeInsetsDirectional.only(start: NafirSpace.lg, end: 0),
-            leading: Icon(NafirIcons.clockCounterClockwise,
+            contentPadding: const EdgeInsetsDirectional.only(
+                start: RhythmoSpace.lg, end: 0),
+            leading: Icon(RhythmoIcons.clockCounterClockwise,
                 color: theme.colorScheme.onSurfaceVariant),
             title: Text(search, maxLines: 1, overflow: TextOverflow.ellipsis),
             onTap: () => onRun(search),
             trailing: IconButton(
               tooltip: 'حذف از جست‌وجوهای اخیر',
               onPressed: () => onRemove(search),
-              icon: const Icon(NafirIcons.x, size: 18),
+              icon: const Icon(RhythmoIcons.x, size: 18),
             ),
           ),
         ],
@@ -2783,7 +2792,7 @@ class _Hairline extends StatelessWidget {
         height: 1,
         thickness: 1,
         indent: indent,
-        endIndent: NafirSpace.lg,
+        endIndent: RhythmoSpace.lg,
         color: Theme.of(context).colorScheme.outlineVariant.withValues(
               alpha: 0.45,
             ),
@@ -2838,18 +2847,18 @@ class _ResultsHeader extends StatelessWidget {
                       ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
               if (onShuffle case final shuffle?) ...[
-                const SizedBox(width: NafirSpace.xs),
+                const SizedBox(width: RhythmoSpace.xs),
                 // A phone has no room for the label beside the count.
                 if (MediaQuery.sizeOf(context).width < 480)
                   IconButton(
                     tooltip: 'پخش تصادفی نتایج',
                     onPressed: shuffle,
-                    icon: const Icon(NafirIcons.shuffle),
+                    icon: const Icon(RhythmoIcons.shuffle),
                   )
                 else
                   TextButton.icon(
                     onPressed: shuffle,
-                    icon: const Icon(NafirIcons.shuffle, size: 18),
+                    icon: const Icon(RhythmoIcons.shuffle, size: 18),
                     label: const Text('پخش تصادفی نتایج'),
                   ),
               ],
@@ -2882,7 +2891,8 @@ class _GroupStatus extends StatelessWidget {
         child: status == PlaylistsStatus.error
             ? Row(
                 children: [
-                  Icon(NafirIcons.warningCircle, size: 20, color: colors.error),
+                  Icon(RhythmoIcons.warningCircle,
+                      size: 20, color: colors.error),
                   const SizedBox(width: 8),
                   Expanded(child: Text(failed)),
                   TextButton(
@@ -2938,7 +2948,7 @@ class _PlaylistResult extends StatelessWidget {
         height: 48,
         decoration: BoxDecoration(
           color: colors.secondaryContainer,
-          borderRadius: BorderRadius.circular(NafirRadii.sm),
+          borderRadius: BorderRadius.circular(RhythmoRadii.sm),
         ),
         child: Icon(icon, color: colors.onSecondaryContainer),
       ),
@@ -2956,7 +2966,7 @@ class _PlaylistResult extends StatelessWidget {
         style: theme.textTheme.bodySmall
             ?.copyWith(color: colors.onSurfaceVariant, height: 1.3),
       ),
-      trailing: Icon(NafirIcons.caretLeft, color: colors.onSurfaceVariant),
+      trailing: Icon(RhythmoIcons.caretLeft, color: colors.onSurfaceVariant),
     );
   }
 }

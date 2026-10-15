@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/player/data/audio_cache.dart';
-import 'package:nafir/features/settings/application/cache_controller.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/player/data/audio_cache.dart';
+import 'package:rhythmo/features/settings/application/cache_controller.dart';
 
 /// An in-memory cache: track id to bytes.
 class FakeAudioCache implements AudioCache {

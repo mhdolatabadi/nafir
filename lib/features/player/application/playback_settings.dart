@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:nafir/features/player/data/loudness.dart';
+import 'package:rhythmo/features/player/data/loudness.dart';
 
 /// The playback speeds offered, slowest first. Pitch is kept at every speed.
 const playbackSpeeds = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0];

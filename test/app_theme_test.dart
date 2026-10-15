@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/app/app_theme.dart';
+import 'package:rhythmo/app/app_theme.dart';
 
 void main() {
-  group('NafirTheme', () {
-    final theme = NafirTheme.dark();
+  group('RhythmoTheme', () {
+    final theme = RhythmoTheme.dark();
 
     test('keeps the established dark visual identity', () {
       expect(theme.brightness, Brightness.dark);

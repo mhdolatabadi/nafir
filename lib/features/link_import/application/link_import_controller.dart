@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/features/link_import/data/link_import.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/features/link_import/data/link_import.dart';
 
 /// The outcome of submitting a link: queued, or refused with a message.
 typedef LinkSubmitResult = ({bool queued, String message});

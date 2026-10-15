@@ -1,19 +1,19 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/player/data/notification_artwork.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/player/data/notification_artwork.dart';
 
 /// Shown when a track has neither a title nor a filename.
 const untitledTrack = 'آهنگ بی‌نام';
 
 /// Connects the system's media controls (notification, lock screen, headset
 /// buttons and, on the web, the browser's MediaSession) to [PlayerController].
-class NafirAudioHandler extends BaseAudioHandler with SeekHandler {
+class RhythmoAudioHandler extends BaseAudioHandler with SeekHandler {
   /// [artwork] is the rhythmo logo the system shows for every track, since
   /// tracks carry no cover art yet; see [resolveNotificationArtwork].
-  NafirAudioHandler({this.artwork});
+  RhythmoAudioHandler({this.artwork});
 
   final Uri? artwork;
   PlayerController? _player;
@@ -190,18 +190,18 @@ class NafirAudioHandler extends BaseAudioHandler with SeekHandler {
 }
 
 /// The running media session, if [startMediaSession] succeeded.
-NafirAudioHandler? activeMediaSession;
+RhythmoAudioHandler? activeMediaSession;
 
 /// Starts the platform media session. Returns null where it cannot run (for
 /// example in tests), in which case the app simply has no system controls.
-Future<NafirAudioHandler?> startMediaSession() async {
+Future<RhythmoAudioHandler?> startMediaSession() async {
   try {
     final session = await AudioSession.instance;
     // Music: pause for calls and other apps' audio, duck for notifications.
     await session.configure(const AudioSessionConfiguration.music());
     final artwork = await resolveNotificationArtwork();
     return activeMediaSession = await AudioService.init(
-      builder: () => NafirAudioHandler(artwork: artwork),
+      builder: () => RhythmoAudioHandler(artwork: artwork),
       config: const AudioServiceConfig(
         androidNotificationChannelId: 'ir.mhdolatabadi.nafir.playback',
         androidNotificationChannelName: 'پخش موسیقی',

@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:nafir/core/design/tokens.dart';
+import 'package:rhythmo/core/design/tokens.dart';
 
 /// The heading over a group of content, with an optional action at its end
 /// («همه», «پاک کردن»). The heading is marked as one for screen readers.
-class NafirSectionHeader extends StatelessWidget {
-  const NafirSectionHeader({
+class RhythmoSectionHeader extends StatelessWidget {
+  const RhythmoSectionHeader({
     super.key,
     required this.title,
     this.subtitle,
     this.trailing,
     this.padding = const EdgeInsetsDirectional.fromSTEB(
-        NafirSpace.xxl, NafirSpace.lg, NafirSpace.md, NafirSpace.sm),
+        RhythmoSpace.xxl, RhythmoSpace.lg, RhythmoSpace.md, RhythmoSpace.sm),
   });
 
   final String title;
@@ -24,7 +24,7 @@ class NafirSectionHeader extends StatelessWidget {
     return Padding(
       padding: padding,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: NafirSpace.target),
+        constraints: const BoxConstraints(minHeight: RhythmoSpace.target),
         child: Row(
           children: [
             Expanded(

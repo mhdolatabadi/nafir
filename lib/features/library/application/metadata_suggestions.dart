@@ -1,5 +1,5 @@
-import 'package:nafir/core/search_text.dart';
-import 'package:nafir/features/library/data/track.dart';
+import 'package:rhythmo/core/search_text.dart';
+import 'package:rhythmo/features/library/data/track.dart';
 
 /// Values already used in the library, offered while editing a track's
 /// metadata so names stay consistent ("محمود کریمی", not a new spelling).

@@ -1,9 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter/services.dart';
-import 'package:nafir/features/library/data/local_audio_upload_base.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/upload/data/upload_models.dart';
+import 'package:rhythmo/features/library/data/local_audio_upload_base.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/upload/data/upload_models.dart';
 
 class MethodChannelLocalAudioUploadSource implements LocalAudioUploadSource {
   static const _channel = MethodChannel('ir.mhdolatabadi.nafir/local_audio');

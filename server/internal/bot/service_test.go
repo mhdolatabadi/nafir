@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 var song = append([]byte("ID3\x04\x00\x00\x00\x00\x00\x00"), make([]byte, 90)...)

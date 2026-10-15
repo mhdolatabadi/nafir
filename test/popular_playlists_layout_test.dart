@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/app/app_theme.dart';
-import 'package:nafir/core/persian_digits.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/playlists/application/playlists_controller.dart';
-import 'package:nafir/features/playlists/presentation/playlists_screen.dart';
-import 'package:nafir/features/playlists/presentation/popular_playlists_screen.dart';
+import 'package:rhythmo/app/app_theme.dart';
+import 'package:rhythmo/core/persian_digits.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/playlists/application/playlists_controller.dart';
+import 'package:rhythmo/features/playlists/presentation/playlists_screen.dart';
+import 'package:rhythmo/features/playlists/presentation/popular_playlists_screen.dart';
 
 import 'player_controller_test.dart' show FakeAudioEngine;
 import 'playlist_sharing_test.dart'
@@ -18,7 +18,7 @@ Widget _app(Widget home) => MaterialApp(
       locale: const Locale('fa'),
       supportedLocales: const [Locale('fa')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: NafirTheme.dark(),
+      theme: RhythmoTheme.dark(),
       home: home,
     );
 
@@ -92,7 +92,7 @@ void main() {
       await tester.tap(find.widgetWithText(TextButton, '۵'));
       await tester.pumpAndSettle();
       expect(api.likeCalls, [true]);
-      expect(find.byIcon(NafirIcons.heartFill), findsOneWidget);
+      expect(find.byIcon(RhythmoIcons.heartFill), findsOneWidget);
 
       await tester.tap(play);
       await tester.pump();

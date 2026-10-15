@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/core/persian_digits.dart';
-import 'package:nafir/features/settings/data/device_settings.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/core/persian_digits.dart';
+import 'package:rhythmo/features/settings/data/device_settings.dart';
 
 class PermissionsScreen extends StatefulWidget {
   const PermissionsScreen(
@@ -126,7 +126,7 @@ class _AboutScreenState extends State<AboutScreen> {
                           tooltip: 'تلاش دوباره',
                           onPressed: () => setState(
                               () => _version = widget.device.appVersion()),
-                          icon: const Icon(NafirIcons.arrowsClockwise))
+                          icon: const Icon(RhythmoIcons.arrowsClockwise))
                       : null)),
           ListTile(
               title: const Text('وب‌سایت ریتمو'),

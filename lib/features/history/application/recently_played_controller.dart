@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/features/library/application/library_entries.dart';
-import 'package:nafir/features/library/data/track.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/features/library/application/library_entries.dart';
+import 'package:rhythmo/features/library/data/track.dart';
 
 enum RecentlyPlayedStatus { loading, loaded, error }
 
@@ -46,13 +46,14 @@ class RecentlyPlayedController extends ChangeNotifier {
 
   /// Counts a meaningful listen of [track]. It moves to the top at once;
   /// the server keeps it for the account's other devices. Music only on
-  /// this device and tracks opened from someone's shared link are not
-  /// kept: there is nothing the account could replay later.
+  /// this device, tracks opened from someone's shared link and store songs
+  /// are not kept: there is nothing the account could replay later.
   Future<void> record(Track track) async {
     final token = _token();
     if (token == null ||
         locationOf(track) == TrackLocation.device ||
-        track.sharedVia != null) {
+        track.sharedVia != null ||
+        track.fromStore) {
       return;
     }
     tracks = [track, ...tracks.where((t) => t.id != track.id)];

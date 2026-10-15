@@ -8,9 +8,9 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/mhdolatabadi/nafir/server/internal/auth"
-	"github.com/mhdolatabadi/nafir/server/internal/linkimport"
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/auth"
+	"github.com/mhdolatabadi/rhythmo/server/internal/linkimport"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 // LinkImporter adds music from links: a song page or an audio file.

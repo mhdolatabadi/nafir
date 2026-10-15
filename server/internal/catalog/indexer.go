@@ -12,8 +12,8 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/mhdolatabadi/nafir/server/internal/fingerprint"
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/fingerprint"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 // Store keeps the grouping; *store.Catalog implements it.

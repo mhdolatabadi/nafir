@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/features/player/application/favorite_tracks.dart';
+import 'package:rhythmo/features/player/application/favorite_tracks.dart';
 
 class _FailingStore implements FavoritesStore {
   @override

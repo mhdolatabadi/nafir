@@ -1,4 +1,4 @@
-import 'package:nafir/features/library/data/track.dart';
+import 'package:rhythmo/features/library/data/track.dart';
 
 import 'local_audio_library_stub.dart'
     if (dart.library.io) 'local_audio_library_io.dart' as platform;

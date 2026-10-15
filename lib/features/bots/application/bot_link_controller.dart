@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/features/bots/data/messenger_bot.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/features/bots/data/messenger_bot.dart';
 
 enum BotLinkStatus { idle, loading, ready, failed }
 

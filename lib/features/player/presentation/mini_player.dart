@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:nafir/core/design/design.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/player/presentation/now_playing_screen.dart';
+import 'package:rhythmo/core/design/design.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/player/presentation/now_playing_screen.dart';
 
 /// Responsive now-playing surface with track identity, playback controls,
 /// and progress.
@@ -51,7 +51,7 @@ class _MiniPlayerState extends State<MiniPlayer> {
               child: GlassSurface(
                 radius: 24,
                 blur: 24,
-                tint: NafirColors.primary,
+                tint: RhythmoColors.primary,
                 child: SafeArea(
                   top: false,
                   child: LayoutBuilder(
@@ -179,7 +179,7 @@ class _CompactMiniPlayer extends StatelessWidget {
           child: Row(
             children: [
               InkWell(
-                borderRadius: NafirRadii.control,
+                borderRadius: RhythmoRadii.control,
                 onTap: onOpen,
                 child: SizedBox.square(
                   dimension: 48,
@@ -191,7 +191,7 @@ class _CompactMiniPlayer extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(NafirRadii.sm),
+                  borderRadius: BorderRadius.circular(RhythmoRadii.sm),
                   onTap: onOpen,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
@@ -211,7 +211,7 @@ class _CompactMiniPlayer extends StatelessWidget {
                     IconButton(
                       tooltip: 'قبلی',
                       onPressed: player.previous,
-                      icon: const Icon(NafirIcons.skipBackFill),
+                      icon: const Icon(RhythmoIcons.skipBackFill),
                     ),
                     if (busy)
                       const SizedBox.square(
@@ -231,16 +231,16 @@ class _CompactMiniPlayer extends StatelessWidget {
                         onPressed: player.toggle,
                         icon: Icon(
                           status == PlayerStatus.error
-                              ? NafirIcons.arrowsClockwise
+                              ? RhythmoIcons.arrowsClockwise
                               : playing
-                                  ? NafirIcons.pauseFill
-                                  : NafirIcons.playFill,
+                                  ? RhythmoIcons.pauseFill
+                                  : RhythmoIcons.playFill,
                         ),
                       ),
                     IconButton(
                       tooltip: 'بعدی',
                       onPressed: player.next,
-                      icon: const Icon(NafirIcons.skipForwardFill),
+                      icon: const Icon(RhythmoIcons.skipForwardFill),
                     ),
                   ],
                 ),
@@ -254,7 +254,7 @@ class _CompactMiniPlayer extends StatelessWidget {
             end: 18,
             bottom: 4,
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(NafirRadii.pill),
+              borderRadius: BorderRadius.circular(RhythmoRadii.pill),
               child: Directionality(
                 textDirection: TextDirection.ltr,
                 child: LinearProgressIndicator(
@@ -286,7 +286,7 @@ class _TrackSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: NafirRadii.control,
+      borderRadius: RhythmoRadii.control,
       onTap: onTap,
       child: Row(
         children: [
@@ -316,10 +316,10 @@ class _MiniArtwork extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final icon = status == PlayerStatus.error
-        ? NafirIcons.warningCircle
+        ? RhythmoIcons.warningCircle
         : track.isLocal
-            ? NafirIcons.deviceMobile
-            : NafirIcons.musicNote;
+            ? RhythmoIcons.deviceMobile
+            : RhythmoIcons.musicNote;
     return Container(
       width: size,
       height: size,
@@ -328,7 +328,7 @@ class _MiniArtwork extends StatelessWidget {
         borderRadius: BorderRadius.circular(size >= 44 ? 14 : 12),
         boxShadow: [
           BoxShadow(
-            color: NafirColors.primary.withValues(alpha: 0.18),
+            color: RhythmoColors.primary.withValues(alpha: 0.18),
             offset: const Offset(0, 7),
             blurRadius: 18,
           ),
@@ -420,7 +420,7 @@ class _PlaybackControls extends StatelessWidget {
           IconButton(
             tooltip: 'قبلی',
             onPressed: player.previous,
-            icon: const Icon(NafirIcons.skipBackFill),
+            icon: const Icon(RhythmoIcons.skipBackFill),
           ),
           const SizedBox(width: 4),
           if (busy)
@@ -445,17 +445,17 @@ class _PlaybackControls extends StatelessWidget {
               onPressed: player.toggle,
               icon: Icon(
                 status == PlayerStatus.error
-                    ? NafirIcons.arrowsClockwise
+                    ? RhythmoIcons.arrowsClockwise
                     : playing
-                        ? NafirIcons.pauseFill
-                        : NafirIcons.playFill,
+                        ? RhythmoIcons.pauseFill
+                        : RhythmoIcons.playFill,
               ),
             ),
           const SizedBox(width: 4),
           IconButton(
             tooltip: 'بعدی',
             onPressed: player.next,
-            icon: const Icon(NafirIcons.skipForwardFill),
+            icon: const Icon(RhythmoIcons.skipForwardFill),
           ),
           RepeatToggle(player: player),
         ],

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mhdolatabadi/nafir/server/internal/transcription"
+	"github.com/mhdolatabadi/rhythmo/server/internal/transcription"
 )
 
 func TestTranscriptionQueue(t *testing.T) {

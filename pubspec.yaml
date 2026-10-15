@@ -1,4 +1,4 @@
-name: nafir
+name: rhythmo
 description: Private cloud music player with stream-first playback.
 publish_to: none
 version: 0.1.0+1
@@ -44,7 +44,7 @@ flutter:
 
   # Bundled so Persian text never waits on a runtime font download from Google.
   fonts:
-    # Phosphor icons (MIT), used through lib/core/widgets/nafir_icons.dart.
+    # Phosphor icons (MIT), used through lib/core/widgets/rhythmo_icons.dart.
     - family: Phosphor
       fonts:
         - asset: assets/fonts/Phosphor.ttf

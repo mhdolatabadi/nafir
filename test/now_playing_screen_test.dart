@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/app/app_theme.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/player/application/favorite_tracks.dart';
-import 'package:nafir/features/player/application/play_queue.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
-import 'package:nafir/features/player/presentation/now_playing_screen.dart';
+import 'package:rhythmo/app/app_theme.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/player/application/favorite_tracks.dart';
+import 'package:rhythmo/features/player/application/play_queue.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/player/presentation/now_playing_screen.dart';
 
 import 'player_controller_test.dart' show FakeAudioEngine;
 import 'upload_controller_test.dart' show FakeTracksApi;
@@ -67,7 +67,7 @@ void main() {
       locale: const Locale('fa'),
       supportedLocales: const [Locale('fa')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: NafirTheme.dark(),
+      theme: RhythmoTheme.dark(),
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context).copyWith(disableAnimations: reduceMotion),
         child: child!,
@@ -133,11 +133,11 @@ void main() {
   testWidgets('the heart likes the track and remembers it', (tester) async {
     await open(tester);
 
-    expect(find.byIcon(NafirIcons.heart), findsOneWidget);
+    expect(find.byIcon(RhythmoIcons.heart), findsOneWidget);
     await tester.tap(find.byTooltip('پسندیدن'));
     await advanceUi(tester);
 
-    expect(find.byIcon(NafirIcons.heartFill), findsOneWidget);
+    expect(find.byIcon(RhythmoIcons.heartFill), findsOneWidget);
     expect(find.byTooltip('برداشتن از پسندیده‌ها'), findsOneWidget);
     expect(store.ids, {'a'});
 
@@ -273,7 +273,7 @@ void main() {
   });
 
   test('every track tint keeps text readable', () {
-    final theme = NafirTheme.dark().colorScheme;
+    final theme = RhythmoTheme.dark().colorScheme;
     for (var i = 0; i < 500; i++) {
       final tint = trackTint(Track(
           id: 'track-$i', title: '', contentType: 'audio/mpeg', sizeBytes: 1));

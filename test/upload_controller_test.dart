@@ -1,11 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/features/library/data/track.dart';
-import 'package:nafir/features/upload/application/upload_controller.dart';
-import 'package:nafir/features/upload/data/storage_uploader.dart';
-import 'package:nafir/features/upload/data/upload_models.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/features/library/data/track.dart';
+import 'package:rhythmo/features/upload/application/upload_controller.dart';
+import 'package:rhythmo/features/upload/data/storage_uploader.dart';
+import 'package:rhythmo/features/upload/data/upload_models.dart';
 
 const _pendingTrack = Track(
   id: 't1',
@@ -98,6 +98,17 @@ class FakeTracksApi implements TracksApi {
     links++;
     return StreamLink(
       Uri.parse('https://music.example.com/nafir-music/$trackId?sig=$links'),
+      DateTime.now().add(const Duration(hours: 1)),
+    );
+  }
+
+  @override
+  Future<StreamLink> storeStreamLink(String? token, String id) async {
+    calls.add('store:$id');
+    if (linkError != null) throw linkError!;
+    links++;
+    return StreamLink(
+      Uri.parse('https://music.example.com/nafir-music/store/$id?sig=$links'),
       DateTime.now().add(const Duration(hours: 1)),
     );
   }

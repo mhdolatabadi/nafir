@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nafir/features/journey/application/listening_journey.dart';
-import 'package:nafir/features/journey/presentation/journey_widgets.dart';
-import 'package:nafir/features/player/application/player_controller.dart';
+import 'package:rhythmo/features/journey/application/listening_journey.dart';
+import 'package:rhythmo/features/journey/presentation/journey_widgets.dart';
+import 'package:rhythmo/features/player/application/player_controller.dart';
 
 import 'player_controller_test.dart' show FakeAudioEngine;
 import 'upload_controller_test.dart' show FakeTracksApi;

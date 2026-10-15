@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/mhdolatabadi/nafir/server/internal/transcription"
+	"github.com/mhdolatabadi/rhythmo/server/internal/transcription"
 )
 
 type Transcriptions struct{ pool *pgxpool.Pool }

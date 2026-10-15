@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:nafir/features/library/data/local_audio_library.dart';
-import 'package:nafir/features/library/data/track.dart';
+import 'package:rhythmo/features/library/data/local_audio_library.dart';
+import 'package:rhythmo/features/library/data/track.dart';
 
 enum DeviceDeleteResult { deleted, declined, permissionDenied, failed }
 

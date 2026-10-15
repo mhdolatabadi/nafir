@@ -16,8 +16,8 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/mhdolatabadi/nafir/server/internal/audio"
-	"github.com/mhdolatabadi/nafir/server/internal/bot"
+	"github.com/mhdolatabadi/rhythmo/server/internal/audio"
+	"github.com/mhdolatabadi/rhythmo/server/internal/bot"
 )
 
 // YTDLPConfig sets up downloads from YouTube and Instagram.

@@ -1,7 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
-import 'package:nafir/features/upload/data/audio_formats.dart';
-import 'package:nafir/features/upload/data/upload_models.dart';
+import 'package:rhythmo/features/upload/data/audio_formats.dart';
+import 'package:rhythmo/features/upload/data/upload_models.dart';
 
 abstract interface class AudioPicker {
   /// Returns null when the user cancels. [onReading] fires once a file was

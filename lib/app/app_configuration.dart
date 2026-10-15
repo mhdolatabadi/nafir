@@ -16,7 +16,7 @@ abstract final class AppConfiguration {
     return uri;
   }
 
-  /// A public page of the Nafir site, such as `/privacy`, which is served
+  /// A public page of the rhythmo site, such as `/privacy`, which is served
   /// from the same origin as the API.
   static Uri? sitePage(String path) => apiBaseUri?.resolve(path);
 
@@ -48,4 +48,15 @@ abstract final class AppConfiguration {
   }
 
   static bool _collabTokenTaken = false;
+
+  /// The store song the web app was opened with (`/app/?store=…`), from a
+  /// store page's «افزودن به کتابخانه‌ی من». Taken only once.
+  static String? takeInitialStoreSong() {
+    if (!kIsWeb || _storeSongTaken) return null;
+    _storeSongTaken = true;
+    final id = Uri.base.queryParameters['store'];
+    return id == null || id.isEmpty ? null : id;
+  }
+
+  static bool _storeSongTaken = false;
 }

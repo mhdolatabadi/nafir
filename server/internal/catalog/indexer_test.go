@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/mhdolatabadi/nafir/server/internal/fingerprint"
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/fingerprint"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 func str(s string) *string    { return &s }

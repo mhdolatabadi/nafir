@@ -13,12 +13,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mhdolatabadi/nafir/server/internal/auth"
-	"github.com/mhdolatabadi/nafir/server/internal/bot"
-	"github.com/mhdolatabadi/nafir/server/internal/botapi"
-	"github.com/mhdolatabadi/nafir/server/internal/httpapi"
-	"github.com/mhdolatabadi/nafir/server/internal/storage"
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/auth"
+	"github.com/mhdolatabadi/rhythmo/server/internal/bot"
+	"github.com/mhdolatabadi/rhythmo/server/internal/botapi"
+	"github.com/mhdolatabadi/rhythmo/server/internal/httpapi"
+	"github.com/mhdolatabadi/rhythmo/server/internal/storage"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 const (
@@ -161,7 +161,7 @@ func setupBots(ctx context.Context, deps botDeps) (map[string]http.Handler, *htt
 	return webhooks, httpapi.NewBotHandlers(linker, senders, deps.tokens, listed, linkRate, sendRate), monitor, nil
 }
 
-// registerWebhook points the provider at Nafir, retrying while it is unreachable.
+// registerWebhook points the provider at rhythmo, retrying while it is unreachable.
 func registerWebhook(ctx context.Context, client *botapi.Client, webhookURL string) {
 	for attempt := 1; ; attempt++ {
 		err := client.SetWebhook(ctx, webhookURL)

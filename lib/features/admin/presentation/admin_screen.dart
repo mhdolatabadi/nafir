@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:nafir/core/api/api_client.dart';
-import 'package:nafir/core/widgets/glass_surface.dart';
-import 'package:nafir/core/widgets/nafir_icons.dart';
-import 'package:nafir/features/admin/data/admin_account.dart';
+import 'package:rhythmo/core/api/api_client.dart';
+import 'package:rhythmo/core/widgets/glass_surface.dart';
+import 'package:rhythmo/core/widgets/rhythmo_icons.dart';
+import 'package:rhythmo/features/admin/data/admin_account.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key, required this.api, required this.token});
@@ -135,7 +135,7 @@ class _AdminScreenState extends State<AdminScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('مدیریت حساب‌ها')),
-      body: NafirBackdrop(
+      body: RhythmoBackdrop(
         child: SafeArea(
           child: Center(
             child: ConstrainedBox(
@@ -161,7 +161,7 @@ class _AdminScreenState extends State<AdminScreen> {
                           textInputAction: TextInputAction.search,
                           decoration: const InputDecoration(
                             labelText: 'جست‌وجو با ایمیل',
-                            prefixIcon: Icon(NafirIcons.userCircle),
+                            prefixIcon: Icon(RhythmoIcons.userCircle),
                           ),
                           onSubmitted: (_) => _load(),
                         ),
@@ -218,8 +218,8 @@ class _AdminScreenState extends State<AdminScreen> {
                                   ? null
                                   : () => _verify(account),
                               icon: Icon(account.user.verified
-                                  ? NafirIcons.checkCircle
-                                  : NafirIcons.check),
+                                  ? RhythmoIcons.checkCircle
+                                  : RhythmoIcons.check),
                               label: Text(_saving == account.user.id
                                   ? 'در حال ذخیره…'
                                   : account.user.verified

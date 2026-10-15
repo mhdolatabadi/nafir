@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mhdolatabadi/nafir/server/internal/store"
+	"github.com/mhdolatabadi/rhythmo/server/internal/store"
 )
 
 func publicSite(data *sharingStore, limits AnonymousLimits) http.Handler {
