@@ -205,7 +205,7 @@ Future<RhythmoAudioHandler?> startMediaSession() async {
       config: const AudioServiceConfig(
         androidNotificationChannelId: 'ir.mhdolatabadi.nafir.playback',
         androidNotificationChannelName: 'پخش موسیقی',
-        androidNotificationIcon: 'drawable/ic_stat_nafir',
+        androidNotificationIcon: 'drawable/ic_stat_rhythmo',
         androidNotificationOngoing: true,
       ),
     );

@@ -17,8 +17,8 @@ RUN python3 -m venv /opt/yt-dlp \
     && ln -s /opt/yt-dlp/bin/yt-dlp /usr/local/bin/yt-dlp \
     && rm /tmp/ytdlp-requirements.txt \
     && yt-dlp --version
-RUN addgroup -S nafir && adduser -S -G nafir -u 10001 nafir
+RUN addgroup -S rhythmo && adduser -S -G rhythmo -u 10001 rhythmo
 COPY --from=build /out/rhythmo-api /usr/local/bin/rhythmo-api
-USER nafir
+USER rhythmo
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/rhythmo-api"]

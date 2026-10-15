@@ -45,7 +45,7 @@ func TestStorePagesListSongsWithoutTheirOwners(t *testing.T) {
 	for _, want := range []string{"<h1 dir=\"auto\">باران</h1>", `href="/store/artists/AC%2FDC"`,
 		`href="/store/albums/Seasons?artist=AC%2FDC"`, "۴:۰۵", "FLAC", "۳۰٫۴ مگابایت",
 		`src="/store/t/` + storeEntryID + `/stream"`, `href="/app/?store=` + storeEntryID + `"`,
-		`<link rel="canonical" href="https://nafir.example.com/store/t/` + storeEntryID + `">`} {
+		`<link rel="canonical" href="https://rhythmo.example.com/store/t/` + storeEntryID + `">`} {
 		if !strings.Contains(page, want) {
 			t.Errorf("song page lacks %q", want)
 		}
@@ -125,7 +125,7 @@ func TestStorePagesUseTheVisitorLimits(t *testing.T) {
 func TestSitemapListsTheStore(t *testing.T) {
 	site, _ := storeSite(t, AnonymousLimits{})
 	sitemap := get(site, "/sitemap.xml").Body.String()
-	for _, want := range []string{"https://nafir.example.com/store</loc>", "/store/artists</loc>", "/store/albums</loc>",
+	for _, want := range []string{"https://rhythmo.example.com/store</loc>", "/store/artists</loc>", "/store/albums</loc>",
 		"/store/artists/Kayhan</loc>", "/store/t/" + storeEntryID + "</loc>"} {
 		if !strings.Contains(sitemap, want) {
 			t.Errorf("sitemap lacks %q", want)
