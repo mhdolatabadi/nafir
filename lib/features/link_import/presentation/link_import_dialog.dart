@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nafir/core/design/tokens.dart';
 import 'package:flutter/services.dart';
 import 'package:nafir/core/api/api_client.dart';
 import 'package:nafir/core/format_size.dart';
@@ -288,7 +289,7 @@ class _Thumbnail extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(NafirRadii.xs),
       child: SizedBox.square(
         dimension: 48,
         child: Image.network(

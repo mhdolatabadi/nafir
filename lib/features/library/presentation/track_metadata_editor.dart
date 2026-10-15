@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:nafir/core/design/design.dart';
 import 'package:flutter/services.dart';
-import 'package:nafir/core/widgets/glass_surface.dart';
 import 'package:nafir/core/widgets/nafir_icons.dart';
 import 'package:nafir/features/library/data/track.dart';
 import 'package:nafir/features/library/data/track_metadata.dart';
@@ -169,8 +169,7 @@ class _TrackMetadataEditorState extends State<TrackMetadataEditor> {
         // The choice is at the top of the form.
         if (_scroll.hasClients) {
           unawaited(_scroll.animateTo(0,
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeOutCubic));
+              duration: NafirMotion.medium, curve: NafirMotion.standard));
         }
       case MetadataInvalid(:final field):
         setState(() {
@@ -480,7 +479,7 @@ class _Section extends StatelessWidget {
             child: Text(
               title,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.78),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w700,
                   ),
             ),
@@ -613,8 +612,8 @@ class _ConflictNotice extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         radius: 16,
-        tint: NafirGlass.primary,
-        borderColor: NafirGlass.primary.withValues(alpha: 0.5),
+        tint: NafirColors.primary,
+        borderColor: NafirColors.primary.withValues(alpha: 0.5),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

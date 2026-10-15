@@ -1,51 +1,78 @@
 import 'package:flutter/material.dart';
-import 'package:nafir/core/widgets/glass_surface.dart';
+import 'package:nafir/core/design/tokens.dart';
 
 abstract final class NafirTheme {
-  static const _seed = NafirGlass.primary;
-  static const _controlRadius = 14.0;
-  static const _surfaceRadius = 18.0;
+  static const _seed = NafirColors.primary;
+  static const _controlRadius = NafirRadii.md;
+  static const _surfaceRadius = NafirRadii.lg;
 
   static ThemeData dark() => _build(Brightness.dark);
   static ThemeData light() => _build(Brightness.light);
 
+  static final _darkScheme = ColorScheme.fromSeed(
+    seedColor: _seed,
+    brightness: Brightness.dark,
+    dynamicSchemeVariant: DynamicSchemeVariant.tonalSpot,
+  ).copyWith(
+    primary: NafirColors.primary,
+    onPrimary: NafirColors.onPrimary,
+    primaryContainer: NafirColors.primaryContainer,
+    onPrimaryContainer: NafirColors.onPrimaryContainer,
+    secondary: NafirColors.secondary,
+    onSecondary: NafirColors.onSecondary,
+    secondaryContainer: NafirColors.secondaryContainer,
+    onSecondaryContainer: NafirColors.onSecondaryContainer,
+    surface: NafirColors.background,
+    surfaceContainerLowest: NafirColors.background,
+    surfaceContainerLow: NafirColors.containerLow,
+    surfaceContainer: NafirColors.container,
+    surfaceContainerHigh: NafirColors.containerHigh,
+    surfaceContainerHighest: NafirColors.surfaceRaised,
+    onSurface: NafirColors.onSurface,
+    onSurfaceVariant: NafirColors.onSurfaceVariant,
+    outline: NafirColors.outline,
+    outlineVariant: NafirColors.outlineVariant,
+  );
+
+  /// The light scheme is Material's own, seeded from a deeper ember so the
+  /// accent keeps its contrast on light surfaces.
+  static final _lightScheme = ColorScheme.fromSeed(
+    seedColor: NafirColors.lightSeed,
+    brightness: Brightness.light,
+  );
+
   static ThemeData _build(Brightness brightness) {
     final dark = brightness == Brightness.dark;
-    final colors = dark
-        ? ColorScheme.fromSeed(
-            seedColor: _seed,
-            brightness: Brightness.dark,
-            dynamicSchemeVariant: DynamicSchemeVariant.tonalSpot,
-          ).copyWith(
-            primary: NafirGlass.primary,
-            onPrimary: const Color(0xFF250005),
-            primaryContainer: const Color(0xFF462026),
-            onPrimaryContainer: const Color(0xFFFFDADB),
-            secondary: NafirGlass.secondary,
-            onSecondary: const Color(0xFF160F45),
-            secondaryContainer: const Color(0xFF2A2454),
-            onSecondaryContainer: const Color(0xFFE5DFFF),
-            surface: NafirGlass.background,
-            surfaceContainerLowest: NafirGlass.background,
-            surfaceContainerLow: const Color(0xE6121522),
-            surfaceContainer: const Color(0xEB151827),
-            surfaceContainerHigh: const Color(0xF0191D2D),
-            surfaceContainerHighest: const Color(0xFF23283A),
-            onSurface: const Color(0xFFF5F1F7),
-            onSurfaceVariant: const Color(0xFFD0C8D4),
-            outline: const Color(0xFF8B8290),
-            outlineVariant: const Color(0xFF3C3743),
-          )
-        : ColorScheme.fromSeed(
-            seedColor: const Color(0xFFAD2638), brightness: Brightness.light);
-    final base = ThemeData(
+    final colors = dark ? _darkScheme : _lightScheme;
+    final material = ThemeData(
       brightness: brightness,
       colorScheme: colors,
-      fontFamily: 'Vazirmatn',
+      fontFamily: NafirType.family,
       useMaterial3: true,
       materialTapTargetSize: MaterialTapTargetSize.padded,
       visualDensity: VisualDensity.standard,
     );
+    final tokens = dark ? NafirTokens.dark : NafirTokens.light;
+    final base = material.copyWith(
+      textTheme: NafirType.apply(material.textTheme, color: colors.onSurface),
+      extensions: [tokens],
+      focusColor: colors.primary.withValues(alpha: 0.24),
+    );
+
+    // Translucent glass on the dark canvas; plain tonal containers in light.
+    final card = dark ? NafirColors.card : colors.surfaceContainerLow;
+    final overlay = dark ? NafirColors.overlay : colors.surfaceContainerHigh;
+    final field = dark ? NafirColors.field : colors.surfaceContainerLow;
+    final softBorder = dark ? NafirColors.softBorder : colors.outlineVariant;
+    final divider = dark ? NafirColors.divider : colors.outlineVariant;
+
+    // Keyboard focus draws a 2 px ring on every button, on top of the
+    // state layer, so it shows on any surface.
+    WidgetStateProperty<BorderSide?> ring(BorderSide? rest) =>
+        WidgetStateProperty.resolveWith((states) =>
+            states.contains(WidgetState.focused)
+                ? BorderSide(color: tokens.focusRing, width: 2)
+                : rest);
 
     final controlShape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(_controlRadius),
@@ -69,34 +96,31 @@ abstract final class NafirTheme {
       appBarTheme: AppBarTheme(
         backgroundColor: colors.surface.withValues(alpha: dark ? 0.58 : 0.96),
         foregroundColor: colors.onSurface,
-        surfaceTintColor: Colors.transparent,
+        surfaceTintColor: NafirColors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
         shape: Border(
-          bottom: BorderSide(
-            color: Colors.white.withValues(alpha: 0.08),
-          ),
+          bottom: BorderSide(color: divider),
         ),
       ),
       cardTheme: CardThemeData(
-        color: dark ? const Color(0xB31A1D2A) : colors.surfaceContainerLow,
-        surfaceTintColor: Colors.transparent,
+        color: card,
+        surfaceTintColor: NafirColors.transparent,
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: surfaceShape.copyWith(
           side: BorderSide(
-            color: dark ? NafirGlass.softBorder : colors.outlineVariant,
+            color: softBorder,
           ),
         ),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor:
-            dark ? const Color(0xF21B1E2D) : colors.surfaceContainerHigh,
-        surfaceTintColor: Colors.transparent,
+        backgroundColor: overlay,
+        surfaceTintColor: NafirColors.transparent,
         elevation: 6,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: NafirRadii.panel,
         ),
         titleTextStyle: base.textTheme.headlineSmall?.copyWith(
           color: colors.onSurface,
@@ -108,8 +132,8 @@ abstract final class NafirTheme {
         ),
       ),
       popupMenuTheme: PopupMenuThemeData(
-        color: dark ? const Color(0xF21B1E2D) : colors.surfaceContainerHigh,
-        surfaceTintColor: Colors.transparent,
+        color: overlay,
+        surfaceTintColor: NafirColors.transparent,
         elevation: 6,
         shape: surfaceShape,
         position: PopupMenuPosition.under,
@@ -127,9 +151,9 @@ abstract final class NafirTheme {
         ),
       ),
       tabBarTheme: TabBarThemeData(
-        dividerColor: Colors.transparent,
+        dividerColor: NafirColors.transparent,
         indicator: BoxDecoration(
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(NafirRadii.pill),
           color: colors.primary.withValues(alpha: 0.18),
           border: Border.all(color: colors.primary.withValues(alpha: 0.42)),
         ),
@@ -148,9 +172,10 @@ abstract final class NafirTheme {
           color: colors.outlineVariant.withValues(alpha: 0.7),
         ),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(NafirRadii.sm),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        padding: const EdgeInsets.symmetric(
+            horizontal: NafirSpace.sm, vertical: NafirSpace.xs + 2),
       ),
       listTileTheme: ListTileThemeData(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -163,7 +188,7 @@ abstract final class NafirTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: dark ? const Color(0xB31B1E2D) : colors.surfaceContainerLow,
+        fillColor: field,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: outline,
@@ -182,11 +207,10 @@ abstract final class NafirTheme {
         errorStyle: TextStyle(color: colors.error),
       ),
       searchBarTheme: SearchBarThemeData(
-        backgroundColor: WidgetStatePropertyAll(
-            dark ? const Color(0xB31B1E2D) : colors.surfaceContainerLow),
-        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+        backgroundColor: WidgetStatePropertyAll(field),
+        surfaceTintColor: const WidgetStatePropertyAll(NafirColors.transparent),
         elevation: const WidgetStatePropertyAll(0),
-        shadowColor: const WidgetStatePropertyAll(Colors.transparent),
+        shadowColor: const WidgetStatePropertyAll(NafirColors.transparent),
         shape: WidgetStatePropertyAll(
           RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(_surfaceRadius),
@@ -206,6 +230,7 @@ abstract final class NafirTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: ButtonStyle(
+          side: ring(null),
           minimumSize: const WidgetStatePropertyAll(Size(64, 48)),
           padding: const WidgetStatePropertyAll(
             EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -223,9 +248,7 @@ abstract final class NafirTheme {
             EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           ),
           shape: WidgetStatePropertyAll(controlShape),
-          side: WidgetStatePropertyAll(
-            BorderSide(color: colors.outline),
-          ),
+          side: ring(BorderSide(color: colors.outline)),
           textStyle: WidgetStatePropertyAll(
             base.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
           ),
@@ -233,6 +256,7 @@ abstract final class NafirTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: ButtonStyle(
+          side: ring(null),
           minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
           padding: const WidgetStatePropertyAll(
             EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -242,6 +266,7 @@ abstract final class NafirTheme {
       ),
       iconButtonTheme: IconButtonThemeData(
         style: ButtonStyle(
+          side: ring(null),
           minimumSize: const WidgetStatePropertyAll(Size.square(48)),
           iconSize: const WidgetStatePropertyAll(22),
           shape: const WidgetStatePropertyAll(CircleBorder()),
@@ -255,7 +280,7 @@ abstract final class NafirTheme {
         hoverElevation: 4,
         highlightElevation: 2,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(NafirRadii.lg),
         ),
       ),
       sliderTheme: base.sliderTheme.copyWith(
@@ -266,7 +291,7 @@ abstract final class NafirTheme {
         trackHeight: 3,
       ),
       scrollbarTheme: ScrollbarThemeData(
-        radius: const Radius.circular(8),
+        radius: const Radius.circular(NafirRadii.xs),
         thickness: const WidgetStatePropertyAll(6),
         thumbColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.hovered)
@@ -276,11 +301,12 @@ abstract final class NafirTheme {
       ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: colors.surfaceContainerHigh,
-        surfaceTintColor: Colors.transparent,
+        surfaceTintColor: NafirColors.transparent,
         modalBackgroundColor: colors.surfaceContainerHigh,
-        modalBarrierColor: Colors.black.withValues(alpha: 0.62),
+        modalBarrierColor: NafirColors.scrim,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          borderRadius:
+              BorderRadius.vertical(top: Radius.circular(NafirRadii.sheet)),
         ),
         showDragHandle: true,
       ),
@@ -292,13 +318,13 @@ abstract final class NafirTheme {
       tooltipTheme: TooltipThemeData(
         decoration: BoxDecoration(
           color: colors.inverseSurface,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(NafirRadii.xs),
         ),
         textStyle: base.textTheme.bodySmall?.copyWith(
           color: colors.onInverseSurface,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        waitDuration: const Duration(milliseconds: 500),
+        waitDuration: NafirMotion.tooltipWait,
       ),
     );
   }

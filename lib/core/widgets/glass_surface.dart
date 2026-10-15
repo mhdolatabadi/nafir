@@ -1,29 +1,19 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:nafir/core/design/tokens.dart';
 
-/// Shared visual language for Nafir's dark, glass-inspired surfaces.
-abstract final class NafirGlass {
-  static const background = Color(0xFF070810);
-  static const surface = Color(0xFF121522);
-  static const surfaceStrong = Color(0xFF191D2D);
-  static const primary = Color(0xFFFF626A);
-  static const secondary = Color(0xFF8D7CFF);
-  static const border = Color(0x33FFFFFF);
-  static const softBorder = Color(0x1FFFFFFF);
-  static const shadow = Color(0x73000000);
-
-  static const backgroundGradient = LinearGradient(
-    begin: Alignment.topRight,
-    end: Alignment.bottomLeft,
-    colors: [
-      Color(0xFF17101D),
-      Color(0xFF090B14),
-      Color(0xFF070810),
-    ],
-    stops: [0, 0.48, 1],
-  );
-}
+/// The canvas: night with the ambient light rising from its top corner.
+const nafirAmbientGradient = LinearGradient(
+  begin: Alignment.topRight,
+  end: Alignment.bottomLeft,
+  colors: [
+    NafirColors.ambientTop,
+    NafirColors.ambientMiddle,
+    NafirColors.background,
+  ],
+  stops: [0, 0.48, 1],
+);
 
 /// Atmospheric animated background shared by primary app surfaces.
 class NafirBackdrop extends StatelessWidget {
@@ -35,12 +25,13 @@ class NafirBackdrop extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-          gradient: Theme.of(context).brightness == Brightness.dark
-              ? NafirGlass.backgroundGradient
-              : LinearGradient(colors: [
-                  Theme.of(context).colorScheme.surfaceContainerLow,
-                  Theme.of(context).colorScheme.surface
-                ])),
+        gradient: Theme.of(context).brightness == Brightness.dark
+            ? nafirAmbientGradient
+            : LinearGradient(colors: [
+                Theme.of(context).colorScheme.surfaceContainerLow,
+                Theme.of(context).colorScheme.surface,
+              ]),
+      ),
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -63,7 +54,7 @@ class _AmbientLightState extends State<_AmbientLight>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1400),
+    duration: NafirMotion.arrival,
   )..forward();
 
   late final Animation<double> _drift = CurvedAnimation(
@@ -79,6 +70,11 @@ class _AmbientLightState extends State<_AmbientLight>
 
   @override
   Widget build(BuildContext context) {
+    // With reduced motion the light is simply in place.
+    if (MediaQuery.maybeDisableAnimationsOf(context) == true &&
+        _controller.isAnimating) {
+      _controller.value = 1;
+    }
     return RepaintBoundary(
       child: AnimatedBuilder(
         animation: _drift,
@@ -93,7 +89,7 @@ class _AmbientLightState extends State<_AmbientLight>
                   scale: 1 + (value * 0.05),
                   child: _Glow(
                     size: 430,
-                    color: NafirGlass.primary.withValues(alpha: 0.16),
+                    color: NafirColors.primary.withValues(alpha: 0.16),
                   ),
                 ),
               ),
@@ -104,7 +100,7 @@ class _AmbientLightState extends State<_AmbientLight>
                   scale: 1.04 - (value * 0.04),
                   child: _Glow(
                     size: 460,
-                    color: NafirGlass.secondary.withValues(alpha: 0.14),
+                    color: NafirColors.secondary.withValues(alpha: 0.14),
                   ),
                 ),
               ),
@@ -113,7 +109,7 @@ class _AmbientLightState extends State<_AmbientLight>
                 start: 30 + (value * 36),
                 child: _Glow(
                   size: 260,
-                  color: Colors.white.withValues(alpha: 0.045),
+                  color: NafirColors.highlight.withValues(alpha: 0.045),
                 ),
               ),
             ],
@@ -158,6 +154,19 @@ class GlassSurface extends StatelessWidget {
     this.shadow = true,
   });
 
+  /// A surface at one of the glass levels in [NafirGlassLevel].
+  GlassSurface.level(
+    NafirGlassLevel level, {
+    super.key,
+    required this.child,
+    this.padding,
+    this.margin,
+    this.radius = NafirRadii.xl,
+    this.tint,
+  })  : blur = level.blur,
+        borderColor = level.border,
+        shadow = level.shadow;
+
   final Widget child;
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;
@@ -170,6 +179,8 @@ class GlassSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final borderRadius = BorderRadius.circular(radius);
+    final scheme = Theme.of(context).colorScheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
     Widget surface = Container(
       padding: padding,
       decoration: BoxDecoration(
@@ -178,21 +189,18 @@ class GlassSurface extends StatelessWidget {
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
           colors: [
-            (tint ?? Colors.white).withValues(alpha: 0.16),
-            Colors.white.withValues(alpha: 0.055),
-            (Theme.of(context).brightness == Brightness.dark
-                    ? NafirGlass.surface
-                    : Theme.of(context).colorScheme.surfaceContainerLow)
+            (tint ?? NafirColors.highlight).withValues(alpha: 0.16),
+            NafirColors.highlight.withValues(alpha: 0.055),
+            (dark ? NafirColors.surface : scheme.surfaceContainerLow)
                 .withValues(alpha: 0.9),
           ],
           stops: const [0, 0.45, 1],
         ),
-        border: Border.all(
-            color: borderColor ?? Theme.of(context).colorScheme.outlineVariant),
+        border: Border.all(color: borderColor ?? scheme.outlineVariant),
         boxShadow: shadow
             ? const [
                 BoxShadow(
-                  color: NafirGlass.shadow,
+                  color: NafirColors.shadow,
                   offset: Offset(0, 12),
                   blurRadius: 32,
                 ),
