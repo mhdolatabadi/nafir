@@ -46,13 +46,14 @@ class RecentlyPlayedController extends ChangeNotifier {
 
   /// Counts a meaningful listen of [track]. It moves to the top at once;
   /// the server keeps it for the account's other devices. Music only on
-  /// this device and tracks opened from someone's shared link are not
-  /// kept: there is nothing the account could replay later.
+  /// this device, tracks opened from someone's shared link and store songs
+  /// are not kept: there is nothing the account could replay later.
   Future<void> record(Track track) async {
     final token = _token();
     if (token == null ||
         locationOf(track) == TrackLocation.device ||
-        track.sharedVia != null) {
+        track.sharedVia != null ||
+        track.fromStore) {
       return;
     }
     tracks = [track, ...tracks.where((t) => t.id != track.id)];

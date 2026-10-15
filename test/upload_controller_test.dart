@@ -103,6 +103,17 @@ class FakeTracksApi implements TracksApi {
   }
 
   @override
+  Future<StreamLink> storeStreamLink(String? token, String id) async {
+    calls.add('store:$id');
+    if (linkError != null) throw linkError!;
+    links++;
+    return StreamLink(
+      Uri.parse('https://music.example.com/nafir-music/store/$id?sig=$links'),
+      DateTime.now().add(const Duration(hours: 1)),
+    );
+  }
+
+  @override
   Future<StreamLink> sharedStreamLink(
       String? token, String shareToken, String trackId) async {
     calls.add('shared:$shareToken:$trackId');

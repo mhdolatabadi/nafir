@@ -21,6 +21,7 @@ import 'package:nafir/features/library/application/track_groups.dart';
 import 'package:nafir/features/library/application/track_sort.dart';
 import 'package:nafir/features/library/application/local_audio_controller.dart';
 import 'package:nafir/features/library/data/track.dart';
+import 'package:nafir/features/store/application/store_controller.dart';
 import 'package:nafir/features/library/presentation/track_metadata_editor.dart';
 import 'package:nafir/features/player/application/player_controller.dart';
 import 'package:nafir/features/player/presentation/mini_player.dart';
@@ -57,6 +58,7 @@ class LibraryScreen extends StatefulWidget {
     this.botLinks,
     this.linkImports,
     this.identify,
+    this.store,
     required this.picker,
     required this.player,
     this.recent,
@@ -90,6 +92,9 @@ class LibraryScreen extends StatefulWidget {
 
   /// «این آهنگ چیه؟»; null hides the action.
   final IdentifyController? identify;
+
+  /// The public store; null hides it.
+  final StoreController? store;
   final AudioPicker picker;
 
   /// The account's recently played tracks; null hides them.
@@ -433,6 +438,7 @@ class _LibraryScreenState extends State<LibraryScreen>
                       controller: playlists,
                       libraryTracks: widget.library.tracks,
                       player: widget.player,
+                      store: widget.store,
                       onSharedSaved: widget.library.load)),
             )));
   }
@@ -693,6 +699,7 @@ class _LibraryScreenState extends State<LibraryScreen>
             libraryTracks: widget.library.tracks,
             player: widget.player,
             onSharedSaved: widget.library.load,
+            store: widget.store,
             underHeader: true),
         LibraryTab.albums => _groupsTab(albums: true),
         LibraryTab.artists => _groupsTab(albums: false),

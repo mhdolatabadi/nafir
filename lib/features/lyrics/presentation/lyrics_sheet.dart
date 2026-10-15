@@ -295,6 +295,12 @@ class _LyricsViewState extends State<LyricsView> {
           icon: NafirIcons.userCircle,
           title: 'برای دیدن متن آهنگ وارد شوید',
         );
+      case LyricsUnavailable.store:
+        return const LyricsMessage(
+          icon: NafirIcons.storefront,
+          title: 'متن آهنگ‌های استور هنوز نمایش داده نمی‌شود',
+          detail: 'آهنگ را به کتابخانه‌ات اضافه کن تا متنش را ببینی.',
+        );
       case null:
     }
     if (_loading) {

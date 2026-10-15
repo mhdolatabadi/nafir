@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:nafir/features/auth/data/auth_models.dart';
 import 'package:nafir/features/bots/data/messenger_bot.dart';
 import 'package:nafir/features/library/data/track.dart';
+import 'package:nafir/features/store/data/store_catalog.dart';
 import 'package:nafir/features/link_import/data/link_import.dart';
 import 'package:nafir/features/lyrics/data/lyrics.dart';
 import 'package:nafir/features/playlists/data/playlist.dart';
@@ -154,6 +155,9 @@ abstract interface class TracksApi {
   /// playlist the user belongs to.
   Future<StreamLink> playlistStreamLink(
       String token, String playlistId, String trackId);
+
+  /// A playback link for a public store song; no account is needed.
+  Future<StreamLink> storeStreamLink(String? token, String id);
 }
 
 abstract interface class PlaylistsApi {
@@ -312,6 +316,7 @@ class ApiClient
         LyricsApi,
         TranscriptionApi,
         IdentifyApi,
+        StoreApi,
         AdminApi {
   ApiClient(this.baseUri, {http.Client? httpClient})
       : _httpClient = httpClient ?? http.Client();
@@ -589,6 +594,119 @@ class ApiClient
         token: token);
     return StreamLink(Uri.parse(body['url'] as String),
         DateTime.parse(body['expiresAt'] as String));
+  }
+
+  @override
+  Future<StreamLink> storeStreamLink(String? token, String id) async {
+    final body = await _send(
+        'GET', '/api/v1/store/tracks/${Uri.encodeComponent(id)}/stream',
+        token: token);
+    return StreamLink(Uri.parse(body['url'] as String),
+        DateTime.parse(body['expiresAt'] as String));
+  }
+
+  /// [path] with the non-empty [query] parameters.
+  static String _withQuery(String path, Map<String, String?> query) {
+    final kept = {
+      for (final entry in query.entries)
+        if (entry.value != null && entry.value!.isNotEmpty)
+          entry.key: entry.value!,
+    };
+    return kept.isEmpty ? path : '$path?${Uri(queryParameters: kept).query}';
+  }
+
+  @override
+  Future<StorePage<Track>> storeTracks(
+    String? token, {
+    String query = '',
+    String? artist,
+    String? album,
+    int offset = 0,
+  }) async {
+    final body = await _send(
+        'GET',
+        _withQuery('/api/v1/store/tracks', {
+          'q': query.trim(),
+          'artist': artist,
+          'album': album,
+          if (offset > 0) 'offset': '$offset',
+        }),
+        token: token);
+    return StorePage(
+      [
+        for (final json in body['tracks'] as List<dynamic>)
+          Track.fromStoreJson(json as Map<String, dynamic>),
+      ],
+      hasMore: body['hasMore'] == true,
+    );
+  }
+
+  @override
+  Future<Track> storeTrack(String? token, String id) async {
+    final body = await _send(
+        'GET', '/api/v1/store/tracks/${Uri.encodeComponent(id)}',
+        token: token);
+    return Track.fromStoreJson(body);
+  }
+
+  @override
+  Future<StorePage<StoreArtist>> storeArtists(String? token,
+      {String query = '', int offset = 0}) async {
+    final body = await _send(
+        'GET',
+        _withQuery('/api/v1/store/artists',
+            {'q': query.trim(), if (offset > 0) 'offset': '$offset'}),
+        token: token);
+    return StorePage(
+      [
+        for (final json in body['artists'] as List<dynamic>)
+          StoreArtist.fromJson(json as Map<String, dynamic>),
+      ],
+      hasMore: body['hasMore'] == true,
+    );
+  }
+
+  @override
+  Future<StorePage<StoreAlbum>> storeAlbums(String? token,
+      {String query = '', String? artist, int offset = 0}) async {
+    final body = await _send(
+        'GET',
+        _withQuery('/api/v1/store/albums', {
+          'q': query.trim(),
+          'artist': artist,
+          if (offset > 0) 'offset': '$offset',
+        }),
+        token: token);
+    return StorePage(
+      [
+        for (final json in body['albums'] as List<dynamic>)
+          StoreAlbum.fromJson(json as Map<String, dynamic>),
+      ],
+      hasMore: body['hasMore'] == true,
+    );
+  }
+
+  @override
+  Future<Track> saveStoreTrack(String token, String id) async {
+    final body = await _send(
+        'POST', '/api/v1/store/tracks/${Uri.encodeComponent(id)}/save',
+        token: token);
+    return Track.fromJson(body);
+  }
+
+  @override
+  Future<void> reportStoreTrack(
+      String token, String id, StoreReportReason reason,
+      {String? details}) async {
+    await _send(
+        'POST', '/api/v1/store/tracks/${Uri.encodeComponent(id)}/report',
+        token: token,
+        body: {
+          'reason': reason.wire,
+          if (details != null && details.trim().isNotEmpty)
+            'details': details.trim(),
+        },
+        expectBody: false);
   }
 
   @override
