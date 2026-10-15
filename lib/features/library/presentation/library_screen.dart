@@ -548,12 +548,7 @@ class _LibraryScreenState extends State<LibraryScreen>
         if (identifySong != null) identifySong,
         search,
         const SizedBox(width: 8),
-        _AccountChip(email: widget.email),
-        if (widget.verified)
-          const Tooltip(
-            message: 'حساب تأییدشده',
-            child: Icon(RhythmoIcons.checkCircle),
-          ),
+        _AccountChip(email: widget.email, verified: widget.verified),
         if (widget.onAdmin != null)
           IconButton(
             tooltip: 'مدیریت حساب‌ها',
@@ -578,7 +573,7 @@ class _LibraryScreenState extends State<LibraryScreen>
       search,
       PopupMenuButton<_HeaderAction>(
         tooltip: 'حساب و تنظیمات',
-        icon: const Icon(RhythmoIcons.userCircle),
+        icon: AccountAvatar(verified: widget.verified),
         onSelected: (action) {
           switch (action) {
             case _HeaderAction.settings:
@@ -955,37 +950,21 @@ class _RhythmoBrand extends StatelessWidget {
 }
 
 class _AccountChip extends StatelessWidget {
-  const _AccountChip({required this.email});
+  const _AccountChip({required this.email, required this.verified});
 
   final String email;
+  final bool verified;
 
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: email,
+      message: verified ? '$email · حساب تأییدشده' : email,
       child: GlassSurface(
         blur: 0,
         shadow: false,
         radius: 14,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 220),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(RhythmoIcons.userCircle, size: 19),
-              const SizedBox(width: 7),
-              Flexible(
-                child: Text(
-                  email,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelMedium,
-                ),
-              ),
-            ],
-          ),
-        ),
+        padding: const EdgeInsets.all(9),
+        child: AccountAvatar(verified: verified, size: 22),
       ),
     );
   }

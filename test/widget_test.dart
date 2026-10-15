@@ -345,6 +345,11 @@ void main() {
 
     expect(find.text('کتابخانهٔ شما خالی است'), findsOneWidget);
     expect(await tokens.read(), 'valid-token');
+    // The header shows the account by its icon; the address is only the
+    // tooltip.
+    expect(find.text('listener@example.com'), findsNothing);
+    expect(find.byTooltip('listener@example.com'), findsOneWidget);
+    expect(find.byKey(const ValueKey('verified-badge')), findsNothing);
   });
 
   testWidgets('wrong credentials show an error and stay signed out', (

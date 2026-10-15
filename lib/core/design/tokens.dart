@@ -44,6 +44,9 @@ abstract final class RhythmoColors {
   static const secondaryContainer = Color(0xFF2A2454);
   static const onSecondaryContainer = Color(0xFFE5DFFF);
 
+  /// The check on a verified account.
+  static const verified = Color(0xFF1D9BF0);
+
   // Text and lines.
   static const onSurface = Color(0xFFF5F1F7);
   static const onSurfaceVariant = Color(0xFFD0C8D4);
