@@ -22,6 +22,21 @@ type fakeCatalog struct {
 	query    store.StoreQuery
 	reports  []string
 	hiddenBy string
+	plays    []string
+	ranked   store.StoreRanking
+}
+
+func (c *fakeCatalog) RecordStorePlay(_ context.Context, entryID, listener string) error {
+	c.plays = append(c.plays, entryID+"|"+listener)
+	return nil
+}
+
+func (c *fakeCatalog) StoreRanked(_ context.Context, ranking store.StoreRanking, limit, offset int) ([]store.StoreEntry, bool, error) {
+	c.ranked = ranking
+	if c.hidden {
+		return nil, false, nil
+	}
+	return []store.StoreEntry{c.entry}, false, nil
 }
 
 func (c *fakeCatalog) StoreEntries(_ context.Context, query store.StoreQuery) ([]store.StoreEntry, bool, error) {
@@ -260,4 +275,46 @@ func TestReportingAndHidingAStoreSong(t *testing.T) {
 		t.Fatalf("unhide = %d", response.Code)
 	}
 	expectError(t, api.call("PUT", "/api/v1/admin/store/tracks/unknown/hidden", "", api.admin, "203.0.113.1"), http.StatusNotFound, "not_found")
+}
+
+func TestStoreStreamsCountPlaysWithoutKeepingAddresses(t *testing.T) {
+	api := newStoreTestAPI(t, AnonymousLimits{})
+	stream := "/api/v1/store/tracks/" + storeEntryID + "/stream"
+	api.call("GET", stream, "", "", "203.0.113.1")
+	api.call("GET", stream, "", "", "203.0.113.1")
+	api.call("GET", stream, "", "", "203.0.113.2")
+	api.call("GET", stream, "", api.member, "203.0.113.1")
+	if len(api.catalog.plays) != 4 {
+		t.Fatalf("plays = %v", api.catalog.plays)
+	}
+	first, again, other, member := api.catalog.plays[0], api.catalog.plays[1], api.catalog.plays[2], api.catalog.plays[3]
+	if first != again || first == other || !strings.HasPrefix(first, storeEntryID+"|a:") {
+		t.Fatalf("visitor keys = %q %q %q", first, again, other)
+	}
+	if strings.Contains(first, "203.0.113") {
+		t.Fatalf("a visitor's address was kept: %q", first)
+	}
+	if member != storeEntryID+"|u:"+api.memberID {
+		t.Fatalf("member key = %q", member)
+	}
+	// A song that left the store is not counted.
+	api.catalog.hidden = true
+	api.call("GET", stream, "", "", "203.0.113.3")
+	if len(api.catalog.plays) != 4 {
+		t.Fatalf("a hidden song's play was counted: %v", api.catalog.plays)
+	}
+}
+
+func TestPopularAndTrendingAreOpenToEveryone(t *testing.T) {
+	api := newStoreTestAPI(t, AnonymousLimits{})
+	for path, ranking := range map[string]store.StoreRanking{
+		"/api/v1/store/popular": store.RankPopular, "/api/v1/store/trending": store.RankTrending,
+	} {
+		response := api.call("GET", path+"?limit=10", "", "", "203.0.113.1")
+		if response.Code != http.StatusOK || api.catalog.ranked != ranking ||
+			!strings.Contains(response.Body.String(), storeEntryID) || strings.Contains(response.Body.String(), "alice") {
+			t.Fatalf("%s = %d %s", path, response.Code, response.Body)
+		}
+		expectError(t, api.call("GET", path+"?limit=0", "", "", "203.0.113.1"), http.StatusBadRequest, "invalid_limit")
+	}
 }
