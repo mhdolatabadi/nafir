@@ -97,6 +97,15 @@ class FakePlaylistsApi implements PlaylistsApi {
   }
 
   final hiddenCalls = <(String, bool)>[];
+  final deletedPublic = <String>[];
+  bool deleteFails = false;
+
+  @override
+  Future<void> deletePublicPlaylist(String t, String shareToken) async {
+    if (deleteFails) throw const ApiException('500', statusCode: 500);
+    deletedPublic.add(shareToken);
+  }
+
   bool hideFails = false;
 
   @override
@@ -626,7 +635,7 @@ void main() {
           (tester) async {
         final api = await pump(
             tester, FakePlaylistsApi()..public = [listed('loved', likes: 5)]);
-        expect(find.byIcon(RhythmoIcons.eyeSlash), findsNothing);
+        expect(find.byTooltip('مدیریت loved'), findsNothing);
         expect(api.hiddenCalls, isEmpty);
       });
 
@@ -652,7 +661,9 @@ void main() {
         ));
         await tester.pumpAndSettle();
 
-        await tester.tap(find.byTooltip('حذف loved از محبوب‌ها'));
+        await tester.tap(find.byTooltip('مدیریت loved'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('حذف از محبوب‌ها'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('انصراف'));
         await tester.pumpAndSettle();
@@ -660,7 +671,9 @@ void main() {
 
         // The server could not save it: the playlist comes back.
         api.hideFails = true;
-        await tester.tap(find.byTooltip('حذف loved از محبوب‌ها'));
+        await tester.tap(find.byTooltip('مدیریت loved'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('حذف از محبوب‌ها'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('حذف'));
         await tester.pumpAndSettle();
@@ -671,7 +684,9 @@ void main() {
         ScaffoldMessenger.of(tester.element(find.text('quiet')))
             .removeCurrentSnackBar();
         await tester.pumpAndSettle();
-        await tester.tap(find.byTooltip('حذف loved از محبوب‌ها'));
+        await tester.tap(find.byTooltip('مدیریت loved'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('حذف از محبوب‌ها'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('حذف'));
         await tester.pumpAndSettle();
@@ -683,6 +698,57 @@ void main() {
         await tester.pumpAndSettle();
         expect(api.hiddenCalls.last, (token, false));
         expect(find.text('loved'), findsOneWidget);
+      });
+
+      testWidgets('an admin deletes a playlist after confirming',
+          (tester) async {
+        final api = FakePlaylistsApi()
+          ..public = [
+            listed('loved', likes: 5),
+            listed('quiet', shareToken: 'B' * 22),
+          ];
+        await tester.binding.setSurfaceSize(const Size(320, 640));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(MaterialApp(
+          home: PopularPlaylistsScreen(
+            controller: PlaylistsController(
+                api: api, token: () => 'tok', isAdmin: () => true),
+            player: PlayerController(
+                api: FakeTracksApi(),
+                engine: FakeAudioEngine(),
+                token: () => 'tok'),
+          ),
+        ));
+        await tester.pumpAndSettle();
+
+        Future<void> askToDelete() async {
+          await tester.tap(find.byTooltip('مدیریت loved'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('پاک کردن فهرست پخش'));
+          await tester.pumpAndSettle();
+          expect(find.textContaining('برگشت‌پذیر نیست'), findsOneWidget);
+        }
+
+        await askToDelete();
+        await tester.tap(find.text('انصراف'));
+        await tester.pumpAndSettle();
+        expect(api.deletedPublic, isEmpty);
+
+        api.deleteFails = true;
+        await askToDelete();
+        await tester.tap(find.text('پاک کردن'));
+        await tester.pumpAndSettle();
+        expect(find.text('loved'), findsOneWidget);
+        expect(
+            find.text('پاک کردن انجام نشد. دوباره تلاش کن.'), findsOneWidget);
+
+        api.deleteFails = false;
+        await askToDelete();
+        await tester.tap(find.text('پاک کردن'));
+        await tester.pumpAndSettle();
+        expect(api.deletedPublic, [token]);
+        expect(find.text('loved'), findsNothing);
+        expect(find.text('quiet'), findsOneWidget);
       });
 
       testWidgets('a guest opens a shared link and plays it', (tester) async {

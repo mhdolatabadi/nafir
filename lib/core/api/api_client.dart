@@ -196,6 +196,10 @@ abstract interface class PlaylistsApi {
   Future<void> setPopularPlaylistHidden(
       String token, String shareToken, bool hidden);
 
+  /// An admin deletes a shared playlist, whoever owns it. Its tracks stay
+  /// in their owners' libraries.
+  Future<void> deletePublicPlaylist(String token, String shareToken);
+
   /// Makes a new collaboration link and returns its token; the old link
   /// stops working.
   Future<String> createCollabLink(String token, String playlistId);
@@ -571,6 +575,13 @@ class ApiClient
     await _send('PATCH',
         '/api/v1/admin/public-playlists/${Uri.encodeComponent(shareToken)}',
         token: token, body: {'hidden': hidden});
+  }
+
+  @override
+  Future<void> deletePublicPlaylist(String token, String shareToken) async {
+    await _send('DELETE',
+        '/api/v1/admin/public-playlists/${Uri.encodeComponent(shareToken)}',
+        token: token, expectBody: false);
   }
 
   @override

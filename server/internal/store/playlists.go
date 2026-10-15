@@ -627,6 +627,31 @@ func (p *Playlists) SetPopularHidden(ctx context.Context, token, actorID string,
 	})
 }
 
+// DeleteShared deletes the playlist shared with token for the admin
+// actorID, whoever owns it, and records what was deleted. The tracks stay
+// in their owners' libraries. It is ErrNotFound when no playlist is shared
+// with token.
+func (p *Playlists) DeleteShared(ctx context.Context, token, actorID string) error {
+	return pgx.BeginFunc(ctx, p.pool, func(tx pgx.Tx) error {
+		var playlistID, ownerID, name string
+		err := tx.QueryRow(ctx, `
+			DELETE FROM playlists WHERE share_token = $1
+			RETURNING id::text, owner_id::text, name
+		`, token).Scan(&playlistID, &ownerID, &name)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec(ctx, `
+			INSERT INTO playlist_deletion_audit (playlist_id, owner_id, name, actor_id)
+			VALUES ($1::uuid, $2::uuid, $3, $4::uuid)
+		`, playlistID, ownerID, name, actorID)
+		return err
+	})
+}
+
 // SetCollabToken turns the playlist's collaboration link on with token, or
 // off with nil. Each new token replaces the old one, so an old link stops
 // working; members who already joined stay. Only the owner may do it.
