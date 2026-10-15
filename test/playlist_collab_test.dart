@@ -113,12 +113,12 @@ void main() {
     test('invite links are told apart from share links', () {
       final token = 'C' * 22;
       final link =
-          collabPlaylistLink(Uri.parse('https://nafir.example.com'), token);
-      expect(link.toString(), 'https://nafir.example.com/app/?collab=$token');
+          collabPlaylistLink(Uri.parse('https://rhythmo.example.com'), token);
+      expect(link.toString(), 'https://rhythmo.example.com/app/?collab=$token');
       expect(collabTokenFrom(link.toString()), token);
-      expect(collabTokenFrom('https://nafir.example.com/app/?shared=$token'),
+      expect(collabTokenFrom('https://rhythmo.example.com/app/?shared=$token'),
           isNull);
-      expect(collabTokenFrom('https://nafir.example.com/app/?collab=short'),
+      expect(collabTokenFrom('https://rhythmo.example.com/app/?collab=short'),
           isNull);
     });
   });

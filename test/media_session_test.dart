@@ -8,7 +8,7 @@ import 'package:rhythmo/features/player/data/audio_engine.dart';
 import 'player_controller_test.dart' show FakeAudioEngine;
 import 'upload_controller_test.dart' show FakeTracksApi;
 
-final _artwork = Uri.file('/data/nafir_notification_artwork.png');
+final _artwork = Uri.file('/data/rhythmo_notification_artwork.png');
 
 const _tracks = [
   Track(

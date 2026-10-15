@@ -30,7 +30,7 @@ supported client. iOS is out of scope (AGENTS.md).
 
 ## Product Purpose
 
-rhythmo (ریتمو, formerly Nafir) is a private cloud music player. It
+rhythmo (ریتمو) is a private cloud music player. It
 uploads, stores and streams a user's own music at original quality. It
 merges cloud and on-device tracks into one library and plays them with
 system media controls. Success is a library that is quick to fill and
@@ -84,7 +84,7 @@ music already in rhythmo. It is not a streaming catalogue.
 
 - Store listing text, screenshots, teaser and graphics: `docs/store-listing.md`
   and `store/`.
-- App icon: `assets/icon/nafir.png`.
+- App icon: `assets/icon/rhythmo.png`.
 - There are no testimonials, user counts or press; none should be invented.
 
 ## Product Principles

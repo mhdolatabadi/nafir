@@ -30,7 +30,7 @@ const (
 	// DefaultBaseURL is LRCLIB's public API.
 	DefaultBaseURL = "https://lrclib.net"
 	// UserAgent names the app, as LRCLIB asks every client to.
-	UserAgent = "rhythmo (https://github.com/mhdolatabadi/nafir)"
+	UserAgent = "rhythmo (https://github.com/mhdolatabadi/rhythmo)"
 
 	defaultTimeout = 8 * time.Second
 	// maxResponseBytes bounds one LRCLIB answer; a search returns at most
