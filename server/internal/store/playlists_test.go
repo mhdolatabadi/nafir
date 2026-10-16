@@ -357,4 +357,29 @@ func TestOnlyPublicPlaylistsAreListedMostLikedFirst(t *testing.T) {
 	if reshared.IsPublic {
 		t.Fatal("a reshared playlist is public by default")
 	}
+
+	// An admin deletes someone's public playlist: it is gone with its likes,
+	// its tracks stay in the owner's library, and the deletion is on record.
+	if err := playlists.DeleteShared(ctx, "missing", other.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("deleting an unknown link: %v", err)
+	}
+	if err := playlists.DeleteShared(ctx, "loved", other.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := playlists.ForShareToken(ctx, "loved"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("deleted playlist's link: %v", err)
+	}
+	if _, err := playlists.ForUser(ctx, owner.ID, loved.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("deleted playlist for its owner: %v", err)
+	}
+	if _, err := tracks.ForOwner(ctx, owner.ID, song.ID); err != nil {
+		t.Fatalf("the owner's track went with the playlist: %v", err)
+	}
+	if left, _ := playlists.Popular(ctx, fan.ID, 10); len(left) != 0 {
+		t.Fatalf("after deletion = %+v", left)
+	}
+	var name, owned string
+	if err := pool.QueryRow(ctx, `SELECT name, owner_id::text FROM playlist_deletion_audit WHERE actor_id::text = $1`, other.ID).Scan(&name, &owned); err != nil || name != "loved" || owned != owner.ID {
+		t.Fatalf("deletion audit = %q %q, %v", name, owned, err)
+	}
 }
