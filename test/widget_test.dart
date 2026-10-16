@@ -15,11 +15,16 @@ import 'package:rhythmo/features/upload/data/upload_models.dart';
 import 'package:rhythmo/features/library/application/library_controller.dart'
     show importPollDelays;
 import 'package:rhythmo/features/player/presentation/mini_player.dart';
+import 'package:rhythmo/core/design/design.dart';
+import 'package:rhythmo/features/playlists/presentation/popular_playlists_screen.dart';
+import 'package:rhythmo/features/store/data/store_catalog.dart' show StoreApi;
+import 'package:rhythmo/features/store/presentation/store_screen.dart';
 import 'package:rhythmo/main.dart';
 
 import 'bot_link_controller_test.dart' show FakeBotsApi, linkedBale;
 import 'cache_controller_test.dart' show FakeAudioCache;
 import 'player_controller_test.dart' show FakeAudioEngine;
+import 'store_test.dart' show FakeStoreApi;
 import 'playlist_sharing_test.dart'
     show FakePlaylistsApi, listed, sharedMix, token;
 import 'upload_controller_test.dart' show FakeTracksApi, FakeUploader;
@@ -134,6 +139,7 @@ Future<void> _pumpApp(
   FakeBotsApi? bots,
   PlaylistsApi? playlists,
   LinkImportsApi? linkImports,
+  StoreApi? store,
   bool settle = true,
   AppPreferencesStore? appPreferencesStore,
 }) async {
@@ -148,6 +154,7 @@ Future<void> _pumpApp(
     botsApi: bots,
     playlistsApi: playlists,
     linkImportsApi: linkImports,
+    storeApi: store,
     uploader: uploader ?? FakeUploader(),
     picker: picker ?? FakePicker(null),
   ));
@@ -630,6 +637,52 @@ void main() {
     await tester.tap(find.text('مدیریت فهرست‌های پخش'));
     await tester.pumpAndSettle();
     expect(find.widgetWithText(AppBar, 'فهرست‌های پخش'), findsOneWidget);
+    await tester.tap(find.byTooltip('فهرست‌های پخش محبوب'));
+    await tester.pumpAndSettle();
+    expect(find.byType(PopularPlaylistsScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('popular playlists and the store open from the top bar',
+      (tester) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await _pumpApp(tester,
+        tokenStore: MemoryTokenStore('valid-token'),
+        playlists: FakePlaylistsApi()..public = [listed('loved', likes: 5)],
+        store: FakeStoreApi());
+    expect(tester.takeException(), isNull);
+
+    final popular = find.byTooltip('فهرست‌های پخش محبوب');
+    final store = find.byTooltip('استور');
+    for (final button in [popular, store]) {
+      expect(find.descendant(of: find.byType(AppBar), matching: button),
+          findsOneWidget);
+      final size = tester.getSize(button);
+      expect(size.width, greaterThanOrEqualTo(48));
+      expect(size.height, greaterThanOrEqualTo(48));
+    }
+    final flame = tester.widget<Icon>(
+        find.descendant(of: popular, matching: find.byType(Icon)));
+    expect(flame.icon, RhythmoIcons.fire);
+    expect(flame.color, RhythmoColors.fire);
+    // The brand still fits beside the actions on a narrow phone.
+    final brand = tester.getRect(find.text('ریتمو').first);
+    expect(brand.left, greaterThanOrEqualTo(0));
+    expect(brand.right, lessThanOrEqualTo(320));
+
+    await tester.tap(popular);
+    await tester.pumpAndSettle();
+    expect(find.byType(PopularPlaylistsScreen), findsOneWidget);
+    expect(find.text('loved'), findsOneWidget);
+    Navigator.of(tester.element(find.byType(PopularPlaylistsScreen))).pop();
+    await tester.pumpAndSettle();
+
+    await tester.tap(store);
+    await tester.pumpAndSettle();
+    expect(find.byType(StoreScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

@@ -158,6 +158,15 @@ abstract final class RhythmoTheme {
           border: Border.all(color: colors.primary.withValues(alpha: 0.42)),
         ),
         indicatorSize: TabBarIndicatorSize.tab,
+        // The pill is the only selection mark: no rectangular hover or
+        // press box across the tab's full hit area. Keyboard focus keeps a
+        // faint tint so it stays visible.
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.focused)
+              ? colors.primary.withValues(alpha: 0.12)
+              : RhythmoColors.transparent,
+        ),
         labelColor: colors.onSurface,
         unselectedLabelColor: colors.onSurfaceVariant,
         labelStyle: base.textTheme.labelLarge?.copyWith(

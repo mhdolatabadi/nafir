@@ -52,5 +52,15 @@ void main() {
       expect(theme.sliderTheme.trackHeight, 3);
       expect(theme.bottomSheetTheme.showDragHandle, isTrue);
     });
+
+    test('tabs show only the pill, with no rectangular hover box', () {
+      final overlay = theme.tabBarTheme.overlayColor!;
+      expect(overlay.resolve({WidgetState.hovered}), Colors.transparent);
+      expect(overlay.resolve({WidgetState.pressed}), Colors.transparent);
+      expect(overlay.resolve({}), Colors.transparent);
+      // Keyboard focus stays visible.
+      expect(overlay.resolve({WidgetState.focused})!.a, greaterThan(0));
+      expect(theme.tabBarTheme.splashFactory, NoSplash.splashFactory);
+    });
   });
 }

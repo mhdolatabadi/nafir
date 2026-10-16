@@ -2,6 +2,7 @@ import 'package:rhythmo/features/journey/presentation/journey_widgets.dart';
 import 'package:rhythmo/core/persian_digits.dart';
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:rhythmo/core/design/design.dart';
 import 'package:rhythmo/app/app_preferences.dart';
@@ -31,6 +32,8 @@ import 'package:rhythmo/features/playlists/presentation/shared_playlist_screen.d
 import 'package:rhythmo/features/playlists/application/playlists_controller.dart';
 import 'package:rhythmo/features/playlists/data/playlist.dart';
 import 'package:rhythmo/features/playlists/presentation/playlists_screen.dart';
+import 'package:rhythmo/features/playlists/presentation/popular_playlists_screen.dart';
+import 'package:rhythmo/features/store/presentation/store_screen.dart';
 import 'package:rhythmo/features/bots/application/bot_link_controller.dart';
 import 'package:rhythmo/features/bots/data/messenger_bot.dart';
 import 'package:rhythmo/features/identify/application/identify_controller.dart';
@@ -368,15 +371,20 @@ class _LibraryScreenState extends State<LibraryScreen>
   /// Publishes [track] to the store, or makes it private again (#284).
   Future<void> _setPublished(Track track, bool published) async {
     final messenger = ScaffoldMessenger.of(context);
-    final done = await widget.library.setPublished(track, published);
+    final state = await widget.library.setPublished(track, published);
     messenger
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(
-        content: Text(!done
-            ? 'تغییر انتشار ثبت نشد. دوباره تلاش کن.'
-            : published
-                ? '«${track.title}» در استور منتشر شد. بدون نام تو نمایش داده می‌شود.'
-                : '«${track.title}» دیگر منتشر نمی‌شود، مگر در یک فهرست پخش عمومی باشد.'),
+        content: Text(switch (state) {
+          null => 'تغییر انتشار ثبت نشد. دوباره تلاش کن.',
+          PublishState.published =>
+            '«${track.title}» در استور منتشر شد. بدون نام تو نمایش داده می‌شود.',
+          PublishState.pending =>
+            'درخواست انتشار «${track.title}» برای مدیر فرستاده شد. بعد از تأیید در استور می‌آید.',
+          _ => published
+              ? 'انتشار «${track.title}» ثبت نشد.'
+              : '«${track.title}» دیگر منتشر نمی‌شود، مگر در یک فهرست پخش عمومی باشد.',
+        }),
       ));
   }
 
@@ -458,7 +466,18 @@ class _LibraryScreenState extends State<LibraryScreen>
     if (playlists == null) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
         builder: (_) => Scaffold(
-              appBar: AppBar(title: const Text('فهرست‌های پخش')),
+              appBar: AppBar(
+                title: const Text('فهرست‌های پخش'),
+                actions: [
+                  if (widget.store != null)
+                    IconButton(
+                      tooltip: 'استور',
+                      onPressed: _openStore,
+                      icon: const Icon(RhythmoIcons.storefront),
+                    ),
+                  PopularPlaylistsButton(onOpen: _openPopular),
+                ],
+              ),
               bottomNavigationBar: MiniPlayer(player: widget.player),
               body: RhythmoBackdrop(
                   child: PlaylistsView(
@@ -468,6 +487,28 @@ class _LibraryScreenState extends State<LibraryScreen>
                       store: widget.store,
                       onSharedSaved: widget.library.load)),
             )));
+  }
+
+  Future<void> _openPopular() async {
+    final playlists = widget.playlists;
+    if (playlists == null) return;
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => PopularPlaylistsScreen(
+        controller: playlists,
+        player: widget.player,
+        onSaved: widget.library.load,
+      ),
+    ));
+    if (mounted) playlists.load();
+  }
+
+  void _openStore() {
+    final store = widget.store;
+    if (store == null) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => StoreScreen(
+          controller: store, player: widget.player, identify: widget.identify),
+    ));
   }
 
   void _openSettings() {
@@ -543,8 +584,20 @@ class _LibraryScreenState extends State<LibraryScreen>
             onPressed: () => openIdentify(context, identify, widget.player),
             icon: const Icon(RhythmoIcons.microphoneStage),
           );
+    final popular = widget.playlists == null
+        ? null
+        : PopularPlaylistsButton(onOpen: _openPopular);
+    final storeButton = widget.store == null
+        ? null
+        : IconButton(
+            tooltip: 'استور',
+            onPressed: _openStore,
+            icon: const Icon(RhythmoIcons.storefront),
+          );
     if (MediaQuery.sizeOf(context).width >= wideActions) {
       return [
+        if (popular != null) popular,
+        if (storeButton != null) storeButton,
         if (identifySong != null) identifySong,
         search,
         const SizedBox(width: 8),
@@ -569,6 +622,8 @@ class _LibraryScreenState extends State<LibraryScreen>
       ];
     }
     return [
+      if (popular != null) popular,
+      if (storeButton != null) storeButton,
       if (identifySong != null) identifySong,
       search,
       PopupMenuButton<_HeaderAction>(
@@ -660,6 +715,8 @@ class _LibraryScreenState extends State<LibraryScreen>
           horizontal: wide ? RhythmoSpace.xxl : RhythmoSpace.lg),
       indicatorPadding: const EdgeInsets.symmetric(vertical: RhythmoSpace.sm),
       dividerHeight: 0,
+      // Keeps the focus tint rounded like the pill.
+      splashBorderRadius: BorderRadius.circular(RhythmoRadii.pill),
       tabs: [for (final tab in _visibleTabs) _TabLabel(tab.label)],
     );
     final bar = wide
@@ -705,6 +762,7 @@ class _LibraryScreenState extends State<LibraryScreen>
           headerSliverBuilder: (context, _) => [_header(context)],
           body: TabBarView(
             controller: _tabs,
+            physics: libraryTabViewPhysics(),
             children: [
               for (final tab in _visibleTabs)
                 _Tab(key: ValueKey(tab), child: _tabBody(tab))
@@ -1502,7 +1560,12 @@ class _TrackListState extends State<_TrackList> {
           item(
             _TrackAction.publish,
             RhythmoIcons.globe,
-            track.published ? 'لغو انتشار در استور' : 'انتشار در استور',
+            switch (track.publishState) {
+              PublishState.published => 'لغو انتشار در استور',
+              PublishState.pending => 'لغو درخواست انتشار',
+              PublishState.rejected => 'درخواست دوباره‌ی انتشار',
+              PublishState.private => 'انتشار در استور',
+            },
           ),
         if (widget.playlists != null)
           item(_TrackAction.addToPlaylist, RhythmoIcons.listPlus,
@@ -1545,7 +1608,11 @@ class _TrackListState extends State<_TrackList> {
           case (_TrackAction.like, _):
             _like(context, track);
           case (_TrackAction.publish, _):
-            widget.onSetPublished?.call(track, !track.published);
+            final state = track.publishState;
+            widget.onSetPublished?.call(
+                track,
+                state != PublishState.published &&
+                    state != PublishState.pending);
           case (_TrackAction.uploadToServer, _):
             sync?.upload(track);
           case (_TrackAction.downloadToDevice, _):
@@ -1983,6 +2050,7 @@ class _TrackRow extends StatelessWidget {
                     ),
                     _LikeBadges(
                       published: track.published,
+                      pending: track.publishState == PublishState.pending,
                       liked: liked,
                       likeCount: likeCount,
                       style: secondary,
@@ -2003,22 +2071,29 @@ class _TrackRow extends StatelessWidget {
 class _LikeBadges extends StatelessWidget {
   const _LikeBadges({
     required this.published,
+    this.pending = false,
     required this.liked,
     required this.likeCount,
     this.style,
   });
 
   final bool published;
+
+  /// Publishing waits for an admin's approval (#322).
+  final bool pending;
   final bool liked;
   final int likeCount;
   final TextStyle? style;
 
   @override
   Widget build(BuildContext context) {
-    if (!published && !liked && likeCount == 0) return const SizedBox.shrink();
+    if (!published && !pending && !liked && likeCount == 0) {
+      return const SizedBox.shrink();
+    }
     final colors = Theme.of(context).colorScheme;
     final labels = [
       if (published) 'منتشرشده',
+      if (pending) 'در انتظار تأیید مدیر',
       if (liked) 'پسندیده‌ای',
       if (likeCount > 0) '${persianDigits(likeCount)} پسند',
     ];
@@ -2031,6 +2106,14 @@ class _LikeBadges extends StatelessWidget {
           if (published) ...[
             const SizedBox(width: RhythmoSpace.sm),
             Icon(RhythmoIcons.globe, size: 14, color: colors.secondary),
+          ],
+          if (pending) ...[
+            const SizedBox(width: RhythmoSpace.sm),
+            Tooltip(
+              message: 'در انتظار تأیید مدیر',
+              child: Icon(RhythmoIcons.clockCounterClockwise,
+                  size: 14, color: style?.color),
+            ),
           ],
           if (liked || likeCount > 0) ...[
             const SizedBox(width: RhythmoSpace.sm),
@@ -3103,3 +3186,10 @@ class _LibraryAddButtonLocation extends FloatingActionButtonLocation {
     );
   }
 }
+
+/// On the web a trackpad or shift-wheel horizontal scroll must not switch
+/// library tabs; there the tab bar is the only way across. Phones keep the
+/// swipe.
+@visibleForTesting
+ScrollPhysics? libraryTabViewPhysics({bool isWeb = kIsWeb}) =>
+    isWeb ? const NeverScrollableScrollPhysics() : null;
