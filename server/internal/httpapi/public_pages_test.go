@@ -431,3 +431,17 @@ func TestSocialImageIsALargeCachedPNG(t *testing.T) {
 		t.Fatalf("social.png is %dx%d (%v), want 1200x630", config.Width, config.Height, err)
 	}
 }
+
+func TestPublicPagesShareCurrentBrandInHeaderAndFooter(t *testing.T) {
+	token := strings.Repeat("A", 22)
+	site := publicSite(&sharingStore{token: &token, public: true, name: "mix"}, AnonymousLimits{})
+	for _, path := range []string{"/", "/p/" + token, "/privacy", "/delete-account"} {
+		page := get(site, path).Body.String()
+		if strings.Count(page, `d="M135 179A34`) != 2 {
+			t.Errorf("%s must use the current r monogram in header and footer", path)
+		}
+		if strings.Contains(page, `rotate(-35`) {
+			t.Errorf("%s still contains the old logo", path)
+		}
+	}
+}
