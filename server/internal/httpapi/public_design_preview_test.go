@@ -22,7 +22,7 @@ func TestPublicDesignPreview(t *testing.T) {
 	for name, path := range map[string]string{
 		"home": "/", "playlist": "/p/" + strings.Repeat("A", 22),
 		"store": "/store", "artists": "/store/artists",
-		"song": "/store/t/" + storeEntryID,
+		"song":    "/store/t/" + storeEntryID,
 		"privacy": "/privacy", "delete": "/delete-account",
 	} {
 		response := get(site, path)
